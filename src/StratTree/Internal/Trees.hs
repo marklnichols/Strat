@@ -1,4 +1,4 @@
-module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove, pruneChildrenExcept) where     
+module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove, pruneChildrenExcept, updateTree) where     
  
 import StratTree.TreeNode 
 import Data.Tree
@@ -7,17 +7,20 @@ import Data.List hiding (delete)
 import Data.Maybe
  
 -------------------------------------------------------------
+--get a list of child nodes
 getChildren :: TreePos Full a  -> [TreePos Full a]
 getChildren tree = reverse $ loop (firstChild tree) [] where
     loop :: Maybe (TreePos Full a) -> [TreePos Full a] -> [TreePos Full a]
     loop Nothing xs = xs
     loop (Just tree) xs = loop (next tree) (tree : xs)
 
+--get a list of sibling nodes
 getSiblings :: TreePos Full a  -> [TreePos Full a]
 getSiblings tree = case (parent tree) of
                        Nothing -> [tree]
                        Just t  -> getChildren t
 
+--follows a path of moves to the tree corresponding to the last move in the list
 --decendPath :: [moves] -> starting tree -> maybe (last child in list)
 descendPath :: TreeNode t => [Int] -> TreePos Full t -> Maybe (TreePos Full t)
 descendPath moves startTree = foldl f (Just startTree) moves 
@@ -25,6 +28,31 @@ descendPath moves startTree = foldl f (Just startTree) moves
         f :: TreeNode t => Maybe (TreePos Full t) -> Int -> Maybe (TreePos Full t)
         f r move = r >>= (childByMove move) 
 
+------------------------------
+--descend and modify the tree via the visit function
+--descend :: tree -> max depth -> visit function -> new Tree
+updateTree :: TreeNode t => Tree t -> Int -> (TreePos Full t -> Int -> TreePos Full t) -> Tree t 
+updateTree tree max visitFunct = toTree $ descend' (fromTree tree) 0 where
+    descend' tPos depth = 
+        case firstChild tPos of
+            Nothing    -> tPos
+            Just child -> fromJust $ parent $ loop child (depth + 1)
+        where
+            loop tPos dpth = let modified = descend' (visitFunct tPos dpth) dpth in
+                                case (next modified) of 
+                                    Nothing      -> modified
+                                    Just sibling -> loop sibling dpth 
+
+
+
+
+------------------------------        
+        
+        
+        
+ 
+        
+--finds a child of a tree matching a given move
 childByMove :: TreeNode t => Int -> TreePos Full t -> Maybe (TreePos Full t)
 childByMove move tree  = 
     find ((\x -> move == (getMove $ label x))) (getChildren tree) 

@@ -53,15 +53,20 @@ main = hspec $ do
             validPathCheck aTree (-1) `shouldBe` True
             validPathCheck aTree2 1 `shouldBe` True
             validPathCheck aTree2 (-1) `shouldBe` True
+    describe "updateTree" $ do
+        it "traverses the tree, potentially modifying nodes" $ do
+            updateTree aMiniTree (-1) visitor `shouldBe` modTree
 
-           
+    
+    
 -----------------------------------------------------------------------
 -- hspec support functions
 ----------------------------------------------------------------------- 
 descendPathTest xs tree = case descendPath xs (fromTree tree) of
                                         Nothing -> -1
                                         Just x  -> getValue $ label x
-                                
+
+--check that the path of moves retured by best is valid & the node at the bottom contains the correct --value                                        
 validPathCheck tree color =
     let (path, bestValue) = best tree (-1) color
         mPathBottom = descendPath path (fromTree tree) 
@@ -69,7 +74,17 @@ validPathCheck tree color =
         Nothing -> False
         Just tPos -> (getValue $ label tPos) * color == bestValue
       
-  
+
+visitor :: TreePos Full TreeItem -> Int -> TreePos Full TreeItem
+visitor tPos depth
+    | depth == 1    = modifyTree addBranch tPos
+    | otherwise     = tPos
+    
+addBranch :: Tree TreeItem -> Tree TreeItem
+addBranch tree = Node (rootLabel tree) [newBranch] 
+
+
+ 
 ------------------------------------------------------------------------
 data TreeItem  = TreeItem { 
     move :: Int,
@@ -114,7 +129,14 @@ aMiniTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 1, value = 1} [],
     Node TreeItem {move = 2, value = 2} [],
     Node TreeItem {move = 3, value = 3} []]
+
+newBranch = Node TreeItem {move = 4, value = 4} [] 
     
+modTree = Node TreeItem {move = 0, value = 0} [
+    Node TreeItem {move = 1, value = 1} [Node TreeItem {move = 4, value = 4} []],
+    Node TreeItem {move = 2, value = 2} [Node TreeItem {move = 4, value = 4} []],
+    Node TreeItem {move = 3, value = 3} [Node TreeItem {move = 4, value = 4} []]]    
+  
 aMiniPosTree = Node PosTreeItem {ptMove = 0, ptValue = 0, ptPosition = TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
     Node PosTreeItem {ptMove = 1, ptValue = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
     Node PosTreeItem {ptMove = 2, ptValue = 2, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
