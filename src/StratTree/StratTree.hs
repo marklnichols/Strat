@@ -18,13 +18,11 @@ best :: TreeNode t => Tree t -> Int -> Int -> ([Int], Int)
 best tree depth color = 
     let (path, move) = findBest tree depth color
     in (tail path, move)
-    
+  
+  
 --expandTree :: tree -> depth -> moveFirstColor -> tree
 expandTree :: TreeNode t => Tree t -> Int -> Int -> Tree t
 expandTree tree depth fstMoveColor = tree   --nop for now
-
-        -- scan down with zipper until no children or (depth = 0 && !exchanging)
-        -- call possibleMoves
         
     
     

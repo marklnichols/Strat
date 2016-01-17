@@ -55,10 +55,8 @@ main = hspec $ do
             validPathCheck aTree2 (-1) `shouldBe` True
     describe "updateTree" $ do
         it "traverses the tree, potentially modifying nodes" $ do
-            updateTree aMiniTree (-1) visitor `shouldBe` modTree
+            updateTree aMiniTree (-1) (visitor 1) `shouldBe` modTree
 
-    
-    
 -----------------------------------------------------------------------
 -- hspec support functions
 ----------------------------------------------------------------------- 
@@ -75,14 +73,13 @@ validPathCheck tree color =
         Just tPos -> (getValue $ label tPos) * color == bestValue
       
 
-visitor :: TreePos Full TreeItem -> Int -> TreePos Full TreeItem
-visitor tPos depth
-    | depth == 1    = modifyTree addBranch tPos
+visitor :: Int -> TreePos Full TreeItem -> Int -> TreePos Full TreeItem
+visitor max tPos depth
+    | depth == max  = modifyTree addBranch tPos
     | otherwise     = tPos
     
 addBranch :: Tree TreeItem -> Tree TreeItem
 addBranch tree = Node (rootLabel tree) [newBranch] 
-
 
  
 ------------------------------------------------------------------------
@@ -96,20 +93,16 @@ data TreeItem  = TreeItem {
 data PosTreeItem  = PosTreeItem { 
     ptMove :: Int,
     ptValue :: Int, 
+    ptColor :: Int,
     ptPosition :: TreePosition 
 } deriving (Show, Eq)
 data TreePosition = TreePosition {
     tts :: [Int] 
 } deriving (Show, Eq)    
-      
-instance Position TreePosition where 
-    evaluate pos = -1
-    possibleMoves pos color = []    --nop
-    newPosition pos move = calcNewPosition pos move     
+ 
+calcNewNode :: PosTreeItem -> Int -> PosTreeItem
+calcNewNode n mv = n    --nop
 
-calcNewPosition :: TreePosition -> Int -> TreePosition
-calcNewPosition pos move = pos  -- nop    
-    
 instance TreeNode TreeItem where
     getMove = move
     getValue = value   
@@ -118,9 +111,11 @@ instance TreeNode PosTreeItem where
     getMove = ptMove
     getValue = ptValue      
 
-instance PositionNode PosTreeItem TreePosition where
-    getPosition = ptPosition
-  
+instance PositionNode PosTreeItem where
+    newNode n mv = calcNewNode n mv
+    color = ptColor            
+    evaluate n = -1    
+    possibleMoves n = []
 
 
 -----------------------------------------------
@@ -137,10 +132,10 @@ modTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 2, value = 2} [Node TreeItem {move = 4, value = 4} []],
     Node TreeItem {move = 3, value = 3} [Node TreeItem {move = 4, value = 4} []]]    
   
-aMiniPosTree = Node PosTreeItem {ptMove = 0, ptValue = 0, ptPosition = TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-    Node PosTreeItem {ptMove = 1, ptValue = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove = 2, ptValue = 2, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove = 3, ptValue = 3, ptPosition = TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
+aMiniPosTree = Node PosTreeItem {ptMove = 0, ptValue = 0, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+    Node PosTreeItem {ptMove = 1, ptValue = 1, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove = 2, ptValue = 2, ptColor = 1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove = 3, ptValue = 3, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
     
 prunedTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 2, value = 2} []] 

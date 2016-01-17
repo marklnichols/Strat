@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove, pruneChildrenExcept, updateTree) where     
  
 import StratTree.TreeNode 
@@ -6,7 +7,6 @@ import Data.Tree.Zipper
 import Data.List hiding (delete)
 import Data.Maybe
  
--------------------------------------------------------------
 --get a list of child nodes
 getChildren :: TreePos Full a  -> [TreePos Full a]
 getChildren tree = reverse $ loop (firstChild tree) [] where
@@ -28,7 +28,6 @@ descendPath moves startTree = foldl f (Just startTree) moves
         f :: TreeNode t => Maybe (TreePos Full t) -> Int -> Maybe (TreePos Full t)
         f r move = r >>= (childByMove move) 
 
-------------------------------
 --descend and modify the tree via the visit function
 --descend :: tree -> max depth -> visit function -> new Tree
 updateTree :: TreeNode t => Tree t -> Int -> (TreePos Full t -> Int -> TreePos Full t) -> Tree t 
@@ -43,15 +42,22 @@ updateTree tree max visitFunct = toTree $ descend' (fromTree tree) 0 where
                                     Nothing      -> modified
                                     Just sibling -> loop sibling dpth 
 
-
-
-
-------------------------------        
-        
-        
-        
+--updateTree 'visit' function - if at depthMax -1 and no children -- create and add children moves
+visitor :: (PositionNode n) => Int -> TreePos Full n -> Int -> TreePos Full n
+visitor max tPos depth
+    | depth == (max-1) && (hasChildren tPos) == False   = modifyTree addBranches tPos
+    | otherwise                                         = tPos
  
-        
+--modifyTree :: (Tree a -> Tree a) -> TreePos Full a -> TreePos Full a
+ 
+--add branches at the bottom of the tree for a new depth-level of moves
+addBranches :: PositionNode n => Tree n -> Tree n
+addBranches tree =  let n = rootLabel tree
+                        ns = map (newNode n) (possibleMoves n)
+                        ts = map (\n -> Node n []) ns
+                    in Node (rootLabel tree) ts
+                       
+                         
 --finds a child of a tree matching a given move
 childByMove :: TreeNode t => Int -> TreePos Full t -> Maybe (TreePos Full t)
 childByMove move tree  = 

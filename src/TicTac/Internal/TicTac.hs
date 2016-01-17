@@ -31,27 +31,6 @@ divN n values = map (\y x -> x `div` n == y) values
 offsets = [0, 1..8] :: [Int]
 rhs = [0, 1, 2] :: [Int]
 zeron = [0] :: [Int]
-
-{-- TODO: try - 
-  
-    
-    x `mod` 3 == 2 :: Int -> Bool
-    
-    filterFunct :: Int -> Int -> Int -> Bool
-    \n y x -> x `mod` n == y is a filterFunct
-    \n y x -> x `div` n == y is a filterFunct
-    \n y x -> (x `mod` 2 ==0) && (x `mod` 8 /= 0)) is a filterFunct
-    
-    
-    (x `mod` 2 == 0) && (x `mod` 8 /= 0)) :: Int -> Bool
-
-    modNs :: n -> [zeroToTwoValues] -> funct to pass 0-8 to
-    modNs :: Int -> [Int] -> [Int -> Bool]
-    instead of:
-    modNs n values = map (\y x -> x `mod` n == y) values
-    how about:
-    modNs n values = map (\y x -> filterFunct) values
-    --}   
    
    
 --------------------------------------------
@@ -77,7 +56,23 @@ zeron = [0] :: [Int]
 --}
 
 
+{-- TODO: try - 
+    x `mod` 3 == 2 :: Int -> Bool
+    
+    filterFunct :: Int -> Int -> Int -> Bool
+    \n y x -> x `mod` n == y is a filterFunct
+    \n y x -> x `div` n == y is a filterFunct
+    \n y x -> (x `mod` 2 ==0) && (x `mod` 8 /= 0)) is a filterFunct
+    
+    
+    (x `mod` 2 == 0) && (x `mod` 8 /= 0)) :: Int -> Bool
+
+    modNs :: n -> [zeroToTwoValues] -> funct to pass 0-8 to
+    modNs :: Int -> [Int] -> [Int -> Bool]
+    instead of:
+    modNs n values = map (\y x -> x `mod` n == y) values
+    how about:
+    modNs n values = map (\y x -> filterFunct) values
+--}  
 
 
- --} 
- 
