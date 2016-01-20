@@ -21,7 +21,7 @@ library
                        StratTree.StratTreeTest,
                        TicTac.TicTacTest
   other-modules:       StratTree.Internal.Trees,
-                       TicTac.Internal.TicTac
+                       StratTree.Internal.General
   build-depends:       base >= 4.7 && < 5
                      , containers ==0.5.*
                      , rosezipper ==0.2.*

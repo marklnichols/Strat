@@ -3,7 +3,7 @@ import Data.Tree.Zipper
 import Data.Maybe
 
 miniTree = Node 0 [Node 1 [Node 11 [], Node 12 []], Node 2 [Node 21 [], Node 22 []], Node 3 [Node 31 [], Node 32[]]]
-newBranch = Node 4 [] 
+284newBranch = Node 4 [] 
 
 main = do
     let r = descend miniTree 4 visitor
@@ -30,8 +30,7 @@ addBranch :: Tree Int -> Tree Int
 addBranch tree = Node (rootLabel tree) [newBranch]
 
 -- let subTPos = fromJust $ firstChild $ fromTree miniTree
--- let newTree = toTree modifyTree addBranch subTPos
-    
+-- let newTree = toTree modifyTree addBranch subTPos0
     
     
 

@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove, pruneChildrenExcept, updateTree) where     
+module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove, pruneChildrenExcept, visitTree) where     
  
 import StratTree.TreeNode 
 import Data.Tree
@@ -28,35 +28,19 @@ descendPath moves startTree = foldl f (Just startTree) moves
         f :: TreeNode t => Maybe (TreePos Full t) -> Int -> Maybe (TreePos Full t)
         f r move = r >>= (childByMove move) 
 
---descend and modify the tree via the visit function
---descend :: tree -> max depth -> visit function -> new Tree
-updateTree :: TreeNode t => Tree t -> Int -> (TreePos Full t -> Int -> TreePos Full t) -> Tree t 
-updateTree tree max visitFunct = toTree $ descend' (fromTree tree) 0 where
+--visit all the nodes and modify the tree via the visit function
+--visitTree :: tree -> max depth -> visit function -> new Tree
+visitTree :: PositionNode n => Tree n -> Int -> (TreePos Full n -> Int -> Int -> TreePos Full n) -> Tree n
+visitTree tree max visitFunct = toTree $ descend' (fromTree tree) 0 where
     descend' tPos depth = 
         case firstChild tPos of
             Nothing    -> tPos
             Just child -> fromJust $ parent $ loop child (depth + 1)
         where
-            loop tPos dpth = let modified = descend' (visitFunct tPos dpth) dpth in
+            loop tPos dpth = let modified = descend' (visitFunct tPos dpth max) dpth in
                                 case (next modified) of 
                                     Nothing      -> modified
-                                    Just sibling -> loop sibling dpth 
-
---updateTree 'visit' function - if at depthMax -1 and no children -- create and add children moves
-visitor :: (PositionNode n) => Int -> TreePos Full n -> Int -> TreePos Full n
-visitor max tPos depth
-    | depth == (max-1) && (hasChildren tPos) == False   = modifyTree addBranches tPos
-    | otherwise                                         = tPos
- 
---modifyTree :: (Tree a -> Tree a) -> TreePos Full a -> TreePos Full a
- 
---add branches at the bottom of the tree for a new depth-level of moves
-addBranches :: PositionNode n => Tree n -> Tree n
-addBranches tree =  let n = rootLabel tree
-                        ns = map (newNode n) (possibleMoves n)
-                        ts = map (\n -> Node n []) ns
-                    in Node (rootLabel tree) ts
-                       
+                                    Just sibling -> loop sibling dpth        
                          
 --finds a child of a tree matching a given move
 childByMove :: TreeNode t => Int -> TreePos Full t -> Maybe (TreePos Full t)

@@ -2,7 +2,6 @@
 module TicTac.TicTacTest where
 
 import TicTac.TicTac
-import TicTac.Internal.TicTac
 import Test.Hspec
  
 main = hspec $ do

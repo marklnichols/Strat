@@ -1,7 +1,8 @@
-module StratTree.StratTree ( best, best') where
+module StratTree.StratTree ( best, best', expandTree) where
 
 import StratTree.Internal.Trees
 import StratTree.TreeNode
+import StratTree.Internal.General
 import Data.Tree
 import Data.Tree.Zipper
 import Data.Maybe
@@ -19,12 +20,9 @@ best tree depth color =
     let (path, move) = findBest tree depth color
     in (tail path, move)
   
-  
---expandTree :: tree -> depth -> moveFirstColor -> tree
-expandTree :: TreeNode t => Tree t -> Int -> Int -> Tree t
-expandTree tree depth fstMoveColor = tree   --nop for now
-        
-    
+--expandTree :: tree -> depth -> tree
+expandTree :: PositionNode n => Tree n -> Int -> Tree n
+expandTree tree maxDepth = visitTree tree maxDepth visitor  
     
 --findBest :: tree -> depth -> color -> ([best mv path], findBest value)
 findBest :: TreeNode t => Tree t -> Int -> Int -> ([Int], Int)
