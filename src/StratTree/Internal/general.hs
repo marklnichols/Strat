@@ -4,10 +4,10 @@ import StratTree.TreeNode
 import Data.Tree
 import Data.Tree.Zipper
     
---TODO where is this used?
 --updateTree 'visit' function - if at depthMax -1 and no children -- create and add children moves
 visitor :: (PositionNode n) => TreePos Full n -> Int -> Int -> TreePos Full n
 visitor tPos depth max
+    | (final $ label tPos) == True                        = tPos
     | depth == (max-1) && (hasChildren tPos) == False   = modifyTree addBranches tPos
     | otherwise                                         = tPos
  

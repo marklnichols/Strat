@@ -15,19 +15,19 @@ main = hspec $ do
             checkWins aPos3 (-1) `shouldBe` False
     describe "eval" $ do
         it "evaluates the score for a position" $ do
-            eval (TTNode 0 0 (TTPosition aPos 1)) `shouldBe` 100
-            eval (TTNode 0 0 (TTPosition aPos2 1)) `shouldBe` (-100)
-            eval (TTNode 0 0 (TTPosition aPos3 1)) `shouldBe` 0
+            eval (TTNode 0 0 (TTPosition aPos 1 False)) `shouldBe` 100
+            eval (TTNode 0 0 (TTPosition aPos2 1 False)) `shouldBe` (-100)
+            eval (TTNode 0 0 (TTPosition aPos3 1 False)) `shouldBe` 0
     describe "calcNewNode" $ do
         it "creates a new node from a previous position and a move" $ do
-            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos 1)) 5)) `shouldBe` [1, 1, -1, 1, -1, 1, 1, 0, -1]
-            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos (-1))) (-7))) `shouldBe` [1, 1, -1, 1, -1, 0, 1, -1, -1]
+            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos 1 False)) 5)) `shouldBe` [1, 1, -1, 1, -1, 1, 1, 0, -1]
+            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos (-1) False)) (-7))) `shouldBe` [1, 1, -1, 1, -1, 0, 1, -1, -1]
     describe "getPossibleMoves" $ do
         it "gets a list of possible moves from a given position" $ do
-            getPossibleMoves (TTNode 0 0 (TTPosition aPos 1)) `shouldBe` [5, 7] 
-            getPossibleMoves (TTNode 0 0 (TTPosition aPos (-1))) `shouldBe` [-5, -7]
-            getPossibleMoves (TTNode 0 0 (TTPosition aPos2 1)) `shouldBe` [1]
-            getPossibleMoves (TTNode 0 0 (TTPosition aPos3 (-1))) `shouldBe` []
+            getPossibleMoves (TTNode 0 0 (TTPosition aPos 1 False)) `shouldBe` [5, 7] 
+            getPossibleMoves (TTNode 0 0 (TTPosition aPos (-1) False)) `shouldBe` [-5, -7]
+            getPossibleMoves (TTNode 0 0 (TTPosition aPos2 1 False)) `shouldBe` [1]
+            getPossibleMoves (TTNode 0 0 (TTPosition aPos3 (-1) False)) `shouldBe` []
          
             
 -------------------------------------------------

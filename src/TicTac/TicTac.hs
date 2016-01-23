@@ -9,7 +9,7 @@ import Control.Lens
 ------------------------------------------------------------------
 -- Data Types
 ------------------------------------------------------------------    
-data TTPosition = TTPosition {_grid :: [Int], _color :: Int}
+data TTPosition = TTPosition {_grid :: [Int], _color :: Int, _final :: Bool}
 makeLenses ''TTPosition
     
 data TTNode = TTNode {move :: Int, value :: Int, position :: TTPosition}
@@ -19,6 +19,7 @@ instance PositionNode TTNode where
     evaluate = eval 
     possibleMoves = getPossibleMoves
     color = _color . position
+    final = _final . position
     
 instance TreeNode TTNode where
     getMove = move

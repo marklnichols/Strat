@@ -13,3 +13,4 @@ class PositionNode n where
     color :: n -> Int
     evaluate :: n -> Int    
     possibleMoves :: n -> [Int]
+    final :: n -> Bool

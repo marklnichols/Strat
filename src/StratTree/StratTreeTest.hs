@@ -61,7 +61,7 @@ main = hspec $ do
     describe "expandTree" $ do
         it "adds a new level of tree nodes at the specified depth" $ do
             expandTree aMiniPosTree 2 `shouldBe` expandedTree     
-            
+            expandTree finalTestTree 2 `shouldBe` expandedFinalTree
 
 -----------------------------------------------------------------------
 -- hspec support functions
@@ -100,6 +100,7 @@ data PosTreeItem  = PosTreeItem {
     ptMove :: Int,
     ptValue :: Int, 
     ptColor :: Int,
+    ptFinal :: Bool,
     ptPosition :: TreePosition 
 } deriving (Show, Eq)
 
@@ -120,6 +121,7 @@ instance PositionNode PosTreeItem where
     color = ptColor            
     evaluate n = -1    
     possibleMoves = calcPossibleMoves
+    final = ptFinal
  
 calcPossibleMoves :: PosTreeItem -> [Int]
 calcPossibleMoves node = case (ptMove node) of
@@ -133,11 +135,11 @@ calcNewNode tp mv = fromJust $ Map.lookup mv mvToNode
 
 mvToNode :: Map Int PosTreeItem
 mvToNode  = Map.fromList [
-    (4, PosTreeItem {ptMove = 4, ptValue = 4, ptColor = -1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}}),
-    (5, PosTreeItem {ptMove = 5, ptValue = 5, ptColor = -1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}}),
-    (6, PosTreeItem {ptMove = 6, ptValue = 6, ptColor = -1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
-    (7, PosTreeItem {ptMove = 7, ptValue = 7, ptColor = -1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
-    (8, PosTreeItem {ptMove = 8, ptValue = 8, ptColor = -1, ptPosition = TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
+    (4, PosTreeItem {ptMove=4, ptValue = 4, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}}),
+    (5, PosTreeItem {ptMove=5, ptValue = 5, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}}),
+    (6, PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
+    (7, PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
+    (8, PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
 
 -----------------------------------------------
 
@@ -146,32 +148,45 @@ aMiniTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 2, value = 2} [],
     Node TreeItem {move = 3, value = 3} []]
 
-newBranch =  Node PosTreeItem {ptMove = 4, ptValue = 4, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} [] 
+newBranch =  Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} [] 
     
-modTree = Node PosTreeItem {ptMove = 0, ptValue = 0, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-    Node PosTreeItem {ptMove = 1, ptValue = 1, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove = 4, ptValue = 4, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
-    Node PosTreeItem {ptMove = 2, ptValue = 2, ptColor = 1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove = 4, ptValue = 4, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
-    Node PosTreeItem {ptMove = 3, ptValue = 3, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove = 4, ptValue = 4, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []]]
+modTree = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+    Node PosTreeItem {ptMove=1, ptValue=1, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
+    Node PosTreeItem {ptMove=2, ptValue=2, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
+    Node PosTreeItem {ptMove=3, ptValue=3, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []]]
   
-aMiniPosTree = Node PosTreeItem {ptMove = 0, ptValue = 0, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-    Node PosTreeItem {ptMove = 1, ptValue = 1, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove = 2, ptValue = 2, ptColor = 1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove = 3, ptValue = 3, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
- 
+aMiniPosTree = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+    Node PosTreeItem {ptMove=1, ptValue=1, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=2, ptValue=2, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=3, ptValue=3, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
+
 expandedTree = 
-    Node PosTreeItem {ptMove = 0, ptValue = 0, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove = 1, ptValue = 1, ptColor = 1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-            Node PosTreeItem {ptMove = 4, ptValue = 4, ptColor = -1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}} [],
-            Node PosTreeItem {ptMove = 5, ptValue = 5, ptColor = -1, ptPosition = TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}} []],
-        Node PosTreeItem {ptMove = 2, ptValue = 2, ptColor = 1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
-            Node PosTreeItem {ptMove = 6, ptValue = 6, ptColor = -1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
-            Node PosTreeItem {ptMove = 7, ptValue = 7, ptColor = -1, ptPosition = TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
-        Node PosTreeItem {ptMove = 3, ptValue = 3, ptColor = 1, ptPosition = TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [ 
-            Node PosTreeItem {ptMove = 8, ptValue = 8, ptColor = -1, ptPosition = TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}} []]]
+    Node PosTreeItem {ptMove=0, ptValue=0, ptColor = 1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=1, ptValue=1, ptColor = 1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+            Node PosTreeItem {ptMove=4, ptValue=4, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}} [],
+            Node PosTreeItem {ptMove=5, ptValue=5, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}} []],
+        Node PosTreeItem {ptMove=2, ptValue=2, ptColor = 1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+            Node PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
+            Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
+        Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [ 
+            Node PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}} []]]
+    
+finalTestTree = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+    Node PosTreeItem {ptMove=1, ptValue=1, ptColor=1, ptFinal=True, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=2, ptValue=2, ptColor=1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=3, ptValue=3, ptColor=1, ptFinal=True, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []] 
  
+expandedFinalTree = 
+    Node PosTreeItem {ptMove=0, ptValue=0, ptColor = 1, ptFinal=False, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=1, ptValue=1, ptColor = 1, ptFinal=True, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
+        Node PosTreeItem {ptMove=2, ptValue=2, ptColor = 1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+            Node PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
+            Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=False, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
+        Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=True, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
+
 prunedTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 2, value = 2} []] 
     
