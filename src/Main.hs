@@ -51,8 +51,9 @@ loop node turn p1 p2 depth = do
                             then do
                                 putStrLn ("Enter player " ++ show turn ++ "'s move:")
                                 line <- getLine
-                                unless (null line) $ putStrLn "PLAYER MOVE NOT YET IMPLEMENTED!..."
-                                return node
+                                let n = read line
+                                let processed = processMove node n
+                                return processed
                             else do
                                 putStrLn "Calculating computer move..."
                                 let newTree = expandTree node depth
