@@ -28,8 +28,11 @@ main = hspec $ do
             getPossibleMoves (TTNode 0 0 (TTPosition aPos (-1) False)) `shouldBe` [-5, -7]
             getPossibleMoves (TTNode 0 0 (TTPosition aPos2 1 False)) `shouldBe` [1]
             getPossibleMoves (TTNode 0 0 (TTPosition aPos3 (-1) False)) `shouldBe` []
-         
-            
+    describe "format" $ do
+        it "formats a position as a string for display" $ do
+            format (TTPosition aPos 1 False) `shouldBe` "X X O \nX O   \nX   O \n"      
+
+                      
 -------------------------------------------------
 -- Sample test data
 -------------------------------------------------

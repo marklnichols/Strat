@@ -17,9 +17,10 @@ library
   hs-source-dirs:      src
   exposed-modules:     StratTree.StratTree,
                        StratTree.TreeNode,
-                       TicTac.TicTac,
                        StratTree.StratTreeTest,
-                       TicTac.TicTacTest
+                       TicTac.TicTac,
+                       TicTac.TicTacTest,
+                       Main
   other-modules:       StratTree.Internal.Trees,
                        StratTree.Internal.General
   build-depends:       base >= 4.7 && < 5

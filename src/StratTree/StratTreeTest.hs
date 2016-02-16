@@ -114,7 +114,7 @@ instance TreeNode TreeItem where
 
 instance TreeNode PosTreeItem where
     getMove = ptMove
-    getValue = ptValue      
+    getValue = ptValue     
 
 instance PositionNode PosTreeItem where
     newNode = calcNewNode
@@ -122,7 +122,7 @@ instance PositionNode PosTreeItem where
     evaluate n = -1    
     possibleMoves = calcPossibleMoves
     final = ptFinal
- 
+
 calcPossibleMoves :: PosTreeItem -> [Int]
 calcPossibleMoves node = case (ptMove node) of
     1 -> [4, 5]

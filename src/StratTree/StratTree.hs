@@ -10,11 +10,12 @@ import Data.Maybe
 -------------------------------------------------------------
 -- Exported functions
 -------------------------------------------------------------
+
 --best' :: tree -> depth -> color -> ([best path])
 best' :: TreeNode t => Tree t -> Int -> Int -> [Int]
 best' tree depth color = fst $ best tree depth color
 
---best :: tree -> depth -> color -> ([best mv path], best value)
+
 best :: TreeNode t => Tree t -> Int -> Int -> ([Int], Int)
 best tree depth color = 
     let (path, move) = findBest tree depth color
@@ -40,3 +41,7 @@ bestFold depth color (rMvs, rVal) t =
         (newMvs, newVal) = (mvs, -v)
     in
         if rVal < newVal then (newMvs, newVal) else (rMvs, rVal)
+
+        
+        
+        
