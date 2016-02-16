@@ -11,7 +11,7 @@ import Data.List
 ------------------------------------------------------------------
 -- Data Types
 ------------------------------------------------------------------
-data TTPosition = TTPosition {_grid :: [Int], _color :: Int, _fin :: FinalState} deriving (Show)
+data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
 
 data TTNode = TTNode {move :: Int, value :: Int, position :: TTPosition} deriving (Show)
@@ -20,7 +20,7 @@ instance PositionNode TTNode where
     newNode = calcNewNode
     evaluate = eval
     possibleMoves = getPossibleMoves
-    color = _color . position
+    color = _clr . position
     final = _fin . position
 
 instance TreeNode TTNode where
@@ -32,7 +32,7 @@ instance TreeNode TTNode where
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {move=(-1), value=0, position= TTPosition {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _color=1, _fin=NotFinal}} []
+getStartNode = Node TTNode {move=(-1), value=0, position= TTPosition {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr=1, _fin=NotFinal}} []
 
 
 --------------------------------------------------------
@@ -50,15 +50,16 @@ format p =
 --------------------------------------------------------
 -- calculate new node from a previous node and a move
 --------------------------------------------------------
---todo: set the move to the move param and initially set the value to 0(?)
 calcNewNode :: TTNode -> Int -> TTNode
 calcNewNode node mv =
     let val
             | mv >=0    = 1
             | otherwise = -1
         gridSet = set (grid . ix (abs mv)) val (position node)
-        (score, finalSt) = evalGrid $ _grid gridSet
-        allSet = set fin finalSt gridSet
+        oldColor = view clr gridSet
+        colorFlipped = set clr (flipColor oldColor) gridSet
+        (score, finalSt) = evalGrid $ _grid colorFlipped
+        allSet = set fin finalSt colorFlipped
     in  TTNode mv score allSet
     
 ---------------------------------------------------------
@@ -68,7 +69,7 @@ calcNewNode node mv =
 getPossibleMoves :: TTNode -> [Int]
 getPossibleMoves n =  foldr f [] (zip ((position n) ^. grid) [0..9]) where
     f (x, idx) newList
-        | x == 0        = (idx) * (_color (position n)) : newList
+        | x == 0        = (idx) * (_clr (position n)) : newList
         | otherwise     = newList
 
 --------------------------------------------------------
@@ -80,13 +81,17 @@ eval n = fst $ evalGrid $ _grid (position n)
 --evalGrid :: grid -> color -> (score, final state)
 evalGrid :: [Int] -> (Int, FinalState)
 evalGrid  grid   
-    | checkWins grid 1 == True      = (100, WWins)
-    | checkWins grid (-1) == True   = (-100, BWins)
-    | otherwise                     = (0, NotFinal)      
+    | checkWins grid 1    = (100, WWins)
+    | checkWins grid (-1) = (-100, BWins)
+    | checkDraw grid      = (0, Draw)
+    | otherwise           = (0, NotFinal)      
     
 ---------------------------------------------------------------------
 checkWins :: [Int] -> Int -> Bool
 checkWins pos color = wins (sums $ applyMask pos masks) color
+
+checkDraw :: [Int] -> Bool
+checkDraw xs = not $ elem 0 xs
 
 wins :: [Int] -> Int -> Bool
 wins sums color = if elem (color * 3) sums then True else False

@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..)) where
+module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor) where
  
 -------------------------------------------------------------
 -- Data types
@@ -16,3 +16,7 @@ class TreeNode n => PositionNode n where
     final :: n -> FinalState
     
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
+
+-------------------------------------------------------------------------------
+flipColor :: Int -> Int
+flipColor n = 0 - n     --alternate 1 / -1

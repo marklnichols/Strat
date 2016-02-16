@@ -43,6 +43,9 @@ loop node turn p1 p2 depth = do
         BWins -> do
             putStrLn "White wins."
             return Nothing
+        Draw -> do
+            putStrLn "Draw."
+            return Nothing
         _ -> do
                 nextNode <- if isCompTurn turn p1 p2
                             then do
