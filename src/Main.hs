@@ -19,36 +19,57 @@ main = do
             name <- getProgName
             hPutStrLn stderr $ "usage: " ++ name ++ " <isP1Computer :: Bool> <isP2Computer :: Bool> <depth :: Int>"
   
--- :set prompt "*\\o/*:"  
--- :set args F F 2
+-- :set prompt "ghci>"
+-- :set args F F 4
 -- Main.main
       
 -- let node = getStartNode
 -- let newTree = expandTree node 2 
--- let laba = rootLabel newTree
--- let fo = subForest newTree
-        
-            
+
+-- let lenA = length $ subForest newTree
+-- let lenB = length $ subForest ((subForest newTree) !! 0)
+-- 
+-- let lenD = length $ subForest ((subForest newTree) !! 2) 
+-- let lenE = length $ subForest (subForest ((subForest newTree) !! 0) !! 0) 
+   
 --loop :: Starting node -> currentTurn -> isP1Computer -> isP2Computer -> depth -> IO ()
 loop :: Tree TTNode -> Int -> Bool -> Bool -> Int -> IO ()
 loop node turn p1 p2 depth = do
     putStrLn $ format $ position $ rootLabel node
-    if isCompTurn turn p1 p2
-        then do
-            putStrLn ("Enter player " ++ show turn ++ "'s move:")
-            line <- getLine
-            unless (null line) $ putStrLn "TBD process player move..."
-        else do
-            putStrLn "Calculating computer move..."
-            let newTree = expandTree node depth
-            let moves = best newTree depth (turnToColor turn)
-            putStrLn ("Move is: " ++ show (head $ fst moves))
-            putStrLn ("Move value is: " ++ show (snd moves))
-            putStrLn ("Full move list is: " ++ show (fst moves))
-            putStrLn "TDB process computer move..."
-    --TBD the node to loop must be the new one
+    theNext <- case (final $ rootLabel node) of  
+        WWins -> do
+            putStrLn "White wins."
+            return Nothing
+        BWins -> do
+            putStrLn "White wins."
+            return Nothing
+        _ -> do
+                nextNode <- if isCompTurn turn p1 p2
+                            then do
+                                putStrLn ("Enter player " ++ show turn ++ "'s move:")
+                                line <- getLine
+                                unless (null line) $ putStrLn "PLAYER MOVE NOT YET IMPLEMENTED!..."
+                                return node
+                            else do
+                                putStrLn "Calculating computer move..."
+                                let newTree = expandTree node depth
+                                let moves = best newTree depth (turnToColor turn)
+                                putStrLn "Move is ready, press a key to continue..."
+                                let move = head $ fst moves
+                                getLine
+                                putStrLn ("Turn is: " ++ show turn)
+                                putStrLn ("Move is: " ++ show move)
+                                putStrLn ("Move value is: " ++ show (snd moves))
+                                putStrLn ("Full move list is: " ++ show (fst moves))
+                                let processed = processMove newTree move
+                                --putStrLn $ format $ position $ getLabel processed
+                                return processed
+                return (Just nextNode)
     --TBD no need to pass p1 p2 depth around...
-    loop node (3 - turn) p1 p2 depth
+    case theNext of 
+        Nothing -> return ()
+        Just next -> loop next (swapTurns turn) p1 p2 depth
+    
 
 --isCompTurn :: current Turn -> isP1Computer -> isP2Computer -> True if current turn is computer generated
 isCompTurn :: Int -> Bool -> Bool -> Bool
@@ -59,6 +80,9 @@ toBool s = not (s == "f" || s == "F")
 
 toInt :: String -> Int
 toInt = read
+
+swapTurns :: Int -> Int
+swapTurns t = 3-t   --alternate between 1 and 2
 
 -- convert 1, 2 to +1, -1
 turnToColor :: Int -> Int

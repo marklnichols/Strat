@@ -28,23 +28,7 @@ descendPath moves startTree = foldl f (Just startTree) moves
     where 
         f :: TreeNode t => Maybe (TreePos Full t) -> Int -> Maybe (TreePos Full t)
         f r move = r >>= (childByMove move) 
-        
-{--
---visit all the nodes and modify the tree via the visit function
---visitTree :: tree -> max depth -> visit function -> new Tree
-visitTree :: PositionNode n => Tree n -> Int -> (TreePos Full n -> Int -> Int -> TreePos Full n) -> Tree n
-visitTree tree max visitFunct = toTree $ descend' (fromTree tree) 0 where
-    descend' tPos depth = 
-        case firstChild tPos of
-            Nothing    -> tPos
-            Just child -> fromJust $ parent $ loop child (depth + 1)
-        where
-            loop tPos dpth = let modified = descend' (visitFunct tPos dpth max) dpth in
-                                case (next modified) of 
-                                    Nothing      -> modified
-                                    Just sibling -> loop sibling dpth        
-<<<<<<< HEAD
---}   
+   
 --visit all the nodes and modify the tree via the visit function
 --visitTree :: tree -> max depth -> visit function -> new Tree
 visitTree :: PositionNode n => Tree n -> Int -> (TreePos Full n -> Int -> Int -> TreePos Full n) -> Tree n
@@ -59,9 +43,6 @@ visitTree tree max visitFunct = toTree $ descend' (visitFunct (fromTree tree) 0 
                                     Nothing      -> modified
                                     Just sibling -> loop sibling dpth     
    
-=======
-  
->>>>>>> origin/master
 --finds a child of a tree matching a given move
 childByMove :: TreeNode t => Int -> TreePos Full t -> Maybe (TreePos Full t)
 childByMove move tree  = 

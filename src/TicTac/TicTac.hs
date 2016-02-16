@@ -3,7 +3,7 @@
 module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, checkWins, format, TTPosition (..), TTNode (..), getStartNode) where
 
 import Data.Tree
-import StratTree.TreeNode
+import StratTree.TreeNode 
 import Data.List.Lens
 import Control.Lens
 import Data.List
@@ -11,7 +11,7 @@ import Data.List
 ------------------------------------------------------------------
 -- Data Types
 ------------------------------------------------------------------
-data TTPosition = TTPosition {_grid :: [Int], _color :: Int, _final :: Bool} deriving (Show)
+data TTPosition = TTPosition {_grid :: [Int], _color :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
 
 data TTNode = TTNode {move :: Int, value :: Int, position :: TTPosition} deriving (Show)
@@ -21,17 +21,18 @@ instance PositionNode TTNode where
     evaluate = eval
     possibleMoves = getPossibleMoves
     color = _color . position
-    final = _final . position
+    final = _fin . position
 
 instance TreeNode TTNode where
     getMove = move
     getValue = value
+    
 
 ---------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {move=0, value=0, position= TTPosition {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _color=1, _final=False}} []
+getStartNode = Node TTNode {move=(-1), value=0, position= TTPosition {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _color=1, _fin=NotFinal}} []
 
 
 --------------------------------------------------------
@@ -44,7 +45,7 @@ format p =
         f ns str = (foldr g "" ns) ++ "\n" ++ str where
             g 1    s = "X " ++ s
             g (-1) s = "O " ++ s
-            g 0    s = "  " ++ s
+            g 0    s = "- " ++ s
 
 --------------------------------------------------------
 -- calculate new node from a previous node and a move
@@ -55,39 +56,33 @@ calcNewNode node mv =
     let val
             | mv >=0    = 1
             | otherwise = -1
-        newPos = set (grid . ix (abs mv)) val (position node)
-    
-    --in  TTNode (move node) (value node) newPos
-    in  TTNode mv (evalGrid $ _grid newPos) newPos
+        gridSet = set (grid . ix (abs mv)) val (position node)
+        (score, finalSt) = evalGrid $ _grid gridSet
+        allSet = set fin finalSt gridSet
+    in  TTNode mv score allSet
     
 ---------------------------------------------------------
 -- get list of possible moves from a given position
 ---------------------------------------------------------
 -- TODO extend the use of lens to navigate node -> position ->
 getPossibleMoves :: TTNode -> [Int]
-getPossibleMoves n =  foldr f [] (zip ((position n) ^. grid) [0..8]) where
+getPossibleMoves n =  foldr f [] (zip ((position n) ^. grid) [0..9]) where
     f (x, idx) newList
-        | x == 0        = idx * (_color (position n)) : newList
+        | x == 0        = (idx) * (_color (position n)) : newList
         | otherwise     = newList
 
 --------------------------------------------------------
 -- Position Evaluation
 --------------------------------------------------------
-{--
 eval :: TTNode -> Int
-eval n
-    | checkWins (_grid (position n)) 1 == True      = 100
-    | checkWins (_grid (position n)) (-1) == True   = (-100)
-    | otherwise                                     = 0
---}
-eval :: TTNode -> Int
-eval n = evalGrid $ _grid (position n)
+eval n = fst $ evalGrid $ _grid (position n)
 
-evalGrid :: [Int] -> Int
+--evalGrid :: grid -> color -> (score, final state)
+evalGrid :: [Int] -> (Int, FinalState)
 evalGrid  grid   
-    | checkWins grid 1 == True      = 100
-    | checkWins grid (-1) == True   = (-100)
-    | otherwise                     = 0      
+    | checkWins grid 1 == True      = (100, WWins)
+    | checkWins grid (-1) == True   = (-100, BWins)
+    | otherwise                     = (0, NotFinal)      
     
 ---------------------------------------------------------------------
 checkWins :: [Int] -> Int -> Bool
