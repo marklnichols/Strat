@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove, pruneChildrenExcept, visitTree) where     
+module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove, 
+    pruneChildrenExcept, visitTree, pruneToChild) where     
  
 import StratTree.TreeNode 
 import Data.Tree
@@ -42,6 +43,7 @@ visitTree tree max visitFunct = toTree $ descend' (fromTree tree) 0 where
                                 case (next modified) of 
                                     Nothing      -> modified
                                     Just sibling -> loop sibling dpth        
+<<<<<<< HEAD
 --}   
 --visit all the nodes and modify the tree via the visit function
 --visitTree :: tree -> max depth -> visit function -> new Tree
@@ -57,10 +59,25 @@ visitTree tree max visitFunct = toTree $ descend' (visitFunct (fromTree tree) 0 
                                     Nothing      -> modified
                                     Just sibling -> loop sibling dpth     
    
+=======
+  
+>>>>>>> origin/master
 --finds a child of a tree matching a given move
 childByMove :: TreeNode t => Int -> TreePos Full t -> Maybe (TreePos Full t)
 childByMove move tree  = 
     find ((\x -> move == (getMove $ label x))) (getChildren tree) 
+
+--pruneToChild -- prune the tree down to the subtree whose root matches the given child
+--pruneToChild :: :: starting tree -> move to match -> new pruned sub tree                             
+pruneToChild :: TreeNode t => Tree t -> Int -> Tree t
+pruneToChild tree move = case find (\x -> move == (getMove $ rootLabel x))(subForest tree) of 
+                            Just t  -> t
+                            Nothing -> tree
+                                         
+--  modifyTree :: (Tree a -> Tree a) -> TreePos Full a -> TreePos Full a 
+--delParent :: parentTree -> childTree -> childTree
+delParent :: TreeNode t => Tree t -> Tree t ->Tree t
+delParent parent child = toTree $ modifyTree (\_ -> child) $ fromTree parent
     
 --pruneExcept -- Prune the tree of all the children except the one matching the supplied move
 --pruneExcept :: starting tree -> move to match -> pruned tree

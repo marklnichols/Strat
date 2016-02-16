@@ -37,7 +37,7 @@ main = hspec $ do
                 fmap (\x -> getMove $ label x)(getSiblings $ fromJust $ firstChild $ fromTree aTree) `shouldBe` [1,2]
                 fmap (\x -> getMove $ label x)(getSiblings $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [1, 2, 3]
     describe "childByMove" $ do
-        it "finds a child of a tree matching a given move" $ do           
+        it "finds a child of a tree matching a given move" $ do            
             case childByMove 1 (fromTree aTree) of 
                 Nothing -> -1
                 Just x -> getMove $ label x
@@ -49,6 +49,9 @@ main = hspec $ do
     describe "pruneChildrenExcept" $ do
         it "deletes all children except one matching the supplied move" $ do           
             pruneChildrenExcept aMiniTree 2 `shouldBe` prunedTree 
+    describe "processMove" $ do
+        it "Prunes the tree of all the children except the one matching the supplied move" $ do
+            processMove aTree 2 `shouldBe` prunedToChild
     describe "validPathCheck" $ do
         it "checks to see if the path of moves retured by best is valid and the node at the bottom contains the correct value" $ do
             validPathCheck aTree 1 `shouldBe` True
@@ -208,6 +211,18 @@ aTree = Node TreeItem {move = 0, value = 0} [
             Node TreeItem {move = 15, value= 80} [], 
             Node TreeItem {move = 16, value= -90} [], 
             Node TreeItem {move = 17, value = 10} []]]] 
+
+prunedToChild = Node TreeItem {move = 2, value = 70} [
+        Node TreeItem {move = 5, value = 45} [
+            Node TreeItem {move = 11, value = 0} [], 
+            Node TreeItem {move = 12, value = -10} []], 
+        Node TreeItem {move = 6, value = -60} [
+            Node TreeItem {move = 13, value = -20} [], 
+            Node TreeItem {move = 14, value = 0} []], 
+        Node TreeItem {move = 7, value = 30} [
+            Node TreeItem {move = 15, value= 80} [], 
+            Node TreeItem {move = 16, value= -90} [], 
+            Node TreeItem {move = 17, value = 10} []]]
 
 aTree2 = Node TreeItem {move = 0, value = 0 } [
     Node TreeItem {move = 1, value = 10 } [
