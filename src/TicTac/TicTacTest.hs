@@ -21,13 +21,13 @@ main = hspec $ do
             eval (TTNode 0 0 (TTPosition aPos3 1 NotFinal)) `shouldBe` 0
     describe "calcNewNode" $ do
         it "creates a new node from a previous position and a move" $ do
-            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos 1 NotFinal)) 5)) `shouldBe` [1, 1, -1, 1, -1, 1, 1, 0, -1]
-            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos (-1) NotFinal)) (-7))) `shouldBe` [1, 1, -1, 1, -1, 0, 1, -1, -1]
+            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos 1 NotFinal)) 6)) `shouldBe` [1, 1, -1, 1, -1, 1, 1, 0, -1]
+            _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos (-1) NotFinal)) (-8))) `shouldBe` [1, 1, -1, 1, -1, 0, 1, -1, -1]
     describe "getPossibleMoves" $ do
         it "gets a list of possible moves from a given position" $ do
-            getPossibleMoves (TTNode 0 0 (TTPosition aPos 1 NotFinal)) `shouldBe` [5, 7] 
-            getPossibleMoves (TTNode 0 0 (TTPosition aPos (-1) NotFinal)) `shouldBe` [-5, -7]
-            getPossibleMoves (TTNode 0 0 (TTPosition aPos2 1 NotFinal)) `shouldBe` [1]
+            getPossibleMoves (TTNode 0 0 (TTPosition aPos 1 NotFinal)) `shouldBe` [6, 8] 
+            getPossibleMoves (TTNode 0 0 (TTPosition aPos (-1) NotFinal)) `shouldBe` [-6, -8]
+            getPossibleMoves (TTNode 0 0 (TTPosition aPos2 1 NotFinal)) `shouldBe` [2]
             getPossibleMoves (TTNode 0 0 (TTPosition aPos3 (-1) NotFinal)) `shouldBe` []
     describe "format" $ do
         it "formats a position as a string for display" $ do

@@ -51,7 +51,8 @@ main = hspec $ do
             pruneChildrenExcept aMiniTree 2 `shouldBe` prunedTree 
     describe "processMove" $ do
         it "Prunes the tree of all the children except the one matching the supplied move" $ do
-            processMove aTree 2 `shouldBe` prunedToChild
+            processMove expandedTree 2 `shouldBe` prunedExpandedTree
+            processMove rootOnly 2 `shouldBe` root2
     describe "validPathCheck" $ do
         it "checks to see if the path of moves retured by best is valid and the node at the bottom contains the correct value" $ do
             validPathCheck aTree 1 `shouldBe` True
@@ -138,6 +139,7 @@ calcNewNode tp mv = fromJust $ Map.lookup mv mvToNode
 
 mvToNode :: Map Int PosTreeItem
 mvToNode  = Map.fromList [
+    (2, PosTreeItem {ptMove=2, ptValue = 2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}}),
     (4, PosTreeItem {ptMove=4, ptValue = 4, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}}),
     (5, PosTreeItem {ptMove=5, ptValue = 5, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}}),
     (6, PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
@@ -145,6 +147,9 @@ mvToNode  = Map.fromList [
     (8, PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
 
 -----------------------------------------------
+rootOnly = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []
+
+root2 = Node PosTreeItem {ptMove=2, ptValue=2, ptColor=(-1), ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
 
 aMiniTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 1, value = 1} [],
@@ -176,7 +181,12 @@ expandedTree =
             Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
         Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [ 
             Node PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}} []]]
-    
+ 
+prunedExpandedTree = 
+    Node PosTreeItem {ptMove=2, ptValue=2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
+        Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []]
+ 
 finalTestTree = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
     Node PosTreeItem {ptMove=1, ptValue=1, ptColor=1, ptFinal=BWins, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
     Node PosTreeItem {ptMove=2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],

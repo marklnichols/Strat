@@ -55,19 +55,26 @@ calcNewNode node mv =
     let val
             | mv >=0    = 1
             | otherwise = -1
-        gridSet = set (grid . ix (abs mv)) val (position node)
+        gridSet = set (grid . ix (mvToGridIx mv)) val (position node)
         oldColor = view clr gridSet
         colorFlipped = set clr (flipColor oldColor) gridSet
         (score, finalSt) = evalGrid $ _grid colorFlipped
         allSet = set fin finalSt colorFlipped
     in  TTNode mv score allSet
+
+
+----------------------------------------------------------
+-- convert from move value to grid index
+----------------------------------------------------------
+mvToGridIx :: Int -> Int
+mvToGridIx mv = (abs mv) -1     --moves are (+/-) 1-9 vs indexes 0-8 
     
 ---------------------------------------------------------
 -- get list of possible moves from a given position
 ---------------------------------------------------------
 -- TODO extend the use of lens to navigate node -> position ->
 getPossibleMoves :: TTNode -> [Int]
-getPossibleMoves n =  foldr f [] (zip ((position n) ^. grid) [0..9]) where
+getPossibleMoves n =  foldr f [] (zip ((position n) ^. grid) [1..9]) where
     f (x, idx) newList
         | x == 0        = (idx) * (_clr (position n)) : newList
         | otherwise     = newList

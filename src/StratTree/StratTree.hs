@@ -20,8 +20,13 @@ best tree depth color =
     let (path, move) = findBest tree depth color
     in (tail path, move)
   
-processMove :: TreeNode n => Tree n -> Int -> Tree n
-processMove tree n = pruneToChild tree n  
+--process a chosen move - prune the tree down so the selected move is the new head 
+-- if there are no child moves at all, create a tree with just the single position corresponding to the move  
+--processMove :: tree -> move -> tree
+processMove :: PositionNode n => Tree n -> Int -> Tree n
+processMove tree move = case subForest tree of 
+    [] -> Node (newNode (rootLabel tree) move) []
+    xs -> pruneToChild tree move  
 
 --expandTree :: tree -> depth -> tree
 expandTree :: PositionNode n => Tree n -> Int -> Tree n

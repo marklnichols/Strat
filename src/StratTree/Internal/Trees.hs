@@ -49,13 +49,26 @@ childByMove move tree  =
     find ((\x -> move == (getMove $ label x))) (getChildren tree) 
 
 --pruneToChild -- prune the tree down to the subtree whose root matches the given child
---pruneToChild :: :: starting tree -> move to match -> new pruned sub tree                             
+--pruneToChild :: starting tree -> move to match -> new pruned sub tree                             
 pruneToChild :: TreeNode t => Tree t -> Int -> Tree t
 pruneToChild tree move = case find (\x -> move == (getMove $ rootLabel x))(subForest tree) of 
                             Just t  -> t
-                            Nothing -> tree
-                                         
---  modifyTree :: (Tree a -> Tree a) -> TreePos Full a -> TreePos Full a 
+                            Nothing -> tree                                 
+
+{--
+--add a child to a tree for a given move
+--addChild :: starting tree -> move to add -> new tree
+addChild :: PositionNode n => Tree n -> Int -> Tree n
+addChild tree move = let n = rootLabel tree
+                         newnode = newNode n move
+                     in  toTree $ modifyTree (addChild' newnode) (fromTree tree)                    
+
+                     
+--(curried) function to be called by rosezipper's modifyTree -- adds a child to the (childless) tree
+addChild' :: PositionNode n => n -> Tree n -> Tree n
+addChild' newnode tree = Node (rootLabel tree) [Node newnode []]
+--}        
+                                                               
 --delParent :: parentTree -> childTree -> childTree
 delParent :: TreeNode t => Tree t -> Tree t ->Tree t
 delParent parent child = toTree $ modifyTree (\_ -> child) $ fromTree parent
