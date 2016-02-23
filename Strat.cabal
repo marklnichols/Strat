@@ -27,6 +27,7 @@ library
                      , containers ==0.5.*
                      , rosezipper ==0.2.*
                      , lens ==4.13.*
+                     , tuple >= 0.3
                      , hspec >= 2.0
   default-language:    Haskell2010
 

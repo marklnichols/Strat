@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2) where
+module StratTree.StratTreeTest (main, aTree, aTree2, validPathCheck) where
 
 import StratTree.StratTree
 import StratTree.Internal.Trees
@@ -76,7 +76,7 @@ descendPathTest xs tree = case descendPath xs (fromTree tree) of
 
 --check that the path of moves retured by best is valid & the node at the bottom contains the correct --value                                        
 validPathCheck tree color =
-    let (path, bestValue) = best tree (-1) color
+    let (path, _, bestValue) = best tree (-1) color
         mPathBottom = descendPath path (fromTree tree) 
     in case mPathBottom of 
         Nothing -> False

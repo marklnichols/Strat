@@ -8,6 +8,7 @@ import StratTree.StratTree
 import Data.Tree
 import Data.Tree.Zipper
 import Control.Monad
+import Data.Tuple.Select
 
 main :: IO ()
 main = do
@@ -47,11 +48,11 @@ loop node turn p1 p2 depth = do
                                 putStrLn "Calculating computer move..."
                                 let newTree = expandTree node depth
                                 let moves = best newTree depth (turnToColor turn)
-                                let move = head $ fst moves
+                                let move = head $ sel1 moves
                                 let processed = processMove newTree move
                                 putStrLn ("Move is ready: " ++ show move)
-                                putStrLn ("Move value is: " ++ show (snd moves))
-                                putStrLn ("Full move list is: " ++ show (fst moves))
+                                putStrLn ("Move value is: " ++ show (sel2 moves))
+                                putStrLn ("Full move list is: " ++ show (sel1 moves))
                                 putStrLn "Press return to continue..."
                                 getLine
                                 return processed
