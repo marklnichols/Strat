@@ -46,6 +46,64 @@ expandTree tree maxDepth = visitTree tree maxDepth visitor
 --resolveRandom :: [path of moves incl. a default choice] -> [random equivalent choices] -> [new path of moves]
 resolveRandom :: [Int] -> [Int] -> [Int]    
 resolveRandom moves randChoices = moves     --nop   
+{--
+-- Random monad
+Rand g a
+Rand g Int
+
+die :: (RandomGen g) => Rand g Int
+die = getRandomR (1,6)      --from class MonadRandom
+
+dice :: (RandomGen g) => Int -> Rand g [Int]
+dice n = sequence (replicate n die)
+
+class (Monad m) => MonadRandom m where
+    -- | Return a randomly-selected value of type @a@.  See
+    -- 'System.Random.random' for details.
+    getRandom :: (Random a) => m a
+    -- | Return an infinite stream of random values of type @a@.  See
+    -- 'System.Random.randoms' for details.
+    getRandoms :: (Random a) => m [a]
+    -- | Return a randomly-selected value of type @a@ in the range
+    -- /[lo,hi]/.  See 'System.Random.randomR' for details.
+    getRandomR :: (Random a) => (a,a) -> m a
+
+--instances of MonadRandom include Control.Monad.Random.Rand
+
+    
+    
+    
+mkStdGen :: Int -> StdGen
+random (mkStdGen 100) :: (Int, StdGen)  --LYAHFGG
+
+random :: (RandomGen g, Random a) = > g -> (a, g)
+
+randomR :: RandomGen g => (a, a) -> g -> (a, g)     --(a, a) === (lo, hi)    
+
+runRand :: Rand g a -> g -> (a, g) 
+
+main = do
+  values <- evalRandIO (dice 2)
+  putStrLn (show values)
+  
+----------------------------------------
+so -- create generator from main / commandline
+either pass in n to mkStGen n (for repeatability)
+or if not passed in, use:
+    x <- getStdGen :: IO StdGen
+
+--then create the monad rand = (Rand g Int) from the generator g and pass that around
+  
+--!! the resolveRand function doesnt need the generator, since it returns the monad which can later
+yield a value / new gen by passing in a gen.  
+  
+
+--generate the rand by:
+
+
+and then extract the random value with runRand rand   
+  
+--}   
    
    
 --findBest :: tree -> depth -> color -> ([best mv path], [equiv random choices], best score)
