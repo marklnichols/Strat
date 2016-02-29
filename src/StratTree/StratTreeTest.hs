@@ -12,6 +12,7 @@ import Data.Maybe
 import Data.Map
 import Test.Hspec
 import qualified Data.Map as Map
+import Data.Tuple.Select
 
 ------------------------------------------------------------------------------------------------
 -- hspec tests
@@ -19,15 +20,15 @@ import qualified Data.Map as Map
 main = hspec $ do
     describe "best'" $ do
         it "calculates the best' moves" $ do
-            best' aTree 1 1 `shouldBe` [2]
-            best' aTree 1 (-1) `shouldBe` [1]
-            best' aTree 2 1 `shouldBe` [1, 4]
-            best' aTree 2 (-1) `shouldBe` [1, 3]
-            best' aTree 3 1 `shouldBe` [1, 3, 8]
-            best' aTree 3 (-1) `shouldBe` [2, 5, 12]
-            best' aTree2 2 (-1) `shouldBe` [3, 10]
-            best' aTree2 3 1 `shouldBe` [3, 10, 33]
-            best' aTree2 3 (-1) `shouldBe` [1, 4, 15]
+            sel1 (best aTree 1 1) `shouldBe` [2]
+            sel1 (best aTree 1 (-1)) `shouldBe` [1]
+            sel1 (best aTree 2 1) `shouldBe` [1, 4]
+            sel1 (best aTree 2 (-1)) `shouldBe` [1, 3]
+            sel1 (best aTree 3 1) `shouldBe` [1, 3, 8]
+            sel1 (best aTree 3 (-1)) `shouldBe` [2, 5, 12]
+            sel1 (best aTree2 2 (-1)) `shouldBe` [3, 10]
+            sel1 (best aTree2 3 1) `shouldBe` [3, 10, 33]
+            sel1 (best aTree2 3 (-1)) `shouldBe` [1, 4, 15]
     describe "getChildren" $ do
             it "gets a list of child nodes" $ do
                 fmap (\x -> getMove $ label x)(getChildren $ fromTree aTree) `shouldBe` [1,2]

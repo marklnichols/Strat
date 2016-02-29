@@ -3,7 +3,7 @@
 module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, checkWins, format, TTPosition (..), TTNode (..), getStartNode) where
 
 import Data.Tree
-import StratTree.TreeNode 
+import StratTree.TreeNode hiding (Result, MoveScore)
 import Data.List.Lens
 import Control.Lens
 import Data.List
