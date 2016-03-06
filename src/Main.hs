@@ -47,18 +47,22 @@ loop node turn p1 p2 depth = do
                             then do
                                 putStrLn "Calculating computer move..."
                                 let newTree = expandTree node depth
-                                --let moves = best newTree depth (turnToColor turn)
-                                let result = best newTree depth (turnToColor turn)
-                                let move = head $ _moveChoices result
+                                let resultM = best newTree depth (turnToColor turn)
                                 
-                                let processed = processMove newTree move
-                                putStrLn ("Move is ready: " ++ show move)
-                                
-                                putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
-                                putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
-                                putStrLn "Press return to continue..."
-                                getLine
-                                return processed
+                                case resultM of 
+                                    Nothing     -> do
+                                        putStrLn "Invalid result returned from best"
+                                        exitFailure
+                                    Just result -> do
+                                        let move = head $ _moveChoices result
+                                        let processed = processMove newTree move
+                                        putStrLn ("Move is ready: " ++ show move)
+                                        
+                                        putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
+                                        putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
+                                        putStrLn "Press return to continue..."
+                                        getLine
+                                        return processed
                             else do
                                 putStrLn ("Enter player " ++ show turn ++ "'s move:")
                                 line <- getLine

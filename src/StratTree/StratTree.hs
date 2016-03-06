@@ -7,20 +7,13 @@ import Data.Tree
 import Data.Tree.Zipper
 import Data.Maybe
 import Data.Tuple.Select
+import Safe
+import Control.Monad
 
 -------------------------------------------------------------
 -- Exported functions
 -------------------------------------------------------------
 {--
---best' :: tree -> depth -> color -> (best move)
-best' :: TreeNode t => Tree t -> Int -> Int -> Int 
-best' tree depth color = head $ sel1 $ best tree depth color
---}
-
-
---data MoveScore = MoveScore {move :: Int, score :: Int}
---data Result = Result { moveChoices :: [Int], followingMoves :: [Int], moveScores ::[MoveScore] }
-
 --TODO get rid of these head and tails calls--have this return a Maybe Result -- just placeholders for the moment...
 --best :: tree -> depth -> color -> result
 best :: TreeNode t => Tree t -> Int -> Int -> Result
@@ -32,10 +25,42 @@ best tree depth color =
          --TODO: implement randchoices with different scores once scoreTolerance is added -- for now they are the same
         scores = fmap (\x -> MoveScore {_move = x, _score = bestScore}) randChoices
     in Result {_moveChoices = randChoices, _followingMoves = tail path', _moveScores = scores} 
+--}
+--best :: tree -> depth -> color -> result
+best :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
+best tree depth color = 
+    let (path, rChoices, bestScore) = findBest tree depth color
+        pathM = tailMay path   -- :: Maybe [Int] -- without the tree's starting "move"
+        headM = pathM >>= headMay     -- :: Maybe Int
+        followingM = pathM >>= tailMay
+        randChoiceM = (liftM2 (:)) headM (Just rChoices) -- :: Maybe [Int] 
+       
+        --TODO: implement randchoices with different scores once scoreTolerance is added -- for now they are the same
+        scoresM = moveScoresMay randChoiceM bestScore    
+    in resultMay randChoiceM followingM scoresM    
+  
+  
+--TODO: replace this with calling liftM2 on the dataconstructor (and pass in Just (best score))  
+--moveScoresMay :: Maybe [moves] -> best score -> Maybe [move score]
+moveScoresMay :: Maybe [Int] -> Int -> Maybe [MoveScore] 
+moveScoresMay (Just mvs) bestScore = Just $ fmap (\x -> MoveScore {_move = x, _score = bestScore}) mvs
+moveScoresMay Nothing bestScore = Nothing
 
-    
+--TODO try replacing this with liftM3    
+--resultMay :: Maybe[move choices] -> Maybe [following moves] -> Maybe [move scores]           
+resultMay :: Maybe [Int] -> Maybe [Int] -> Maybe [MoveScore] -> Maybe Result 
+resultMay (Just choices) (Just following) (Just scores) = 
+    Just $ Result {_moveChoices=choices, _followingMoves=following, _moveScores=scores}
+                                                             
+
+resultMay x y z = Nothing
+    -- resultMay = --moveChoicesMyb followingMovesMyb moveScoresMyb
+    -- | any (\x -> isNothing x) [moveChoicesMyb, followingMovesMyb, moveScoresMyb] -> Nothing
+    -- | otherwise -> Just $ Result {_moveChoices = Just randChoices, _followingMoves = tail path', _moveScores = scores}
+
+ 
 --process a chosen move - prune the tree down so the selected move is the new head 
--- if there are no child moves at all, create a tree with just the single position corresponding to the move  
+--if there are no child moves at all, create a tree with just the single position corresponding to the move  
 --processMove :: tree -> move -> tree
 processMove :: PositionNode n => Tree n -> Int -> Tree n
 processMove tree move = case subForest tree of 
