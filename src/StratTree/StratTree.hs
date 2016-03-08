@@ -18,33 +18,14 @@ best tree depth color =
     let (path, rChoices, bestScore) = findBest tree depth color
         pathM = tailMay path   -- :: Maybe [Int] -- without the tree's starting "move"
         headM = pathM >>= headMay     -- :: Maybe Int
-        followingM = pathM >>= tailMay
+        followingM = pathM >>= tailMay -- :: Maybe [Int]
         randChoiceM = (liftM2 (:)) headM (Just rChoices) -- :: Maybe [Int] 
        
         --TODO: implement randchoices with different scores once scoreTolerance is added -- for now they are the same
-        --scoresM = moveScoresMay randChoiceM bestScore
-        scoresM = liftM2 MoveScore randChoicM (Just bestScore)    
+        f bestScore xs = fmap (\x -> MoveScore x bestScore) xs
+        scoresM = liftM (f bestScore) randChoiceM
     in liftM3 Result randChoiceM followingM scoresM 
- 
-{-- 
---TODO: replace this with calling liftM2 on the dataconstructor (and pass in Just (best score))  
---moveScoresMay :: Maybe [moves] -> best score -> Maybe [move score]
-moveScoresMay :: Maybe [Int] -> Int -> Maybe [MoveScore] 
-moveScoresMay (Just mvs) bestScore = Just $ fmap (\x -> MoveScore {_move = x, _score = bestScore}) mvs
-moveScoresMay Nothing bestScore = Nothing
-
-{--
---TODO try replacing this with liftM3    
---resultMay :: Maybe[move choices] -> Maybe [following moves] -> Maybe [move scores]           
-resultMay :: Maybe [Int] -> Maybe [Int] -> Maybe [MoveScore] -> Maybe Result 
-resultMay (Just choices) (Just following) (Just scores) = 
-    Just $ Result {_moveChoices=choices, _followingMoves=following, _moveScores=scores}
-resultMay x y z = Nothing
-    -- resultMay = --moveChoicesMyb followingMovesMyb moveScoresMyb
-    -- | any (\x -> isNothing x) [moveChoicesMyb, followingMovesMyb, moveScoresMyb] -> Nothing
-    -- | otherwise -> Just $ Result {_moveChoices = Just randChoices, _followingMoves = tail path', _moveScores = scores}
---}
- 
+  
 --process a chosen move - prune the tree down so the selected move is the new head 
 --if there are no child moves at all, create a tree with just the single position corresponding to the move  
 --processMove :: tree -> move -> tree
@@ -61,7 +42,6 @@ expandTree tree maxDepth = visitTree tree maxDepth visitor
 ---------------------------------------------------------------------------------------------------
 -- non-exported functions
 ---------------------------------------------------------------------------------------------------    
-  
    
 --findBest :: tree -> depth -> color -> ([best mv path], [equiv random choices], best score)
 findBest :: TreeNode t => Tree t -> Int -> Int -> ([Int], [Int], Int)
