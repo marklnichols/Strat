@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2, validPathCheck) where
+module StratTree.StratTreeTest (main, aTree, aTree2, modTree, validPathCheck) where
 
 import StratTree.StratTree
 import StratTree.Internal.Trees
@@ -55,6 +55,10 @@ main = hspec $ do
             (isJust $ best aTree2 3 (-1)) `shouldBe` True
             head (_moveChoices (fromJust (best aTree2 3 (-1)))) `shouldBe` 1
             _followingMoves (fromJust (best aTree2 3 (-1))) `shouldBe` [4, 15]
+            
+        it "returns a list moves with equivalent scores" $ do
+            (_moveChoices $ fromJust $ best modTree 2 1) `shouldBe` [1, 3, 2]
+            (_moveChoices $ fromJust $ best aTree 3 1) `shouldBe` [1]
     describe "getChildren" $ do
             it "gets a list of child nodes" $ do
                 fmap (\x -> getMove $ label x)(getChildren $ fromTree aTree) `shouldBe` [1,2]
@@ -93,7 +97,7 @@ main = hspec $ do
         it "adds a new level of tree nodes at the specified depth" $ do
             expandTree aMiniPosTree 2 `shouldBe` expandedTree     
             expandTree finalTestTree 2 `shouldBe` expandedFinalTree
-
+            
 -----------------------------------------------------------------------
 -- hspec support functions
 ----------------------------------------------------------------------- 

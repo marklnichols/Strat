@@ -21,10 +21,8 @@ main = do
             hPutStrLn stderr $ "usage: " ++ name ++ " <isP1Computer :: Bool> <isP2Computer :: Bool> <depth :: Int>"
   
 -- :set prompt "ghci>"
-
 -- StratTree.StratTreeTest.main
 -- TicTac.TicTacTest.main
-
 -- :set args c h 5
 -- :set args h c 6
 -- Main.main
@@ -44,33 +42,31 @@ loop node turn p1 p2 depth = do
             putStrLn "Draw."
             return Nothing
         _ -> do
-                nextNode <- if isCompTurn turn p1 p2
-                            then do
-                                putStrLn "Calculating computer move..."
-                                let newTree = expandTree node depth
-                                let resultM = best newTree depth (turnToColor turn)
-                                
-                                case resultM of 
-                                    Nothing     -> do
-                                        putStrLn "Invalid result returned from best"
-                                        exitFailure
-                                    Just result -> do
-                                        let move = head $ _moveChoices result
-                                        let processed = processMove newTree move
-                                        putStrLn ("Move is ready: " ++ show move)
-                                        
-                                        putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
-                                        putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
-                                        putStrLn "Press return to continue..."
-                                        getLine
-                                        return processed
-                            else do
-                                putStrLn ("Enter player " ++ show turn ++ "'s move:")
-                                line <- getLine
-                                let n = posToMove (read line) turn 
-                                let processed = processMove node n
-                                return processed    
-                return (Just nextNode)
+            nextNode <- if isCompTurn turn p1 p2 
+                then do
+                    putStrLn "Calculating computer move..."
+                    let newTree = expandTree node depth
+                    let resultM = best newTree depth (turnToColor turn)
+                    case resultM of 
+                        Nothing -> do
+                            putStrLn "Invalid result returned from best"
+                            exitFailure
+                        Just result -> do
+                            let move = head $ _moveChoices result
+                            let processed = processMove newTree move
+                            putStrLn ("Move is ready: " ++ show move)
+                            putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
+                            putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
+                            putStrLn "Press return to continue..."
+                            getLine
+                            return processed
+                else do
+                    putStrLn ("Enter player " ++ show turn ++ "'s move:")
+                    line <- getLine
+                    let n = posToMove (read line) turn 
+                    let processed = processMove node n
+                    return processed    
+            return (Just nextNode)
     --TBD no need to pass p1 p2 depth around...
     case theNext of 
         Nothing -> return ()

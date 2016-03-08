@@ -17,9 +17,10 @@ class TreeNode n => PositionNode n where
     
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 
-data MoveScore = MoveScore {_move :: Int, _score :: Int}
+data MoveScore = MoveScore {_move :: Int, _score :: Int} deriving (Show, Eq)
 
-data Result = Result { _moveChoices :: [Int], _followingMoves :: [Int], _moveScores ::[MoveScore] }
+data Result = Result {_moveChoices :: [Int], _followingMoves :: [Int], _moveScores ::[MoveScore]} 
+                deriving(Show, Eq)
 
 -------------------------------------------------------------------------------
 flipColor :: Int -> Int
