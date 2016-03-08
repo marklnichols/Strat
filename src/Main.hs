@@ -25,7 +25,8 @@ main = do
 -- StratTree.StratTreeTest.main
 -- TicTac.TicTacTest.main
 
--- :set args c h 4
+-- :set args c h 5
+-- :set args h c 6
 -- Main.main
    
 --loop :: Starting node -> currentTurn -> isP1Computer -> isP2Computer -> depth -> IO ()
