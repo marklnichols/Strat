@@ -9,6 +9,7 @@ import Data.Tree
 import Data.Tree.Zipper
 import Control.Monad
 import Data.Tuple.Select
+import StratIO.StratIO
 
 main :: IO ()
 main = do
@@ -23,7 +24,7 @@ main = do
 -- :set prompt "ghci>"
 -- StratTree.StratTreeTest.main
 -- TicTac.TicTacTest.main
--- :set args c h 5
+-- :set args c h 6
 -- :set args h c 6
 -- Main.main
    
@@ -52,17 +53,25 @@ loop node turn p1 p2 depth = do
                             putStrLn "Invalid result returned from best"
                             exitFailure
                         Just result -> do
-                            let move = head $ _moveChoices result
-                            let processed = processMove newTree move
-                            putStrLn ("Move is ready: " ++ show move)
-                            putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
-                            putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
-                            putStrLn "Press return to continue..."
-                            getLine
-                            return processed
+                            --let move = head $ _moveChoices result
+                            moveM <- resolveRandom $ _moveChoices result
+                            case moveM of
+                                Nothing -> do
+                                    putStrLn "Invalid result from resolveRandom"
+                                    exitFailure
+                                Just move -> do    
+                                    let processed = processMove newTree move
+                                    putStrLn ("Move is ready: " ++ show move)
+                                    putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
+                                    putStrLn ("List of equivalent best moves: " ++ show (_moveChoices result))
+                                    putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
+                                    putStrLn "Press return to continue..."
+                                    getLine
+                                    return processed
                 else do
                     putStrLn ("Enter player " ++ show turn ++ "'s move:")
                     line <- getLine
+                    putStrLn("")
                     let n = posToMove (read line) turn 
                     let processed = processMove node n
                     return processed    
