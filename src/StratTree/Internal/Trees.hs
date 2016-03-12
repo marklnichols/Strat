@@ -53,21 +53,7 @@ childByMove move tree  =
 pruneToChild :: TreeNode t => Tree t -> Int -> Tree t
 pruneToChild tree move = case find (\x -> move == (getMove $ rootLabel x))(subForest tree) of 
                             Just t  -> t
-                            Nothing -> tree                                 
-
-{--
---add a child to a tree for a given move
---addChild :: starting tree -> move to add -> new tree
-addChild :: PositionNode n => Tree n -> Int -> Tree n
-addChild tree move = let n = rootLabel tree
-                         newnode = newNode n move
-                     in  toTree $ modifyTree (addChild' newnode) (fromTree tree)                    
-
-                     
---(curried) function to be called by rosezipper's modifyTree -- adds a child to the (childless) tree
-addChild' :: PositionNode n => n -> Tree n -> Tree n
-addChild' newnode tree = Node (rootLabel tree) [Node newnode []]
---}        
+                            Nothing -> tree                                                             
                                                                
 --delParent :: parentTree -> childTree -> childTree
 delParent :: TreeNode t => Tree t -> Tree t ->Tree t

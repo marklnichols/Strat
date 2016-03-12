@@ -8,6 +8,8 @@ import StratTree.StratTree
 import Data.Tree
 import Data.Tree.Zipper
 import Control.Monad
+import Data.Tuple.Select
+import StratIO.StratIO
 
 main :: IO ()
 main = do
@@ -20,11 +22,10 @@ main = do
             hPutStrLn stderr $ "usage: " ++ name ++ " <isP1Computer :: Bool> <isP2Computer :: Bool> <depth :: Int>"
   
 -- :set prompt "ghci>"
-
 -- StratTree.StratTreeTest.main
 -- TicTac.TicTacTest.main
-
--- :set args c h 4
+-- :set args c h 6
+-- :set args h c 6
 -- Main.main
    
 --loop :: Starting node -> currentTurn -> isP1Computer -> isP2Computer -> depth -> IO ()
@@ -42,26 +43,39 @@ loop node turn p1 p2 depth = do
             putStrLn "Draw."
             return Nothing
         _ -> do
-                nextNode <- if isCompTurn turn p1 p2
-                            then do
-                                putStrLn "Calculating computer move..."
-                                let newTree = expandTree node depth
-                                let moves = best newTree depth (turnToColor turn)
-                                let move = head $ fst moves
-                                let processed = processMove newTree move
-                                putStrLn ("Move is ready: " ++ show move)
-                                putStrLn ("Move value is: " ++ show (snd moves))
-                                putStrLn ("Full move list is: " ++ show (fst moves))
-                                putStrLn "Press return to continue..."
-                                getLine
-                                return processed
-                            else do
-                                putStrLn ("Enter player " ++ show turn ++ "'s move:")
-                                line <- getLine
-                                let n = posToMove (read line) turn 
-                                let processed = processMove node n
-                                return processed    
-                return (Just nextNode)
+            nextNode <- if isCompTurn turn p1 p2 
+                then do
+                    putStrLn "Calculating computer move..."
+                    let newTree = expandTree node depth
+                    let resultM = best newTree depth (turnToColor turn)
+                    case resultM of 
+                        Nothing -> do
+                            putStrLn "Invalid result returned from best"
+                            exitFailure
+                        Just result -> do
+                            --let move = head $ _moveChoices result
+                            moveM <- resolveRandom $ _moveChoices result
+                            case moveM of
+                                Nothing -> do
+                                    putStrLn "Invalid result from resolveRandom"
+                                    exitFailure
+                                Just move -> do    
+                                    let processed = processMove newTree move
+                                    putStrLn ("Move is ready: " ++ show move)
+                                    putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
+                                    putStrLn ("List of equivalent best moves: " ++ show (_moveChoices result))
+                                    putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
+                                    putStrLn "Press return to continue..."
+                                    getLine
+                                    return processed
+                else do
+                    putStrLn ("Enter player " ++ show turn ++ "'s move:")
+                    line <- getLine
+                    putStrLn("")
+                    let n = posToMove (read line) turn 
+                    let processed = processMove node n
+                    return processed    
+            return (Just nextNode)
     --TBD no need to pass p1 p2 depth around...
     case theNext of 
         Nothing -> return ()
@@ -90,81 +104,3 @@ swapTurns t = 3-t   --alternate between 1 and 2
 turnToColor :: Int -> Int
 turnToColor 2 = -1
 turnToColor _ = 1
-
-{--
---getNextMove isHumanPlayer -> depth -> color -> Tree
-getNextMove :: Bool -> Int -> Int -> Tree
-getNextMove depth color True = humanMove color
-getNextMove depth color False = computerMove depth color
-
---computerMove :: Tree -> depth -> color -> Tree
-computerMove :: TreeNode n => Tree n -> Int -> Int -> Tree n
-computerMove tree =
-    let moves = best' tree depth color
-        putStrLn "Computer move ready, hit return"
-    etc...
-
---playerMove :: Tree -> color -> [Int]
-playerMove :: TreeNode n => Tree n -> Int -> Tree n
-       putStrLn "Input player move..."
-       l <- getLine
-       etc...
---}
-
-
-{--
-run :: (PositionNode n, Game n g) => g -> IO()
-run g = do
-    loop (startNode g) where
-        loop :: PositionNode p => p -> IO()
-        loop n = do
-            putStrLn $ renderPosition g Node
-            l <- getLine
-            putStrLn $ "You typed: " ++ map toUpper l
-            loop n
-            --expTree = expandTree (Node n) depth, etc.
-
-
-
-run2 posNode startNode depth = do
-    tree = expandTree (Node startNode)
-
-    loop do
-        display position
-        nextMove
-        expandTree
-        loop
-
-    nextMove
-        get move input
-        or calc via best tree
---}
-
-
-
-{--
-from stack overflow:
-main :: IO ()
-main = do
-  args <- getArgs
-  case args of
-    [aString, aInteger] | [(n,_)] <- reads aInteger  -> doStuffWith aString n
-    _ -> do
-            name <- getProgName
-            hPutStrLn stderr $ "usage: " ++ name ++ " <string> <integer>"
-            exitFailure
---}
-
-
-{--
-re: Pattern guards in Haskell 2010:
-From the GHC user's guide,
-
-lookup :: FiniteMap -> Int -> Maybe Int
-
-addLookup env var1 var2
-   | Just val1 <- lookup env var1
-   , Just val2 <- lookup env var2
-   = val1 + val2
-{-...other equations...-}
---}

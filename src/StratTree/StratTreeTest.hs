@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2) where
+module StratTree.StratTreeTest (main, aTree, aTree2, modTree, validPathCheck) where
 
 import StratTree.StratTree
 import StratTree.Internal.Trees
@@ -12,22 +12,53 @@ import Data.Maybe
 import Data.Map
 import Test.Hspec
 import qualified Data.Map as Map
+import Data.Tuple.Select
 
 ------------------------------------------------------------------------------------------------
 -- hspec tests
 -------------------------------------------------------------------------------------------------
 main = hspec $ do
-    describe "best'" $ do
-        it "calculates the best' moves" $ do
-            best' aTree 1 1 `shouldBe` [2]
-            best' aTree 1 (-1) `shouldBe` [1]
-            best' aTree 2 1 `shouldBe` [1, 4]
-            best' aTree 2 (-1) `shouldBe` [1, 3]
-            best' aTree 3 1 `shouldBe` [1, 3, 8]
-            best' aTree 3 (-1) `shouldBe` [2, 5, 12]
-            best' aTree2 2 (-1) `shouldBe` [3, 10]
-            best' aTree2 3 1 `shouldBe` [3, 10, 33]
-            best' aTree2 3 (-1) `shouldBe` [1, 4, 15]
+    describe "best" $ do
+        it "calculates the best moves" $ do
+            (isJust $ best aTree 1 1) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree 1 1))) `shouldBe` 2
+            _followingMoves (fromJust (best aTree 1 1)) `shouldBe` []
+            
+            (isJust $ best aTree 1 (-1)) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree 1 (-1)))) `shouldBe` 1
+            _followingMoves (fromJust (best aTree 1 (-1))) `shouldBe` []
+            
+            (isJust $ best aTree 2 1) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree 2 1))) `shouldBe` 1
+            _followingMoves (fromJust (best aTree 2 1)) `shouldBe` [4]
+            
+            (isJust $ best aTree 2 (-1)) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree 2 (-1)))) `shouldBe` 1
+            _followingMoves (fromJust (best aTree 2 (-1))) `shouldBe` [3]
+            
+            (isJust $ best aTree 3 1) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree 3 1))) `shouldBe` 1
+            _followingMoves (fromJust (best aTree 3 1)) `shouldBe` [3, 8]
+            
+            (isJust $ best aTree 3 (-1)) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree 3 (-1)))) `shouldBe` 2
+            _followingMoves (fromJust (best aTree 3 (-1))) `shouldBe` [5, 12]
+            
+            (isJust $ best aTree2 2 (-1)) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree2 2 (-1)))) `shouldBe` 3
+            _followingMoves (fromJust (best aTree2 2 (-1))) `shouldBe` [10]
+            
+            (isJust $ best aTree2 3 1) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree2 3 1))) `shouldBe` 3
+            _followingMoves (fromJust (best aTree2 3 1)) `shouldBe` [10, 33]
+            
+            (isJust $ best aTree2 3 (-1)) `shouldBe` True
+            head (_moveChoices (fromJust (best aTree2 3 (-1)))) `shouldBe` 1
+            _followingMoves (fromJust (best aTree2 3 (-1))) `shouldBe` [4, 15]
+            
+        it "returns a list moves with equivalent scores" $ do
+            (_moveChoices $ fromJust $ best modTree 2 1) `shouldBe` [1, 3, 2]
+            (_moveChoices $ fromJust $ best aTree 3 1) `shouldBe` [1]
     describe "getChildren" $ do
             it "gets a list of child nodes" $ do
                 fmap (\x -> getMove $ label x)(getChildren $ fromTree aTree) `shouldBe` [1,2]
@@ -66,7 +97,7 @@ main = hspec $ do
         it "adds a new level of tree nodes at the specified depth" $ do
             expandTree aMiniPosTree 2 `shouldBe` expandedTree     
             expandTree finalTestTree 2 `shouldBe` expandedFinalTree
-
+            
 -----------------------------------------------------------------------
 -- hspec support functions
 ----------------------------------------------------------------------- 
@@ -75,14 +106,17 @@ descendPathTest xs tree = case descendPath xs (fromTree tree) of
                                         Just x  -> getValue $ label x
 
 --check that the path of moves retured by best is valid & the node at the bottom contains the correct --value                                        
+validPathCheck :: TreeNode t => Tree t -> Int -> Bool
 validPathCheck tree color =
-    let (path, bestValue) = best tree (-1) color
-        mPathBottom = descendPath path (fromTree tree) 
-    in case mPathBottom of 
-        Nothing -> False
-        Just tPos -> (getValue $ label tPos) * color == bestValue
+        case (best tree (-1) color) of 
+            Nothing -> False
+            Just r -> let path = (head (_moveChoices r)) : _followingMoves r
+                          bestValue = _score (head (_moveScores r))
+                          mPathBottom = descendPath path (fromTree tree)
+                      in case mPathBottom of 
+                          Nothing -> False
+                          Just tPos -> (getValue $ label tPos) * color == bestValue
       
-
 testVisitor :: TreePos Full PosTreeItem -> Int -> Int -> TreePos Full PosTreeItem
 testVisitor tPos depth max
     | depth == max  = modifyTree addBranch tPos
