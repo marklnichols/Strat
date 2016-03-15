@@ -59,6 +59,16 @@ main = hspec $ do
         it "returns a list moves with equivalent scores" $ do
             (_moveChoices $ fromJust $ best modTree 2 1) `shouldBe` [1, 3, 2]
             (_moveChoices $ fromJust $ best aTree 3 1) `shouldBe` [1]
+    describe "worstReply" $ do
+        it "calculates the worst reply given a selected move" $ do
+            (isJust $ worstReply aTree 3 1 1) `shouldBe` True
+            head (_moveChoices (fromJust (worstReply aTree 3 1 1))) `shouldBe` 4
+            _followingMoves (fromJust (worstReply aTree 3 1 1)) `shouldBe` [10]
+            
+            (isJust $ worstReply aTree 3 (-1) 2) `shouldBe` True
+            head (_moveChoices (fromJust (worstReply aTree 3 (-1) 2))) `shouldBe` 7
+            _followingMoves (fromJust (worstReply aTree 3 (-1) 2)) `shouldBe` [16]
+            
     describe "getChildren" $ do
             it "gets a list of child nodes" $ do
                 fmap (\x -> getMove $ label x)(getChildren $ fromTree aTree) `shouldBe` [1,2]
