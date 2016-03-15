@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, checkWins, format, TTPosition (..), TTNode (..), getStartNode) where
+module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, scorePos, format, TTPosition (..), TTNode (..), getStartNode) where
 
 import Data.Tree
 import StratTree.TreeNode hiding (Result, MoveScore)
@@ -85,13 +85,13 @@ getPossibleMoves n =  foldr f [] (zip ((position n) ^. grid) [1..9]) where
 eval :: TTNode -> Int
 eval n = fst $ evalGrid $ _grid (position n)
 
---evalGrid :: grid -> color -> (score, final state)
-evalGrid :: [Int] -> (Int, FinalState)
-evalGrid  grid   
+--evalGrid :: grid -> (score, final state)
+evalGrid :: [Int] ->  (Int, FinalState)
+evalGrid grid   
     | checkWins grid 1    = (100, WWins)
     | checkWins grid (-1) = (-100, BWins)
     | checkDraw grid      = (0, Draw)
-    | otherwise           = (0, NotFinal)      
+    | otherwise           = (scorePos grid, NotFinal)      
     
 ---------------------------------------------------------------------
 checkWins :: [Int] -> Int -> Bool
@@ -100,6 +100,14 @@ checkWins pos color = wins (sums $ applyMask pos masks) color
 checkDraw :: [Int] -> Bool
 checkDraw xs = not $ elem 0 xs
 
+scorePos :: [Int] -> Int
+scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
+    --(8, _, 1)   -> 20
+    --(8, _, -1)  -> -20
+    --(7, 1, -1)  -> 10
+    --(7, -1, 1)  -> -10
+    (_, _, _)   -> 0
+    
 wins :: [Int] -> Int -> Bool
 wins sums color = if elem (color * 3) sums then True else False
 
@@ -129,6 +137,14 @@ offsets = [0, 1..8] :: [Int]
 rhs = [0, 1, 2] :: [Int]
 zeron = [0] :: [Int]
 
+countEmpty :: [Int] -> Int
+countEmpty xs = length $ filter (\x -> x==0) xs
+
+valCenter :: [Int] -> Int
+valCenter xs = xs !! 4
+
+sumCorners :: [Int] -> Int
+sumCorners xs = (xs !! 0) + (xs !! 2) + (xs !! 6) + (xs !! 8)
 
 --------------------------------------------
 -- Notes / comments
