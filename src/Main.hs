@@ -53,6 +53,7 @@ loop node turn p1 p2 depth = do
                             putStrLn "Invalid result returned from best"
                             exitFailure
                         Just result -> do
+                            let badMovesM = worstReplies $ _moveChoices result
                             moveM <- resolveRandom $ _moveChoices result
                             case moveM of
                                 Nothing -> do

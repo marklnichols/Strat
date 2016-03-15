@@ -16,6 +16,8 @@ import Control.Monad
 best :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
 best tree depth color = best' tree depth color negate
 
+worstReplyTo :: TreeNode t => Tree t -> Int -> Int -> [Int] -> TBD
+
 worstReply :: TreeNode t => Tree t -> Int -> Int -> Int -> Maybe Result
 worstReply tree depth color move = worst (pruneToChild tree move) depth color
 
