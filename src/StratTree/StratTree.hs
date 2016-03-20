@@ -1,4 +1,4 @@
-module StratTree.StratTree ( best, worstReply, expandTree, processMove) where
+module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove) where
 
 import StratTree.Internal.Trees
 import StratTree.TreeNode
@@ -16,7 +16,35 @@ import Control.Monad
 best :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
 best tree depth color = best' tree depth color negate
 
-worstReplyTo :: TreeNode t => Tree t -> Int -> Int -> [Int] -> TBD
+--TODO: move to lens getters
+--TODO: bad move threshold, bad move search depth, etc. come from a reader
+checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]
+checkBlunders tree depth color equivMS =
+    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of 
+    --the worst opponent's reply to that move 
+    --TODO: incoming MoveScore should be a non-empty list, head ok here
+    let equivScore = _score $ head equivMS
+        convert ms = case (worstReply tree depth color (_move ms)) of -- :: MoveScore -> Maybe MoveScore
+                        Nothing -> Nothing
+                        --TODO: convert _moveScores to non-empty List, head ok here
+                        (Just result) -> Just (MoveScore (_move ms) (_score (head (_moveScores result)))) 
+        possibles = catMaybes $ fmap convert equivMS    -- :: [MoveScore] 
+        worst = worstMS possibles
+    in if (equivScore - _score worst) >= 10 --todo: make this blunderThreshold from reader
+           then  addEquiv worst possibles
+           else  equivMS
+    
+--TODO: param should be non-empty list    
+worstMS :: [MoveScore] -> MoveScore
+worstMS (x : []) = x
+worstMS (x : xs) = foldr f x xs
+    where f ms worst = if _score ms < _score worst then ms else worst 
+    
+addEquiv :: MoveScore -> [MoveScore] -> [MoveScore]
+addEquiv target possibles = 
+    let ys = foldr f [] possibles where 
+                f x xs = if (_score x - _score target) == 0 then x:xs else xs    --TODO: add threshold for eqiv. here  
+    in target : ys
 
 worstReply :: TreeNode t => Tree t -> Int -> Int -> Int -> Maybe Result
 worstReply tree depth color move = worst (pruneToChild tree move) depth color
@@ -40,6 +68,7 @@ expandTree tree maxDepth = visitTree tree maxDepth visitor
 worst :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
 worst tree depth color = best' tree depth color id
 
+--TODO: make the components of Result non-empty lists...
 best' :: TreeNode t => Tree t -> Int -> Int -> (Int -> Int) -> Maybe Result
 best' tree depth color colorFlip = 
     let (path, rChoices, bestScore) = findBest tree depth color colorFlip

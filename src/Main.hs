@@ -53,8 +53,11 @@ loop node turn p1 p2 depth = do
                             putStrLn "Invalid result returned from best"
                             exitFailure
                         Just result -> do
-                            let badMovesM = worstReplies $ _moveChoices result
+                            let finalChoices = checkBlunders newTree depth (turnToColor turn) (_moveScores result)
+                            putStrLn ("Choices before checkBlunders: " ++ show (_moveScores result))
+                            putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
                             moveM <- resolveRandom $ _moveChoices result
+                            --moveM <- resolveRandom $ _finalChoices result
                             case moveM of
                                 Nothing -> do
                                     putStrLn "Invalid result from resolveRandom"
