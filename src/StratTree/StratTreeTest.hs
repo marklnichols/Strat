@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2, modTree, validPathCheck) where
+module StratTree.StratTreeTest (main, aTree, aTree2, modTree, blunderTree, validPathCheck) where
 
 import StratTree.StratTree
 import StratTree.Internal.Trees
@@ -68,7 +68,12 @@ main = hspec $ do
             (isJust $ worstReply aTree 3 (-1) 2) `shouldBe` True
             head (_moveChoices (fromJust (worstReply aTree 3 (-1) 2))) `shouldBe` 7
             _followingMoves (fromJust (worstReply aTree 3 (-1) 2)) `shouldBe` [16]
-            
+    describe "checkBlunders" $ do
+        it "takes a list of equivalent moves, and returns a subset of equivalent move\
+           \representing the biggest mistake the oponent can make"  $ do
+            checkBlunders blunderTree 3 1 
+                [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}] 
+                    `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
     describe "getChildren" $ do
             it "gets a list of child nodes" $ do
                 fmap (\x -> getMove $ label x)(getChildren $ fromTree aTree) `shouldBe` [1,2]
@@ -264,8 +269,42 @@ aTree = Node TreeItem {move = 0, value = 0} [
         Node TreeItem {move = 7, value = 30} [
             Node TreeItem {move = 15, value= 80} [], 
             Node TreeItem {move = 16, value= -90} [], 
-            Node TreeItem {move = 17, value = 10} []]]] 
+            Node TreeItem {move = 17, value = 10} []]]]   
 
+--bestMove applied to blunderTree with depth 3 color 1 is tie of moves 1, 2, and 20 
+-- with scores of 10 for each
+-- _followingMoves (best blunderTree 3 1) === [1, 2, 20]
+--checking worstReply against those three moves should give...
+--for move 1, worst = 4, following [10] score = 50
+--    move 2, worst = 7, following [15] score = 80
+--    move 20, worst = 22, following [26] score = 80
+--so checkBlunder would take [1, 2, 20] and return [2, 20]
+blunderTree = Node TreeItem {move = 0, value = 0} [
+    Node TreeItem {move = 1, value = -80} [
+        Node TreeItem {move = 3, value = 20} [
+            Node TreeItem {move = 8, value = 10} []], 
+        Node TreeItem {move = 4, value = -40} [
+            Node TreeItem {move = 9, value = 5} [], 
+            Node TreeItem {move = 10, value = 50} []]], 
+    Node TreeItem {move = 2, value = 70} [
+        Node TreeItem {move = 5, value = 45} [
+            Node TreeItem {move = 11, value = 10} [], 
+            Node TreeItem {move = 12, value = -10} []], 
+        Node TreeItem {move = 6, value = -60} [
+            Node TreeItem {move = 13, value = -20} [], 
+            Node TreeItem {move = 14, value = 10} []], 
+        Node TreeItem {move = 7, value = 30} [
+            Node TreeItem {move = 15, value= 80} [], 
+            Node TreeItem {move = 16, value= -90} [], 
+            Node TreeItem {move = 17, value = 10} []]],   
+    Node TreeItem {move = 20, value = -80} [
+        Node TreeItem {move = 21, value = 20} [
+            Node TreeItem {move = 23, value = 10} [], 
+            Node TreeItem {move = 24, value = 7} []],
+        Node TreeItem {move = 22, value = -40} [
+            Node TreeItem {move = 25, value = 5} [], 
+            Node TreeItem {move = 26, value = 80} []]]]             
+            
 prunedToChild = Node TreeItem {move = 2, value = 70} [
         Node TreeItem {move = 5, value = 45} [
             Node TreeItem {move = 11, value = 0} [], 
