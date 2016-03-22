@@ -4,9 +4,9 @@ import StratTree.Internal.Trees
 import StratTree.TreeNode
 import StratTree.Internal.General
 import Data.Tree
-import Data.Tree.Zipper
+--import Data.Tree.Zipper
 import Data.Maybe
-import Data.Tuple.Select
+--import Data.Tuple.Select
 import Safe
 import Control.Monad
 
@@ -18,22 +18,6 @@ best tree depth color = best' tree depth color negate
 
 --TODO: move to lens getters
 --TODO: bad move threshold, bad move search depth, etc. come from a reader
-old_checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]
-old_checkBlunders tree depth color equivMS =
-    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of 
-    --the worst opponent's reply to that move 
-    --TODO: incoming MoveScore should be a non-empty list, head ok here
-    let equivScore = _score $ head equivMS
-        convert ms = case (worstReply tree depth color (_move ms)) of -- :: MoveScore -> Maybe MoveScore
-                        Nothing -> Nothing
-                        --TODO: convert _moveScores to non-empty List, head ok here
-                        (Just result) -> Just (MoveScore (_move ms) (_score (head (_moveScores result)))) 
-        possibles = catMaybes $ fmap convert equivMS    -- :: [MoveScore] 
-        worst = worstMS possibles color
-    in if (equivScore - _score worst) >= 10 --todo: make this blunderThreshold from reader
-           then  addEquiv worst possibles
-           else  equivMS
-           
 checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]
 checkBlunders tree depth color equivMS =
     --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of 
@@ -49,7 +33,7 @@ checkBlunders tree depth color equivMS =
 --"worse" here is better wrt color used, since color is from tree level above 
 isWorse :: Int -> Int -> Int -> Int -> Bool
 isWorse scoreToCheck compareTo margin color
-    | (abs (scoreToCheck - compareTo)) < margin    = False
+    | abs (scoreToCheck - compareTo) < margin    = False
     | (color * scoreToCheck) > (color * compareTo) = True
     | otherwise                                    = False 
     
@@ -57,21 +41,22 @@ isWorse scoreToCheck compareTo margin color
 possibleBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]  
 possibleBlunders tree depth color equivMS = 
     catMaybes $ fmap convert equivMS where 
-        convert ms = case (worstReply tree depth color (_move ms)) of -- :: MoveScore -> Maybe MoveScore
+        convert ms = case worstReply tree depth color (_move ms) of -- :: MoveScore -> Maybe MoveScore
                            Nothing -> Nothing
                            --TODO: convert _moveScores to non-empty List, head ok here
                            (Just result) -> Just (MoveScore (_move ms) (_score (head (_moveScores result))))
 
+--TODO: fix this non exhaustive pattern
 --TODO: param should be non-empty list    
 worstMS :: [MoveScore] -> Int -> MoveScore
-worstMS (x : []) color = x
+worstMS [x] color = x
 worstMS (x : xs) color = foldr f x xs
     --where f ms worst = if _score ms < _score worst then ms else worst 
-    where f ms worst = if (_score ms) * color > (_score worst) * color then ms else worst
+    where f ms worst = if _score ms * color > _score worst * color then ms else worst
     
 addEquiv :: MoveScore -> [MoveScore] -> [MoveScore]
-addEquiv target possibles = 
-    foldr f [] possibles where 
+addEquiv target = 
+    foldr f [] where 
         f x xs = if abs (_score x - _score target) == 0 then x:xs else xs    --TODO: add threshold for eqiv. here  
     
 worstReply :: TreeNode t => Tree t -> Int -> Int -> Int -> Maybe Result
@@ -102,9 +87,10 @@ best' tree depth color colorFlip =
         pathM = tailMay path -- without the tree's starting "move"
         headM = pathM >>= headMay  
         followingM = pathM >>= tailMay 
-        randChoiceM = (liftM2 (:)) headM (Just rChoices)
+        randChoiceM = liftM2 (:) headM (Just rChoices)
         --TODO: implement randchoices with different scores once scoreTolerance is added -- for now they are the same
-        f bestScore xs = fmap (\x -> MoveScore x bestScore) xs
+        --f bestScore xs = fmap (\x -> MoveScore x bestScore) xs
+        f bestScore = fmap (`MoveScore` bestScore)
         scoresM = liftM (f bestScore) randChoiceM
     in liftM3 Result randChoiceM followingM scoresM  
  

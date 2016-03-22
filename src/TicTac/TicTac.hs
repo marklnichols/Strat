@@ -32,7 +32,8 @@ instance TreeNode TTNode where
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {move=(-1), value=0, position= TTPosition {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr=1, _fin=NotFinal}} []
+getStartNode = Node TTNode {move = -1, value = 0, position = TTPosition 
+    {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
 
 --------------------------------------------------------
@@ -40,9 +41,9 @@ getStartNode = Node TTNode {move=(-1), value=0, position= TTPosition {_grid = [0
 --------------------------------------------------------
 format :: TTPosition -> String
 format p =
-    let rows = (take 3 $ _grid p) : (take 3 $ drop 3 $ _grid p) : [take 3 $ drop 6 $ _grid p]
+    let rows = take 3 (_grid p) : take 3 (drop 3 $ _grid p) : [take 3 $ drop 6 $ _grid p]
     in  foldr f "" rows where
-        f ns str = (foldr g "" ns) ++ "\n" ++ str where
+        f ns str = foldr g "" ns ++ "\n" ++ str where
             g 1    s = "X " ++ s
             g (-1) s = "O " ++ s
             g 0    s = "- " ++ s
@@ -67,16 +68,16 @@ calcNewNode node mv =
 -- convert from move value to grid index
 ----------------------------------------------------------
 mvToGridIx :: Int -> Int
-mvToGridIx mv = (abs mv) -1     --moves are (+/-) 1-9 vs indexes 0-8 
+mvToGridIx mv = abs mv -1     --moves are (+/-) 1-9 vs indexes 0-8 
     
 ---------------------------------------------------------
 -- get list of possible moves from a given position
 ---------------------------------------------------------
 -- TODO extend the use of lens to navigate node -> position ->
 getPossibleMoves :: TTNode -> [Int]
-getPossibleMoves n =  foldr f [] (zip ((position n) ^. grid) [1..9]) where
+getPossibleMoves n =  foldr f [] (zip (position n ^. grid) [1..9]) where
     f (x, idx) newList
-        | x == 0        = (idx) * (_clr (position n)) : newList
+        | x == 0        = idx * _clr (position n) : newList
         | otherwise     = newList
 
 --------------------------------------------------------
@@ -95,10 +96,10 @@ evalGrid grid
     
 ---------------------------------------------------------------------
 checkWins :: [Int] -> Int -> Bool
-checkWins pos color = wins (sums $ applyMask pos masks) color
+checkWins pos = wins (sums $ applyMask pos masks) 
 
 checkDraw :: [Int] -> Bool
-checkDraw xs = not $ elem 0 xs
+checkDraw = notElem 0
 
 scorePos :: [Int] -> Int
 scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
@@ -109,14 +110,14 @@ scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
     (_, _, _)   -> 0
     
 wins :: [Int] -> Int -> Bool
-wins sums color = if elem (color * 3) sums then True else False
+wins sums color = (color * 3) `elem` sums  
 
 sums :: [[Int]] -> [Int]
-sums masked = map (\xs -> sum xs) masked
+sums = map sum
 
 applyMask :: [Int] -> [[Bool]] -> [[Int]]
-applyMask pos msks = map f msks where
-    f mask = map snd (filter (\(m, p) -> m == True) (zip mask pos))
+applyMask pos = map f where
+    f mask = map snd (filter fst (zip mask pos))
 
 masks :: [[Bool]]
 masks = map g (modN 3 rhs) ++ map g (divN 3 rhs) ++ map g (modN 4 zeron) ++ map g (modN2AndNot 2  8 zeron)
@@ -125,26 +126,26 @@ g :: (Int -> Bool) -> [Bool]
 g f = map f offsets
 
 modN :: Int -> [Int] -> [Int -> Bool]
-modN n values = map (\y x -> x `mod` n == y) values
+modN n = map (\y x -> x `mod` n == y)
 
 modN2AndNot :: Int -> Int -> [Int] -> [Int -> Bool]
-modN2AndNot n1 n2 values = map (\y x -> x `mod` n1 == y && x `mod` n2 /= y) values
+modN2AndNot n1 n2 = map (\y x -> x `mod` n1 == y && x `mod` n2 /= y)
 
 divN :: Int -> [Int] -> [Int -> Bool]
-divN n values = map (\y x -> x `div` n == y) values
+divN n = map (\y x -> x `div` n == y)
 
 offsets = [0, 1..8] :: [Int]
 rhs = [0, 1, 2] :: [Int]
 zeron = [0] :: [Int]
 
 countEmpty :: [Int] -> Int
-countEmpty xs = length $ filter (\x -> x==0) xs
+countEmpty xs = length $ filter (==0) xs
 
 valCenter :: [Int] -> Int
 valCenter xs = xs !! 4
 
 sumCorners :: [Int] -> Int
-sumCorners xs = (xs !! 0) + (xs !! 2) + (xs !! 6) + (xs !! 8)
+sumCorners xs = head xs + (xs !! 2) + (xs !! 6) + (xs !! 8)
 
 --------------------------------------------
 -- Notes / comments

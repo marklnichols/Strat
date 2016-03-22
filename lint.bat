@@ -1,0 +1,9 @@
+hlint src\main.hs
+hlint src\StratTree\StratTree.hs
+hlint src\StratTree\StratTreeTest.hs
+hlint src\StratTree\TreeNode.hs
+hlint src\StratTree\Internal\General.hs
+hlint src\StratTree\Internal\Trees.hs
+hlint src\StratIO\StratIO.hs
+hlint src\TicTac\TicTac.hs  
+hlint src\TicTac\TicTacTest.hs  

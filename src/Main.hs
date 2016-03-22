@@ -32,7 +32,7 @@ main = do
 loop :: Tree TTNode -> Int -> Bool -> Bool -> Int -> IO ()
 loop node turn p1 p2 depth = do
     putStrLn $ format $ position $ rootLabel node
-    theNext <- case (final $ rootLabel node) of  
+    theNext <- case final $ rootLabel node of  
         WWins -> do
             putStrLn "White wins."
             return Nothing
@@ -74,7 +74,7 @@ loop node turn p1 p2 depth = do
                 else do
                     putStrLn ("Enter player " ++ show turn ++ "'s move:")
                     line <- getLine
-                    putStrLn("")
+                    putStrLn ""
                     let n = posToMove (read line) turn 
                     let processed = processMove node n
                     return processed    
@@ -90,12 +90,12 @@ isCompTurn turn p1 p2 = if turn == 1 then p1 else p2
 
 --toBool :: "C" or "c" for computer -> True, "H" or "h" (or anything else for that matter) for Human -> False
 toBool :: String -> Bool
-toBool s = (s == "c" || s == "C")
+toBool s = s == "c" || s == "C"
 
 -- convert input player move 1-9 to (+/-) as per player 1/2
 --posToMove :: input position -> turn -> move
 posToMove :: Int -> Int -> Int
-posToMove index turn = (turnToColor turn) * index 
+posToMove index turn = turnToColor turn * index 
 
 toInt :: String -> Int
 toInt = read

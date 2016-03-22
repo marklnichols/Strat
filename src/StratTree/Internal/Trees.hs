@@ -17,7 +17,7 @@ getChildren tree = reverse $ loop (firstChild tree) [] where
 
 --get a list of sibling nodes
 getSiblings :: TreePos Full a  -> [TreePos Full a]
-getSiblings tree = case (parent tree) of
+getSiblings tree = case parent tree of
                        Nothing -> [tree]
                        Just t  -> getChildren t
 
@@ -27,7 +27,7 @@ descendPath :: TreeNode t => [Int] -> TreePos Full t -> Maybe (TreePos Full t)
 descendPath moves startTree = foldl f (Just startTree) moves 
     where 
         f :: TreeNode t => Maybe (TreePos Full t) -> Int -> Maybe (TreePos Full t)
-        f r move = r >>= (childByMove move) 
+        f r move = r >>= childByMove move 
    
 --visit all the nodes and modify the tree via the visit function
 --visitTree :: tree -> max depth -> visit function -> new Tree
@@ -39,25 +39,22 @@ visitTree tree max visitFunct = toTree $ descend' (visitFunct (fromTree tree) 0 
             Just child -> fromJust $ parent $ loop child (depth + 1)
         where
             loop tPos dpth = let modified = descend' (visitFunct tPos dpth max) dpth in
-                                case (next modified) of 
+                                case next modified of 
                                     Nothing      -> modified
                                     Just sibling -> loop sibling dpth     
    
 --finds a child of a tree matching a given move
 childByMove :: TreeNode t => Int -> TreePos Full t -> Maybe (TreePos Full t)
 childByMove move tree  = 
-    find ((\x -> move == (getMove $ label x))) (getChildren tree) 
+    find (\x -> move == getMove (label x)) (getChildren tree) 
 
 --pruneToChild -- prune the tree down to the subtree whose root matches the given child
 --pruneToChild :: starting tree -> move to match -> new pruned sub tree                             
 pruneToChild :: TreeNode t => Tree t -> Int -> Tree t
-pruneToChild tree move = case find (\x -> move == (getMove $ rootLabel x))(subForest tree) of 
-                            Just t  -> t
-                            Nothing -> tree                                                             
-                                                               
+pruneToChild tree move = fromMaybe tree (find (\ x -> move == getMove (rootLabel x)) (subForest tree))                                                                                     
 --delParent :: parentTree -> childTree -> childTree
 delParent :: TreeNode t => Tree t -> Tree t ->Tree t
-delParent parent child = toTree $ modifyTree (\_ -> child) $ fromTree parent
+delParent parent child = toTree $ modifyTree (const child) $ fromTree parent
     
 --pruneExcept -- Prune the tree of all the children except the one matching the supplied move
 --pruneExcept :: starting tree -> move to match -> pruned tree
@@ -71,15 +68,13 @@ pruneChildrenExcept tree move =
 
 delOneUntilLast :: TreeNode t => Maybe (TreePos Full t) -> Int -> (Maybe (TreePos Full t), Bool) 
 delOneUntilLast Nothing move = (Nothing, True)
-delOneUntilLast (Just tp) move = 
-    if isOnlyChild tp   --only one child
-        then (parent tp, True) 
-        else if ((getMove $ label tp) /= move)
-                    then  (parent (delete tp), False)  --not the one to keep, return done yet flag                         
-                    else  delOneUntilLast (next tp) move      --more than one child & keeping this one -- try the next
-       
+delOneUntilLast (Just tp) move
+   | isOnlyChild tp                 = (parent tp, True)
+   | getMove (label tp) /= move   = (parent (delete tp), False)  --not the one to keep, return done yet flag  
+   | otherwise                      = delOneUntilLast (next tp) move --more than 1 child & keeping this one -- try the next
+              
 isOnlyChild :: TreePos Full t -> Bool
-isOnlyChild tp = (isFirst tp) && (isLast tp) 
+isOnlyChild tp = isFirst tp && isLast tp 
 
 
 
