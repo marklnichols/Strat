@@ -29,16 +29,17 @@ checkBlunders tree depth color equivMS =
                         --TODO: convert _moveScores to non-empty List, head ok here
                         (Just result) -> Just (MoveScore (_move ms) (_score (head (_moveScores result)))) 
         possibles = catMaybes $ fmap convert equivMS    -- :: [MoveScore] 
-        worst = worstMS possibles
+        worst = worstMS possibles color
     in if (equivScore - _score worst) >= 10 --todo: make this blunderThreshold from reader
            then  addEquiv worst possibles
            else  equivMS
     
 --TODO: param should be non-empty list    
-worstMS :: [MoveScore] -> MoveScore
-worstMS (x : []) = x
-worstMS (x : xs) = foldr f x xs
-    where f ms worst = if _score ms < _score worst then ms else worst 
+worstMS :: [MoveScore] -> Int -> MoveScore
+worstMS (x : []) color = x
+worstMS (x : xs) color = foldr f x xs
+    --where f ms worst = if _score ms < _score worst then ms else worst 
+    where f ms worst = if (_score ms) * color > (_score worst) * color then ms else worst
     
 addEquiv :: MoveScore -> [MoveScore] -> [MoveScore]
 addEquiv target possibles = 
