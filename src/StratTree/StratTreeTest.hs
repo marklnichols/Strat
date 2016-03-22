@@ -112,7 +112,24 @@ main = hspec $ do
         it "adds a new level of tree nodes at the specified depth" $ do
             expandTree aMiniPosTree 2 `shouldBe` expandedTree     
             expandTree finalTestTree 2 `shouldBe` expandedFinalTree
-            
+    describe "isWorse" $ do
+        it "finds the worse of two scores given a margin given the color inquiring" $ do   
+            (isWorse 50 100 0 1) `shouldBe` False
+            (isWorse (-100) (-50) 0 1) `shouldBe` False
+        
+            (isWorse 50 100 10 1) `shouldBe` False
+            (isWorse (-100) (-50) 10 1) `shouldBe` False
+            (isWorse 95 100 10 1) `shouldBe` False
+            (isWorse (-100) (-95) 10 1) `shouldBe` False
+        
+            (isWorse 50 100 0 (-1)) `shouldBe` True
+            (isWorse (-100) (-50) 0 (-1)) `shouldBe` True
+        
+            (isWorse 50 100 10 (-1)) `shouldBe` True
+            (isWorse (-100) (-50) 10 (-1)) `shouldBe` True
+            (isWorse 95 100 10 (-1)) `shouldBe` False
+            (isWorse (-100) (-95) 10 (-1)) `shouldBe` False
+        
 -----------------------------------------------------------------------
 -- hspec support functions
 ----------------------------------------------------------------------- 

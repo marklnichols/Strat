@@ -1,4 +1,4 @@
-module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove) where
+module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, isWorse) where
 
 import StratTree.Internal.Trees
 import StratTree.TreeNode
@@ -18,8 +18,8 @@ best tree depth color = best' tree depth color negate
 
 --TODO: move to lens getters
 --TODO: bad move threshold, bad move search depth, etc. come from a reader
-checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]
-checkBlunders tree depth color equivMS =
+old_checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]
+old_checkBlunders tree depth color equivMS =
     --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of 
     --the worst opponent's reply to that move 
     --TODO: incoming MoveScore should be a non-empty list, head ok here
@@ -33,7 +33,35 @@ checkBlunders tree depth color equivMS =
     in if (equivScore - _score worst) >= 10 --todo: make this blunderThreshold from reader
            then  addEquiv worst possibles
            else  equivMS
+           
+checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]
+checkBlunders tree depth color equivMS =
+    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of 
+    --the worst opponent's reply to that move 
+    --TODO: incoming MoveScore should be a non-empty list, head ok here
+    let equivScore = _score $ head equivMS
+        possibles = possibleBlunders tree depth color equivMS -- :: [MoveScore] 
+        worst = worstMS possibles color
+    in if isWorse (_score worst) equivScore 10 color --todo: make this blunderThreshold from reader
+           then  addEquiv worst possibles
+           else  equivMS           
+ 
+--"worse" here is better wrt color used, since color is from tree level above 
+isWorse :: Int -> Int -> Int -> Int -> Bool
+isWorse scoreToCheck compareTo margin color
+    | (abs (scoreToCheck - compareTo)) < margin    = False
+    | (color * scoreToCheck) > (color * compareTo) = True
+    | otherwise                                    = False 
     
+  
+possibleBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]  
+possibleBlunders tree depth color equivMS = 
+    catMaybes $ fmap convert equivMS where 
+        convert ms = case (worstReply tree depth color (_move ms)) of -- :: MoveScore -> Maybe MoveScore
+                           Nothing -> Nothing
+                           --TODO: convert _moveScores to non-empty List, head ok here
+                           (Just result) -> Just (MoveScore (_move ms) (_score (head (_moveScores result))))
+
 --TODO: param should be non-empty list    
 worstMS :: [MoveScore] -> Int -> MoveScore
 worstMS (x : []) color = x
@@ -43,10 +71,9 @@ worstMS (x : xs) color = foldr f x xs
     
 addEquiv :: MoveScore -> [MoveScore] -> [MoveScore]
 addEquiv target possibles = 
-    let ys = foldr f [] possibles where 
-                f x xs = if (_score x - _score target) == 0 then x:xs else xs    --TODO: add threshold for eqiv. here  
-    in target : ys
-
+    foldr f [] possibles where 
+        f x xs = if abs (_score x - _score target) == 0 then x:xs else xs    --TODO: add threshold for eqiv. here  
+    
 worstReply :: TreeNode t => Tree t -> Int -> Int -> Int -> Maybe Result
 worstReply tree depth color move = worst (pruneToChild tree move) depth color
 
@@ -61,8 +88,7 @@ processMove tree move = case subForest tree of
 --expandTree :: tree -> depth -> tree
 expandTree :: PositionNode n => Tree n -> Int -> Tree n
 expandTree tree maxDepth = visitTree tree maxDepth visitor  
-    
-   
+      
 ---------------------------------------------------------------------------------------------------
 -- non-exported functions
 ---------------------------------------------------------------------------------------------------    
