@@ -75,12 +75,12 @@ main = hspec $ do
                     `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
     describe "getChildren" $ 
             it "gets a list of child nodes" $ do
-                fmap getMove . label (getChildren $ fromTree aTree) `shouldBe` [1,2]
-                fmap getMove . label (getChildren $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [4, 5, 6]
+                fmap (getMove . label) (getChildren $ fromTree aTree) `shouldBe` [1,2]
+                fmap (getMove . label) (getChildren $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [4, 5, 6]
     describe "getSiblings" $ 
             it "gets a list of sibling nodes" $ do
-                fmap getMove . label (getSiblings $ fromJust $ firstChild $ fromTree aTree) `shouldBe` [1,2]
-                fmap getMove . label (getSiblings $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [1, 2, 3]
+                fmap (getMove . label) (getSiblings $ fromJust $ firstChild $ fromTree aTree) `shouldBe` [1,2]
+                fmap (getMove . label) (getSiblings $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [1, 2, 3]
     describe "childByMove" $ 
         it "finds a child of a tree matching a given move" $             
             case childByMove 1 (fromTree aTree) of 
@@ -126,7 +126,7 @@ main = hspec $ do
             
             isWorse 50 100 10 (-1) `shouldBe` True
             isWorse (-100) (-50) 10 (-1) `shouldBe` True
-            isWorse 95 100 10 (-1)) `shouldBe` False
+            isWorse 95 100 10 (-1) `shouldBe` False
             isWorse (-100) (-95) 10 (-1) `shouldBe` False
         
 -----------------------------------------------------------------------
@@ -139,14 +139,14 @@ descendPathTest xs tree = case descendPath xs (fromTree tree) of
 --check that the path of moves retured by best is valid & the node at the bottom contains the correct --value                                        
 validPathCheck :: TreeNode t => Tree t -> Int -> Bool
 validPathCheck tree color =
-        case (best tree (-1) color) of 
+        case best tree (-1) color of 
             Nothing -> False
-            Just r -> let path = (head (_moveChoices r)) : _followingMoves r
+            Just r -> let path = head (_moveChoices r) : _followingMoves r
                           bestValue = _score (head (_moveScores r))
                           mPathBottom = descendPath path (fromTree tree)
                       in case mPathBottom of 
                           Nothing -> False
-                          Just tPos -> (getValue $ label tPos) * color == bestValue
+                          Just tPos -> getValue (label tPos) * color == bestValue
       
 testVisitor :: TreePos Full PosTreeItem -> Int -> Int -> TreePos Full PosTreeItem
 testVisitor tPos depth max
@@ -193,7 +193,7 @@ instance PositionNode PosTreeItem where
     final = ptFinal
 
 calcPossibleMoves :: PosTreeItem -> [Int]
-calcPossibleMoves node = case (ptMove node) of
+calcPossibleMoves node = case ptMove node of
     1 -> [4, 5]
     2 -> [6, 7]
     3 -> [8]
@@ -214,7 +214,7 @@ mvToNode  = Map.fromList [
 -----------------------------------------------
 rootOnly = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []
 
-root2 = Node PosTreeItem {ptMove=2, ptValue=2, ptColor=(-1), ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
+root2 = Node PosTreeItem {ptMove=2, ptValue=2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
 
 aMiniTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 1, value = 1} [],

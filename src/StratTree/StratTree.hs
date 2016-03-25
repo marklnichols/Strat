@@ -16,6 +16,7 @@ import Control.Monad
 best :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
 best tree depth color = best' tree depth color negate
 
+--todo: change this to return a maybe
 --TODO: move to lens getters
 --TODO: bad move threshold, bad move search depth, etc. come from a reader
 checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveScore]
@@ -46,7 +47,7 @@ possibleBlunders tree depth color equivMS =
                            --TODO: convert _moveScores to non-empty List, head ok here
                            (Just result) -> Just (MoveScore (_move ms) (_score (head (_moveScores result))))
 
---TODO: fix this non exhaustive pattern
+--TODO: fix this non exhaustive pattern, return a maybe
 --TODO: param should be non-empty list    
 worstMS :: [MoveScore] -> Int -> MoveScore
 worstMS [x] color = x

@@ -6,7 +6,7 @@ import TicTac.TicTac
 import Test.Hspec
  
 main = hspec $ do
-    describe "checkWins" $ do
+    describe "checkWins" $
         it "determines if there is a winner in the position" $ do
             checkWins aPos 1 `shouldBe` True
             checkWins aPos (-1) `shouldBe` False
@@ -14,7 +14,7 @@ main = hspec $ do
             checkWins aPos2 (-1) `shouldBe` True
             checkWins aPos3 1 `shouldBe` False
             checkWins aPos3 (-1) `shouldBe` False
-    describe "eval" $ do
+    describe "eval" $
         it "evaluates the score for a position" $ do
             eval (TTNode 0 0 (TTPosition aPos 1 NotFinal)) `shouldBe` 100
             eval (TTNode 0 0 (TTPosition aPos2 1 NotFinal)) `shouldBe` (-100)
@@ -23,18 +23,18 @@ main = hspec $ do
             --eval (TTNode 0 0 (TTPosition aPos5 1 NotFinal)) `shouldBe` (-20)
             --eval (TTNode 0 0 (TTPosition aPos6 1 NotFinal)) `shouldBe` 10
             --eval (TTNode 0 0 (TTPosition aPos7 1 NotFinal)) `shouldBe` (-10)
-    describe "calcNewNode" $ do
+    describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
             _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos 1 NotFinal)) 6)) `shouldBe` [1, 1, -1, 1, -1, 1, 1, 0, -1]
             _grid (position (calcNewNode (TTNode 1 1 (TTPosition aPos (-1) NotFinal)) (-8))) `shouldBe` [1, 1, -1, 1, -1, 0, 1, -1, -1]
-    describe "getPossibleMoves" $ do
+    describe "getPossibleMoves" $
         it "gets a list of possible moves from a given position" $ do
             getPossibleMoves (TTNode 0 0 (TTPosition aPos 1 NotFinal)) `shouldBe` [6, 8] 
             getPossibleMoves (TTNode 0 0 (TTPosition aPos (-1) NotFinal)) `shouldBe` [-6, -8]
             getPossibleMoves (TTNode 0 0 (TTPosition aPos2 1 NotFinal)) `shouldBe` [2]
             getPossibleMoves (TTNode 0 0 (TTPosition aPos3 (-1) NotFinal)) `shouldBe` []
-    describe "format" $ do
-        it "formats a position as a string for display" $ do
+    describe "format" $
+        it "formats a position as a string for display" $
             format (TTPosition aPos 1 NotFinal) `shouldBe` "X X O \nX O - \nX - O \n"      
                       
 -------------------------------------------------
@@ -46,7 +46,7 @@ main = hspec $ do
 00 00 00
 --}
 aPos0 = [0, 0, 0, 0, 0, 0, 0, 0, 0] :: [Int] 
-ttNode0 = (TTNode 0 0 (TTPosition aPos0 1 NotFinal))
+ttNode0 = TTNode 0 0 (TTPosition aPos0 1 NotFinal)
 
 {--
 01 01 -1    -- white wins
