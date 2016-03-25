@@ -69,9 +69,12 @@ main = hspec $ do
             _followingMoves (fromJust (worstReply aTree 3 (-1) 2)) `shouldBe` [16]
     describe "checkBlunders" $ 
         it "takes a list of equivalent moves, and returns a subset of equivalent move\
-           \representing the biggest mistake the oponent can make"  $ 
-            checkBlunders blunderTree 3 1 
-                [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}] 
+           \representing the biggest mistake the oponent can make" $ do
+            isJust (checkBlunders blunderTree 3 1 
+                [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
+                    `shouldBe` True
+            fromJust (checkBlunders blunderTree 3 1 
+                [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
                     `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
     describe "getChildren" $ 
             it "gets a list of child nodes" $ do
