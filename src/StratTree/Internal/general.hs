@@ -7,9 +7,9 @@ import Data.Tree.Zipper
 --updateTree 'visit' function - if not a final position and no children -- create and add children moves
 visitor :: (PositionNode n) => TreePos Full n -> Int -> Int -> TreePos Full n
 visitor tPos depth max
-    | (final $ label tPos) /= NotFinal  = tPos
+    | final (label tPos) /= NotFinal  = tPos
     | depth == max                  = tPos
-    | (hasChildren tPos) == False   = modifyTree addBranches tPos
+    | not (hasChildren tPos)        = modifyTree addBranches tPos
     | otherwise                     = tPos
  
 --add branches at the bottom of the tree for a new depth-level of moves

@@ -24,4 +24,4 @@ data Result = Result {_moveChoices :: [Int], _followingMoves :: [Int], _moveScor
 
 -------------------------------------------------------------------------------
 flipColor :: Int -> Int
-flipColor n = 0 - n     --alternate 1 / -1
+flipColor = negate      --alternate 1 / -1
