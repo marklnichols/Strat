@@ -31,10 +31,27 @@ checkBlunders tree color equivMS = do
         badMovesM = worstMS possibles color >>= (\worst -> if isWorse (worst ^. score) equivScore threshold color 
                                                       then Just (addEquiv worst possibles) 
                                                       else Just equivMS)
-        {--badMovesM = worstMS possibles color >>= (\worst-> if isWorse (_score worst) equivScore threshold color 
-                                                      then Just (addEquiv worst possibles) 
-                                                      else Just equivMS)--}
     return badMovesM
+
+
+--expandTree :: tree -> depth -> tree
+expandTree :: PositionNode n => Tree n -> Reader Env (Tree n)
+expandTree tree = do 
+    depth <- asks _depth
+    return $ visitTree tree depth visitor     
+    
+--process a chosen move - prune the tree down so the selected move is the new head 
+--if there are no child moves at all, create a tree with just the single position corresponding to the move  
+--processMove :: tree -> move -> tree
+processMove :: PositionNode n => Tree n -> Int -> Tree n
+processMove tree move = case subForest tree of 
+    [] -> Node (newNode (rootLabel tree) move) []
+    xs -> pruneToChild tree move  
+ 
+      
+---------------------------------------------------------------------------------------------------
+-- non-exported functions
+---------------------------------------------------------------------------------------------------    
     
 --"worse" here is better wrt color used, since color is from tree level above 
 isWorse :: Int -> Int -> Int -> Int -> Bool
@@ -63,21 +80,6 @@ addEquiv target =
 worstReply :: TreeNode t => Tree t -> Int -> Int -> Int -> Maybe Result
 worstReply tree depth color move = worst (pruneToChild tree move) depth color
 
---process a chosen move - prune the tree down so the selected move is the new head 
---if there are no child moves at all, create a tree with just the single position corresponding to the move  
---processMove :: tree -> move -> tree
-processMove :: PositionNode n => Tree n -> Int -> Tree n
-processMove tree move = case subForest tree of 
-    [] -> Node (newNode (rootLabel tree) move) []
-    xs -> pruneToChild tree move  
-
---expandTree :: tree -> depth -> tree
-expandTree :: PositionNode n => Tree n -> Int -> Tree n
-expandTree tree maxDepth = visitTree tree maxDepth visitor  
-      
----------------------------------------------------------------------------------------------------
--- non-exported functions
----------------------------------------------------------------------------------------------------    
 worst :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
 worst tree depth color = best' tree depth color id
 

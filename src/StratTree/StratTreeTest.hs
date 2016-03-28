@@ -113,8 +113,8 @@ main = hspec $ do
             visitTree aMiniPosTree 1 testVisitor `shouldBe` modTree
     describe "expandTree" $ 
         it "adds a new level of tree nodes at the specified depth" $ do
-            expandTree aMiniPosTree 2 `shouldBe` expandedTree     
-            expandTree finalTestTree 2 `shouldBe` expandedFinalTree
+            runReader (expandTree aMiniPosTree) testEnv2 `shouldBe` expandedTree     
+            runReader (expandTree finalTestTree) testEnv2 `shouldBe` expandedFinalTree
     describe "isWorse" $ 
         it "finds the worse of two scores given a margin given the color inquiring" $ do   
             isWorse 50 100 0 1 `shouldBe` False

@@ -48,7 +48,7 @@ loop node turn p1 p2 depth = do
             nextNode <- if isCompTurn turn p1 p2 
                 then do
                     putStrLn "Calculating computer move..."
-                    let newTree = expandTree node depth
+                    let newTree = runReader (expandTree node) ticTacEnv 
                     -- let resultM = best newTree depth (turnToColor turn)
                     let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
                     case resultM of 
