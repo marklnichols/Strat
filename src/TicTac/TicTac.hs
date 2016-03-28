@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, scorePos, format, TTPosition (..), TTNode (..), getStartNode) where
+module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, scorePos, format, 
+       TTPosition (..), TTNode (..), getStartNode) where
 
 import Data.Tree
 import StratTree.TreeNode hiding (Result, MoveScore)
@@ -14,25 +15,25 @@ import Data.List
 data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
 
-data TTNode = TTNode {move :: Int, value :: Int, position :: TTPosition} deriving (Show)
+data TTNode = TTNode {_ttMove :: Int, _ttValue :: Int, _ttPosition :: TTPosition} deriving (Show)
 
 instance PositionNode TTNode where
     newNode = calcNewNode
     evaluate = eval
     possibleMoves = getPossibleMoves
-    color = _clr . position
-    final = _fin . position
+    color = _clr . _ttPosition
+    final = _fin . _ttPosition
 
 instance TreeNode TTNode where
-    getMove = move
-    getValue = value
+    getMove = _ttMove
+    getValue = _ttValue
     
 
 ---------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {move = -1, value = 0, position = TTPosition 
+getStartNode = Node TTNode {_ttMove = -1, _ttValue = 0, _ttPosition = TTPosition 
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
 
@@ -56,7 +57,7 @@ calcNewNode node mv =
     let val
             | mv >=0    = 1
             | otherwise = -1
-        gridSet = set (grid . ix (mvToGridIx mv)) val (position node)
+        gridSet = set (grid . ix (mvToGridIx mv)) val (_ttPosition node)
         oldColor = view clr gridSet
         colorFlipped = set clr (flipColor oldColor) gridSet
         (score, finalSt) = evalGrid $ _grid colorFlipped
@@ -75,16 +76,16 @@ mvToGridIx mv = abs mv -1     --moves are (+/-) 1-9 vs indexes 0-8
 ---------------------------------------------------------
 -- TODO extend the use of lens to navigate node -> position ->
 getPossibleMoves :: TTNode -> [Int]
-getPossibleMoves n =  foldr f [] (zip (position n ^. grid) [1..9]) where
+getPossibleMoves n =  foldr f [] (zip (_ttPosition n ^. grid) [1..9]) where
     f (x, idx) newList
-        | x == 0        = idx * _clr (position n) : newList
+        | x == 0        = idx * _clr (_ttPosition n) : newList
         | otherwise     = newList
 
 --------------------------------------------------------
 -- Position Evaluation
 --------------------------------------------------------
 eval :: TTNode -> Int
-eval n = fst $ evalGrid $ _grid (position n)
+eval n = fst $ evalGrid $ _grid (_ttPosition n)
 
 --evalGrid :: grid -> (score, final state)
 evalGrid :: [Int] ->  (Int, FinalState)

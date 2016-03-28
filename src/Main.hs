@@ -1,5 +1,6 @@
 module Main where 
 import TicTac.TicTac
+import TicTac.TicTacEnv
 import System.Environment
 import System.IO
 import System.Exit
@@ -10,6 +11,7 @@ import Data.Tree.Zipper
 import Control.Monad
 import Data.Tuple.Select
 import StratIO.StratIO
+import Control.Monad.Reader
 
 main :: IO ()
 main = do
@@ -31,7 +33,7 @@ main = do
 --loop :: Starting node -> currentTurn -> isP1Computer -> isP2Computer -> depth -> IO ()
 loop :: Tree TTNode -> Int -> Bool -> Bool -> Int -> IO ()
 loop node turn p1 p2 depth = do
-    putStrLn $ format $ position $ rootLabel node
+    putStrLn $ format $ _ttPosition $ rootLabel node
     theNext <- case final $ rootLabel node of  
         WWins -> do
             putStrLn "White wins."
@@ -46,14 +48,16 @@ loop node turn p1 p2 depth = do
             nextNode <- if isCompTurn turn p1 p2 
                 then do
                     putStrLn "Calculating computer move..."
-                    let newTree = expandTree node depth
-                    let resultM = best newTree depth (turnToColor turn)
+                    let newTree = runReader (expandTree node) ticTacEnv 
+                    -- let resultM = best newTree depth (turnToColor turn)
+                    let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
                     case resultM of 
                         Nothing -> do
                             putStrLn "Invalid result returned from best"
                             exitFailure
                         Just result -> do
-                            let finalChoices = checkBlunders newTree depth (turnToColor turn) (_moveScores result)
+                            let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
+                                finalChoices = runReader badMovesM ticTacEnv
                             putStrLn ("Choices before checkBlunders: " ++ show (_moveScores result))
                             putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
                             moveM <- resolveRandom $ _moveChoices result

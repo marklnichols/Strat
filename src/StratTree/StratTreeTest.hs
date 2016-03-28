@@ -13,6 +13,7 @@ import Data.Map
 import Test.Hspec
 import qualified Data.Map as Map
 import Data.Tuple.Select
+import Control.Monad.Reader
 
 ------------------------------------------------------------------------------------------------
 -- hspec tests
@@ -20,44 +21,44 @@ import Data.Tuple.Select
 main = hspec $ do
     describe "best" $ do
         it "calculates the best moves" $ do
-            isJust (best aTree 1 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 1 1))) `shouldBe` 2
-            _followingMoves (fromJust (best aTree 1 1)) `shouldBe` []
+            isJust (runReader (best aTree 1) testEnv1) `shouldBe` True 
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv1))) `shouldBe` 2
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv1)) `shouldBe` []
             
-            isJust (best aTree 1 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 1 (-1)))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 1 (-1))) `shouldBe` []
+            isJust (runReader (best aTree (-1)) testEnv1) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv1))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv1)) `shouldBe` []
             
-            isJust (best aTree 2 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 2 1))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 2 1)) `shouldBe` [4]
+            isJust (runReader (best aTree 1) testEnv2) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv2))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [4]
             
-            isJust (best aTree 2 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 2 (-1)))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 2 (-1))) `shouldBe` [3]
+            isJust (runReader (best aTree (-1)) testEnv2) `shouldBe`  True
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv2))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv2)) `shouldBe` [3]
             
-            isJust (best aTree 3 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 3 1))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 3 1)) `shouldBe` [3, 8]
+            isJust (runReader (best aTree 1) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv3))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv3)) `shouldBe` [3, 8]
             
-            isJust (best aTree 3 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 3 (-1)))) `shouldBe` 2
-            _followingMoves (fromJust (best aTree 3 (-1))) `shouldBe` [5, 12]
+            isJust (runReader (best aTree (-1)) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv3))) `shouldBe` 2
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv3)) `shouldBe` [5, 12]
             
-            isJust (best aTree2 2 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree2 2 (-1)))) `shouldBe` 3
-            _followingMoves (fromJust (best aTree2 2 (-1))) `shouldBe` [10]
+            isJust (runReader (best aTree2 (-1)) testEnv2) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv2))) `shouldBe` 3
+            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv2)) `shouldBe` [10]
             
-            isJust (best aTree2 3 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree2 3 1))) `shouldBe` 3
-            _followingMoves (fromJust (best aTree2 3 1)) `shouldBe` [10, 33]
+            isJust (runReader (best aTree2 1) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree2 1) testEnv3))) `shouldBe` 3
+            _followingMoves (fromJust (runReader (best aTree2 1) testEnv3)) `shouldBe` [10, 33]
             
-            isJust (best aTree2 3 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree2 3 (-1)))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree2 3 (-1))) `shouldBe` [4, 15]
+            isJust (runReader (best aTree2 (-1)) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv3))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv3)) `shouldBe` [4, 15]
         it "returns a list moves with equivalent scores" $ do
-            _moveChoices (fromJust $ best modTree 2 1) `shouldBe` [1, 3, 2]
-            _moveChoices (fromJust $ best aTree 3 1) `shouldBe` [1]
+            _moveChoices (fromJust (runReader (best modTree 1) testEnv2)) `shouldBe` [1, 3, 2]
+            _moveChoices (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [1]
     describe "worstReply" $ 
         it "calculates the worst reply given a selected move" $ do
             isJust (worstReply aTree 3 1 1) `shouldBe` True
@@ -70,12 +71,12 @@ main = hspec $ do
     describe "checkBlunders" $ 
         it "takes a list of equivalent moves, and returns a subset of equivalent move\
            \representing the biggest mistake the oponent can make" $ do
-            isJust (checkBlunders blunderTree 3 1 
+            isJust (runReader (checkBlunders blunderTree 1 
                 [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
-                    `shouldBe` True
-            fromJust (checkBlunders blunderTree 3 1 
+                    testEnv3) `shouldBe` True
+            fromJust (runReader (checkBlunders blunderTree 1 
                 [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
-                    `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
+                    testEnv3) `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
     describe "getChildren" $ 
             it "gets a list of child nodes" $ do
                 fmap (getMove . label) (getChildren $ fromTree aTree) `shouldBe` [1,2]
@@ -112,8 +113,8 @@ main = hspec $ do
             visitTree aMiniPosTree 1 testVisitor `shouldBe` modTree
     describe "expandTree" $ 
         it "adds a new level of tree nodes at the specified depth" $ do
-            expandTree aMiniPosTree 2 `shouldBe` expandedTree     
-            expandTree finalTestTree 2 `shouldBe` expandedFinalTree
+            runReader (expandTree aMiniPosTree) testEnv2 `shouldBe` expandedTree     
+            runReader (expandTree finalTestTree) testEnv2 `shouldBe` expandedFinalTree
     describe "isWorse" $ 
         it "finds the worse of two scores given a margin given the color inquiring" $ do   
             isWorse 50 100 0 1 `shouldBe` False
@@ -142,7 +143,8 @@ descendPathTest xs tree = case descendPath xs (fromTree tree) of
 --check that the path of moves retured by best is valid & the node at the bottom contains the correct --value                                        
 validPathCheck :: TreeNode t => Tree t -> Int -> Bool
 validPathCheck tree color =
-        case best tree (-1) color of 
+        --case best tree (-1) color of
+        case runReader (best tree color) testEnvMax of     
             Nothing -> False
             Just r -> let path = head (_moveChoices r) : _followingMoves r
                           bestValue = _score (head (_moveScores r))
@@ -162,8 +164,8 @@ addBranch tree = Node (rootLabel tree) [newBranch]
 ------------------------------------------------------------------------
 
 data TreeItem  = TreeItem { 
-    move :: Int,
-    value :: Int 
+    _tiMove :: Int,
+    _tiValue :: Int 
 } deriving (Show, Eq)
 --isExchanging :: Bool
 --pieces :: [Piece] } deriving (Show)
@@ -181,8 +183,8 @@ data TreePosition = TreePosition {
 } deriving (Show, Eq)    
 
 instance TreeNode TreeItem where
-    getMove = move
-    getValue = value   
+    getMove = _tiMove
+    getValue = _tiValue   
 
 instance TreeNode PosTreeItem where
     getMove = ptMove
@@ -215,14 +217,26 @@ mvToNode  = Map.fromList [
     (8, PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
 
 -----------------------------------------------
+testEnv1 = Env {_depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 10,
+     _p1Comp = True, _p2Comp = False}
+     
+testEnv2 = Env {_depth = 2, _errorDepth = 2, _equivThreshold = 0, _errorEquivThreshold = 10,
+     _p1Comp = True, _p2Comp = False}
+
+testEnv3 = Env {_depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 10,
+     _p1Comp = True, _p2Comp = False}
+
+testEnvMax = Env {_depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 10,
+     _p1Comp = True, _p2Comp = False}     
+     
 rootOnly = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []
 
 root2 = Node PosTreeItem {ptMove=2, ptValue=2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
 
-aMiniTree = Node TreeItem {move = 0, value = 0} [
-    Node TreeItem {move = 1, value = 1} [],
-    Node TreeItem {move = 2, value = 2} [],
-    Node TreeItem {move = 3, value = 3} []]
+aMiniTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = 1, _tiValue = 1} [],
+    Node TreeItem {_tiMove = 2, _tiValue = 2} [],
+    Node TreeItem {_tiMove = 3, _tiValue = 3} []]
 
 newBranch =  Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} [] 
     
@@ -268,111 +282,103 @@ expandedFinalTree =
             Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
         Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
-prunedTree = Node TreeItem {move = 0, value = 0} [
-    Node TreeItem {move = 2, value = 2} []] 
+prunedTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = 2, _tiValue = 2} []] 
     
-aTree = Node TreeItem {move = 0, value = 0} [
-    Node TreeItem {move = 1, value = -80} [
-        Node TreeItem {move = 3, value = 20} [
-            Node TreeItem {move = 8, value = 10} []], 
-        Node TreeItem {move = 4, value = -40} [
-            Node TreeItem {move = 9, value = 5} [], 
-            Node TreeItem {move = 10, value = 50} []]], 
-    Node TreeItem {move = 2, value = 70} [
-        Node TreeItem {move = 5, value = 45} [
-            Node TreeItem {move = 11, value = 0} [], 
-            Node TreeItem {move = 12, value = -10} []], 
-        Node TreeItem {move = 6, value = -60} [
-            Node TreeItem {move = 13, value = -20} [], 
-            Node TreeItem {move = 14, value = 0} []], 
-        Node TreeItem {move = 7, value = 30} [
-            Node TreeItem {move = 15, value= 80} [], 
-            Node TreeItem {move = 16, value= -90} [], 
-            Node TreeItem {move = 17, value = 10} []]]]   
+aTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = 1, _tiValue = -80} [
+        Node TreeItem {_tiMove = 3, _tiValue = 20} [
+            Node TreeItem {_tiMove = 8, _tiValue = 10} []], 
+        Node TreeItem {_tiMove = 4, _tiValue = -40} [
+            Node TreeItem {_tiMove = 9, _tiValue = 5} [], 
+            Node TreeItem {_tiMove = 10, _tiValue = 50} []]], 
+    Node TreeItem {_tiMove = 2, _tiValue = 70} [
+        Node TreeItem {_tiMove = 5, _tiValue = 45} [
+            Node TreeItem {_tiMove = 11, _tiValue = 0} [], 
+            Node TreeItem {_tiMove = 12, _tiValue = -10} []], 
+        Node TreeItem {_tiMove = 6, _tiValue = -60} [
+            Node TreeItem {_tiMove = 13, _tiValue = -20} [], 
+            Node TreeItem {_tiMove = 14, _tiValue = 0} []], 
+        Node TreeItem {_tiMove = 7, _tiValue = 30} [
+            Node TreeItem {_tiMove = 15, _tiValue= 80} [], 
+            Node TreeItem {_tiMove = 16, _tiValue= -90} [], 
+            Node TreeItem {_tiMove = 17, _tiValue = 10} []]]]   
 
---bestMove applied to blunderTree with depth 3 color 1 is tie of moves 1, 2, and 20 
--- with scores of 10 for each
--- _followingMoves (best blunderTree 3 1) === [1, 2, 20]
---checking worstReply against those three moves should give...
---for move 1, worst = 4, following [10] score = 50
---    move 2, worst = 7, following [15] score = 80
---    move 20, worst = 22, following [26] score = 80
---so checkBlunder would take [1, 2, 20] and return [2, 20]
-blunderTree = Node TreeItem {move = 0, value = 0} [
-    Node TreeItem {move = 1, value = -80} [
-        Node TreeItem {move = 3, value = 20} [
-            Node TreeItem {move = 8, value = 10} []], 
-        Node TreeItem {move = 4, value = -40} [
-            Node TreeItem {move = 9, value = 5} [], 
-            Node TreeItem {move = 10, value = 50} []]], 
-    Node TreeItem {move = 2, value = 70} [
-        Node TreeItem {move = 5, value = 45} [
-            Node TreeItem {move = 11, value = 10} [], 
-            Node TreeItem {move = 12, value = -10} []], 
-        Node TreeItem {move = 6, value = -60} [
-            Node TreeItem {move = 13, value = -20} [], 
-            Node TreeItem {move = 14, value = 10} []], 
-        Node TreeItem {move = 7, value = 30} [
-            Node TreeItem {move = 15, value= 80} [], 
-            Node TreeItem {move = 16, value= -90} [], 
-            Node TreeItem {move = 17, value = 10} []]],   
-    Node TreeItem {move = 20, value = -80} [
-        Node TreeItem {move = 21, value = 20} [
-            Node TreeItem {move = 23, value = 10} [], 
-            Node TreeItem {move = 24, value = 7} []],
-        Node TreeItem {move = 22, value = -40} [
-            Node TreeItem {move = 25, value = 5} [], 
-            Node TreeItem {move = 26, value = 80} []]]]             
+blunderTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = 1, _tiValue = -80} [
+        Node TreeItem {_tiMove = 3, _tiValue = 20} [
+            Node TreeItem {_tiMove = 8, _tiValue = 10} []], 
+        Node TreeItem {_tiMove = 4, _tiValue = -40} [
+            Node TreeItem {_tiMove = 9, _tiValue = 5} [], 
+            Node TreeItem {_tiMove = 10, _tiValue = 50} []]], 
+    Node TreeItem {_tiMove = 2, _tiValue = 70} [
+        Node TreeItem {_tiMove = 5, _tiValue = 45} [
+            Node TreeItem {_tiMove = 11, _tiValue = 10} [], 
+            Node TreeItem {_tiMove = 12, _tiValue = -10} []], 
+        Node TreeItem {_tiMove = 6, _tiValue = -60} [
+            Node TreeItem {_tiMove = 13, _tiValue = -20} [], 
+            Node TreeItem {_tiMove = 14, _tiValue = 10} []], 
+        Node TreeItem {_tiMove = 7, _tiValue = 30} [
+            Node TreeItem {_tiMove = 15, _tiValue= 80} [], 
+            Node TreeItem {_tiMove = 16, _tiValue= -90} [], 
+            Node TreeItem {_tiMove = 17, _tiValue = 10} []]],   
+    Node TreeItem {_tiMove = 20, _tiValue = -80} [
+        Node TreeItem {_tiMove = 21, _tiValue = 20} [
+            Node TreeItem {_tiMove = 23, _tiValue = 10} [], 
+            Node TreeItem {_tiMove = 24, _tiValue = 7} []],
+        Node TreeItem {_tiMove = 22, _tiValue = -40} [
+            Node TreeItem {_tiMove = 25, _tiValue = 5} [], 
+            Node TreeItem {_tiMove = 26, _tiValue = 80} []]]]             
             
-prunedToChild = Node TreeItem {move = 2, value = 70} [
-        Node TreeItem {move = 5, value = 45} [
-            Node TreeItem {move = 11, value = 0} [], 
-            Node TreeItem {move = 12, value = -10} []], 
-        Node TreeItem {move = 6, value = -60} [
-            Node TreeItem {move = 13, value = -20} [], 
-            Node TreeItem {move = 14, value = 0} []], 
-        Node TreeItem {move = 7, value = 30} [
-            Node TreeItem {move = 15, value= 80} [], 
-            Node TreeItem {move = 16, value= -90} [], 
-            Node TreeItem {move = 17, value = 10} []]]
+prunedToChild = Node TreeItem {_tiMove = 2, _tiValue = 70} [
+        Node TreeItem {_tiMove = 5, _tiValue = 45} [
+            Node TreeItem {_tiMove = 11, _tiValue = 0} [], 
+            Node TreeItem {_tiMove = 12, _tiValue = -10} []], 
+        Node TreeItem {_tiMove = 6, _tiValue = -60} [
+            Node TreeItem {_tiMove = 13, _tiValue = -20} [], 
+            Node TreeItem {_tiMove = 14, _tiValue = 0} []], 
+        Node TreeItem {_tiMove = 7, _tiValue = 30} [
+            Node TreeItem {_tiMove = 15, _tiValue= 80} [], 
+            Node TreeItem {_tiMove = 16, _tiValue= -90} [], 
+            Node TreeItem {_tiMove = 17, _tiValue = 10} []]]
 
-aTree2 = Node TreeItem {move = 0, value = 0 } [
-    Node TreeItem {move = 1, value = 10 } [
-        Node TreeItem {move = 4, value = 40 } [
-            Node TreeItem {move = 13, value = -130 } [], 
-            Node TreeItem {move = 14, value =  -140 } [],
-            Node TreeItem {move = 15, value = -150 } []],
-        Node TreeItem {move = 5, value = 50 } [
-            Node TreeItem {move = 16, value = -160 } [], 
-            Node TreeItem {move = 17, value = -170 } [],
-            Node TreeItem {move = 18, value = -180 }[]], 
-        Node TreeItem {move = 6, value = 60 } [
-            Node TreeItem {move = 19, value =  -190} [],
-            Node TreeItem {move = 20, value = -200 } [],
-            Node TreeItem {move = 21, value = -210 } []]], 
-    Node TreeItem {move = 2, value = -20 } [
-        Node TreeItem {move = 7, value = -70 } [
-            Node TreeItem {move = 22, value = 220 } [], 
-            Node TreeItem {move = 23, value = 230 } [],
-            Node TreeItem {move = 24, value = 240 }[]], 
-        Node TreeItem {move = 8, value = -80 } [
-            Node TreeItem {move = 25, value = 250 } [], 
-            Node TreeItem {move = 26, value = 260 } [],
-            Node TreeItem {move = 27, value = 270 } []],
-        Node TreeItem {move = 9, value = -90 } [
-            Node TreeItem {move = 28, value = 280 } [], 
-            Node TreeItem {move = 29, value = 290 } [],
-            Node TreeItem {move = 30, value = 300 }[]]],
-    Node TreeItem {move = 3, value = 30 } [
-        Node TreeItem {move = 10, value = -100 } [
-            Node TreeItem {move = 31, value = 310 } [],
-            Node TreeItem {move = 32, value = 320 } [],
-            Node TreeItem {move = 33, value = 330 }[]], 
-        Node TreeItem {move = 11, value = -110 } [
-            Node TreeItem {move = 34, value = 340 } [],
-            Node TreeItem {move = 35, value = 350 } [],
-            Node TreeItem {move = 36, value = 360 } []], 
-        Node TreeItem {move = 12, value = -120 } [
-            Node TreeItem {move = 37, value = 370 } [],
-            Node TreeItem {move = 38, value = 380 } [],
-            Node TreeItem {move = 39, value = 390 } []]]] 
+aTree2 = Node TreeItem {_tiMove = 0, _tiValue = 0 } [
+    Node TreeItem {_tiMove = 1, _tiValue = 10 } [
+        Node TreeItem {_tiMove = 4, _tiValue = 40 } [
+            Node TreeItem {_tiMove = 13, _tiValue = -130 } [], 
+            Node TreeItem {_tiMove = 14, _tiValue =  -140 } [],
+            Node TreeItem {_tiMove = 15, _tiValue = -150 } []],
+        Node TreeItem {_tiMove = 5, _tiValue = 50 } [
+            Node TreeItem {_tiMove = 16, _tiValue = -160 } [], 
+            Node TreeItem {_tiMove = 17, _tiValue = -170 } [],
+            Node TreeItem {_tiMove = 18, _tiValue = -180 }[]], 
+        Node TreeItem {_tiMove = 6, _tiValue = 60 } [
+            Node TreeItem {_tiMove = 19, _tiValue =  -190} [],
+            Node TreeItem {_tiMove = 20, _tiValue = -200 } [],
+            Node TreeItem {_tiMove = 21, _tiValue = -210 } []]], 
+    Node TreeItem {_tiMove = 2, _tiValue = -20 } [
+        Node TreeItem {_tiMove = 7, _tiValue = -70 } [
+            Node TreeItem {_tiMove = 22, _tiValue = 220 } [], 
+            Node TreeItem {_tiMove = 23, _tiValue = 230 } [],
+            Node TreeItem {_tiMove = 24, _tiValue = 240 }[]], 
+        Node TreeItem {_tiMove = 8, _tiValue = -80 } [
+            Node TreeItem {_tiMove = 25, _tiValue = 250 } [], 
+            Node TreeItem {_tiMove = 26, _tiValue = 260 } [],
+            Node TreeItem {_tiMove = 27, _tiValue = 270 } []],
+        Node TreeItem {_tiMove = 9, _tiValue = -90 } [
+            Node TreeItem {_tiMove = 28, _tiValue = 280 } [], 
+            Node TreeItem {_tiMove = 29, _tiValue = 290 } [],
+            Node TreeItem {_tiMove = 30, _tiValue = 300 }[]]],
+    Node TreeItem {_tiMove = 3, _tiValue = 30 } [
+        Node TreeItem {_tiMove = 10, _tiValue = -100 } [
+            Node TreeItem {_tiMove = 31, _tiValue = 310 } [],
+            Node TreeItem {_tiMove = 32, _tiValue = 320 } [],
+            Node TreeItem {_tiMove = 33, _tiValue = 330 }[]], 
+        Node TreeItem {_tiMove = 11, _tiValue = -110 } [
+            Node TreeItem {_tiMove = 34, _tiValue = 340 } [],
+            Node TreeItem {_tiMove = 35, _tiValue = 350 } [],
+            Node TreeItem {_tiMove = 36, _tiValue = 360 } []], 
+        Node TreeItem {_tiMove = 12, _tiValue = -120 } [
+            Node TreeItem {_tiMove = 37, _tiValue = 370 } [],
+            Node TreeItem {_tiMove = 38, _tiValue = 380 } [],
+            Node TreeItem {_tiMove = 39, _tiValue = 390 } []]]] 
