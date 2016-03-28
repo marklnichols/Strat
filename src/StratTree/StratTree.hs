@@ -27,12 +27,10 @@ checkBlunders tree color equivMS = do
     --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of 
     --the worst opponent's reply to that move 
     let equivScore = _score $ head equivMS
-        possibles = possibleBlunders tree depth color equivMS -- :: [MoveScore] 
-        badMovesM = worstMS possibles color >>= (\worst -> if isWorse (worst ^. score) equivScore threshold color 
-                                                      then Just (addEquiv worst possibles) 
-                                                      else Just equivMS)
-    return badMovesM
-
+    let possibles = possibleBlunders tree depth color equivMS -- :: [MoveScore] 
+    return $ worstMS possibles color >>= (\worst -> if isWorse (worst ^. score) equivScore threshold color 
+                                                    then Just (addEquiv worst possibles) 
+                                                    else Just equivMS)
 
 --expandTree :: tree -> depth -> tree
 expandTree :: PositionNode n => Tree n -> Reader Env (Tree n)

@@ -12,10 +12,12 @@ class TreeNode t where
     getMove :: t -> Int
     getValue :: t -> Int
  
+--TODO must support different evaluations for positive moves and opponent errors... 
 class TreeNode n => PositionNode n where
     newNode :: n -> Int -> n
     color :: n -> Int
-    evaluate :: n -> Int    
+    evaluate :: n -> Int 
+    --errorEvaluate :: n -> Int
     possibleMoves :: n -> [Int]
     final :: n -> FinalState
     
