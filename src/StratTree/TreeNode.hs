@@ -1,7 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell #-}
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, 
-       MoveScore (..), Result (..), Env (..)) where
- 
+       MoveScore (..), move, score, Result (..), Env (..)) where
+
+import Control.Lens
+       
 -------------------------------------------------------------
 -- Data types
 -------------------------------------------------------------
@@ -27,6 +30,10 @@ data MoveScore = MoveScore {_move :: Int, _score :: Int} deriving (Show, Eq)
 data Result = Result {_moveChoices :: [Int], _followingMoves :: [Int], _moveScores ::[MoveScore]} 
                 deriving(Show, Eq)
 
+$(makeLenses ''MoveScore)
+makeLenses ''Env
+makeLenses ''Result      
+                
 -------------------------------------------------------------------------------
 flipColor :: Int -> Int
 flipColor = negate      --alternate 1 / -1

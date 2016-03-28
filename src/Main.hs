@@ -33,7 +33,7 @@ main = do
 --loop :: Starting node -> currentTurn -> isP1Computer -> isP2Computer -> depth -> IO ()
 loop :: Tree TTNode -> Int -> Bool -> Bool -> Int -> IO ()
 loop node turn p1 p2 depth = do
-    putStrLn $ format $ position $ rootLabel node
+    putStrLn $ format $ _ttPosition $ rootLabel node
     theNext <- case final $ rootLabel node of  
         WWins -> do
             putStrLn "White wins."
@@ -56,7 +56,8 @@ loop node turn p1 p2 depth = do
                             putStrLn "Invalid result returned from best"
                             exitFailure
                         Just result -> do
-                            let finalChoices = checkBlunders newTree depth (turnToColor turn) (_moveScores result)
+                            let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
+                                finalChoices = runReader badMovesM ticTacEnv
                             putStrLn ("Choices before checkBlunders: " ++ show (_moveScores result))
                             putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
                             moveM <- resolveRandom $ _moveChoices result

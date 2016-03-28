@@ -8,6 +8,7 @@ import Data.Maybe
 import Safe
 import Control.Monad
 import Control.Monad.Reader
+import Control.Lens
 
 -------------------------------------------------------------
 -- Exported functions
@@ -18,18 +19,23 @@ best tree color = do
     return (best' tree depth color negate)
 
 --TODO: move to lens getters
---TODO: bad move threshold, bad move search depth, etc. come from a reader
-checkBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> Maybe [MoveScore]
-checkBlunders tree depth color [] = Nothing
-checkBlunders tree depth color equivMS = 
+checkBlunders :: TreeNode t => Tree t -> Int -> [MoveScore] -> Reader Env (Maybe [MoveScore])
+checkBlunders tree color [] = return Nothing
+checkBlunders tree color equivMS = do
+    depth <- asks _errorDepth
+    threshold <- asks _errorEquivThreshold
     --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of 
     --the worst opponent's reply to that move 
     let equivScore = _score $ head equivMS
         possibles = possibleBlunders tree depth color equivMS -- :: [MoveScore] 
-    in worstMS possibles color >>= (\worst-> if isWorse (_score worst) equivScore 10 color 
-                                                then Just (addEquiv worst possibles) 
-                                                else Just equivMS)
-                                                
+        badMovesM = worstMS possibles color >>= (\worst -> if isWorse (worst ^. score) equivScore threshold color 
+                                                      then Just (addEquiv worst possibles) 
+                                                      else Just equivMS)
+        {--badMovesM = worstMS possibles color >>= (\worst-> if isWorse (_score worst) equivScore threshold color 
+                                                      then Just (addEquiv worst possibles) 
+                                                      else Just equivMS)--}
+    return badMovesM
+    
 --"worse" here is better wrt color used, since color is from tree level above 
 isWorse :: Int -> Int -> Int -> Int -> Bool
 isWorse  scoreToCheck compareTo margin color 
