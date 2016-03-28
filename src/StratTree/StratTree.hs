@@ -7,12 +7,15 @@ import Data.Tree
 import Data.Maybe
 import Safe
 import Control.Monad
+import Control.Monad.Reader
 
 -------------------------------------------------------------
 -- Exported functions
 -------------------------------------------------------------
-best :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
-best tree depth color = best' tree depth color negate
+best :: TreeNode t => Tree t -> Int -> Reader Env (Maybe Result)
+best tree color = do 
+    depth <- asks _depth
+    return (best' tree depth color negate)
 
 --TODO: move to lens getters
 --TODO: bad move threshold, bad move search depth, etc. come from a reader

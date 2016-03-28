@@ -13,6 +13,7 @@ import Data.Map
 import Test.Hspec
 import qualified Data.Map as Map
 import Data.Tuple.Select
+import Control.Monad.Reader
 
 ------------------------------------------------------------------------------------------------
 -- hspec tests
@@ -20,44 +21,44 @@ import Data.Tuple.Select
 main = hspec $ do
     describe "best" $ do
         it "calculates the best moves" $ do
-            isJust (best aTree 1 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 1 1))) `shouldBe` 2
-            _followingMoves (fromJust (best aTree 1 1)) `shouldBe` []
+            isJust (runReader (best aTree 1) testEnv1) `shouldBe` True 
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv1))) `shouldBe` 2
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv1)) `shouldBe` []
             
-            isJust (best aTree 1 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 1 (-1)))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 1 (-1))) `shouldBe` []
+            isJust (runReader (best aTree (-1)) testEnv1) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv1))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv1)) `shouldBe` []
             
-            isJust (best aTree 2 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 2 1))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 2 1)) `shouldBe` [4]
+            isJust (runReader (best aTree 1) testEnv2) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv2))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [4]
             
-            isJust (best aTree 2 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 2 (-1)))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 2 (-1))) `shouldBe` [3]
+            isJust (runReader (best aTree (-1)) testEnv2) `shouldBe`  True
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv2))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv2)) `shouldBe` [3]
             
-            isJust (best aTree 3 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 3 1))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree 3 1)) `shouldBe` [3, 8]
+            isJust (runReader (best aTree 1) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv3))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv3)) `shouldBe` [3, 8]
             
-            isJust (best aTree 3 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree 3 (-1)))) `shouldBe` 2
-            _followingMoves (fromJust (best aTree 3 (-1))) `shouldBe` [5, 12]
+            isJust (runReader (best aTree (-1)) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv3))) `shouldBe` 2
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv3)) `shouldBe` [5, 12]
             
-            isJust (best aTree2 2 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree2 2 (-1)))) `shouldBe` 3
-            _followingMoves (fromJust (best aTree2 2 (-1))) `shouldBe` [10]
+            isJust (runReader (best aTree2 (-1)) testEnv2) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv2))) `shouldBe` 3
+            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv2)) `shouldBe` [10]
             
-            isJust (best aTree2 3 1) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree2 3 1))) `shouldBe` 3
-            _followingMoves (fromJust (best aTree2 3 1)) `shouldBe` [10, 33]
+            isJust (runReader (best aTree2 1) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree2 1) testEnv3))) `shouldBe` 3
+            _followingMoves (fromJust (runReader (best aTree2 1) testEnv3)) `shouldBe` [10, 33]
             
-            isJust (best aTree2 3 (-1)) `shouldBe` True
-            head (_moveChoices (fromJust (best aTree2 3 (-1)))) `shouldBe` 1
-            _followingMoves (fromJust (best aTree2 3 (-1))) `shouldBe` [4, 15]
+            isJust (runReader (best aTree2 (-1)) testEnv3) `shouldBe` True
+            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv3))) `shouldBe` 1
+            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv3)) `shouldBe` [4, 15]
         it "returns a list moves with equivalent scores" $ do
-            _moveChoices (fromJust $ best modTree 2 1) `shouldBe` [1, 3, 2]
-            _moveChoices (fromJust $ best aTree 3 1) `shouldBe` [1]
+            _moveChoices (fromJust (runReader (best modTree 1) testEnv2)) `shouldBe` [1, 3, 2]
+            _moveChoices (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [1]
     describe "worstReply" $ 
         it "calculates the worst reply given a selected move" $ do
             isJust (worstReply aTree 3 1 1) `shouldBe` True
@@ -142,7 +143,8 @@ descendPathTest xs tree = case descendPath xs (fromTree tree) of
 --check that the path of moves retured by best is valid & the node at the bottom contains the correct --value                                        
 validPathCheck :: TreeNode t => Tree t -> Int -> Bool
 validPathCheck tree color =
-        case best tree (-1) color of 
+        --case best tree (-1) color of
+        case runReader (best tree color) testEnvMax of     
             Nothing -> False
             Just r -> let path = head (_moveChoices r) : _followingMoves r
                           bestValue = _score (head (_moveScores r))
@@ -215,6 +217,18 @@ mvToNode  = Map.fromList [
     (8, PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
 
 -----------------------------------------------
+testEnv1 = Env {_depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 0,
+     _p1Comp = True, _p2Comp = False}
+     
+testEnv2 = Env {_depth = 2, _errorDepth = 2, _equivThreshold = 0, _errorEquivThreshold = 0,
+     _p1Comp = True, _p2Comp = False}
+
+testEnv3 = Env {_depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0,
+     _p1Comp = True, _p2Comp = False}
+
+testEnvMax = Env {_depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 0,
+     _p1Comp = True, _p2Comp = False}     
+     
 rootOnly = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []
 
 root2 = Node PosTreeItem {ptMove=2, ptValue=2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
@@ -290,14 +304,6 @@ aTree = Node TreeItem {move = 0, value = 0} [
             Node TreeItem {move = 16, value= -90} [], 
             Node TreeItem {move = 17, value = 10} []]]]   
 
---bestMove applied to blunderTree with depth 3 color 1 is tie of moves 1, 2, and 20 
--- with scores of 10 for each
--- _followingMoves (best blunderTree 3 1) === [1, 2, 20]
---checking worstReply against those three moves should give...
---for move 1, worst = 4, following [10] score = 50
---    move 2, worst = 7, following [15] score = 80
---    move 20, worst = 22, following [26] score = 80
---so checkBlunder would take [1, 2, 20] and return [2, 20]
 blunderTree = Node TreeItem {move = 0, value = 0} [
     Node TreeItem {move = 1, value = -80} [
         Node TreeItem {move = 3, value = 20} [

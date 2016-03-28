@@ -1,5 +1,6 @@
 module Main where 
 import TicTac.TicTac
+import TicTac.TicTacEnv
 import System.Environment
 import System.IO
 import System.Exit
@@ -10,6 +11,7 @@ import Data.Tree.Zipper
 import Control.Monad
 import Data.Tuple.Select
 import StratIO.StratIO
+import Control.Monad.Reader
 
 main :: IO ()
 main = do
@@ -47,7 +49,8 @@ loop node turn p1 p2 depth = do
                 then do
                     putStrLn "Calculating computer move..."
                     let newTree = expandTree node depth
-                    let resultM = best newTree depth (turnToColor turn)
+                    -- let resultM = best newTree depth (turnToColor turn)
+                    let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
                     case resultM of 
                         Nothing -> do
                             putStrLn "Invalid result returned from best"
