@@ -1,7 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, scorePos, format, 
-       TTPosition (..), TTNode (..), getStartNode) where
+--TODO reorganize the exports list -- move those only needed for testing elsewhere
+module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, checkTwoWayWin, scorePos, format, 
+       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask) where
 
 import Data.Tree
 import StratTree.TreeNode hiding (Result, MoveScore)
@@ -20,6 +21,7 @@ data TTNode = TTNode {_ttMove :: Int, _ttValue :: Int, _ttPosition :: TTPosition
 instance PositionNode TTNode where
     newNode = calcNewNode
     evaluate = eval
+    errorEvaluate = errorEval
     possibleMoves = getPossibleMoves
     color = _clr . _ttPosition
     final = _fin . _ttPosition
@@ -28,14 +30,12 @@ instance TreeNode TTNode where
     getMove = _ttMove
     getValue = _ttValue
     
-
 ---------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
 getStartNode = Node TTNode {_ttMove = -1, _ttValue = 0, _ttPosition = TTPosition 
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
-
 
 --------------------------------------------------------
 -- format position as a string
@@ -87,21 +87,47 @@ getPossibleMoves n =  foldr f [] (zip (_ttPosition n ^. grid) [1..9]) where
 eval :: TTNode -> Int
 eval n = fst $ evalGrid $ _grid (_ttPosition n)
 
---evalGrid :: grid -> (score, final state)
+errorEval :: TTNode -> Int
+errorEval n = fst $ errorEvalGrid $ _grid (_ttPosition n)
+    
 evalGrid :: [Int] ->  (Int, FinalState)
 evalGrid grid   
-    | checkWins grid 1    = (100, WWins)
-    | checkWins grid (-1) = (-100, BWins)
-    | checkDraw grid      = (0, Draw)
-    | otherwise           = (scorePos grid, NotFinal)      
+    | checkWins grid 1        = (100, WWins)
+    | checkWins grid (-1)     = (-100, BWins)
+    | checkTwoWayWin grid 1    = (80, NotFinal)
+    | checkTwoWayWin grid (-1) = (-80, NotFinal)
+    | checkDraw grid          = (0, Draw)
+    | otherwise               = (scorePos grid, NotFinal)
     
+errorEvalGrid :: [Int] -> (Int, FinalState)
+errorEvalGrid grid  
+    | checkTwoWayWin grid 1    = (120, NotFinal)
+    | checkTwoWayWin grid (-1) = (-120, NotFinal)
+    | checkWins grid 1        = (100, WWins)
+    | checkWins grid (-1)     = (-100, BWins)
+    | checkDraw grid          = (0, Draw)
+    | otherwise               = (scorePos grid, NotFinal)    
+ 
 ---------------------------------------------------------------------
+-- Check positions for winning / losing conditions 
+---------------------------------------------------------------------
+--checkWins :: [grid] -> color -> Bool
 checkWins :: [Int] -> Int -> Bool
 checkWins pos = wins (sums $ applyMask pos masks) 
 
 checkDraw :: [Int] -> Bool
 checkDraw = notElem 0
 
+checkTwoWayWin :: [Int] -> Int -> Bool
+checkTwoWayWin pos color = 
+    let theSums = sums $ applyMask pos masks
+        count = foldr f 0 theSums where
+                    f x r = if x == 2*color then r+1 else r
+    in count >= 2
+    
+---------------------------------------------------------------------
+-- Additional positions evaluation functions
+---------------------------------------------------------------------
 scorePos :: [Int] -> Int
 scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
     --(8, _, 1)   -> 20
@@ -110,6 +136,12 @@ scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
     --(7, -1, 1)  -> -10
     (_, _, _)   -> 0
     
+--------------------------------------------------------------------
+-- helper functions
+--------------------------------------------------------------------    
+--hasTwoOf :: [a] -> a -> Bool
+--hasTwoOf xs x = length . (filter (\y -> y == x) xs) == 2
+
 wins :: [Int] -> Int -> Bool
 wins sums color = (color * 3) `elem` sums  
 

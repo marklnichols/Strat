@@ -194,6 +194,7 @@ instance PositionNode PosTreeItem where
     newNode = calcNewNode
     color = ptColor            
     evaluate n = -1    
+    errorEvaluate n = -1
     possibleMoves = calcPossibleMoves
     final = ptFinal
 
