@@ -26,7 +26,10 @@ data Env = Env
     {_depth :: Int, _errorDepth :: Int, _equivThreshold :: Int, _errorEquivThreshold :: Int,
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
 
-data MoveScore = MoveScore {_move :: Int, _score :: Int} deriving (Show, Eq)
+data MoveScore = MoveScore {_move :: Int, _score :: Int} deriving (Eq)
+
+instance Show MoveScore where                                                                                       
+    show (MoveScore m s ) = "(m:" ++ show m ++ ", s:" ++ show s ++ ")"     
 
 data Result = Result {_moveChoices :: [Int], _followingMoves :: [Int], _moveScores ::[MoveScore]} 
                 deriving(Show, Eq)

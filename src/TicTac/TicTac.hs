@@ -100,13 +100,13 @@ evalGrid grid
     | otherwise               = (scorePos grid, NotFinal)
     
 errorEvalGrid :: [Int] -> (Int, FinalState)
-errorEvalGrid grid  
-    | checkTwoWayWin grid 1    = (120, NotFinal)
-    | checkTwoWayWin grid (-1) = (-120, NotFinal)
-    | checkWins grid 1        = (100, WWins)
-    | checkWins grid (-1)     = (-100, BWins)
-    | checkDraw grid          = (0, Draw)
-    | otherwise               = (scorePos grid, NotFinal)    
+errorEvalGrid grid   
+    | checkTwoWayWin grid 1    = (121, NotFinal)
+    | checkTwoWayWin grid (-1) = (-121, NotFinal)
+    | checkWins grid 1        = (101, WWins)
+    | checkWins grid (-1)     = (-101, BWins)
+    | checkDraw grid          = (1, Draw)
+    | otherwise               = (1, NotFinal) -- (scorePos grid, NotFinal)    
  
 ---------------------------------------------------------------------
 -- Check positions for winning / losing conditions 

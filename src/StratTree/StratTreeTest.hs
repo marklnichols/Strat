@@ -77,6 +77,9 @@ main = hspec $ do
             fromJust (runReader (checkBlunders blunderTree 1 
                 [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
                     testEnv3) `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
+            --make sure it returns Just something for only one item in the list:
+            isJust (runReader (checkBlunders blunderTree 1 
+                [MoveScore {_move=1, _score=10}]) testEnv3) `shouldBe` True       
     describe "getChildren" $ 
             it "gets a list of child nodes" $ do
                 fmap (getMove . label) (getChildren $ fromTree aTree) `shouldBe` [1,2]

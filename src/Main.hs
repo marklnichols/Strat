@@ -8,31 +8,34 @@ import StratTree.TreeNode
 import StratTree.StratTree
 import Data.Tree
 import Data.Tree.Zipper
+import Data.List
+import Data.Maybe
 import Control.Monad
 import Data.Tuple.Select
 import StratIO.StratIO
 import Control.Monad.Reader
 
-main :: IO ()
-main = do
-    args <- getArgs
-    case args of
-        [p1Type, p2Type, dpth] | (p1, p2, depth) <- (toBool p1Type, toBool p2Type, toInt dpth)  ->
-            loop getStartNode 1 p1 p2 depth
-        _ -> do
-            name <- getProgName
-            hPutStrLn stderr $ "usage: " ++ name ++ " <isP1Computer :: Bool> <isP2Computer :: Bool> <depth :: Int>"
-  
 -- :set prompt "ghci>"
 -- StratTree.StratTreeTest.main
 -- TicTac.TicTacTest.main
--- :set args c h 6
--- :set args h c 6
 -- Main.main
-   
---loop :: Starting node -> currentTurn -> isP1Computer -> isP2Computer -> depth -> IO ()
-loop :: Tree TTNode -> Int -> Bool -> Bool -> Int -> IO ()
-loop node turn p1 p2 depth = do
+
+--TODO move command line args to reader monad
+main :: IO ()
+main = do
+    loop getStartNode 1
+    {--
+    args <- getArgs
+    case args of
+        [p1Type, p2Type, dpth] | (p1, p2, depth) <- (toBool p1Type, toBool p2Type, toInt dpth)  ->
+            loop getStartNode 1 p1 p2 
+        _ -> do
+            name <- getProgName
+            hPutStrLn stderr $ "usage: " ++ name ++ " <isP1Computer :: Bool> <isP2Computer :: Bool> <depth :: Int>"
+    --}
+
+loop :: Tree TTNode -> Int -> IO ()
+loop node turn = do
     putStrLn $ format $ _ttPosition $ rootLabel node
     theNext <- case final $ rootLabel node of  
         WWins -> do
@@ -45,11 +48,10 @@ loop node turn p1 p2 depth = do
             putStrLn "Draw."
             return Nothing
         _ -> do
-            nextNode <- if isCompTurn turn p1 p2 
+            nextNode <- if runReader (isCompTurn turn) ticTacEnv 
                 then do
                     putStrLn "Calculating computer move..."
                     let newTree = runReader (expandTree node) ticTacEnv 
-                    -- let resultM = best newTree depth (turnToColor turn)
                     let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
                     case resultM of 
                         Nothing -> do
@@ -57,11 +59,11 @@ loop node turn p1 p2 depth = do
                             exitFailure
                         Just result -> do
                             let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
-                                finalChoices = runReader badMovesM ticTacEnv
+                            let finalChoices = runReader badMovesM ticTacEnv
                             putStrLn ("Choices before checkBlunders: " ++ show (_moveScores result))
                             putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
-                            moveM <- resolveRandom $ _moveChoices result
-                            --moveM <- resolveRandom $ _finalChoices result
+                            --moveM <- resolveRandom $ _moveChoices result
+                            moveM <- resolveRandom finalChoices
                             case moveM of
                                 Nothing -> do
                                     putStrLn "Invalid result from resolveRandom"
@@ -83,14 +85,15 @@ loop node turn p1 p2 depth = do
                     let processed = processMove node n
                     return processed    
             return (Just nextNode)
-    --TBD no need to pass p1 p2 depth around...
     case theNext of 
         Nothing -> return ()
-        Just next -> loop next (swapTurns turn) p1 p2 depth
+        Just next -> loop next (swapTurns turn)
     
---isCompTurn :: current Turn -> isP1Computer -> isP2Computer -> True if current turn is computer generated
-isCompTurn :: Int -> Bool -> Bool -> Bool
-isCompTurn turn p1 p2 = if turn == 1 then p1 else p2
+isCompTurn :: Int -> Reader Env Bool
+isCompTurn turn = do 
+    p1 <- asks _p1Comp
+    p2 <- asks _p2Comp
+    if turn == 1 then return p1 else return p2
 
 --toBool :: "C" or "c" for computer -> True, "H" or "h" (or anything else for that matter) for Human -> False
 toBool :: String -> Bool
