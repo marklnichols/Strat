@@ -11,12 +11,13 @@ import Control.Lens
 class TreeNode t where
     getMove :: t -> Int
     getValue :: t -> Int
+    getErrorValue :: t -> Int
  
 class TreeNode n => PositionNode n where
     newNode :: n -> Int -> n
     color :: n -> Int
-    evaluate :: n -> Int 
-    errorEvaluate :: n -> Int
+    -- evaluate :: n -> Int 
+    --errorEvaluate :: n -> Int
     possibleMoves :: n -> [Int]
     final :: n -> FinalState
     

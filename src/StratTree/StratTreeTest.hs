@@ -187,17 +187,19 @@ data TreePosition = TreePosition {
 
 instance TreeNode TreeItem where
     getMove = _tiMove
-    getValue = _tiValue   
+    getValue = _tiValue
+    getErrorValue = _tiValue
 
 instance TreeNode PosTreeItem where
     getMove = ptMove
-    getValue = ptValue     
+    getValue = ptValue 
+    getErrorValue = ptValue
 
 instance PositionNode PosTreeItem where
     newNode = calcNewNode
     color = ptColor            
-    evaluate n = -1    
-    errorEvaluate n = -1
+    -- evaluate n = -1    
+    -- errorEvaluate n = -1
     possibleMoves = calcPossibleMoves
     final = ptFinal
 

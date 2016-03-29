@@ -78,6 +78,10 @@ addEquiv target =
 worstReply :: TreeNode t => Tree t -> Int -> Int -> Int -> Maybe Result
 worstReply tree depth color move = worst (pruneToChild tree move) depth color
 
+START HERE -- best and worst need to pass in the functions getValue and getErrorValue respectively
+instead of just using getValue -- these need to be passed to findBest and bestFold (just like colorFlip is)
+-- is a reader monad better here? a state monad?
+
 worst :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
 worst tree depth color = best' tree depth color id
 

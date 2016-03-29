@@ -16,12 +16,12 @@ import Data.List
 data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
 
-data TTNode = TTNode {_ttMove :: Int, _ttValue :: Int, _ttPosition :: TTPosition} deriving (Show)
+data TTNode = TTNode {_ttMove :: Int, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
 
 instance PositionNode TTNode where
     newNode = calcNewNode
-    evaluate = eval
-    errorEvaluate = errorEval
+    -- evaluate = eval
+    -- errorEvaluate = errorEval
     possibleMoves = getPossibleMoves
     color = _clr . _ttPosition
     final = _fin . _ttPosition
@@ -29,6 +29,7 @@ instance PositionNode TTNode where
 instance TreeNode TTNode where
     getMove = _ttMove
     getValue = _ttValue
+    getErrorValue = _ttErrorValue
     
 ---------------------------------------------------------
 -- starting position,
@@ -61,8 +62,9 @@ calcNewNode node mv =
         oldColor = view clr gridSet
         colorFlipped = set clr (flipColor oldColor) gridSet
         (score, finalSt) = evalGrid $ _grid colorFlipped
+        errorScore = errorEvalGrid $ _grid colorFlipped
         allSet = set fin finalSt colorFlipped
-    in  TTNode mv score allSet
+    in  TTNode mv score errorScore allSet
 
 
 ----------------------------------------------------------
@@ -88,7 +90,7 @@ eval :: TTNode -> Int
 eval n = fst $ evalGrid $ _grid (_ttPosition n)
 
 errorEval :: TTNode -> Int
-errorEval n = fst $ errorEvalGrid $ _grid (_ttPosition n)
+errorEval n = errorEvalGrid $ _grid (_ttPosition n)
     
 evalGrid :: [Int] ->  (Int, FinalState)
 evalGrid grid   
@@ -99,14 +101,14 @@ evalGrid grid
     | checkDraw grid          = (0, Draw)
     | otherwise               = (scorePos grid, NotFinal)
     
-errorEvalGrid :: [Int] -> (Int, FinalState)
+errorEvalGrid :: [Int] -> Int
 errorEvalGrid grid   
-    | checkTwoWayWin grid 1    = (121, NotFinal)
-    | checkTwoWayWin grid (-1) = (-121, NotFinal)
-    | checkWins grid 1        = (101, WWins)
-    | checkWins grid (-1)     = (-101, BWins)
-    | checkDraw grid          = (1, Draw)
-    | otherwise               = (1, NotFinal) -- (scorePos grid, NotFinal)    
+    | checkTwoWayWin grid 1    = 121
+    | checkTwoWayWin grid (-1) = -121
+    | checkWins grid 1        = 101
+    | checkWins grid (-1)     = -101
+    | checkDraw grid          = 1 
+    | otherwise               = 1 -- scorePos grid    
  
 ---------------------------------------------------------------------
 -- Check positions for winning / losing conditions 
