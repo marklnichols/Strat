@@ -22,8 +22,7 @@ import Control.Monad.Reader
 
 --TODO move command line args to reader monad
 main :: IO ()
-main = do
-    loop getStartNode 1
+main = loop getStartNode 1
     {--
     args <- getArgs
     case args of

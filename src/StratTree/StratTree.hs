@@ -16,7 +16,7 @@ import Control.Lens
 best :: TreeNode t => Tree t -> Int -> Reader Env (Maybe Result)
 best tree color = do 
     depth <- asks _depth
-    return (best' tree depth color negate)
+    return (best' tree depth color negate getValue)
 
 --TODO: move to lens getters
 checkBlunders :: TreeNode t => Tree t -> Int -> [MoveScore] -> Reader Env (Maybe [MoveScore])
@@ -46,7 +46,6 @@ processMove tree move = case subForest tree of
     [] -> Node (newNode (rootLabel tree) move) []
     xs -> pruneToChild tree move  
  
-      
 ---------------------------------------------------------------------------------------------------
 -- non-exported functions
 ---------------------------------------------------------------------------------------------------    
@@ -62,7 +61,7 @@ possibleBlunders :: TreeNode t => Tree t -> Int -> Int -> [MoveScore] -> [MoveSc
 possibleBlunders tree depth color equivMS = catMaybes $ fmap convert equivMS where 
     convert ms = let result = worstReply tree depth color (_move ms) -- :: Maybe Result
                  in result >>= (\r -> case _moveScores r of 
-                                          [] -> Nothing 
+                                          [] -> Nothing
                                           (x:xs) ->  Just (MoveScore (_move ms) (_score x)))                                          
 
 worstMS :: [MoveScore] -> Int -> Maybe MoveScore
@@ -78,16 +77,12 @@ addEquiv target =
 worstReply :: TreeNode t => Tree t -> Int -> Int -> Int -> Maybe Result
 worstReply tree depth color move = worst (pruneToChild tree move) depth color
 
-START HERE -- best and worst need to pass in the functions getValue and getErrorValue respectively
-instead of just using getValue -- these need to be passed to findBest and bestFold (just like colorFlip is)
--- is a reader monad better here? a state monad?
-
 worst :: TreeNode t => Tree t -> Int -> Int -> Maybe Result
-worst tree depth color = best' tree depth color id
+worst tree depth color = best' tree depth color id getErrorValue
 
-best' :: TreeNode t => Tree t -> Int -> Int -> (Int -> Int) -> Maybe Result
-best' tree depth color colorFlip = 
-    let (path, rChoices, bestScore) = findBest tree depth color colorFlip
+best' :: TreeNode t => Tree t -> Int -> Int -> (Int -> Int) -> (t -> Int) -> Maybe Result
+best' tree depth color colorFlip getMoveValue = 
+    let (path, rChoices, bestScore) = findBest tree depth color colorFlip getMoveValue
         pathM = tailMay path -- without the tree's starting "move"
         headM = pathM >>= headMay  
         followingM = pathM >>= tailMay 
@@ -97,20 +92,21 @@ best' tree depth color colorFlip =
         scoresM = liftM (f bestScore) randChoiceM
     in liftM3 Result randChoiceM followingM scoresM  
  
---findBest :: tree -> depth -> color -> color flipping function -> ([best mv path], [equiv random choices], best score)
-findBest :: TreeNode t => Tree t -> Int -> Int -> (Int -> Int) -> ([Int], [Int], Int)
-findBest (Node n []) depth color colorFlip = ([getMove n], [], color * getValue n)
-findBest (Node n xs) 0 color colorFlip = ([getMove n], [], color * getValue n)
-findBest (Node n xs) depth color colorFlip = 
-    let (bestMvs, randChoices,  bestVal) = foldl (bestFold depth color colorFlip) ([], [], minBound) xs
-    in (getMove n : bestMvs, randChoices, bestVal)
+--findBest :: tree -> depth -> color -> color flipping function -> getValue/getErrorValue funct -> ([best mv path], [equiv random choices], best score)
+findBest :: TreeNode t => Tree t -> Int -> Int -> (Int -> Int) -> (t -> Int) -> ([Int], [Int], Int)
+findBest (Node n []) depth color colorFlip getMoveValue = ([getMove n], [], color * getValue n)
+findBest (Node n xs) 0 color colorFlip getMoveValue = ([getMove n], [], color * getValue n)
+findBest (Node n xs) depth color colorFlip getMoveValue = 
+    let (bestMvs, randChoices,  bestVal) = foldl (bestFold depth color colorFlip getMoveValue) ([], [], minBound) xs
+    in (getMoveValue n : bestMvs, randChoices, bestVal)
 
---bestFold :: depth -> color -> color flipping function -> ([best move list], [equiv random choices], best score) 
-bestFold :: TreeNode t => Int -> Int -> (Int -> Int) -> ([Int], [Int], Int) -> Tree t -> ([Int], [Int], Int)
-bestFold depth color colorFlip (rMvs, randChoices, rVal) t = 
-    let (mvs, _, v) = findBest t (depth - 1) (colorFlip color) colorFlip
+--bestFold :: depth -> color -> color flipping function -> getValue/getErrorValue funct -> ([best move list], [equiv random choices], best score) 
+bestFold :: TreeNode t => Int -> Int -> (Int -> Int) -> (t -> Int) -> ([Int], [Int], Int) -> Tree t -> ([Int], [Int], Int)
+bestFold depth color colorFlip getMoveValue (rMvs, randChoices, rVal) t = 
+    let (mvs, _, v) = findBest t (depth - 1) (colorFlip color) colorFlip getMoveValue
         (newMvs, newVal) = (mvs, colorFlip v)
     in  case rVal `compare` newVal of 
         EQ -> (rMvs, head newMvs : randChoices, rVal)
         LT -> (newMvs, [], newVal)
         GT ->  (rMvs, randChoices, rVal)
+

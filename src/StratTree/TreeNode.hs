@@ -16,8 +16,6 @@ class TreeNode t where
 class TreeNode n => PositionNode n where
     newNode :: n -> Int -> n
     color :: n -> Int
-    -- evaluate :: n -> Int 
-    --errorEvaluate :: n -> Int
     possibleMoves :: n -> [Int]
     final :: n -> FinalState
     
@@ -34,7 +32,7 @@ instance Show MoveScore where
 
 data Result = Result {_moveChoices :: [Int], _followingMoves :: [Int], _moveScores ::[MoveScore]} 
                 deriving(Show, Eq)
-
+           
 $(makeLenses ''MoveScore)
 makeLenses ''Env
 makeLenses ''Result      

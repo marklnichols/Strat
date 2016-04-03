@@ -35,7 +35,7 @@ instance TreeNode TTNode where
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {_ttMove = -1, _ttValue = 0, _ttPosition = TTPosition 
+getStartNode = Node TTNode {_ttMove = -1, _ttValue = 0, _ttErrorValue = 0, _ttPosition = TTPosition 
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
 --------------------------------------------------------
