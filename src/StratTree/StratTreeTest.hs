@@ -1,7 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2, modTree, blunderTree, validPathCheck, testEnv2) where
+module StratTree.StratTreeTest (main, aTree, aTree2, modTree, blunderTree, validPathCheck, testEnv1, testEnv2,
+    testEnv3, testEnvMax) where
 
 import StratTree.StratTree
 import StratTree.Internal.Trees
