@@ -11,11 +11,11 @@ import Control.Lens
 class TreeNode t where
     getMove :: t -> Int
     getValue :: t -> Int
+    getErrorValue :: t -> Int
  
 class TreeNode n => PositionNode n where
     newNode :: n -> Int -> n
     color :: n -> Int
-    evaluate :: n -> Int    
     possibleMoves :: n -> [Int]
     final :: n -> FinalState
     
@@ -25,11 +25,14 @@ data Env = Env
     {_depth :: Int, _errorDepth :: Int, _equivThreshold :: Int, _errorEquivThreshold :: Int,
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
 
-data MoveScore = MoveScore {_move :: Int, _score :: Int} deriving (Show, Eq)
+data MoveScore = MoveScore {_move :: Int, _score :: Int} deriving (Eq)
+
+instance Show MoveScore where                                                                                       
+    show (MoveScore m s ) = "(m:" ++ show m ++ ", s:" ++ show s ++ ")"     
 
 data Result = Result {_moveChoices :: [Int], _followingMoves :: [Int], _moveScores ::[MoveScore]} 
                 deriving(Show, Eq)
-
+           
 $(makeLenses ''MoveScore)
 makeLenses ''Env
 makeLenses ''Result      

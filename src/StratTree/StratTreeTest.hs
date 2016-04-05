@@ -1,7 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2, modTree, blunderTree, validPathCheck) where
+module StratTree.StratTreeTest (main, aTree, aTree2, modTree, miniTree, blunderTree, validPathCheck, testEnv1, testEnv2,
+    testEnv3, testEnvMax) where
 
 import StratTree.StratTree
 import StratTree.Internal.Trees
@@ -77,6 +78,9 @@ main = hspec $ do
             fromJust (runReader (checkBlunders blunderTree 1 
                 [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
                     testEnv3) `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
+            --make sure it returns Just something for only one item in the list:
+            isJust (runReader (checkBlunders blunderTree 1 
+                [MoveScore {_move=1, _score=10}]) testEnv3) `shouldBe` True       
     describe "getChildren" $ 
             it "gets a list of child nodes" $ do
                 fmap (getMove . label) (getChildren $ fromTree aTree) `shouldBe` [1,2]
@@ -184,16 +188,19 @@ data TreePosition = TreePosition {
 
 instance TreeNode TreeItem where
     getMove = _tiMove
-    getValue = _tiValue   
+    getValue = _tiValue
+    getErrorValue = _tiValue
 
 instance TreeNode PosTreeItem where
     getMove = ptMove
-    getValue = ptValue     
+    getValue = ptValue 
+    getErrorValue = ptValue
 
 instance PositionNode PosTreeItem where
     newNode = calcNewNode
     color = ptColor            
-    evaluate n = -1    
+    -- evaluate n = -1    
+    -- errorEvaluate n = -1
     possibleMoves = calcPossibleMoves
     final = ptFinal
 
@@ -282,6 +289,12 @@ expandedFinalTree =
             Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
         Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
+miniTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = 1, _tiValue = 10} [
+        Node TreeItem {_tiMove = 3, _tiValue = 30} [] ],
+    Node TreeItem {_tiMove = 2, _tiValue = 20} [
+        Node TreeItem {_tiMove = 4, _tiValue = 40} [] ]]        
+        
 prunedTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
     Node TreeItem {_tiMove = 2, _tiValue = 2} []] 
     
