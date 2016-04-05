@@ -99,24 +99,25 @@ down (Node n []) depth color colorFlip getMoveValue = ([getMove n], [], color * 
 down (Node n xs) 0 color colorFlip getMoveValue = ([getMove n], [], color * getMoveValue n)
 down (Node n xs) depth color colorFlip getMoveValue = 
     let (bestMvs, randChoices,  bestVal) = foldl (across depth color colorFlip getMoveValue) ([], [], minBound) xs
-        in trace ("Best move added: " ++ show (getMoveValue n) ++ " (color is " ++ show color) 
-            (getMoveValue n : bestMvs, randChoices, bestVal)
-    --in (getMoveValue n : bestMvs, randChoices, bestVal)
+        --in trace ("Best move added: " ++ show (getMoveValue n) ++ " (color is " ++ show color) 
+        --    (getMove n : bestMvs, randChoices, bestVal)
+    in (getMove n : bestMvs, randChoices, bestVal)
 
 --across :: depth -> color -> color flipping function -> getValue/getErrorValue funct -> ([best move list], [equiv random choices], best score) 
 across :: TreeNode t => Int -> Int -> (Int -> Int) -> (t -> Int) -> ([Int], [Int], Int) -> Tree t -> ([Int], [Int], Int)
 across depth color colorFlip getMoveValue (rMvs, randChoices, rVal) t = 
     let (mvs, _, v) = down t (depth - 1) (colorFlip color) colorFlip getMoveValue
         (newMvs, newVal) = (mvs, colorFlip v)
-    in  trace ("Color is " ++ show (colorFlip color) ++ ", comparing " ++ show rVal ++
+    in  case rVal `compare` newVal of 
+        EQ -> (rMvs, head newMvs : randChoices, rVal)
+        LT -> (newMvs, [], newVal)
+        GT ->  (rMvs, randChoices, rVal)
+{-- 
+ in  trace ("Color is " ++ show (colorFlip color) ++ ", comparing " ++ show rVal ++
                 " to " ++ show newVal ++ " results in... ") 
         (case rVal `compare` newVal of 
             EQ -> trace "EQ - adding to equivalent list" (rMvs, head newMvs : randChoices, rVal)
             LT -> trace ("LT - new candidate (" ++ show newVal ++ ")") (newMvs, [], newVal)
             GT ->  trace "GT - ignoring" (rMvs, randChoices, rVal))
-{--   
-    in  case rVal `compare` newVal of 
-        EQ -> (rMvs, head newMvs : randChoices, rVal)
-        LT -> (newMvs, [], newVal)
-        GT ->  (rMvs, randChoices, rVal)
---}
+--}            
+            

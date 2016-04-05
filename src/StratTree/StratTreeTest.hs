@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2, modTree, blunderTree, validPathCheck, testEnv1, testEnv2,
+module StratTree.StratTreeTest (main, aTree, aTree2, modTree, miniTree, blunderTree, validPathCheck, testEnv1, testEnv2,
     testEnv3, testEnvMax) where
 
 import StratTree.StratTree
@@ -289,6 +289,12 @@ expandedFinalTree =
             Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
         Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
+miniTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = 1, _tiValue = 10} [
+        Node TreeItem {_tiMove = 3, _tiValue = 30} [] ],
+    Node TreeItem {_tiMove = 2, _tiValue = 20} [
+        Node TreeItem {_tiMove = 4, _tiValue = 40} [] ]]        
+        
 prunedTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
     Node TreeItem {_tiMove = 2, _tiValue = 2} []] 
     
