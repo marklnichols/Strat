@@ -22,6 +22,7 @@ best tree color = do
 --TODO: move to lens getters
 checkBlunders :: TreeNode t => Tree t -> Int -> [MoveScore] -> Reader Env (Maybe [MoveScore])
 checkBlunders tree color [] = return Nothing
+checkBlunders tree color [ms] = return $ Just [ms]
 checkBlunders tree color equivMS = do
     depth <- asks _errorDepth
     threshold <- asks _errorEquivThreshold

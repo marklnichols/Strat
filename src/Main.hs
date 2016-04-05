@@ -23,15 +23,6 @@ import Control.Monad.Reader
 --TODO move command line args to reader monad
 main :: IO ()
 main = loop getStartNode 1
-    {--
-    args <- getArgs
-    case args of
-        [p1Type, p2Type, dpth] | (p1, p2, depth) <- (toBool p1Type, toBool p2Type, toInt dpth)  ->
-            loop getStartNode 1 p1 p2 
-        _ -> do
-            name <- getProgName
-            hPutStrLn stderr $ "usage: " ++ name ++ " <isP1Computer :: Bool> <isP2Computer :: Bool> <depth :: Int>"
-    --}
 
 loop :: Tree TTNode -> Int -> IO ()
 loop node turn = do
@@ -59,9 +50,8 @@ loop node turn = do
                         Just result -> do
                             let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
                             let finalChoices = runReader badMovesM ticTacEnv
-                            putStrLn ("Choices before checkBlunders: " ++ show (_moveScores result))
+                            putStrLn ("Choices from best: " ++ show (_moveScores result))
                             putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
-                            --moveM <- resolveRandom $ _moveChoices result
                             moveM <- resolveRandom finalChoices
                             case moveM of
                                 Nothing -> do
@@ -73,8 +63,9 @@ loop node turn = do
                                     putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
                                     putStrLn ("List of equivalent best moves: " ++ show (_moveChoices result))
                                     putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
-                                    putStrLn "Press return to continue..."
-                                    getLine
+                                    putStrLn ""
+                                    --putStrLn "Press return to continue..."
+                                    --getLine
                                     return processed
                 else do
                     putStrLn ("Enter player " ++ show turn ++ "'s move:")
