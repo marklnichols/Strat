@@ -39,46 +39,55 @@ loop node turn = do
             return Nothing
         _ -> do
             nextNode <- if runReader (isCompTurn turn) ticTacEnv 
-                then do
-                    putStrLn "Calculating computer move..."
-                    let newTree = runReader (expandTree node) ticTacEnv 
-                    let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
-                    case resultM of 
-                        Nothing -> do
-                            putStrLn "Invalid result returned from best"
-                            exitFailure
-                        Just result -> do
-                            let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
-                            let finalChoices = runReader badMovesM ticTacEnv
-                            putStrLn ("Choices from best: " ++ show (_moveScores result))
-                            putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
-                            moveM <- resolveRandom finalChoices
-                            case moveM of
-                                Nothing -> do
-                                    putStrLn "Invalid result from resolveRandom"
-                                    exitFailure
-                                Just move -> do    
-                                    let processed = processMove newTree move
-                                    putStrLn ("Move is ready: " ++ show move)
-                                    putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
-                                    putStrLn ("List of equivalent best moves: " ++ show (_moveChoices result))
-                                    putStrLn ("Following moves are: " ++ show ( _followingMoves result ))
-                                    putStrLn ""
-                                    --putStrLn "Press return to continue..."
-                                    --getLine
-                                    return processed
-                else do
-                    putStrLn ("Enter player " ++ show turn ++ "'s move:")
-                    line <- getLine
-                    putStrLn ""
-                    let n = posToMove (read line) turn 
-                    let processed = processMove node n
-                    return processed    
+                            then computerMove node turn
+                            else playerMove node turn 
             return (Just nextNode)
     case theNext of 
         Nothing -> return ()
         Just next -> loop next (swapTurns turn)
-    
+  
+playerMove :: Tree TTNode -> Int -> IO (Tree TTNode)
+playerMove node turn = do
+    putStrLn ("Enter player " ++ show turn ++ "'s move:")
+    line <- getLine
+    putStrLn ""
+    let n = posToMove (read line) turn 
+    let processed = processMove node n
+    return processed   
+  
+computerMove :: Tree TTNode -> Int -> IO (Tree TTNode)
+computerMove node turn = do 
+    putStrLn "Calculating computer move..."
+    let newTree = runReader (expandTree node) ticTacEnv 
+    let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
+    case resultM of 
+        Nothing -> do
+            putStrLn "Invalid result returned from best"
+            exitFailure
+        Just result -> do
+            let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
+            let finalChoices = runReader badMovesM ticTacEnv
+            putStrLn ("Choices from best: " ++ show (_moveScores result))
+            putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
+            moveM <- resolveRandom finalChoices
+            case moveM of
+                Nothing -> do
+                    putStrLn "Invalid result from resolveRandom"
+                    exitFailure
+                Just move -> do    
+                    --let processed = 
+                    printMoveChoiceInfo result move 
+                    return (processMove newTree move)
+
+printMoveChoiceInfo :: Result -> Int -> IO ()
+printMoveChoiceInfo result move = do
+    putStrLn ("Computer's move : (m:" ++ show move ++
+                  ", s:" ++ show (_score $ head $ _moveScores result) ++ ")")
+    --putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
+    putStrLn ("Equivalent best moves: " ++ show (_moveChoices result))
+    putStrLn ("Following moves: " ++ show ( _followingMoves result ))
+    putStrLn ""
+
 isCompTurn :: Int -> Reader Env Bool
 isCompTurn turn = do 
     p1 <- asks _p1Comp
