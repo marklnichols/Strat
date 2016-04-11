@@ -13,11 +13,14 @@ import Data.List
 ------------------------------------------------------------------
 -- Data Types
 ------------------------------------------------------------------
-data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
+data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState}
 makeLenses ''TTPosition
 
+instance Position TTPosition where
+    showPosition = format 
+    
 data TTNode = TTNode {_ttMove :: Int, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
-
+    
 instance PositionNode TTNode where
     newNode = calcNewNode
     -- evaluate = eval
@@ -25,7 +28,8 @@ instance PositionNode TTNode where
     possibleMoves = getPossibleMoves
     color = _clr . _ttPosition
     final = _fin . _ttPosition
-
+    position = _ttPosition
+ 
 instance TreeNode TTNode where
     getMove = _ttMove
     getValue = _ttValue
