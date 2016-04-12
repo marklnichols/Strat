@@ -13,14 +13,12 @@ import Data.List
 ------------------------------------------------------------------
 -- Data Types
 ------------------------------------------------------------------
-data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState}
+data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
-
-instance Position TTPosition where
-    showPosition = format 
     
 data TTNode = TTNode {_ttMove :: Int, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
-    
+makeLenses ''TTNode  
+  
 instance PositionNode TTNode where
     newNode = calcNewNode
     -- evaluate = eval
@@ -28,7 +26,7 @@ instance PositionNode TTNode where
     possibleMoves = getPossibleMoves
     color = _clr . _ttPosition
     final = _fin . _ttPosition
-    position = _ttPosition
+    showPosition = format
  
 instance TreeNode TTNode where
     getMove = _ttMove
@@ -45,14 +43,15 @@ getStartNode = Node TTNode {_ttMove = -1, _ttValue = 0, _ttErrorValue = 0, _ttPo
 --------------------------------------------------------
 -- format position as a string
 --------------------------------------------------------
-format :: TTPosition -> String
-format p =
-    let rows = take 3 (_grid p) : take 3 (drop 3 $ _grid p) : [take 3 $ drop 6 $ _grid p]
+format :: TTNode -> String
+format n = 
+    let g = n ^. ttPosition ^. grid
+        rows = take 3 g : take 3 (drop 3 g) : [take 3 $ drop 6 g]
     in  foldr f "" rows where
-        f ns str = foldr g "" ns ++ "\n" ++ str where
-            g 1    s = "X " ++ s
-            g (-1) s = "O " ++ s
-            g 0    s = "- " ++ s
+        f ns str = foldr h "" ns ++ "\n" ++ str where
+            h 1    s = "X " ++ s
+            h (-1) s = "O " ++ s
+            h 0    s = "- " ++ s
 
 --------------------------------------------------------
 -- calculate new node from a previous node and a move

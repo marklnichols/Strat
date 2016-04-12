@@ -181,9 +181,6 @@ data PosTreeItem  = PosTreeItem {
     ptFinal :: FinalState,
     ptPosition :: TreePosition 
 } deriving (Show, Eq)
-    
-instance Position CkPosition where
-    showPosition = show
 
 data TreePosition = TreePosition {
     tts :: [Int] 
@@ -206,8 +203,7 @@ instance PositionNode PosTreeItem where
     -- errorEvaluate n = -1
     possibleMoves = calcPossibleMoves
     final = ptFinal
-    position = ptPosition
- 
+    showPosition = show
 
 calcPossibleMoves :: PosTreeItem -> [Int]
 calcPossibleMoves node = case ptMove node of

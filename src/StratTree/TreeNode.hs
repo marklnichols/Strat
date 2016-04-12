@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-module StratTree.TreeNode (TreeNode (..), PositionNode (..), Position (..), FinalState (..), flipColor, 
+module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, 
        MoveScore (..), move, score, Result (..), Env (..)) where
 
 import Control.Lens
@@ -12,16 +12,13 @@ class TreeNode t where
     getMove :: t -> Int
     getValue :: t -> Int
     getErrorValue :: t -> Int
- 
+  
 class (TreeNode n, Show n) => PositionNode n where
     newNode :: n -> Int -> n
     color :: n -> Int
     possibleMoves :: n -> [Int]
     final :: n -> FinalState
-    position :: n -> Position
-    
-class Position p where
-    showPosition :: p -> String
+    showPosition :: n -> String
     
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 

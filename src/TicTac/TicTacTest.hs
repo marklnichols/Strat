@@ -49,7 +49,7 @@ main = hspec $ do
             getPossibleMoves (TTNode 0 0 0 (TTPosition aPos3 (-1) NotFinal)) `shouldBe` []
     describe "format" $
         it "formats a position as a string for display" $
-            format (TTPosition aPos 1 NotFinal) `shouldBe` "X X O \nX O - \nX - O \n"      
+            format (TTNode 0 0 0 (TTPosition aPos 1 NotFinal)) `shouldBe` "X X O \nX O - \nX - O \n"      
                       
 -------------------------------------------------
 -- Sample test data
