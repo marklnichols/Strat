@@ -20,8 +20,11 @@ makeLenses ''CkNode
 instance PositionNode CkNode where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
-    color = _clr . _ckPosition
-    final = _fin . _ckPosition
+    --color = _clr . _ckPosition
+    color = view (ckPosition . clr)
+    --final = _fin . _ckPosition
+    final = view (ckPosition . fin)
+    showPosition = format
 
 instance TreeNode CkNode where
     getMove = _ckMove
@@ -67,13 +70,15 @@ compact xs = filter (/= 99) xs
 rowSplit :: [Int] -> [[Int]]
 rowSplit = chunksOf 4
 
-format :: CkPosition -> String
-format p = foldr f "" (rowSplit $ compact (p ^. grid)) where
-               f :: [Int] -> String -> String
-               f x r = r ++ ( concat $ fmap (\i -> " " ++ show i ++ " ") x) ++ "\n"   
+format :: CkNode -> String
+format n = 
+    let g = n ^. ckPosition ^. grid
+    in foldr f "" (rowSplit $ compact g) where
+        f :: [Int] -> String -> String
+        f x r = r ++ ( concat $ fmap (\i -> " " ++ show i ++ " ") x) ++ "\n"   
  
 tryIt :: String
-tryIt = format $ rootLabel (getStartNode 1) ^. ckPosition
+tryIt = format $ rootLabel (getStartNode 1)
  
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move

@@ -47,7 +47,7 @@ getCheckersStart = Checkers.getStartNode 1
  
 loop :: PositionNode n => Tree n -> Int -> IO ()
 loop node turn = do
-    putStrLn $ show (rootLabel node)
+    print (rootLabel node)
     theNext <- case final $ rootLabel node of  
         WWins -> do
             putStrLn "White wins."
