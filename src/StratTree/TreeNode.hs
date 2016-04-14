@@ -12,12 +12,13 @@ class TreeNode t where
     getMove :: t -> Int
     getValue :: t -> Int
     getErrorValue :: t -> Int
- 
-class TreeNode n => PositionNode n where
+  
+class (TreeNode n, Show n) => PositionNode n where
     newNode :: n -> Int -> n
     color :: n -> Int
     possibleMoves :: n -> [Int]
     final :: n -> FinalState
+    showPosition :: n -> String
     
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 

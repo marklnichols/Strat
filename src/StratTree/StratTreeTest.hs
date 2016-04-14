@@ -203,6 +203,7 @@ instance PositionNode PosTreeItem where
     -- errorEvaluate n = -1
     possibleMoves = calcPossibleMoves
     final = ptFinal
+    showPosition = show
 
 calcPossibleMoves :: PosTreeItem -> [Int]
 calcPossibleMoves node = case ptMove node of

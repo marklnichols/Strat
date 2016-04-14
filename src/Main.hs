@@ -1,5 +1,6 @@
 module Main where 
 import TicTac.TicTac
+import Checkers
 import TicTac.TicTacEnv
 import System.Environment
 import System.IO
@@ -18,15 +19,35 @@ import Control.Monad.Reader
 -- :set prompt "ghci>"
 -- StratTree.StratTreeTest.main
 -- TicTac.TicTacTest.main
+-- :set args "tictac"
 -- Main.main
 
---TODO move command line args to reader monad
-main :: IO ()
-main = loop getStartNode 1
+--TODO: delete TicTacEnv class
+gameEnv = Env {_depth = 6, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
+     _p1Comp = True, _p2Comp = False}
 
-loop :: Tree TTNode -> Int -> IO ()
+--TODO move command line args to reader monad
+main :: IO () 
+main = do 
+    a <- getArgs
+    parse a 
+    return ()
+    --loop getStartNode 1
+ 
+parse :: [String] -> IO () 
+parse ["tictac"]   = loop getTicTacStart 1
+parse ["checkers"] = loop getCheckersStart 1
+parse _            = putStrLn "Usage: main tictac | checkers" 
+
+getTicTacStart :: Tree TTNode
+getTicTacStart = TicTac.TicTac.getStartNode 
+
+getCheckersStart :: Tree CkNode
+getCheckersStart = Checkers.getStartNode 1 
+ 
+loop :: PositionNode n => Tree n -> Int -> IO ()
 loop node turn = do
-    putStrLn $ format $ _ttPosition $ rootLabel node
+    putStrLn $ showPosition $ rootLabel node
     theNext <- case final $ rootLabel node of  
         WWins -> do
             putStrLn "White wins."
@@ -46,7 +67,7 @@ loop node turn = do
         Nothing -> return ()
         Just next -> loop next (swapTurns turn)
   
-playerMove :: Tree TTNode -> Int -> IO (Tree TTNode)
+playerMove :: PositionNode n => Tree n -> Int -> IO (Tree n)
 playerMove node turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
     line <- getLine
@@ -55,7 +76,7 @@ playerMove node turn = do
     let processed = processMove node n
     return processed   
   
-computerMove :: Tree TTNode -> Int -> IO (Tree TTNode)
+computerMove :: PositionNode n => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do 
     putStrLn "Calculating computer move..."
     let newTree = runReader (expandTree node) ticTacEnv 
