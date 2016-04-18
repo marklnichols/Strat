@@ -20,9 +20,7 @@ makeLenses ''CkNode
 instance PositionNode CkNode where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
-    --color = _clr . _ckPosition
     color = view (ckPosition . clr)
-    --final = _fin . _ckPosition
     final = view (ckPosition . fin)
     showPosition = format
 
@@ -41,21 +39,24 @@ getStartNode bottomColor = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValu
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
 ---------------------------------------------------------------------------------------------------
-{-- valid indexes for pieces:    offEdgePieces:              how all 46 values are printed:
-  37  38  39  40                 [00, 01, 02, 03, 04,        (indexes in parens are not displayed)    
- 32  33  34  35                   09, 18, 27, 36,                 
-   28  29  30  31                 41, 42, 43, 44, 45]         (41) (42) (43) (44) (45)                      
- 23  24  25  26                                                  37   38   39   40                
-   19  20  21  22                                              32   33   34   35      (36)                        
- 14  15  16  17                                                  28   29   30   31                       
-   10  11  12  13                                              23   24   25   26      (27)                      
- 05  06  07  08                                                  19   20   21   22                      
-                                                               14   15   16   17      (18)                      
-                                                                 10   11   12   13                      
-                                                               05   06   07   08      (09)                      
-                                                                                     
-                                                              (00) (01) (02) (03) (04)                      
---}
+{-- how indexes relate to board position (indexes in parens are not displayed):
+          
+   (41) (42) (43) (44) (45)    
+   
+      37   38   39   40                          
+    32   33   34   35      (36)        
+      28   29   30   31                                
+    23   24   25   26      (27)               
+      19   20   21   22                              
+    14   15   16   17      (18)              
+      10   11   12   13                              
+    05   06   07   08      (09)         
+                                                     
+   (00) (01) (02) (03) (04)    
+--}                             
+
+offBoard :: [Int]
+offBoard = [0, 1, 2, 3, 4, 9, 18, 27, 36, 41, 42, 43, 44, 45]
 ---------------------------------------------------------------------------------------------------                                                                                    
 mkStartGrid :: Int -> [Int] 
 mkStartGrid bottomColor =  fmap (indexToValue bottomColor) [0..45]
@@ -94,9 +95,6 @@ toXOs 1 = "X "
 toXOs (-1) = "O "
 toXOs 0 = "- "
 toXOs _ = "? "
-
-tryIt :: String
-tryIt = format $ rootLabel (getStartNode 1)
  
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
@@ -112,17 +110,26 @@ calcNewNode node mv = node
 getPossibleMoves :: CkNode -> [Int]
 getPossibleMoves n = [1, 2]  
 
+getJumps :: CkNode -> [Int]
+getJumps n = 
+
+possibleMoves :: CkNode -> Int -> [Int]
+possibleMoves n idx 
+    let piece = 
+    | isKing 
+
+possibleJumps :: CkNode -> Int -> [Int]
+possibleJumps n idx =
+
+isKing :: Int -> Bool
+isKing move = abs move > 1
+
 ---------------------------------------------------------------------------------------------------
 -- diagonal moves on the board
 ---------------------------------------------------------------------------------------------------
-upLeft :: Int -> Int
-upLeft = (+4)
+forwardMoves :: Int -> Int -> [Int]
+forwardMoves idx color = filter (\x -> x NOT_IN offBoard) [idx * (color) + 4, idx * (color) +5]
 
-upRight :: Int -> Int
-upRight = (+5)
+kingMoves :: Int -> [Int]
+kingMoves idx color = forwardMoves idx (-1) ++ forwardMoves idx 1
 
-downLeft :: Int -> Int
-downLeft = (subtract 5)
-
-downRight :: Int -> Int
-downRight = (subtract 4)
