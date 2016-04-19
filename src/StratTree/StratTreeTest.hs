@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-} 
-module StratTree.StratTreeTest (main, aTree, aTree2, modTree, miniTree, blunderTree, validPathCheck, testEnv1, testEnv2,
+module StratTree.StratTreeTest (stratTreeTest, aTree, aTree2, modTree, miniTree, blunderTree, validPathCheck, testEnv1, testEnv2,
     testEnv3, testEnvMax) where
 
 import StratTree.StratTree
@@ -19,7 +19,8 @@ import Control.Monad.Reader
 ------------------------------------------------------------------------------------------------
 -- hspec tests
 -------------------------------------------------------------------------------------------------
-main = hspec $ do
+--main = hspec $ do
+stratTreeTest = do  
     describe "best" $ do
         it "calculates the best moves" $ do
             isJust (runReader (best aTree 1) testEnv1) `shouldBe` True 
