@@ -106,30 +106,42 @@ calcNewNode node mv = node
 ---------------------------------------------------------------------------------------------------
 -- get list of possible moves from a given position
 ---------------------------------------------------------------------------------------------------
--- TODO implement
 getPossibleMoves :: CkNode -> [Int]
-getPossibleMoves n = [1, 2]  
+getPossibleMoves n = foldr f [] (getPieceLocs n) where
+                        f x r = r ++ pieceMoves n x
 
-getJumps :: CkNode -> [Int]
-getJumps n = 
+getPieceLocs :: CkNode -> [Int]
+getPieceLocs node = 
+    let pos = node ^. ckPosition
+        c = pos ^. clr
+    in filter (pMatch c) (pos ^. grid)
+        where pMatch color piece = 
+                  let av = abs piece 
+                  in if av > 0 && av <3 && (piece * color) >0 then True else False
 
-possibleMoves :: CkNode -> Int -> [Int]
-possibleMoves n idx 
-    let piece = 
-    | isKing 
-
-possibleJumps :: CkNode -> Int -> [Int]
-possibleJumps n idx =
+pieceMoves :: CkNode -> Int -> [Int]
+pieceMoves node idx = 
+    let pos = node ^. ckPosition
+        g = pos ^. grid
+        c = pos ^. clr
+    in case (g ^? ix idx) of
+        Nothing -> []
+        Just p  -> if isKing p then kingMoves idx else forwardMoves idx c 
 
 isKing :: Int -> Bool
-isKing move = abs move > 1
+isKing move = (abs move) > 1
 
+possibleJumps :: CkNode -> Int -> [Int]
+possibleJumps n idx =[8]
+
+getJumps :: CkNode -> [Int]
+getJumps n = [7]
 ---------------------------------------------------------------------------------------------------
 -- diagonal moves on the board
 ---------------------------------------------------------------------------------------------------
 forwardMoves :: Int -> Int -> [Int]
-forwardMoves idx color = filter (\x -> x NOT_IN offBoard) [idx * (color) + 4, idx * (color) +5]
+forwardMoves idx color = filter (\x -> x `notElem` offBoard) [idx * (color) + 4, idx * (color) +5]
 
 kingMoves :: Int -> [Int]
-kingMoves idx color = forwardMoves idx (-1) ++ forwardMoves idx 1
+kingMoves idx = forwardMoves idx (-1) ++ forwardMoves idx 1
 
