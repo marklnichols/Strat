@@ -43,7 +43,7 @@ getTicTacStart :: Tree TTNode
 getTicTacStart = TicTac.TicTac.getStartNode 
 
 getCheckersStart :: Tree CkNode
-getCheckersStart = Checkers.getStartNode 1 
+getCheckersStart = Checkers.getStartNode 
  
 loop :: PositionNode n => Tree n -> Int -> IO ()
 loop node turn = do

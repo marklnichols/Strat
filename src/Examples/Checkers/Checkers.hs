@@ -32,9 +32,10 @@ instance TreeNode CkNode where
 ---------------------------------------------------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------------------------------------------------
-getStartNode :: Int -> Tree CkNode
-getStartNode bottomColor = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, _ckPosition = CkPosition 
-    {_grid = mkStartGrid bottomColor, _clr = 1, _fin = NotFinal}} []
+getStartNode :: Tree CkNode
+getStartNode = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, _ckPosition = CkPosition 
+    --TODO re: mkStartGrid 1: only implemented with white pieces on the bottom for now...
+    {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
 
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
@@ -114,20 +115,21 @@ getPieceLocs :: CkNode -> [Int]
 getPieceLocs node = 
     let pos = node ^. ckPosition
         c = pos ^. clr
-    in filter (pMatch c) (pos ^. grid)
-        where pMatch color piece = 
-                  let av = abs piece 
-                  in if av > 0 && av <3 && (piece * color) >0 then True else False
+        pairs = zip [0..45] (pos ^. grid)
+    in fmap fst (filter (pMatch c) pairs)
+        where pMatch color pair =
+                let val = snd (pair)
+                    av = abs val 
+                in if av > 0 && av <3 && (val * color) >0 then True else False
 
 pieceMoves :: CkNode -> Int -> [Int]
-pieceMoves node idx = 
+pieceMoves node idx =
     let pos = node ^. ckPosition
         g = pos ^. grid
-        c = pos ^. clr
     in case (g ^? ix idx) of
         Nothing -> []
-        Just p  -> if isKing p then kingMoves idx else forwardMoves idx c 
-
+        Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr) 
+                                                    
 isKing :: Int -> Bool
 isKing move = (abs move) > 1
 
@@ -139,9 +141,15 @@ getJumps n = [7]
 ---------------------------------------------------------------------------------------------------
 -- diagonal moves on the board
 ---------------------------------------------------------------------------------------------------
-forwardMoves :: Int -> Int -> [Int]
-forwardMoves idx color = filter (\x -> x `notElem` offBoard) [idx * (color) + 4, idx * (color) +5]
-
-kingMoves :: Int -> [Int]
-kingMoves idx = forwardMoves idx (-1) ++ forwardMoves idx 1
+forwardMoves :: [Int] -> Int -> Int -> [Int]
+forwardMoves g idx color = 
+    let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] where
+        f idx = case (g ^? ix idx) of
+                    Nothing -> False
+                    Just val -> val == 0
+    in fmap h newIdxs where
+        h newIdx = idx * 100 + newIdx
+    
+kingMoves :: [Int] -> Int -> [Int]
+kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 

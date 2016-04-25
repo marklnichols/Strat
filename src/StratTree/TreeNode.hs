@@ -8,6 +8,7 @@ import Control.Lens
 -------------------------------------------------------------
 -- Data types
 -------------------------------------------------------------
+
 class TreeNode t where
     getMove :: t -> Int
     getValue :: t -> Int
