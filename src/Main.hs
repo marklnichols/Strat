@@ -23,7 +23,7 @@ import Control.Monad.Reader
 -- Main.main
 
 --TODO: delete TicTacEnv class
-gameEnv = Env {_depth = 6, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
+gameEnv = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
 
 --TODO move command line args to reader monad

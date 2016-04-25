@@ -14,13 +14,14 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src, src/Examples/Checkers
+  hs-source-dirs:      src, src/Examples/Checkers, test
   exposed-modules:     StratTree.StratTree,
                        StratTree.TreeNode,
                        StratIO.StratIO
                        TicTac.TicTac,
                        TicTac.TicTacEnv,
                        Checkers,
+                       CheckersTest,
                        Main
   other-modules:       StratTree.Internal.Trees,
                        StratTree.Internal.General
