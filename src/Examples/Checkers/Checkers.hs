@@ -9,7 +9,7 @@ import Data.List
 import Data.List.Split
 
 ---------------------------------------------------------------------------------------------------
--- Data Types
+-- Data types, type classes
 ---------------------------------------------------------------------------------------------------
 data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''CkPosition
@@ -58,6 +58,9 @@ getStartNode = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, _ckPo
 
 offBoard :: [Int]
 offBoard = [0, 1, 2, 3, 4, 9, 18, 27, 36, 41, 42, 43, 44, 45]
+
+---------------------------------------------------------------------------------------------------
+-- Initial board position
 ---------------------------------------------------------------------------------------------------                                                                                    
 mkStartGrid :: Int -> [Int] 
 mkStartGrid bottomColor =  fmap (indexToValue bottomColor) [0..45]
@@ -83,8 +86,7 @@ format node =   let xs = node ^. ckPosition ^. grid
                                                                    0 -> (n + 1, " ") 
                                                                    5 -> (n, "")
                                         in loop xs (newIdx + 4) (result ++ rowToStr xs newIdx spaces)
-       
-                          
+                                
 rowToStr :: [Int] -> Int -> String -> String
 rowToStr xs i spaces = spaces ++ toXOs (xs !! i) ++ 
                                  toXOs (xs !! (i + 1)) ++ 
@@ -105,7 +107,7 @@ calcNewNode :: CkNode -> Int -> CkNode
 calcNewNode node mv = node
 
 ---------------------------------------------------------------------------------------------------
--- get list of possible moves from a given position
+-- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
 getPossibleMoves :: CkNode -> [Int]
 getPossibleMoves n = foldr f [] (getPieceLocs n) where
@@ -122,6 +124,12 @@ getPieceLocs node =
                     av = abs val 
                 in if av > 0 && av <3 && (val * color) >0 then True else False
 
+isKing :: Int -> Bool
+isKing move = (abs move) > 1
+
+---------------------------------------------------------------------------------------------------
+-- calculate available (non-jump) moves
+---------------------------------------------------------------------------------------------------
 pieceMoves :: CkNode -> Int -> [Int]
 pieceMoves node idx =
     let pos = node ^. ckPosition
@@ -129,18 +137,7 @@ pieceMoves node idx =
     in case (g ^? ix idx) of
         Nothing -> []
         Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr) 
-                                                    
-isKing :: Int -> Bool
-isKing move = (abs move) > 1
 
-possibleJumps :: CkNode -> Int -> [Int]
-possibleJumps n idx =[8]
-
-getJumps :: CkNode -> [Int]
-getJumps n = [7]
----------------------------------------------------------------------------------------------------
--- diagonal moves on the board
----------------------------------------------------------------------------------------------------
 forwardMoves :: [Int] -> Int -> Int -> [Int]
 forwardMoves g idx color = 
     let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] where
@@ -153,3 +150,33 @@ forwardMoves g idx color =
 kingMoves :: [Int] -> Int -> [Int]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
+---------------------------------------------------------------------------------------------------
+-- calculate available jumps
+---------------------------------------------------------------------------------------------------
+--TODO: Combine with pieceMoves?
+pieceJumps :: CkNode -> Int -> [Int]
+pieceJumps node idx = 
+    let pos = node ^. ckPosition
+        g = pos ^. grid
+    in case (g ^? ix idx) of
+        Nothing -> []
+        Just val -> if isKing val then kingJumps g idx else forwardJumps g idx (pos ^. clr)
+
+--TODO: Finish implementing        
+forwardJumps :: [Int] -> Int -> Int -> [Int]
+forwardJumps g idx color = 
+    let newIdxPairs = filter f [(idx + (color * 4), idx + (color * 8)), 
+                                (idx + (color * 5), idx + (color * 10))] where
+        f idxPair = case (g ^? ix (fst idxPair), g ^? ix (snd idxPair)) of
+                        (Nothing, _) -> False
+                        (_, Nothing) -> False
+                        (Just jumpOver, Just landing) -> 
+                            let b 
+                                    | jumpOver > 3 || jumpOver * color > 0  = False
+                                    | landing == 0                          = True
+                            in b
+    in fmap h newIdxPairs where
+        h pair = idx * 100 + snd pair
+                            
+kingJumps :: [Int] -> Int -> [Int]
+kingJumps g idx = forwardJumps g idx (-1) ++ forwardJumps g idx 1
