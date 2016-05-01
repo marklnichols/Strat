@@ -82,7 +82,7 @@ format node =   let xs = node ^. ckPosition ^. grid
                 in loop xs 5 "" where
                     loop :: [Int] -> Int -> String -> String
                     loop xs 41 result = result
-                    loop xs n result =  let (newIdx, spaces) = case (n `mod` 9) of
+                    loop xs n result =  let (newIdx, spaces) = case n `mod` 9 of
                                                                    0 -> (n + 1, " ") 
                                                                    5 -> (n, "")
                                         in loop xs (newIdx + 4) (result ++ rowToStr xs newIdx spaces)
@@ -120,12 +120,12 @@ getPieceLocs node =
         pairs = zip [0..45] (pos ^. grid)
     in fmap fst (filter (pMatch c) pairs)
         where pMatch color pair =
-                let val = snd (pair)
+                let val = snd pair
                     av = abs val 
-                in if av > 0 && av <3 && (val * color) >0 then True else False
+                in (av > 0 && av <3 && (val * color) > 0)
 
 isKing :: Int -> Bool
-isKing move = (abs move) > 1
+isKing move = abs move > 1
 
 ---------------------------------------------------------------------------------------------------
 -- calculate available (non-jump) moves
@@ -134,16 +134,16 @@ pieceMoves :: CkNode -> Int -> [Int]
 pieceMoves node idx =
     let pos = node ^. ckPosition
         g = pos ^. grid
-    in case (g ^? ix idx) of
+    in case g ^? ix idx of
         Nothing -> []
         Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr) 
 
 forwardMoves :: [Int] -> Int -> Int -> [Int]
 forwardMoves g idx color = 
-    let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] where
-        f idx = case (g ^? ix idx) of
-                    Nothing -> False
-                    Just val -> val == 0
+    let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] 
+        f idx = case g ^? ix idx of
+                        Nothing -> False
+                        Just val -> val == 0
     in fmap h newIdxs where
         h newIdx = idx * 100 + newIdx
     
@@ -158,7 +158,7 @@ pieceJumps :: CkNode -> Int -> [Int]
 pieceJumps node idx = 
     let pos = node ^. ckPosition
         g = pos ^. grid
-    in case (g ^? ix idx) of
+    in case g ^? ix idx of
         Nothing -> []
         Just val -> if isKing val then kingJumps g idx else forwardJumps g idx (pos ^. clr)
 
@@ -166,7 +166,7 @@ pieceJumps node idx =
 forwardJumps :: [Int] -> Int -> Int -> [Int]
 forwardJumps g idx color = 
     let newIdxPairs = filter f [(idx + (color * 4), idx + (color * 8)), 
-                                (idx + (color * 5), idx + (color * 10))] where
+                                (idx + (color * 5), idx + (color * 10))] 
         f idxPair = case (g ^? ix (fst idxPair), g ^? ix (snd idxPair)) of
                         (Nothing, _) -> False
                         (_, Nothing) -> False
@@ -175,8 +175,9 @@ forwardJumps g idx color =
                                     | jumpOver > 3 || jumpOver * color > 0  = False
                                     | landing == 0                          = True
                             in b
-    in fmap h newIdxPairs where
         h pair = idx * 100 + snd pair
+    in fmap h newIdxPairs 
+        
                             
 kingJumps :: [Int] -> Int -> [Int]
 kingJumps g idx = forwardJumps g idx (-1) ++ forwardJumps g idx 1

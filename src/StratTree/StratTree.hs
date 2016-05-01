@@ -1,4 +1,4 @@
-module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, isWorse) where
+module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, isWorse, isLegal) where
 
 import StratTree.Internal.Trees
 import StratTree.TreeNode
@@ -47,6 +47,9 @@ processMove :: PositionNode n => Tree n -> Int -> Tree n
 processMove tree move = case subForest tree of 
     [] -> Node (newNode (rootLabel tree) move) []
     xs -> pruneToChild tree move  
+
+isLegal :: PositionNode n => Tree n -> Int -> Bool
+isLegal tree move = move `elem` possibleMoves (rootLabel tree)
  
 ---------------------------------------------------------------------------------------------------
 -- non-exported functions
@@ -91,7 +94,7 @@ best' tree depth color colorFlip getMoveValue =
         randChoiceM = liftM2 (:) headM (Just rChoices)
         --TODO: implement randchoices with different scores once scoreTolerance is added -- for now they are the same
         f bestScore = fmap (`MoveScore` bestScore)
-        scoresM = liftM (f bestScore) randChoiceM
+        scoresM = fmap (f bestScore) randChoiceM
     in liftM3 Result randChoiceM followingM scoresM  
  
 --down :: tree -> depth -> color -> color flipping function -> getValue/getErrorValue funct -> ([best mv path], [equiv random choices], best score)

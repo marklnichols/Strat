@@ -21,7 +21,7 @@ checkersTest =
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------            
 blackFirstStartNode :: CkNode
-blackFirstStartNode = (rootLabel getStartNode) & ckPosition.clr .~ (-1)
+blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: [Int] -> Tree CkNode
 treeFromGridW g = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, 

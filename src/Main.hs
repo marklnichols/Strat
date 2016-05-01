@@ -72,9 +72,13 @@ playerMove node turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
     line <- getLine
     putStrLn ""
-    let n = posToMove (read line) turn 
-    let processed = processMove node n
-    return processed   
+    let n = posToMove (read line) turn
+    let legal = isLegal node n
+    if not legal 
+        then do 
+            putStrLn ("Not a legal move.")
+            playerMove node turn 
+        else return (processMove node n) 
   
 computerMove :: PositionNode n => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do 
@@ -119,6 +123,7 @@ isCompTurn turn = do
 toBool :: String -> Bool
 toBool s = s == "c" || s == "C"
 
+--TODO: this needs to be generalized beyond TTT
 -- convert input player move 1-9 to (+/-) as per player 1/2
 --posToMove :: input position -> turn -> move
 posToMove :: Int -> Int -> Int
