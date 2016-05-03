@@ -1,11 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Checkers where
-
+import Prelude hiding (lookup)
+import Control.Monad.ST
+import Data.HashTable.ST.Basic
 import Data.Tree
 import StratTree.TreeNode hiding (Result, MoveScore)
 import Data.List.Lens
 import Control.Lens
-import Data.List
+import Data.List hiding (lookup, insert)
 import Data.List.Split
 
 ---------------------------------------------------------------------------------------------------
@@ -156,17 +158,25 @@ kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 ---------------------------------------------------------------------------------------------------
 -- calculate available jumps
 ---------------------------------------------------------------------------------------------------
---TODO: Combine with pieceMoves?
 pieceJumps :: CkNode -> Int -> [Int]
 pieceJumps node idx = 
     let pos = node ^. ckPosition
         g = pos ^. grid
-    in case g ^? ix idx of
-        Nothing -> []
-        Just val -> if isKing val then kingJumps g idx color else forwardJumps g idx color color
-                        where color = pos ^. clr
---TODO: Finish implementing        
-forwardJumps :: [Int] -> Int -> Int -> Int -> [Int]
+        color = pos ^. clr
+        seqs = case g ^? ix idx of
+                    Nothing -> []
+                    Just val -> if isKing val 
+                                    then kingJumps g idx color 
+                                    else forwardJumps g idx color color
+    in fmap jumpSeqToMap seqs                           
+
+    
+--TODO add hashmap    
+jumpSeqToMap :: JumpSeq -> Int
+jumpSeqToMap js = 10000 + js ^. start * 100 + js ^. end    
+                        
+
+forwardJumps :: [Int] -> Int -> Int -> Int -> [JumpSeq]
 forwardJumps g idx color jumpDir = 
     let newIdxPairs = filter f [(idx + (jumpDir * 4), idx + (jumpDir * 8)), 
                                 (idx + (jumpDir * 5), idx + (jumpDir * 10))] 
@@ -175,8 +185,66 @@ forwardJumps g idx color jumpDir =
                         (_, Nothing) -> False
                         (Just jumpOver, Just landing) -> 
                             landing == 0 && jumpOver /= 0 && jumpOver /= 99 && jumpOver * color < 0 
-        h pair = 10000 + idx * 100 + snd pair   --flag jumps with the 5th digit from the right
-    in fmap h newIdxPairs    
-                            
-kingJumps :: [Int] -> Int -> Int -> [Int]
+        h pair = JumpSeq {_start = idx, _middle = [], _end = snd pair}   
+    in fmap h newIdxPairs 
+
+   
+kingJumps :: [Int] -> Int -> Int -> [JumpSeq]
 kingJumps g idx color = forwardJumps g idx color (-1) ++ forwardJumps g idx color 1
+
+---------------------------------------------------------------------------------------------------
+-- Hashtable sample to be removed
+---------------------------------------------------------------------------------------------------
+-- Hashtable parameterized by ST "thread"
+type HT s = HashTable s String String
+
+htSet1 :: ST s (HT s)
+htSet1 = do
+  ht <- new
+  insert ht "key" "value1"
+  return ht
+
+htGet1 :: HT s -> ST s (Maybe String)
+htGet1 ht = do
+  val <- lookup ht "key"
+  return val
+
+testHashTable :: Maybe String
+testHashTable = runST (htSet1 >>= htGet1)
+
+-------------------------------
+
+htCreate :: ST s (HT s)
+htCreate = do
+  ht <- new
+  return ht
+  
+htInsert :: ST s (HT s) -> String -> String -> ST s (HT s)
+htInsert m k v = do
+    ht <- m
+    insert ht k v
+    return ht
+
+htGet :: ST s (HT s) -> String -> ST s (Maybe String)
+htGet m k = do
+    ht <- m
+    lookup ht k 
+
+htMain :: Maybe String
+htMain = do
+    ht <- htCreate
+    htInsert ht "key1" "value1"
+    htInsert ht "key2" "value2"
+    htInsert ht "key3" "value3"
+    mstr <- htGet ht "key2"
+    mstr
+        
+{--
+new :: ST s (HashTable s k v)
+insert :: (Eq k, Hashable k) => HashTable s k v -> k -> v -> ST s ()
+lookup :: (Eq k, Hashable k) => HashTable s k v -> k -> ST s (Maybe v)
+runST :: (forall s. ST s a) -> a 
+--}
+    
+
+
