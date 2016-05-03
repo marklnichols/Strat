@@ -76,7 +76,7 @@ playerMove node turn = do
     let legal = isLegal node n
     if not legal 
         then do 
-            putStrLn ("Not a legal move.")
+            putStrLn "Not a legal move."
             playerMove node turn 
         else return (processMove node n) 
   

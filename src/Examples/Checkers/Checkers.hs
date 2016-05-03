@@ -17,6 +17,9 @@ makeLenses ''CkPosition
 data CkNode = CkNode {_ckMove :: Int, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition} deriving (Show)
 makeLenses ''CkNode
 
+data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}
+makeLenses ''JumpSeq
+
 instance PositionNode CkNode where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
@@ -111,7 +114,7 @@ calcNewNode node mv = node
 ---------------------------------------------------------------------------------------------------
 getPossibleMoves :: CkNode -> [Int]
 getPossibleMoves n = foldr f [] (getPieceLocs n) where
-                        f x r = r ++ pieceMoves n x
+                        f x r = r ++ pieceMoves n x ++ pieceJumps n x
 
 getPieceLocs :: CkNode -> [Int]
 getPieceLocs node = 
@@ -160,24 +163,20 @@ pieceJumps node idx =
         g = pos ^. grid
     in case g ^? ix idx of
         Nothing -> []
-        Just val -> if isKing val then kingJumps g idx else forwardJumps g idx (pos ^. clr)
-
+        Just val -> if isKing val then kingJumps g idx color else forwardJumps g idx color color
+                        where color = pos ^. clr
 --TODO: Finish implementing        
-forwardJumps :: [Int] -> Int -> Int -> [Int]
-forwardJumps g idx color = 
-    let newIdxPairs = filter f [(idx + (color * 4), idx + (color * 8)), 
-                                (idx + (color * 5), idx + (color * 10))] 
+forwardJumps :: [Int] -> Int -> Int -> Int -> [Int]
+forwardJumps g idx color jumpDir = 
+    let newIdxPairs = filter f [(idx + (jumpDir * 4), idx + (jumpDir * 8)), 
+                                (idx + (jumpDir * 5), idx + (jumpDir * 10))] 
         f idxPair = case (g ^? ix (fst idxPair), g ^? ix (snd idxPair)) of
                         (Nothing, _) -> False
                         (_, Nothing) -> False
                         (Just jumpOver, Just landing) -> 
-                            let b 
-                                    | jumpOver > 3 || jumpOver * color > 0  = False
-                                    | landing == 0                          = True
-                            in b
-        h pair = idx * 100 + snd pair
-    in fmap h newIdxPairs 
-        
+                            landing == 0 && jumpOver /= 0 && jumpOver /= 99 && jumpOver * color < 0 
+        h pair = 10000 + idx * 100 + snd pair   --flag jumps with the 5th digit from the right
+    in fmap h newIdxPairs    
                             
-kingJumps :: [Int] -> Int -> [Int]
-kingJumps g idx = forwardJumps g idx (-1) ++ forwardJumps g idx 1
+kingJumps :: [Int] -> Int -> Int -> [Int]
+kingJumps g idx color = forwardJumps g idx color (-1) ++ forwardJumps g idx color 1
