@@ -196,55 +196,32 @@ kingJumps g idx color = forwardJumps g idx color (-1) ++ forwardJumps g idx colo
 -- Hashtable sample to be removed
 ---------------------------------------------------------------------------------------------------
 -- Hashtable parameterized by ST "thread"
-type HT s = HashTable s String String
-
-htSet1 :: ST s (HT s)
-htSet1 = do
-  ht <- new
-  insert ht "key" "value1"
-  return ht
-
-htGet1 :: HT s -> ST s (Maybe String)
-htGet1 ht = do
-  val <- lookup ht "key"
-  return val
-
-testHashTable :: Maybe String
-testHashTable = runST (htSet1 >>= htGet1)
-
--------------------------------
-
-htCreate :: ST s (HT s)
-htCreate = do
-  ht <- new
-  return ht
-  
-htInsert :: ST s (HT s) -> String -> String -> ST s (HT s)
-htInsert m k v = do
-    ht <- m
-    insert ht k v
-    return ht
-
-htGet :: ST s (HT s) -> String -> ST s (Maybe String)
-htGet m k = do
-    ht <- m
-    lookup ht k 
-
-htMain :: Maybe String
-htMain = do
-    ht <- htCreate
-    htInsert ht "key1" "value1"
-    htInsert ht "key2" "value2"
-    htInsert ht "key3" "value3"
-    mstr <- htGet ht "key2"
-    mstr
-        
 {--
 new :: ST s (HashTable s k v)
 insert :: (Eq k, Hashable k) => HashTable s k v -> k -> v -> ST s ()
 lookup :: (Eq k, Hashable k) => HashTable s k v -> k -> ST s (Maybe v)
 runST :: (forall s. ST s a) -> a 
 --}
+
+type HT s = HashTable s String String
+
+htCreate :: ST s (HT s)
+htCreate = do
+  ht <- new
+  return ht
+
+htMain :: Maybe String
+htMain = runST doit     
+    
+doit :: ST s (Maybe String)
+doit = do
+    ht <- htCreate
+    insert ht "key1" "value1"
+    insert ht "key2" "value2"
+    insert ht "key3" "value3"
+    lookup ht "key2"
+
+
     
 
 
