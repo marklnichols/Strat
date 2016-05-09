@@ -8,6 +8,25 @@ import Control.Lens
 -------------------------------------------------------------
 -- Data types
 -------------------------------------------------------------
+-- New Attempt:
+{-- 
+class Move m where 
+    showMove :: m -> String
+    equals :: m -> Bool
+  
+class Move m => TreeNode t m where
+    getMoveNode :: t -> m
+    getValue :: t -> Int
+    getErrorValue :: t -> Int
+  
+class (TreeNode n m, Show n, Move m) => PositionNode n m where
+    newNode :: n -> m -> n
+    color :: n -> Int
+    possibleMoves :: n -> [m]
+    final :: n -> FinalState
+    showPosition :: n -> String
+--}
+-- Original
 class TreeNode t where
     getMove :: t -> Int
     getValue :: t -> Int
@@ -19,7 +38,7 @@ class (TreeNode n, Show n) => PositionNode n where
     possibleMoves :: n -> [Int]
     final :: n -> FinalState
     showPosition :: n -> String
-    
+ 
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 
 data Env = Env 

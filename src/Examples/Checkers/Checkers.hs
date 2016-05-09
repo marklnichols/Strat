@@ -1,15 +1,17 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Checkers where
-
+import Prelude hiding (lookup)
+import Control.Monad.ST
+import Data.HashTable.ST.Basic
 import Data.Tree
 import StratTree.TreeNode hiding (Result, MoveScore)
 import Data.List.Lens
 import Control.Lens
-import Data.List
+import Data.List hiding (lookup, insert)
 import Data.List.Split
 
 ---------------------------------------------------------------------------------------------------
--- Data Types
+-- Data types, type classes
 ---------------------------------------------------------------------------------------------------
 data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''CkPosition
@@ -17,12 +19,13 @@ makeLenses ''CkPosition
 data CkNode = CkNode {_ckMove :: Int, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition} deriving (Show)
 makeLenses ''CkNode
 
+data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}
+makeLenses ''JumpSeq
+
 instance PositionNode CkNode where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
-    --color = _clr . _ckPosition
     color = view (ckPosition . clr)
-    --final = _fin . _ckPosition
     final = view (ckPosition . fin)
     showPosition = format
 
@@ -34,28 +37,35 @@ instance TreeNode CkNode where
 ---------------------------------------------------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------------------------------------------------
-getStartNode :: Int -> Tree CkNode
-getStartNode bottomColor = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, _ckPosition = CkPosition 
-    {_grid = mkStartGrid bottomColor, _clr = 1, _fin = NotFinal}} []
+getStartNode :: Tree CkNode
+getStartNode = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, _ckPosition = CkPosition 
+    --TODO re: mkStartGrid 1: only implemented with white pieces on the bottom for now...
+    {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
 
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
 ---------------------------------------------------------------------------------------------------
-{-- valid indexes for pieces:    offEdgePieces:              how all 46 values are printed:
-  37  38  39  40                 [00, 01, 02, 03, 04,        (indexes in parens are not displayed)    
- 32  33  34  35                   09, 18, 27, 36,                 
-   28  29  30  31                 41, 42, 43, 44, 45]         (41) (42) (43) (44) (45)                      
- 23  24  25  26                                                  37   38   39   40                
-   19  20  21  22                                              32   33   34   35      (36)                        
- 14  15  16  17                                                  28   29   30   31                       
-   10  11  12  13                                              23   24   25   26      (27)                      
- 05  06  07  08                                                  19   20   21   22                      
-                                                               14   15   16   17      (18)                      
-                                                                 10   11   12   13                      
-                                                               05   06   07   08      (09)                      
-                                                                                     
-                                                              (00) (01) (02) (03) (04)                      
---}
+{-- how indexes relate to board position (indexes in parens are not displayed):
+          
+   (41) (42) (43) (44) (45)    
+   
+      37   38   39   40                          
+    32   33   34   35      (36)        
+      28   29   30   31                                
+    23   24   25   26      (27)               
+      19   20   21   22                              
+    14   15   16   17      (18)              
+      10   11   12   13                              
+    05   06   07   08      (09)         
+                                                     
+   (00) (01) (02) (03) (04)    
+--}                             
+
+offBoard :: [Int]
+offBoard = [0, 1, 2, 3, 4, 9, 18, 27, 36, 41, 42, 43, 44, 45]
+
+---------------------------------------------------------------------------------------------------
+-- Initial board position
 ---------------------------------------------------------------------------------------------------                                                                                    
 mkStartGrid :: Int -> [Int] 
 mkStartGrid bottomColor =  fmap (indexToValue bottomColor) [0..45]
@@ -77,12 +87,11 @@ format node =   let xs = node ^. ckPosition ^. grid
                 in loop xs 5 "" where
                     loop :: [Int] -> Int -> String -> String
                     loop xs 41 result = result
-                    loop xs n result =  let (newIdx, spaces) = case (n `mod` 9) of
+                    loop xs n result =  let (newIdx, spaces) = case n `mod` 9 of
                                                                    0 -> (n + 1, " ") 
                                                                    5 -> (n, "")
                                         in loop xs (newIdx + 4) (result ++ rowToStr xs newIdx spaces)
-       
-                          
+                                
 rowToStr :: [Int] -> Int -> String -> String
 rowToStr xs i spaces = spaces ++ toXOs (xs !! i) ++ 
                                  toXOs (xs !! (i + 1)) ++ 
@@ -94,9 +103,6 @@ toXOs 1 = "X "
 toXOs (-1) = "O "
 toXOs 0 = "- "
 toXOs _ = "? "
-
-tryIt :: String
-tryIt = format $ rootLabel (getStartNode 1)
  
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
@@ -106,23 +112,116 @@ calcNewNode :: CkNode -> Int -> CkNode
 calcNewNode node mv = node
 
 ---------------------------------------------------------------------------------------------------
--- get list of possible moves from a given position
+-- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
--- TODO implement
 getPossibleMoves :: CkNode -> [Int]
-getPossibleMoves n = [1, 2]  
+getPossibleMoves n = foldr f [] (getPieceLocs n) where
+                        f x r = r ++ pieceMoves n x ++ pieceJumps n x
+
+getPieceLocs :: CkNode -> [Int]
+getPieceLocs node = 
+    let pos = node ^. ckPosition
+        c = pos ^. clr
+        pairs = zip [0..45] (pos ^. grid)
+    in fmap fst (filter (pMatch c) pairs)
+        where pMatch color pair =
+                let val = snd pair
+                    av = abs val 
+                in (av > 0 && av <3 && (val * color) > 0)
+
+isKing :: Int -> Bool
+isKing move = abs move > 1
 
 ---------------------------------------------------------------------------------------------------
--- diagonal moves on the board
+-- calculate available (non-jump) moves
 ---------------------------------------------------------------------------------------------------
-upLeft :: Int -> Int
-upLeft = (+4)
+pieceMoves :: CkNode -> Int -> [Int]
+pieceMoves node idx =
+    let pos = node ^. ckPosition
+        g = pos ^. grid
+    in case g ^? ix idx of
+        Nothing -> []
+        Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr) 
 
-upRight :: Int -> Int
-upRight = (+5)
+forwardMoves :: [Int] -> Int -> Int -> [Int]
+forwardMoves g idx color = 
+    let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] 
+        f idx = case g ^? ix idx of
+                        Nothing -> False
+                        Just val -> val == 0
+    in fmap h newIdxs where
+        h newIdx = idx * 100 + newIdx
+    
+kingMoves :: [Int] -> Int -> [Int]
+kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
-downLeft :: Int -> Int
-downLeft = (subtract 5)
+---------------------------------------------------------------------------------------------------
+-- calculate available jumps
+---------------------------------------------------------------------------------------------------
+pieceJumps :: CkNode -> Int -> [Int]
+pieceJumps node idx = 
+    let pos = node ^. ckPosition
+        g = pos ^. grid
+        color = pos ^. clr
+        seqs = case g ^? ix idx of
+                    Nothing -> []
+                    Just val -> if isKing val 
+                                    then kingJumps g idx color 
+                                    else forwardJumps g idx color color
+    in fmap jumpSeqToMap seqs                           
 
-downRight :: Int -> Int
-downRight = (subtract 4)
+    
+--TODO add hashmap    
+jumpSeqToMap :: JumpSeq -> Int
+jumpSeqToMap js = 10000 + js ^. start * 100 + js ^. end    
+                        
+
+forwardJumps :: [Int] -> Int -> Int -> Int -> [JumpSeq]
+forwardJumps g idx color jumpDir = 
+    let newIdxPairs = filter f [(idx + (jumpDir * 4), idx + (jumpDir * 8)), 
+                                (idx + (jumpDir * 5), idx + (jumpDir * 10))] 
+        f idxPair = case (g ^? ix (fst idxPair), g ^? ix (snd idxPair)) of
+                        (Nothing, _) -> False
+                        (_, Nothing) -> False
+                        (Just jumpOver, Just landing) -> 
+                            landing == 0 && jumpOver /= 0 && jumpOver /= 99 && jumpOver * color < 0 
+        h pair = JumpSeq {_start = idx, _middle = [], _end = snd pair}   
+    in fmap h newIdxPairs 
+
+   
+kingJumps :: [Int] -> Int -> Int -> [JumpSeq]
+kingJumps g idx color = forwardJumps g idx color (-1) ++ forwardJumps g idx color 1
+
+---------------------------------------------------------------------------------------------------
+-- Hashtable sample to be removed
+---------------------------------------------------------------------------------------------------
+-- Hashtable parameterized by ST "thread"
+{--
+new :: ST s (HashTable s k v)
+insert :: (Eq k, Hashable k) => HashTable s k v -> k -> v -> ST s ()
+lookup :: (Eq k, Hashable k) => HashTable s k v -> k -> ST s (Maybe v)
+runST :: (forall s. ST s a) -> a 
+--}
+
+type HT s = HashTable s String String
+
+htCreate :: ST s (HT s)
+htCreate = do
+  ht <- new
+  return ht
+
+htMain :: Maybe String
+htMain = runST doit     
+    
+doit :: ST s (Maybe String)
+doit = do
+    ht <- htCreate
+    insert ht "key1" "value1"
+    insert ht "key2" "value2"
+    insert ht "key3" "value3"
+    lookup ht "key2"
+
+
+    
+
+

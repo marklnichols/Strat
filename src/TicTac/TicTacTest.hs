@@ -5,7 +5,8 @@ import StratTree.TreeNode
 import TicTac.TicTac
 import Test.Hspec
  
-main = hspec $ do
+-- main = hspec $ do
+ticTacTest = do
     describe "checkWins" $
         it "determines if there is a winner in the position" $ do
             checkWins aPos 1 `shouldBe` True
