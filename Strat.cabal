@@ -53,6 +53,7 @@ test-suite StratTreeTest
                      , safe >= 0.3
                      , mtl >= 2.2
                      , split >= 0.1
+                     , hashtables >= 1.0
   other-modules:       Checkers
                      , CheckersTest
                      , TicTac.TicTac
