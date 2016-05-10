@@ -104,7 +104,7 @@ computerMove node turn = do
                     printMoveChoiceInfo result move 
                     return (processMove newTree move)
 
-printMoveChoiceInfo :: Result -> Int -> IO ()
+printMoveChoiceInfo :: Move m => Result -> m -> IO ()
 printMoveChoiceInfo result move = do
     putStrLn ("Computer's move : (m:" ++ show move ++
                   ", s:" ++ show (_score $ head $ _moveScores result) ++ ")")
@@ -127,7 +127,7 @@ toBool s = s == "c" || s == "C"
 -- convert input player move 1-9 to (+/-) as per player 1/2
 --posToMove :: input position -> turn -> move
 posToMove :: Int -> Int -> Int
-posToMove index turn = turnToColor turn * index 
+posToMove index turn = IntMove turnToColor turn * index 
 
 toInt :: String -> Int
 toInt = read

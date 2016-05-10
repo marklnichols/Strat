@@ -63,25 +63,25 @@ stratTreeTest = do
             _moveChoices (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [1]
     describe "worstReply" $ 
         it "calculates the worst reply given a selected move" $ do
-            isJust (worstReply aTree 3 1 1) `shouldBe` True
-            head (_moveChoices (fromJust (worstReply aTree 3 1 1))) `shouldBe` 4
-            _followingMoves (fromJust (worstReply aTree 3 1 1)) `shouldBe` [10]
+            isJust (worstReply aTree 3 1 (MoveInt 1)) `shouldBe` True
+            head (_moveChoices (fromJust (worstReply aTree 3 1 (MoveInt 1)))) `shouldBe` 4
+            _followingMoves (fromJust (worstReply aTree 3 1 (MoveInt 1))) `shouldBe` [10]
             
-            isJust (worstReply aTree 3 (-1) 2) `shouldBe` True
-            head (_moveChoices (fromJust (worstReply aTree 3 (-1) 2))) `shouldBe` 7
-            _followingMoves (fromJust (worstReply aTree 3 (-1) 2)) `shouldBe` [16]
+            isJust (worstReply aTree 3 (-1) (MoveInt 2) `shouldBe` True
+            head (_moveChoices (fromJust (worstReply aTree 3 (-1) (MoveInt 2))) `shouldBe` 7
+            _followingMoves (fromJust (worstReply aTree 3 (-1) (MoveInt 2)) `shouldBe` [16]
     describe "checkBlunders" $ 
         it "takes a list of equivalent moves, and returns a subset of equivalent move\
            \representing the biggest mistake the oponent can make" $ do
             isJust (runReader (checkBlunders blunderTree 1 
-                [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
+                [MoveScore {_move=(MoveInt 1), _score=10}, MoveScore {_move=(MoveInt 2), _score=10}, MoveScore {_move=(MoveInt 20), _score=10}]) 
                     testEnv3) `shouldBe` True
             fromJust (runReader (checkBlunders blunderTree 1 
-                [MoveScore {_move=1, _score=10}, MoveScore {_move=2, _score=10}, MoveScore {_move=20, _score=10}]) 
-                    testEnv3) `shouldBe` [MoveScore{ _move=2, _score=80}, MoveScore {_move=20, _score=80}]
+                [MoveScore {_move=(MoveInt 1), _score=10}, MoveScore {_move=(MoveInt 2), _score=10}, MoveScore {_move=(MoveInt 20), _score=10}]) 
+                    testEnv3) `shouldBe` [MoveScore{ _move=(MoveInt 2), _score=80}, MoveScore {_move=(MoveInt 20), _score=80}]
             --make sure it returns Just something for only one item in the list:
             isJust (runReader (checkBlunders blunderTree 1 
-                [MoveScore {_move=1, _score=10}]) testEnv3) `shouldBe` True       
+                [MoveScore {_move=(MoveInt 1), _score=10}]) testEnv3) `shouldBe` True       
     describe "getChildren" $ 
             it "gets a list of child nodes" $ do
                 fmap (getMove . label) (getChildren $ fromTree aTree) `shouldBe` [1,2]
@@ -92,21 +92,21 @@ stratTreeTest = do
                 fmap (getMove . label) (getSiblings $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [1, 2, 3]
     describe "childByMove" $ 
         it "finds a child of a tree matching a given move" $             
-            case childByMove 1 (fromTree aTree) of 
+            case childByMove (IntMove 1) (fromTree aTree) of 
                 Nothing -> -1
                 Just x -> getMove $ label x
             `shouldBe` 1
     describe "descendPath" $ 
         it "follows a path of moves to the tree corresponding to the last move in the list" $ do           
-            descendPathTest [1, 4, 9] aTree `shouldBe` 5
-            descendPathTest [2, 8, 25] aTree2 `shouldBe` 250
+            descendPathTest [IntMove 1, IntMove 4, IntMove 9] aTree `shouldBe` 5
+            descendPathTest [IntMove 2, IntMove 8, IntMove 25] aTree2 `shouldBe` 250
     describe "pruneChildrenExcept" $ 
         it "deletes all children except one matching the supplied move" $            
-            pruneChildrenExcept aMiniTree 2 `shouldBe` prunedTree 
+            pruneChildrenExcept aMiniTree (IntMove 2) `shouldBe` prunedTree 
     describe "processMove" $ 
         it "Prunes the tree of all the children except the one matching the supplied move" $ do
-            processMove expandedTree 2 `shouldBe` prunedExpandedTree
-            processMove rootOnly 2 `shouldBe` root2
+            processMove expandedTree (IntMove 2) `shouldBe` prunedExpandedTree
+            processMove rootOnly (IntMove 2) `shouldBe` root2
     describe "validPathCheck" $ 
         it "checks to see if the path of moves retured by best is valid and the node at the bottom contains the correct value" $ do
             validPathCheck aTree 1 `shouldBe` True
@@ -169,14 +169,14 @@ addBranch tree = Node (rootLabel tree) [newBranch]
 ------------------------------------------------------------------------
 
 data TreeItem  = TreeItem { 
-    _tiMove :: Int,
+    _tiMove :: IntMove,
     _tiValue :: Int 
 } deriving (Show, Eq)
 --isExchanging :: Bool
 --pieces :: [Piece] } deriving (Show)
 
 data PosTreeItem  = PosTreeItem { 
-    ptMove :: Int,
+    ptMove :: IntMove,
     ptValue :: Int, 
     ptColor :: Int,
     ptFinal :: FinalState,
@@ -187,43 +187,41 @@ data TreePosition = TreePosition {
     tts :: [Int] 
 } deriving (Show, Eq)    
 
-instance TreeNode TreeItem where
+instance TreeNode TreeItem IntMove where
     getMove = _tiMove
     getValue = _tiValue
     getErrorValue = _tiValue
 
-instance TreeNode PosTreeItem where
+instance TreeNode PosTreeItem IntMove where
     getMove = ptMove
     getValue = ptValue 
     getErrorValue = ptValue
 
-instance PositionNode PosTreeItem where
+instance PositionNode PosTreeItem IntMove where
     newNode = calcNewNode
     color = ptColor            
-    -- evaluate n = -1    
-    -- errorEvaluate n = -1
     possibleMoves = calcPossibleMoves
     final = ptFinal
     showPosition = show
 
-calcPossibleMoves :: PosTreeItem -> [Int]
+calcPossibleMoves :: PosTreeItem -> [IntMove]
 calcPossibleMoves node = case ptMove node of
-    1 -> [4, 5]
-    2 -> [6, 7]
-    3 -> [8]
+    1 -> [IntMove 4, IntMove 5]
+    2 -> [IntMove 6, IntMove 7]
+    3 -> [IntMove 8]
     _ -> []
 
-calcNewNode :: PosTreeItem -> Int -> PosTreeItem
+calcNewNode :: PosTreeItem -> IntMove -> PosTreeItem
 calcNewNode tp mv = fromJust $ Map.lookup mv mvToNode
 
-mvToNode :: Map Int PosTreeItem
+mvToNode :: Map IntMove PosTreeItem
 mvToNode  = Map.fromList [
-    (2, PosTreeItem {ptMove=2, ptValue = 2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}}),
-    (4, PosTreeItem {ptMove=4, ptValue = 4, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}}),
-    (5, PosTreeItem {ptMove=5, ptValue = 5, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}}),
-    (6, PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
-    (7, PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
-    (8, PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
+    (2, PosTreeItem {ptMove=IntMove 2, ptValue = 2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}}),
+    (4, PosTreeItem {ptMove=IntMove 4, ptValue = 4, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}}),
+    (5, PosTreeItem {ptMove=IntMove 5, ptValue = 5, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}}),
+    (6, PosTreeItem {ptMove=IntMove 6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
+    (7, PosTreeItem {ptMove=IntMove 7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
+    (8, PosTreeItem {ptMove=IntMove 8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
 
 -----------------------------------------------
 testEnv1 = Env {_depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 10,
@@ -238,162 +236,162 @@ testEnv3 = Env {_depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThr
 testEnvMax = Env {_depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}     
      
-rootOnly = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []
+rootOnly = Node PosTreeItem {ptMove=IntMove 0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []
 
-root2 = Node PosTreeItem {ptMove=2, ptValue=2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
+root2 = Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
 
-aMiniTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
-    Node TreeItem {_tiMove = 1, _tiValue = 1} [],
-    Node TreeItem {_tiMove = 2, _tiValue = 2} [],
-    Node TreeItem {_tiMove = 3, _tiValue = 3} []]
+aMiniTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = IntMove 1, _tiValue = 1} [],
+    Node TreeItem {_tiMove = IntMove 2, _tiValue = 2} [],
+    Node TreeItem {_tiMove = 3IntMove , _tiValue = 3} []]
 
-newBranch =  Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} [] 
+newBranch =  Node PosTreeItem {ptMove=IntMove 4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} [] 
     
-modTree = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-    Node PosTreeItem {ptMove=1, ptValue=1, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
-    Node PosTreeItem {ptMove=2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
-    Node PosTreeItem {ptMove=3, ptValue=3, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []]]
+modTree = Node PosTreeItem {ptMove=IntMove 0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+    Node PosTreeItem {ptMove=IntMove 1, ptValue=1, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=4IntMove , ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
+    Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=4IntMove , ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
+    Node PosTreeItem {ptMove=IntMove 3, ptValue=3, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=IntMove 4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []]]
   
-aMiniPosTree = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-    Node PosTreeItem {ptMove=1, ptValue=1, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove=2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove=3, ptValue=3, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
+aMiniPosTree = Node PosTreeItem {ptMove=IntMove 0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+    Node PosTreeItem {ptMove=IntMove 1, ptValue=1, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=IntMove 3, ptValue=3, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
 expandedTree = 
-    Node PosTreeItem {ptMove=0, ptValue=0, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=1, ptValue=1, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-            Node PosTreeItem {ptMove=4, ptValue=4, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}} [],
-            Node PosTreeItem {ptMove=5, ptValue=5, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}} []],
-        Node PosTreeItem {ptMove=2, ptValue=2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
-            Node PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
-            Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
-        Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [ 
-            Node PosTreeItem {ptMove=8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}} []]]
+    Node PosTreeItem {ptMove=IntMove 0, ptValue=0, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=IntMove 1, ptValue=1, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+            Node PosTreeItem {ptMove=IntMove 4, ptValue=4, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}} [],
+            Node PosTreeItem {ptMove=IntMove 5, ptValue=5, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}} []],
+        Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+            Node PosTreeItem {ptMove=IntMove 6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
+            Node PosTreeItem {ptMove=IntMove 7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
+        Node PosTreeItem {ptMove=IntMove 3, ptValue=3, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [ 
+            Node PosTreeItem {ptMove=IntMove 8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}} []]]
  
 prunedExpandedTree = 
-    Node PosTreeItem {ptMove=2, ptValue=2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
-        Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []]
+    Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=IntMove 6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
+        Node PosTreeItem {ptMove=IntMove 7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []]
  
-finalTestTree = Node PosTreeItem {ptMove=0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-    Node PosTreeItem {ptMove=1, ptValue=1, ptColor=1, ptFinal=BWins, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove=2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
-    Node PosTreeItem {ptMove=3, ptValue=3, ptColor=1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []] 
+finalTestTree = Node PosTreeItem {ptMove=IntMove 0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+    Node PosTreeItem {ptMove=IntMove 1, ptValue=1, ptColor=1, ptFinal=BWins, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
+    Node PosTreeItem {ptMove=IntMove 3, ptValue=3, ptColor=1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []] 
  
 expandedFinalTree = 
-    Node PosTreeItem {ptMove=0, ptValue=0, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=1, ptValue=1, ptColor = 1, ptFinal=BWins, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
-        Node PosTreeItem {ptMove=2, ptValue=2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
-            Node PosTreeItem {ptMove=6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
-            Node PosTreeItem {ptMove=7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
-        Node PosTreeItem {ptMove=3, ptValue=3, ptColor = 1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
+    Node PosTreeItem {ptMove=IntMove 0, ptValue=0, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
+        Node PosTreeItem {ptMove=IntMove 1, ptValue=1, ptColor = 1, ptFinal=BWins, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
+        Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
+            Node PosTreeItem {ptMove=IntMove 6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
+            Node PosTreeItem {ptMove=IntMove 7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
+        Node PosTreeItem {ptMove=IntMove 3, ptValue=3, ptColor = 1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
-miniTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
-    Node TreeItem {_tiMove = 1, _tiValue = 10} [
-        Node TreeItem {_tiMove = 3, _tiValue = 30} [] ],
-    Node TreeItem {_tiMove = 2, _tiValue = 20} [
-        Node TreeItem {_tiMove = 4, _tiValue = 40} [] ]]        
+miniTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = IntMove 1, _tiValue = 10} [
+        Node TreeItem {_tiMove = IntMove 3, _tiValue = 30} [] ],
+    Node TreeItem {_tiMove = IntMove 2, _tiValue = 20} [
+        Node TreeItem {_tiMove = IntMove 4, _tiValue = 40} [] ]]        
         
-prunedTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
-    Node TreeItem {_tiMove = 2, _tiValue = 2} []] 
+prunedTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = IntMove 2, _tiValue = 2} []] 
     
-aTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
-    Node TreeItem {_tiMove = 1, _tiValue = -80} [
-        Node TreeItem {_tiMove = 3, _tiValue = 20} [
-            Node TreeItem {_tiMove = 8, _tiValue = 10} []], 
-        Node TreeItem {_tiMove = 4, _tiValue = -40} [
-            Node TreeItem {_tiMove = 9, _tiValue = 5} [], 
-            Node TreeItem {_tiMove = 10, _tiValue = 50} []]], 
-    Node TreeItem {_tiMove = 2, _tiValue = 70} [
-        Node TreeItem {_tiMove = 5, _tiValue = 45} [
-            Node TreeItem {_tiMove = 11, _tiValue = 0} [], 
-            Node TreeItem {_tiMove = 12, _tiValue = -10} []], 
-        Node TreeItem {_tiMove = 6, _tiValue = -60} [
-            Node TreeItem {_tiMove = 13, _tiValue = -20} [], 
-            Node TreeItem {_tiMove = 14, _tiValue = 0} []], 
-        Node TreeItem {_tiMove = 7, _tiValue = 30} [
-            Node TreeItem {_tiMove = 15, _tiValue= 80} [], 
-            Node TreeItem {_tiMove = 16, _tiValue= -90} [], 
-            Node TreeItem {_tiMove = 17, _tiValue = 10} []]]]   
+aTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = IntMove 1, _tiValue = -80} [
+        Node TreeItem {_tiMove = IntMove 3, _tiValue = 20} [
+            Node TreeItem {_tiMove = IntMove 8, _tiValue = 10} []], 
+        Node TreeItem {_tiMove = IntMove 4, _tiValue = -40} [
+            Node TreeItem {_tiMove = IntMove 9, _tiValue = 5} [], 
+            Node TreeItem {_tiMove = IntMove 0, _tiValue = 50} []]], 
+    Node TreeItem {_tiMove = IntMove 2, _tiValue = 70} [
+        Node TreeItem {_tiMove = IntMove 5, _tiValue = 45} [
+            Node TreeItem {_tiMove = IntMove 11, _tiValue = 0} [], 
+            Node TreeItem {_tiMove = IntMove 12, _tiValue = -10} []], 
+        Node TreeItem {_tiMove = IntMove 6, _tiValue = -60} [
+            Node TreeItem {_tiMove = IntMove 13, _tiValue = -20} [], 
+            Node TreeItem {_tiMove = IntMove 14, _tiValue = 0} []], 
+        Node TreeItem {_tiMove = IntMove 7, _tiValue = 30} [
+            Node TreeItem {_tiMove = IntMove 15, _tiValue= 80} [], 
+            Node TreeItem {_tiMove = IntMove 16, _tiValue= -90} [], 
+            Node TreeItem {_tiMove = IntMove 17, _tiValue = 10} []]]]   
 
-blunderTree = Node TreeItem {_tiMove = 0, _tiValue = 0} [
-    Node TreeItem {_tiMove = 1, _tiValue = -80} [
-        Node TreeItem {_tiMove = 3, _tiValue = 20} [
-            Node TreeItem {_tiMove = 8, _tiValue = 10} []], 
-        Node TreeItem {_tiMove = 4, _tiValue = -40} [
-            Node TreeItem {_tiMove = 9, _tiValue = 5} [], 
-            Node TreeItem {_tiMove = 10, _tiValue = 50} []]], 
-    Node TreeItem {_tiMove = 2, _tiValue = 70} [
-        Node TreeItem {_tiMove = 5, _tiValue = 45} [
-            Node TreeItem {_tiMove = 11, _tiValue = 10} [], 
-            Node TreeItem {_tiMove = 12, _tiValue = -10} []], 
-        Node TreeItem {_tiMove = 6, _tiValue = -60} [
-            Node TreeItem {_tiMove = 13, _tiValue = -20} [], 
-            Node TreeItem {_tiMove = 14, _tiValue = 10} []], 
-        Node TreeItem {_tiMove = 7, _tiValue = 30} [
-            Node TreeItem {_tiMove = 15, _tiValue= 80} [], 
-            Node TreeItem {_tiMove = 16, _tiValue= -90} [], 
-            Node TreeItem {_tiMove = 17, _tiValue = 10} []]],   
-    Node TreeItem {_tiMove = 20, _tiValue = -80} [
-        Node TreeItem {_tiMove = 21, _tiValue = 20} [
-            Node TreeItem {_tiMove = 23, _tiValue = 10} [], 
-            Node TreeItem {_tiMove = 24, _tiValue = 7} []],
-        Node TreeItem {_tiMove = 22, _tiValue = -40} [
-            Node TreeItem {_tiMove = 25, _tiValue = 5} [], 
-            Node TreeItem {_tiMove = 26, _tiValue = 80} []]]]             
+blunderTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0} [
+    Node TreeItem {_tiMove = IntMove 1, _tiValue = -80} [
+        Node TreeItem {_tiMove = IntMove 3, _tiValue = 20} [
+            Node TreeItem {_tiMove = IntMove 8, _tiValue = 10} []], 
+        Node TreeItem {_tiMove = IntMove 4, _tiValue = -40} [
+            Node TreeItem {_tiMove = IntMove 9, _tiValue = 5} [], 
+            Node TreeItem {_tiMove = IntMove 10, _tiValue = 50} []]], 
+    Node TreeItem {_tiMove = IntMove 2, _tiValue = 70} [
+        Node TreeItem {_tiMove = IntMove 5, _tiValue = 45} [
+            Node TreeItem {_tiMove = IntMove 11, _tiValue = 10} [], 
+            Node TreeItem {_tiMove = IntMove 12, _tiValue = -10} []], 
+        Node TreeItem {_tiMove = IntMove 6, _tiValue = -60} [
+            Node TreeItem {_tiMove = IntMove 13, _tiValue = -20} [], 
+            Node TreeItem {_tiMove = IntMove 14, _tiValue = 10} []], 
+        Node TreeItem {_tiMove = IntMove 7, _tiValue = 30} [
+            Node TreeItem {_tiMove = IntMove 15, _tiValue= 80} [], 
+            Node TreeItem {_tiMove = IntMove 16, _tiValue= -90} [], 
+            Node TreeItem {_tiMove = IntMove 17, _tiValue = 10} []]],   
+    Node TreeItem {_tiMove = IntMove 20, _tiValue = -80} [
+        Node TreeItem {_tiMove = IntMove 21, _tiValue = 20} [
+            Node TreeItem {_tiMove = IntMove 23, _tiValue = 10} [], 
+            Node TreeItem {_tiMove = IntMove 24, _tiValue = 7} []],
+        Node TreeItem {_tiMove = IntMove 22, _tiValue = -40} [
+            Node TreeItem {_tiMove = IntMove 25, _tiValue = 5} [], 
+            Node TreeItem {_tiMove = IntMove 26, _tiValue = 80} []]]]             
             
-prunedToChild = Node TreeItem {_tiMove = 2, _tiValue = 70} [
-        Node TreeItem {_tiMove = 5, _tiValue = 45} [
-            Node TreeItem {_tiMove = 11, _tiValue = 0} [], 
-            Node TreeItem {_tiMove = 12, _tiValue = -10} []], 
-        Node TreeItem {_tiMove = 6, _tiValue = -60} [
-            Node TreeItem {_tiMove = 13, _tiValue = -20} [], 
-            Node TreeItem {_tiMove = 14, _tiValue = 0} []], 
-        Node TreeItem {_tiMove = 7, _tiValue = 30} [
-            Node TreeItem {_tiMove = 15, _tiValue= 80} [], 
-            Node TreeItem {_tiMove = 16, _tiValue= -90} [], 
-            Node TreeItem {_tiMove = 17, _tiValue = 10} []]]
+prunedToChild = Node TreeItem {_tiMove = IntMove 2, _tiValue = 70} [
+        Node TreeItem {_tiMove = IntMove 5, _tiValue = 45} [
+            Node TreeItem {_tiMove = IntMove 11, _tiValue = 0} [], 
+            Node TreeItem {_tiMove = IntMove 12, _tiValue = -10} []], 
+        Node TreeItem {_tiMove = IntMove 6, _tiValue = -60} [
+            Node TreeItem {_tiMove = IntMove 13, _tiValue = -20} [], 
+            Node TreeItem {_tiMove = IntMove 14, _tiValue = 0} []], 
+        Node TreeItem {_tiMove = IntMove 7, _tiValue = 30} [
+            Node TreeItem {_tiMove = IntMove 15, _tiValue= 80} [], 
+            Node TreeItem {_tiMove = IntMove 16, _tiValue= -90} [], 
+            Node TreeItem {_tiMove = IntMove 17, _tiValue = 10} []]]
 
-aTree2 = Node TreeItem {_tiMove = 0, _tiValue = 0 } [
-    Node TreeItem {_tiMove = 1, _tiValue = 10 } [
-        Node TreeItem {_tiMove = 4, _tiValue = 40 } [
-            Node TreeItem {_tiMove = 13, _tiValue = -130 } [], 
-            Node TreeItem {_tiMove = 14, _tiValue =  -140 } [],
-            Node TreeItem {_tiMove = 15, _tiValue = -150 } []],
-        Node TreeItem {_tiMove = 5, _tiValue = 50 } [
-            Node TreeItem {_tiMove = 16, _tiValue = -160 } [], 
-            Node TreeItem {_tiMove = 17, _tiValue = -170 } [],
-            Node TreeItem {_tiMove = 18, _tiValue = -180 }[]], 
-        Node TreeItem {_tiMove = 6, _tiValue = 60 } [
-            Node TreeItem {_tiMove = 19, _tiValue =  -190} [],
-            Node TreeItem {_tiMove = 20, _tiValue = -200 } [],
-            Node TreeItem {_tiMove = 21, _tiValue = -210 } []]], 
-    Node TreeItem {_tiMove = 2, _tiValue = -20 } [
-        Node TreeItem {_tiMove = 7, _tiValue = -70 } [
-            Node TreeItem {_tiMove = 22, _tiValue = 220 } [], 
-            Node TreeItem {_tiMove = 23, _tiValue = 230 } [],
-            Node TreeItem {_tiMove = 24, _tiValue = 240 }[]], 
-        Node TreeItem {_tiMove = 8, _tiValue = -80 } [
-            Node TreeItem {_tiMove = 25, _tiValue = 250 } [], 
-            Node TreeItem {_tiMove = 26, _tiValue = 260 } [],
-            Node TreeItem {_tiMove = 27, _tiValue = 270 } []],
-        Node TreeItem {_tiMove = 9, _tiValue = -90 } [
-            Node TreeItem {_tiMove = 28, _tiValue = 280 } [], 
-            Node TreeItem {_tiMove = 29, _tiValue = 290 } [],
-            Node TreeItem {_tiMove = 30, _tiValue = 300 }[]]],
-    Node TreeItem {_tiMove = 3, _tiValue = 30 } [
-        Node TreeItem {_tiMove = 10, _tiValue = -100 } [
-            Node TreeItem {_tiMove = 31, _tiValue = 310 } [],
-            Node TreeItem {_tiMove = 32, _tiValue = 320 } [],
-            Node TreeItem {_tiMove = 33, _tiValue = 330 }[]], 
-        Node TreeItem {_tiMove = 11, _tiValue = -110 } [
-            Node TreeItem {_tiMove = 34, _tiValue = 340 } [],
-            Node TreeItem {_tiMove = 35, _tiValue = 350 } [],
-            Node TreeItem {_tiMove = 36, _tiValue = 360 } []], 
-        Node TreeItem {_tiMove = 12, _tiValue = -120 } [
-            Node TreeItem {_tiMove = 37, _tiValue = 370 } [],
-            Node TreeItem {_tiMove = 38, _tiValue = 380 } [],
-            Node TreeItem {_tiMove = 39, _tiValue = 390 } []]]] 
+aTree2 = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0 } [
+    Node TreeItem {_tiMove = IntMove 1, _tiValue = 10 } [
+        Node TreeItem {_tiMove = IntMove 4, _tiValue = 40 } [
+            Node TreeItem {_tiMove = IntMove 13, _tiValue = -130 } [], 
+            Node TreeItem {_tiMove = IntMove 14, _tiValue =  -140 } [],
+            Node TreeItem {_tiMove = IntMove 15, _tiValue = -150 } []],
+        Node TreeItem {_tiMove = IntMove 5, _tiValue = 50 } [
+            Node TreeItem {_tiMove = IntMove 16, _tiValue = -160 } [], 
+            Node TreeItem {_tiMove = IntMove 17, _tiValue = -170 } [],
+            Node TreeItem {_tiMove = IntMove 18, _tiValue = -180 }[]], 
+        Node TreeItem {_tiMove = IntMove 6, _tiValue = 60 } [
+            Node TreeItem {_tiMove = IntMove 19, _tiValue =  -190} [],
+            Node TreeItem {_tiMove = IntMove 20, _tiValue = -200 } [],
+            Node TreeItem {_tiMove = IntMove 21, _tiValue = -210 } []]], 
+    Node TreeItem {_tiMove = IntMove 2, _tiValue = -20 } [
+        Node TreeItem {_tiMove = IntMove 7, _tiValue = -70 } [
+            Node TreeItem {_tiMove = IntMove 22, _tiValue = 220 } [], 
+            Node TreeItem {_tiMove = IntMove 23, _tiValue = 230 } [],
+            Node TreeItem {_tiMove = IntMove 24, _tiValue = 240 }[]], 
+        Node TreeItem {_tiMove = IntMove 8, _tiValue = -80 } [
+            Node TreeItem {_tiMove = IntMove 25, _tiValue = 250 } [], 
+            Node TreeItem {_tiMove = IntMove 26, _tiValue = 260 } [],
+            Node TreeItem {_tiMove = IntMove 27, _tiValue = 270 } []],
+        Node TreeItem {_tiMove = IntMove 9, _tiValue = -90 } [
+            Node TreeItem {_tiMove = IntMove 28, _tiValue = 280 } [], 
+            Node TreeItem {_tiMove = IntMove 29, _tiValue = 290 } [],
+            Node TreeItem {_tiMove = IntMove 30, _tiValue = 300 }[]]],
+    Node TreeItem {_tiMove = IntMove 3, _tiValue = 30 } [
+        Node TreeItem {_tiMove = IntMove 10, _tiValue = -100 } [
+            Node TreeItem {_tiMove = IntMove 31, _tiValue = 310 } [],
+            Node TreeItem {_tiMove = IntMove 32, _tiValue = 320 } [],
+            Node TreeItem {_tiMove = IntMove 33, _tiValue = 330 }[]], 
+        Node TreeItem {_tiMove = IntMove 11, _tiValue = -110 } [
+            Node TreeItem {_tiMove = IntMove 34, _tiValue = 340 } [],
+            Node TreeItem {_tiMove = IntMove 35, _tiValue = 350 } [],
+            Node TreeItem {_tiMove = IntMove 36, _tiValue = 360 } []], 
+        Node TreeItem {_tiMove = IntMove 12, _tiValue = -120 } [
+            Node TreeItem {_tiMove = IntMove 37, _tiValue = 370 } [],
+            Node TreeItem {_tiMove = IntMove 38, _tiValue = 380 } [],
+            Node TreeItem {_tiMove = IntMove 39, _tiValue = 390 } []]]] 

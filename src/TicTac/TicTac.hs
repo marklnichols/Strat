@@ -16,19 +16,20 @@ import Data.List
 data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
     
-data TTNode = TTNode {_ttMove :: Int, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
+data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
 makeLenses ''TTNode  
   
-instance PositionNode TTNode where
+-- class Move m => TreeNode t m where  
+-- class (TreeNode n m, Show n, Move m) => PositionNode n m where
+    
+instance PositionNode TTNode IntMove where
     newNode = calcNewNode
-    -- evaluate = eval
-    -- errorEvaluate = errorEval
     possibleMoves = getPossibleMoves
     color = _clr . _ttPosition
     final = _fin . _ttPosition
     showPosition = format
  
-instance TreeNode TTNode where
+instance TreeNode TTNode IntMove where
     getMove = _ttMove
     getValue = _ttValue
     getErrorValue = _ttErrorValue
@@ -37,7 +38,7 @@ instance TreeNode TTNode where
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {_ttMove = -1, _ttValue = 0, _ttErrorValue = 0, _ttPosition = TTPosition 
+getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = 0, _ttErrorValue = 0, _ttPosition = TTPosition 
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
 --------------------------------------------------------
@@ -56,7 +57,7 @@ format n =
 --------------------------------------------------------
 -- calculate new node from a previous node and a move
 --------------------------------------------------------
-calcNewNode :: TTNode -> Int -> TTNode
+calcNewNode :: TTNode -> IntMove -> TTNode
 calcNewNode node mv =
     let val
             | mv >=0    = 1
@@ -73,17 +74,17 @@ calcNewNode node mv =
 ----------------------------------------------------------
 -- convert from move value to grid index
 ----------------------------------------------------------
-mvToGridIx :: Int -> Int
-mvToGridIx mv = abs mv -1     --moves are (+/-) 1-9 vs indexes 0-8 
+mvToGridIx :: IntMove -> Int
+mvToGridIx mv = abs (theInt mv) -1     --moves are (+/-) 1-9 vs indexes 0-8 
     
 ---------------------------------------------------------
 -- get list of possible moves from a given position
 ---------------------------------------------------------
 -- TODO extend the use of lens to navigate node -> position ->
-getPossibleMoves :: TTNode -> [Int]
+getPossibleMoves :: TTNode -> [IntMove]
 getPossibleMoves n =  foldr f [] (zip (_ttPosition n ^. grid) [1..9]) where
     f (x, idx) newList
-        | x == 0        = idx * _clr (_ttPosition n) : newList
+        | x == 0        = IntMove (idx * _clr (_ttPosition n)) : newList
         | otherwise     = newList
 
 --------------------------------------------------------

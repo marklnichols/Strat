@@ -27,11 +27,11 @@ blackFirstStartNode :: CkNode
 blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: [Int] -> Tree CkNode
-treeFromGridW g = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, 
+treeFromGridW g = Node CkNode {_ckMove = (IntMove -1), _ckValue = 0, _ckErrorValue = 0, 
     _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: [Int] -> Tree CkNode
-treeFromGridB g = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, 
+treeFromGridB g = Node CkNode {_ckMove = (IntMove -1), _ckValue = 0, _ckErrorValue = 0, 
     _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
  
 nodeFromGridW :: [Int] -> CkNode

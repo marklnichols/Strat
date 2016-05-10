@@ -4,7 +4,7 @@ import StratTree.TreeNode
 import System.Random
 import System.IO
 
-resolveRandom :: Maybe [MoveScore] -> IO (Maybe Int)
+resolveRandom :: Move m => Maybe [MoveScore m] -> IO (Maybe Int)
 resolveRandom Nothing = return Nothing
 resolveRandom (Just []) = return Nothing
 resolveRandom (Just xs) = do
