@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Checkers where
 import Prelude hiding (lookup)
@@ -16,20 +17,21 @@ import Data.List.Split
 data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''CkPosition
 
-data CkNode = CkNode {_ckMove :: Int, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition} deriving (Show)
+data CkNode = CkNode {_ckMove :: IntMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition} deriving (Show)
 makeLenses ''CkNode
 
 data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}
 makeLenses ''JumpSeq
 
-instance PositionNode CkNode where
+instance PositionNode CkNode IntMove where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     showPosition = format
+    parseMove n s =   IntMove (read s)
 
-instance TreeNode CkNode where
+instance TreeNode CkNode IntMove where
     getMove = _ckMove
     getValue = _ckValue
     getErrorValue = _ckErrorValue
@@ -38,7 +40,7 @@ instance TreeNode CkNode where
 -- starting position,
 ---------------------------------------------------------------------------------------------------
 getStartNode :: Tree CkNode
-getStartNode = Node CkNode {_ckMove = -1, _ckValue = 0, _ckErrorValue = 0, _ckPosition = CkPosition 
+getStartNode = Node CkNode {_ckMove = IntMove (-1), _ckValue = 0, _ckErrorValue = 0, _ckPosition = CkPosition 
     --TODO re: mkStartGrid 1: only implemented with white pieces on the bottom for now...
     {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
 
@@ -108,13 +110,13 @@ toXOs _ = "? "
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
 --TODO: implement
-calcNewNode :: CkNode -> Int -> CkNode
+calcNewNode :: CkNode -> IntMove -> CkNode
 calcNewNode node mv = node
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
-getPossibleMoves :: CkNode -> [Int]
+getPossibleMoves :: CkNode -> [IntMove]
 getPossibleMoves n = foldr f [] (getPieceLocs n) where
                         f x r = r ++ pieceMoves n x ++ pieceJumps n x
 
@@ -135,7 +137,7 @@ isKing move = abs move > 1
 ---------------------------------------------------------------------------------------------------
 -- calculate available (non-jump) moves
 ---------------------------------------------------------------------------------------------------
-pieceMoves :: CkNode -> Int -> [Int]
+pieceMoves :: CkNode -> Int -> [IntMove]
 pieceMoves node idx =
     let pos = node ^. ckPosition
         g = pos ^. grid
@@ -143,22 +145,22 @@ pieceMoves node idx =
         Nothing -> []
         Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr) 
 
-forwardMoves :: [Int] -> Int -> Int -> [Int]
+forwardMoves :: [Int] -> Int -> Int -> [IntMove]
 forwardMoves g idx color = 
     let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] 
         f idx = case g ^? ix idx of
                         Nothing -> False
                         Just val -> val == 0
     in fmap h newIdxs where
-        h newIdx = idx * 100 + newIdx
+        h newIdx = IntMove (idx * 100 + newIdx)
     
-kingMoves :: [Int] -> Int -> [Int]
+kingMoves :: [Int] -> Int -> [IntMove]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
 ---------------------------------------------------------------------------------------------------
 -- calculate available jumps
 ---------------------------------------------------------------------------------------------------
-pieceJumps :: CkNode -> Int -> [Int]
+pieceJumps :: CkNode -> Int -> [IntMove]
 pieceJumps node idx = 
     let pos = node ^. ckPosition
         g = pos ^. grid
@@ -170,10 +172,9 @@ pieceJumps node idx =
                                     else forwardJumps g idx color color
     in fmap jumpSeqToMap seqs                           
 
-    
---TODO add hashmap    
-jumpSeqToMap :: JumpSeq -> Int
-jumpSeqToMap js = 10000 + js ^. start * 100 + js ^. end    
+  
+jumpSeqToMap :: JumpSeq -> IntMove
+jumpSeqToMap js = IntMove $ 10000 + js ^. start * 100 + js ^. end    
                         
 
 forwardJumps :: [Int] -> Int -> Int -> Int -> [JumpSeq]
@@ -206,9 +207,7 @@ runST :: (forall s. ST s a) -> a
 type HT s = HashTable s String String
 
 htCreate :: ST s (HT s)
-htCreate = do
-  ht <- new
-  return ht
+htCreate = new
 
 htMain :: Maybe String
 htMain = runST doit     

@@ -45,7 +45,7 @@ getTicTacStart = TicTac.TicTac.getStartNode
 getCheckersStart :: Tree CkNode
 getCheckersStart = Checkers.getStartNode 
  
-loop :: PositionNode n => Tree n -> Int -> IO ()
+loop :: PositionNode n m => Tree n -> Int -> IO ()
 loop node turn = do
     putStrLn $ showPosition $ rootLabel node
     theNext <- case final $ rootLabel node of  
@@ -67,20 +67,22 @@ loop node turn = do
         Nothing -> return ()
         Just next -> loop next (swapTurns turn)
   
-playerMove :: PositionNode n => Tree n -> Int -> IO (Tree n)
-playerMove node turn = do
+playerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
+playerMove tree turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
     line <- getLine
     putStrLn ""
-    let n = posToMove (read line) turn
-    let legal = isLegal node n
+    --let mv = posToMove (read line) turn
+    let node = rootLabel tree
+    let mv = parseMove node line
+    let legal = isLegal tree mv
     if not legal 
         then do 
             putStrLn "Not a legal move."
-            playerMove node turn 
-        else return (processMove node n) 
+            playerMove tree turn 
+        else return (processMove tree mv) 
   
-computerMove :: PositionNode n => Tree n -> Int -> IO (Tree n)
+computerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do 
     putStrLn "Calculating computer move..."
     let newTree = runReader (expandTree node) ticTacEnv 
@@ -104,7 +106,7 @@ computerMove node turn = do
                     printMoveChoiceInfo result move 
                     return (processMove newTree move)
 
-printMoveChoiceInfo :: Result -> Int -> IO ()
+printMoveChoiceInfo :: Move m => Result m -> m -> IO ()
 printMoveChoiceInfo result move = do
     putStrLn ("Computer's move : (m:" ++ show move ++
                   ", s:" ++ show (_score $ head $ _moveScores result) ++ ")")
@@ -126,11 +128,8 @@ toBool s = s == "c" || s == "C"
 --TODO: this needs to be generalized beyond TTT
 -- convert input player move 1-9 to (+/-) as per player 1/2
 --posToMove :: input position -> turn -> move
-posToMove :: Int -> Int -> Int
-posToMove index turn = turnToColor turn * index 
-
-toInt :: String -> Int
-toInt = read
+--posToMove :: Int -> Int -> IntMove
+--posToMove index turn = IntMove turnToColor turn * index 
 
 swapTurns :: Int -> Int
 swapTurns t = 3-t   --alternate between 1 and 2
