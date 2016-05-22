@@ -1,7 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, 
-       mkMoveScore, MoveScore, move, score, Result (..), Env (..), Move (..)) where
+       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), Env (..), Move (..), IntMove (..)) where
 
 import Control.Lens
        
@@ -21,59 +22,40 @@ instance Show IntMove where
 instance Eq IntMove where
     (==) m1 m2 = theInt m1 == theInt m2
     
+instance Ord IntMove where
+    (<=) m1 m2 = theInt m1 <= theInt m2
+    
 instance Move IntMove
 -------------------------------------------------
 
-class Move m => TreeNode t m where
-    getMoveNode :: t -> m
+class Move m => TreeNode t m | t -> m where
+    getMove :: t -> m
     getValue :: t -> Int
     getErrorValue :: t -> Int
   
-class (TreeNode n m, Show n, Move m) => PositionNode n m where
+class (TreeNode n m, Show n, Move m) => PositionNode n m | n -> m where
     newNode :: n -> m -> n
     color :: n -> Int
     possibleMoves :: n -> [m]
     final :: n -> FinalState
     showPosition :: n -> String
+    parseMove :: n -> String -> m
 
--- Original
-{--
-class TreeNode t where
-    getMove :: t -> Int
-    getValue :: t -> Int
-    getErrorValue :: t -> Int
-  
-class (TreeNode n, Show n) => PositionNode n where
-    newNode :: n -> Int -> n
-    color :: n -> Int
-    possibleMoves :: n -> [Int]
-    final :: n -> FinalState
-    showPosition :: n -> String
---} 
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 
 data Env = Env 
     {_depth :: Int, _errorDepth :: Int, _equivThreshold :: Int, _errorEquivThreshold :: Int,
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
 
-{--
-data Tree a = Node {
-        rootLabel :: a,         -- ^ label value
-        subForest :: Forest a   -- ^ zero or more child trees
-    }
---}     
-   
---data MoveScore m = MoveScore {_move :: Move m, _score :: Int} deriving (Eq)
-
 data MoveScore m = MoveScore {_move :: m, _score :: Int} deriving (Eq, Show)
 
 mkMoveScore :: Move m => m -> Int -> MoveScore m
-mkMoveScore mv scr = MoveScore mv scr
+mkMoveScore = MoveScore
 
 --instance Show MoveScore where                                                                                       
 --    show (MoveScore m s ) = "(m:" ++ show m ++ ", s:" ++ show s ++ ")"     
 
-data Result m = Result {_moveChoices :: [Int], _followingMoves :: [Int], _moveScores ::[MoveScore m]} 
+data Result m = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScores ::[MoveScore m]} 
                 deriving(Show, Eq)
            
 $(makeLenses ''MoveScore)

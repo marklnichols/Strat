@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Checkers where
 import Prelude hiding (lookup)
@@ -28,6 +29,7 @@ instance PositionNode CkNode IntMove where
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     showPosition = format
+    parseMove n s =   IntMove (read s)
 
 instance TreeNode CkNode IntMove where
     getMove = _ckMove
@@ -170,10 +172,9 @@ pieceJumps node idx =
                                     else forwardJumps g idx color color
     in fmap jumpSeqToMap seqs                           
 
-    
---TODO add hashmap    
-jumpSeqToMap :: JumpSeq -> Int
-jumpSeqToMap js = 10000 + js ^. start * 100 + js ^. end    
+  
+jumpSeqToMap :: JumpSeq -> IntMove
+jumpSeqToMap js = IntMove $ 10000 + js ^. start * 100 + js ^. end    
                         
 
 forwardJumps :: [Int] -> Int -> Int -> Int -> [JumpSeq]
@@ -206,9 +207,7 @@ runST :: (forall s. ST s a) -> a
 type HT s = HashTable s String String
 
 htCreate :: ST s (HT s)
-htCreate = do
-  ht <- new
-  return ht
+htCreate = new
 
 htMain :: Maybe String
 htMain = runST doit     

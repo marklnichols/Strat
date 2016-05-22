@@ -28,6 +28,7 @@ instance PositionNode TTNode IntMove where
     color = _clr . _ttPosition
     final = _fin . _ttPosition
     showPosition = format
+    parseMove n s = strToMove s (color n) 
  
 instance TreeNode TTNode IntMove where
     getMove = _ttMove
@@ -41,6 +42,12 @@ getStartNode :: Tree TTNode
 getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = 0, _ttErrorValue = 0, _ttPosition = TTPosition 
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
+---------------------------------------------------------
+-- parse string input to move
+---------------------------------------------------------    
+strToMove :: String -> Int -> IntMove    
+strToMove str color = IntMove $ color * read str
+    
 --------------------------------------------------------
 -- format position as a string
 --------------------------------------------------------
@@ -60,7 +67,7 @@ format n =
 calcNewNode :: TTNode -> IntMove -> TTNode
 calcNewNode node mv =
     let val
-            | mv >=0    = 1
+            | theInt mv >= 0   =  1
             | otherwise = -1
         gridSet = set (grid . ix (mvToGridIx mv)) val (_ttPosition node)
         oldColor = view clr gridSet

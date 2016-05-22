@@ -24,78 +24,96 @@ stratTreeTest = do
     describe "best" $ do
         it "calculates the best moves" $ do
             isJust (runReader (best aTree 1) testEnv1) `shouldBe` True 
-            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv1))) `shouldBe` 2
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv1))) `shouldBe` IntMove 2
             _followingMoves (fromJust (runReader (best aTree 1) testEnv1)) `shouldBe` []
             
             isJust (runReader (best aTree (-1)) testEnv1) `shouldBe` True
-            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv1))) `shouldBe` 1
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv1))) `shouldBe` IntMove 1
             _followingMoves (fromJust (runReader (best aTree (-1)) testEnv1)) `shouldBe` []
             
             isJust (runReader (best aTree 1) testEnv2) `shouldBe` True
-            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv2))) `shouldBe` 1
-            _followingMoves (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [4]
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv2))) `shouldBe` IntMove 1
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [IntMove 4]
             
             isJust (runReader (best aTree (-1)) testEnv2) `shouldBe`  True
-            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv2))) `shouldBe` 1
-            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv2)) `shouldBe` [3]
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv2))) 
+                `shouldBe` IntMove 1
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv2)) 
+                `shouldBe` [IntMove 3]
             
             isJust (runReader (best aTree 1) testEnv3) `shouldBe` True
-            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv3))) `shouldBe` 1
-            _followingMoves (fromJust (runReader (best aTree 1) testEnv3)) `shouldBe` [3, 8]
+            head (_moveChoices (fromJust (runReader (best aTree 1) testEnv3))) `shouldBe` IntMove 1
+            _followingMoves (fromJust (runReader (best aTree 1) testEnv3)) 
+                `shouldBe` [IntMove 3, IntMove 8]
             
             isJust (runReader (best aTree (-1)) testEnv3) `shouldBe` True
-            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv3))) `shouldBe` 2
-            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv3)) `shouldBe` [5, 12]
+            head (_moveChoices (fromJust (runReader (best aTree (-1)) testEnv3))) 
+                `shouldBe` IntMove 2
+            _followingMoves (fromJust (runReader (best aTree (-1)) testEnv3)) 
+                `shouldBe` [IntMove 5, IntMove 12]
             
             isJust (runReader (best aTree2 (-1)) testEnv2) `shouldBe` True
-            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv2))) `shouldBe` 3
-            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv2)) `shouldBe` [10]
+            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv2))) 
+                `shouldBe` IntMove 3
+            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv2)) 
+                `shouldBe` [IntMove 10]
             
             isJust (runReader (best aTree2 1) testEnv3) `shouldBe` True
-            head (_moveChoices (fromJust (runReader (best aTree2 1) testEnv3))) `shouldBe` 3
-            _followingMoves (fromJust (runReader (best aTree2 1) testEnv3)) `shouldBe` [10, 33]
+            head (_moveChoices (fromJust (runReader (best aTree2 1) testEnv3))) 
+                `shouldBe` IntMove 3
+            _followingMoves (fromJust (runReader (best aTree2 1) testEnv3)) 
+                `shouldBe` [IntMove 10, IntMove 33]
             
             isJust (runReader (best aTree2 (-1)) testEnv3) `shouldBe` True
-            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv3))) `shouldBe` 1
-            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv3)) `shouldBe` [4, 15]
+            head (_moveChoices (fromJust (runReader (best aTree2 (-1)) testEnv3))) 
+                `shouldBe` IntMove 1
+            _followingMoves (fromJust (runReader (best aTree2 (-1)) testEnv3)) 
+                `shouldBe` [IntMove 4, IntMove 15]
         it "returns a list moves with equivalent scores" $ do
-            _moveChoices (fromJust (runReader (best modTree 1) testEnv2)) `shouldBe` [1, 3, 2]
-            _moveChoices (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [1]
+            _moveChoices (fromJust (runReader (best modTree 1) testEnv2)) 
+                `shouldBe` [IntMove 1, IntMove 3, IntMove 2]
+            _moveChoices (fromJust (runReader (best aTree 1) testEnv2)) `shouldBe` [IntMove 1]
     describe "worstReply" $ 
         it "calculates the worst reply given a selected move" $ do
-            isJust (worstReply aTree 3 1 (MoveInt 1)) `shouldBe` True
-            head (_moveChoices (fromJust (worstReply aTree 3 1 (MoveInt 1)))) `shouldBe` 4
-            _followingMoves (fromJust (worstReply aTree 3 1 (MoveInt 1))) `shouldBe` [10]
+            isJust (worstReply aTree 3 1 (IntMove 1)) `shouldBe` True
+            head (_moveChoices (fromJust (worstReply aTree 3 1 (IntMove 1)))) `shouldBe` IntMove 4
+            _followingMoves (fromJust (worstReply aTree 3 1 (IntMove 1))) `shouldBe` [IntMove 10]
             
-            isJust (worstReply aTree 3 (-1) (MoveInt 2) `shouldBe` True
-            head (_moveChoices (fromJust (worstReply aTree 3 (-1) (MoveInt 2))) `shouldBe` 7
-            _followingMoves (fromJust (worstReply aTree 3 (-1) (MoveInt 2)) `shouldBe` [16]
+            isJust (worstReply aTree 3 (-1) (IntMove 2)) `shouldBe` True
+            head (_moveChoices (fromJust (worstReply aTree 3 (-1) (IntMove 2)))) 
+                `shouldBe` IntMove 7
+            _followingMoves (fromJust (worstReply aTree 3 (-1) (IntMove 2))) `shouldBe` [IntMove 16]
     describe "checkBlunders" $ 
         it "takes a list of equivalent moves, and returns a subset of equivalent move\
            \representing the biggest mistake the oponent can make" $ do
             isJust (runReader (checkBlunders blunderTree 1 
-                [MoveScore {_move=(MoveInt 1), _score=10}, MoveScore {_move=(MoveInt 2), _score=10}, MoveScore {_move=(MoveInt 20), _score=10}]) 
-                    testEnv3) `shouldBe` True
+                [mkMoveScore (IntMove 1) 10, mkMoveScore (IntMove 2) 10, 
+                 mkMoveScore (IntMove 20) 10]) testEnv3) `shouldBe` True
             fromJust (runReader (checkBlunders blunderTree 1 
-                [MoveScore {_move=(MoveInt 1), _score=10}, MoveScore {_move=(MoveInt 2), _score=10}, MoveScore {_move=(MoveInt 20), _score=10}]) 
-                    testEnv3) `shouldBe` [MoveScore{ _move=(MoveInt 2), _score=80}, MoveScore {_move=(MoveInt 20), _score=80}]
+                [mkMoveScore (IntMove 1) 10, mkMoveScore (IntMove 2) 10, 
+                 mkMoveScore (IntMove 20) 10]) testEnv3) `shouldBe` 
+                    [mkMoveScore (IntMove 2) 80, mkMoveScore (IntMove 20) 80]
             --make sure it returns Just something for only one item in the list:
             isJust (runReader (checkBlunders blunderTree 1 
-                [MoveScore {_move=(MoveInt 1), _score=10}]) testEnv3) `shouldBe` True       
+                [mkMoveScore (IntMove 1) 10]) testEnv3) `shouldBe` True       
     describe "getChildren" $ 
             it "gets a list of child nodes" $ do
-                fmap (getMove . label) (getChildren $ fromTree aTree) `shouldBe` [1,2]
-                fmap (getMove . label) (getChildren $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [4, 5, 6]
+                fmap (getMove . label) (getChildren $ fromTree aTree) 
+                    `shouldBe` [IntMove 1,IntMove 2]
+                fmap (getMove . label) (getChildren $ fromJust $ firstChild $ fromTree aTree2) 
+                    `shouldBe` [IntMove 4, IntMove 5, IntMove 6]
     describe "getSiblings" $ 
             it "gets a list of sibling nodes" $ do
-                fmap (getMove . label) (getSiblings $ fromJust $ firstChild $ fromTree aTree) `shouldBe` [1,2]
-                fmap (getMove . label) (getSiblings $ fromJust $ firstChild $ fromTree aTree2) `shouldBe` [1, 2, 3]
+                fmap (getMove . label) (getSiblings $ fromJust $ firstChild $ fromTree aTree) 
+                    `shouldBe` [IntMove 1,IntMove 2]
+                fmap (getMove . label) (getSiblings $ fromJust $ firstChild $ fromTree aTree2) 
+                    `shouldBe` [IntMove 1, IntMove 2, IntMove 3]
     describe "childByMove" $ 
         it "finds a child of a tree matching a given move" $             
             case childByMove (IntMove 1) (fromTree aTree) of 
-                Nothing -> -1
+                Nothing -> IntMove (-1)
                 Just x -> getMove $ label x
-            `shouldBe` 1
+            `shouldBe` IntMove 1
     describe "descendPath" $ 
         it "follows a path of moves to the tree corresponding to the last move in the list" $ do           
             descendPathTest [IntMove 1, IntMove 4, IntMove 9] aTree `shouldBe` 5
@@ -146,7 +164,7 @@ descendPathTest xs tree = case descendPath xs (fromTree tree) of
                                         Just x  -> getValue $ label x
 
 --check that the path of moves retured by best is valid & the node at the bottom contains the correct --value                                        
-validPathCheck :: TreeNode t => Tree t -> Int -> Bool
+validPathCheck :: TreeNode t m => Tree t -> Int -> Bool
 validPathCheck tree color =
         --case best tree (-1) color of
         case runReader (best tree color) testEnvMax of     
@@ -206,9 +224,9 @@ instance PositionNode PosTreeItem IntMove where
 
 calcPossibleMoves :: PosTreeItem -> [IntMove]
 calcPossibleMoves node = case ptMove node of
-    1 -> [IntMove 4, IntMove 5]
-    2 -> [IntMove 6, IntMove 7]
-    3 -> [IntMove 8]
+    IntMove 1 -> [IntMove 4, IntMove 5]
+    IntMove 2 -> [IntMove 6, IntMove 7]
+    IntMove 3 -> [IntMove 8]
     _ -> []
 
 calcNewNode :: PosTreeItem -> IntMove -> PosTreeItem
@@ -216,12 +234,18 @@ calcNewNode tp mv = fromJust $ Map.lookup mv mvToNode
 
 mvToNode :: Map IntMove PosTreeItem
 mvToNode  = Map.fromList [
-    (2, PosTreeItem {ptMove=IntMove 2, ptValue = 2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}}),
-    (4, PosTreeItem {ptMove=IntMove 4, ptValue = 4, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}}),
-    (5, PosTreeItem {ptMove=IntMove 5, ptValue = 5, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}}),
-    (6, PosTreeItem {ptMove=IntMove 6, ptValue=6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
-    (7, PosTreeItem {ptMove=IntMove 7, ptValue=7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
-    (8, PosTreeItem {ptMove=IntMove 8, ptValue=8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
+    (IntMove 2, PosTreeItem {ptMove=IntMove 2, ptValue = 2, ptColor = -1, ptFinal=NotFinal, 
+        ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}}),
+    (IntMove 4, PosTreeItem {ptMove=IntMove 4, ptValue = 4, ptColor = -1, ptFinal=NotFinal, 
+        ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 0]}}),
+    (IntMove 5, PosTreeItem {ptMove=IntMove 5, ptValue = 5, ptColor = -1, ptFinal=NotFinal, 
+        ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 1, 0, 1]}}),
+    (IntMove 6, PosTreeItem {ptMove=IntMove 6, ptValue=6, ptColor = -1, ptFinal=NotFinal, 
+        ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
+    (IntMove 7, PosTreeItem {ptMove=IntMove 7, ptValue=7, ptColor = -1, ptFinal=NotFinal, 
+        ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
+    (IntMove 8, PosTreeItem {ptMove=IntMove 8, ptValue=8, ptColor = -1, ptFinal=NotFinal, 
+        ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
 
 -----------------------------------------------
 testEnv1 = Env {_depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 10,
@@ -243,15 +267,15 @@ root2 = Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor = -1, ptFinal=Not
 aMiniTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0} [
     Node TreeItem {_tiMove = IntMove 1, _tiValue = 1} [],
     Node TreeItem {_tiMove = IntMove 2, _tiValue = 2} [],
-    Node TreeItem {_tiMove = 3IntMove , _tiValue = 3} []]
+    Node TreeItem {_tiMove = IntMove 3, _tiValue = 3} []]
 
 newBranch =  Node PosTreeItem {ptMove=IntMove 4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} [] 
     
 modTree = Node PosTreeItem {ptMove=IntMove 0, ptValue=0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
     Node PosTreeItem {ptMove=IntMove 1, ptValue=1, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=4IntMove , ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
+        Node PosTreeItem {ptMove=IntMove 4 , ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
     Node PosTreeItem {ptMove=IntMove 2, ptValue=2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
-        Node PosTreeItem {ptMove=4IntMove , ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
+        Node PosTreeItem {ptMove=IntMove 4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
     Node PosTreeItem {ptMove=IntMove 3, ptValue=3, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [
         Node PosTreeItem {ptMove=IntMove 4, ptValue=4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []]]
   
@@ -304,7 +328,7 @@ aTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0} [
             Node TreeItem {_tiMove = IntMove 8, _tiValue = 10} []], 
         Node TreeItem {_tiMove = IntMove 4, _tiValue = -40} [
             Node TreeItem {_tiMove = IntMove 9, _tiValue = 5} [], 
-            Node TreeItem {_tiMove = IntMove 0, _tiValue = 50} []]], 
+            Node TreeItem {_tiMove = IntMove 10, _tiValue = 50} []]], 
     Node TreeItem {_tiMove = IntMove 2, _tiValue = 70} [
         Node TreeItem {_tiMove = IntMove 5, _tiValue = 45} [
             Node TreeItem {_tiMove = IntMove 11, _tiValue = 0} [], 

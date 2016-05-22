@@ -26,7 +26,7 @@ getSiblings tree = case parent tree of
 descendPath :: TreeNode t m => [m] -> TreePos Full t -> Maybe (TreePos Full t)
 descendPath moves startTree = foldl f (Just startTree) moves 
     where 
-        f :: TreeNode t => Maybe (TreePos Full t) -> Int -> Maybe (TreePos Full t)
+        f :: TreeNode t m => Maybe (TreePos Full t) -> m -> Maybe (TreePos Full t)
         f r move = r >>= childByMove move 
    
 --visit all the nodes and modify the tree via the visit function
