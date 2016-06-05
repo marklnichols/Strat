@@ -17,32 +17,60 @@ import Data.List.Split
 data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''CkPosition
 
-data CkNode = CkNode {_ckMove :: IntMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition} deriving (Show)
+data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int]} 
+    deriving (Eq, Ord)
+makeLenses ''CkMove
+
+data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition}
 makeLenses ''CkNode
 
-data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}
-makeLenses ''JumpSeq
+--data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}1
+--makeLenses ''JumpSeq
 
-instance PositionNode CkNode IntMove where
+instance PositionNode CkNode CkMove where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     showPosition = format
-    parseMove n s =   IntMove (read s)
+    parseMove n s = CkMove {_isJump = False, _startIdx = -1, _endIdx = read s, _middleIdxs = []} -- TODO: must be able to input start / end and multiple-step jump moves
 
-instance TreeNode CkNode IntMove where
+instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
     getErrorValue = _ckErrorValue
+  
+instance Show CkMove where
+    show m = show (m ^. isJump) ++ " - " ++ show (m ^. startIdx) ++ 
+                case m^.middleIdxs of 
+                    [] -> "" 
+                    xs -> foldr (\y acc -> acc ++ ", " ++ show y) "" xs
+                ++ show (m ^. endIdx)
 
+instance Show CkNode where
+    show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
+             ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition) 
+
+ 
+{--  
+instance Eq CkMove where
+   (==) m1 m2 = theInt m1 == theInt m2
+    
+instance Ord CkMove where
+    TBD:(<=) m1 m2 = theInt m1 <= theInt m2
+--}   
+   
+instance Move CkMove    
+    
 ---------------------------------------------------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------------------------------------------------
 getStartNode :: Tree CkNode
-getStartNode = Node CkNode {_ckMove = IntMove (-1), _ckValue = 0, _ckErrorValue = 0, _ckPosition = CkPosition 
-    --TODO re: mkStartGrid 1: only implemented with white pieces on the bottom for now...
-    {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
+getStartNode = Node 
+    CkNode {_ckMove = CkMove {_isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = []},
+            _ckValue = 0, _ckErrorValue = 0, _ckPosition = 
+            CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
+        
 
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
@@ -110,13 +138,13 @@ toXOs _ = "? "
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
 --TODO: implement
-calcNewNode :: CkNode -> IntMove -> CkNode
+calcNewNode :: CkNode -> CkMove -> CkNode
 calcNewNode node mv = node
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
-getPossibleMoves :: CkNode -> [IntMove]
+getPossibleMoves :: CkNode -> [CkMove]
 getPossibleMoves n = foldr f [] (getPieceLocs n) where
                         f x r = r ++ pieceMoves n x ++ pieceJumps n x
 
@@ -137,7 +165,7 @@ isKing move = abs move > 1
 ---------------------------------------------------------------------------------------------------
 -- calculate available (non-jump) moves
 ---------------------------------------------------------------------------------------------------
-pieceMoves :: CkNode -> Int -> [IntMove]
+pieceMoves :: CkNode -> Int -> [CkMove]
 pieceMoves node idx =
     let pos = node ^. ckPosition
         g = pos ^. grid
@@ -145,39 +173,37 @@ pieceMoves node idx =
         Nothing -> []
         Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr) 
 
-forwardMoves :: [Int] -> Int -> Int -> [IntMove]
+forwardMoves :: [Int] -> Int -> Int -> [CkMove]
 forwardMoves g idx color = 
     let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] 
         f idx = case g ^? ix idx of
                         Nothing -> False
                         Just val -> val == 0
     in fmap h newIdxs where
-        h newIdx = IntMove (idx * 100 + newIdx)
+        h newIdx = CkMove {_isJump = False, _startIdx = idx, _endIdx = newIdx, _middleIdxs = []}       
     
-kingMoves :: [Int] -> Int -> [IntMove]
+kingMoves :: [Int] -> Int -> [CkMove]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
 ---------------------------------------------------------------------------------------------------
 -- calculate available jumps
 ---------------------------------------------------------------------------------------------------
-pieceJumps :: CkNode -> Int -> [IntMove]
+pieceJumps :: CkNode -> Int -> [CkMove]
 pieceJumps node idx = 
     let pos = node ^. ckPosition
         g = pos ^. grid
         color = pos ^. clr
-        seqs = case g ^? ix idx of
-                    Nothing -> []
-                    Just val -> if isKing val 
-                                    then kingJumps g idx color 
-                                    else forwardJumps g idx color color
-    in fmap jumpSeqToMap seqs                           
-
-  
-jumpSeqToMap :: JumpSeq -> IntMove
-jumpSeqToMap js = IntMove $ 10000 + js ^. start * 100 + js ^. end    
+    in case g ^? ix idx of
+            Nothing -> []
+            Just val -> if isKing val 
+                then kingJumps g idx color 
+                else forwardJumps g idx color color
+    
+--jumpSeqToMap :: JumpSeq -> CkMove
+--jumpSeqToMap js = IntMove $ 10000 + js ^. start * 100 + js ^. end    
                         
-
-forwardJumps :: [Int] -> Int -> Int -> Int -> [JumpSeq]
+--todo: implement multi-step jumps
+forwardJumps :: [Int] -> Int -> Int -> Int -> [CkMove]
 forwardJumps g idx color jumpDir = 
     let newIdxPairs = filter f [(idx + (jumpDir * 4), idx + (jumpDir * 8)), 
                                 (idx + (jumpDir * 5), idx + (jumpDir * 10))] 
@@ -186,39 +212,14 @@ forwardJumps g idx color jumpDir =
                         (_, Nothing) -> False
                         (Just jumpOver, Just landing) -> 
                             landing == 0 && jumpOver /= 0 && jumpOver /= 99 && jumpOver * color < 0 
-        h pair = JumpSeq {_start = idx, _middle = [], _end = snd pair}   
+        h pair = CkMove {_isJump = True, _startIdx = idx, _endIdx = snd pair, _middleIdxs = []}   
     in fmap h newIdxPairs 
 
    
-kingJumps :: [Int] -> Int -> Int -> [JumpSeq]
+kingJumps :: [Int] -> Int -> Int -> [CkMove]
 kingJumps g idx color = forwardJumps g idx color (-1) ++ forwardJumps g idx color 1
 
----------------------------------------------------------------------------------------------------
--- Hashtable sample to be removed
----------------------------------------------------------------------------------------------------
--- Hashtable parameterized by ST "thread"
-{--
-new :: ST s (HashTable s k v)
-insert :: (Eq k, Hashable k) => HashTable s k v -> k -> v -> ST s ()
-lookup :: (Eq k, Hashable k) => HashTable s k v -> k -> ST s (Maybe v)
-runST :: (forall s. ST s a) -> a 
---}
 
-type HT s = HashTable s String String
-
-htCreate :: ST s (HT s)
-htCreate = new
-
-htMain :: Maybe String
-htMain = runST doit     
-    
-doit :: ST s (Maybe String)
-doit = do
-    ht <- htCreate
-    insert ht "key1" "value1"
-    insert ht "key2" "value2"
-    insert ht "key3" "value3"
-    lookup ht "key2"
 
 
     

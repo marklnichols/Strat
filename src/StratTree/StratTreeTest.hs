@@ -221,6 +221,7 @@ instance PositionNode PosTreeItem IntMove where
     possibleMoves = calcPossibleMoves
     final = ptFinal
     showPosition = show
+    parseMove node str = IntMove $ read str
 
 calcPossibleMoves :: PosTreeItem -> [IntMove]
 calcPossibleMoves node = case ptMove node of
