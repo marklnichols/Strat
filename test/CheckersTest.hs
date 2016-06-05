@@ -11,14 +11,15 @@ import StratTree.TreeNode
 checkersTest =  
     describe "getPossibleMoves" $
         it "Gets the list of possible moves for a given color from a given position." $ do
-            getPossibleMoves (rootLabel getStartNode) `shouldMatchList` fmap IntMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
-            getPossibleMoves blackFirstStartNode `shouldMatchList` fmap IntMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
+            getPossibleMoves (rootLabel getStartNode) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
+            getPossibleMoves blackFirstStartNode `shouldMatchList` fmap mkSimpleCkMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
             
-            getPossibleMoves (nodeFromGridW board01) `shouldMatchList` fmap IntMove [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935] 
-            getPossibleMoves (nodeFromGridB board01) `shouldMatchList` fmap IntMove [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712] 
-            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` fmap IntMove [510, 711, 813, 2529, 2823, 2824, 3329, 3338, 3934, 3935,
-                                                                        10717, 11624, 11626, 12515, 12517, 12535]
-            getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap IntMove [2015, 2024, 2117, 3026, 12111, 13729]
+            getPossibleMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935] 
+            getPossibleMoves (nodeFromGridB board01) `shouldMatchList` fmap mkSimpleCkMove [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712] 
+            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` fmap mkSimpleCkMove [510, 711, 813, 2529, 2823, 2824, 3329, 3338, 3934, 3935]
+                                                                       ++ fmap mkSimpleCkJump [0717, 1624, 1626, 2515, 2517, 2535]
+            getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkMove [2015, 2024, 2117, 3026]
+                                                                       ++ fmap mkSimpleCkJump [2111, 3729]
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -27,11 +28,11 @@ blackFirstStartNode :: CkNode
 blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: [Int] -> Tree CkNode
-treeFromGridW g = Node CkNode {_ckMove = IntMove (-1), _ckValue = 0, _ckErrorValue = 0, 
+treeFromGridW g = Node CkNode {_ckMove = mkSimpleCkMove (-1), _ckValue = 0, _ckErrorValue = 0, 
     _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: [Int] -> Tree CkNode
-treeFromGridB g = Node CkNode {_ckMove = IntMove (-1), _ckValue = 0, _ckErrorValue = 0, 
+treeFromGridB g = Node CkNode {_ckMove = mkSimpleCkMove (-1), _ckValue = 0, _ckErrorValue = 0, 
     _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
  
 nodeFromGridW :: [Int] -> CkNode
@@ -40,6 +41,11 @@ nodeFromGridW g = rootLabel $ treeFromGridW g
 nodeFromGridB :: [Int] -> CkNode
 nodeFromGridB g = rootLabel $ treeFromGridB g 
 
+mkSimpleCkMove :: Int -> CkMove
+mkSimpleCkMove i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = []}
+
+mkSimpleCkJump :: Int -> CkMove
+mkSimpleCkJump i = CkMove {_isJump = True, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = []}
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
