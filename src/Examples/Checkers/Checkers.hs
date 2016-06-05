@@ -33,8 +33,16 @@ instance PositionNode CkNode CkMove where
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     showPosition = format
-    parseMove n s = CkMove {_isJump = False, _startIdx = -1, _endIdx = read s, _middleIdxs = []} -- TODO: must be able to input start / end and multiple-step jump moves
-
+    parseMove = parseCkMove
+    
+-- todo: change this to a better input scheme    
+parseCkMove :: CkNode -> String -> CkMove
+parseCkMove n s = let i = read s 
+                  in CkMove { _isJump = False, 
+                              _startIdx = i `div` 100, 
+                              _endIdx = i `mod` 100,
+                              _middleIdxs = [] } 
+                          
 instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
@@ -140,6 +148,26 @@ toXOs _ = "? "
 --TODO: implement
 calcNewNode :: CkNode -> CkMove -> CkNode
 calcNewNode node mv = node
+
+
+{-- TicTac version for reference:
+calcNewNode :: TTNode -> IntMove -> TTNode
+calcNewNode node mv =
+    let val
+            | theInt mv >= 0   =  1
+            | otherwise = -1
+        gridSet = set (grid . ix (mvToGridIx mv)) val (_ttPosition node)
+        oldColor = view clr gridSet
+        colorFlipped = set clr (flipColor oldColor) gridSet
+        (score, finalSt) = evalGrid $ _grid colorFlipped
+        errorScore = errorEvalGrid $ _grid colorFlipped
+        allSet = set fin finalSt colorFlipped
+    in  TTNode mv score errorScore allSet
+    
+    
+--}
+
+
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
