@@ -52,12 +52,19 @@ instance TreeNode CkNode CkMove where
   
 -- TODO: show the removed pieces 
 instance Show CkMove where
-    show m = show (m ^. isJump) ++ " - " ++ show (m ^. startIdx) ++ 
-                case m^.middleIdxs of 
+    show m = "{jmp:" ++ show (m ^. isJump) ++ " st:" ++ show (m ^. startIdx) ++
+                " mid:[" ++ showList (m^.middleIdxs) ++ "]" ++
+                " rem:[" ++ showList (m^.removedIdxs) ++ "]" ++
+                " end:[" ++ show (m^.endIdx) ++ "]}"
+                where showList [] = ""
+                      showList xs = foldr (\y acc -> acc ++ show y ++ " ") "" xs
+                      
+                {--
+                ++ case m^.middleIdxs of 
                     [] -> "" 
-                    xs -> foldr (\y acc -> acc ++ ", " ++ show y) "" xs
-                ++ show (m ^. endIdx)
-
+                    xs -> foldr (\y acc -> acc ++ show y ++ " ") "" xs
+                --}
+                
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition) 
@@ -153,13 +160,16 @@ removePiece :: CkPosition -> Int -> CkPosition
 removePiece pos index = set (grid . ix index) 0 pos
 
 removeMultiple :: CkPosition -> [Int] -> CkPosition
+removeMultiple = foldr (flip removePiece)    
      
 movePiece :: CkPosition -> Int -> Int -> CkPosition
 movePiece pos from to = 
     let value = pos ^? (grid . ix from) 
         --tPos ^? grid . (ix 4)
+        valid = value >>= isValidPiece pos
     in case valid of 
         Nothing -> pos
+        Just x ->  let p = set (grid . ix to) x pos
                      in removePiece p from    
         
 --TODO change name or make this Bool

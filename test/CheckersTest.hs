@@ -21,8 +21,10 @@ checkersTest = do
             getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkMove    [2015, 2024, 2117, 3026]
                                                                        ++ fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
     describe "calcNewNode" $
+        it "creates a new node from a previous position and a move" $ do 
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. ckPosition ^. grid `shouldBe` board01_m1
-
+            calcNewNode (nodeFromGridB board02) (mkSimpleCkJump m2) ^. ckPosition ^. grid `shouldBe` board02_m2
+            calcNewNode (nodeFromGridW board03) (mkMultiCkJump m3) ^. ckPosition ^. grid `shouldBe` board03_m3
             
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -47,9 +49,11 @@ nodeFromGridB g = rootLabel $ treeFromGridB g
 mkSimpleCkMove :: Int -> CkMove
 mkSimpleCkMove i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = [], _removedIdxs = []}
 
---TODO: must set the list of removed items...
 mkSimpleCkJump :: (Int, Int) -> CkMove
 mkSimpleCkJump (mv, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100, _endIdx = mv `mod` 100, _middleIdxs = [], _removedIdxs = [removed]}
+
+mkMultiCkJump :: (Int, [Int], [Int]) -> CkMove
+mkMultiCkJump (mv, middle, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100, _endIdx = mv `mod` 100, _middleIdxs = middle, _removedIdxs = removed}
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
@@ -86,7 +90,6 @@ board01_m1 = [99, 99, 99, 99, 99, 01, 00, -02, 00, 99, 00, 00, 00, 00, 00, 00, 0
                                      --  (00) (01) (02) (03) (04)    
 --}
 
-
 board02 :: [Int]                   
 board02 = [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 00, 00, -1, 00, 00, 00, 01, 00, 99, 00, -02, -1, 00,
            00, 00, 02, 00, 99, 02, 00, -1, 00, 01, 02, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
@@ -100,6 +103,54 @@ board02 = [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 00, 00, -1, 00, 00, 00, 01, 0
               00   00   01   00      --   14   15   16   17    (18)
                 00   00   -1   00    --     10   11   12   13        
               01   00   01   01      --   05   06   07   08    (09)
+                                     --  (00) (01) (02) (03) (04)    
+--}
+
+m2 = (3729, 33) 
+board02_m2 :: [Int] --board02 with move m2 applied                
+board02_m2 = [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 00, 00, -1, 00, 00, 00, 01, 00, 99, 00, -02, -1, 00,
+           00, 00, 02, 00, 99, 02, -1, -1, 00, 01, 00, 00, 00, 99, 00, 00, 02, 00, 99, 99, 99, 99, 99]
+           
+{-                                   --  (41) (42) (43) (44) (45)    
+                00   00   02   00    --     37   38   39   40        
+              01  00   00   00      --   32   33   34   35    (36)
+                02   -1   -1   00    --     28   29   30   31        
+              00   00   02   00      --   23   24   25   26    (27)
+                00   -2   -1   00    --     19   20   21   22        
+              00   00   01   00      --   14   15   16   17    (18)
+                00   00   -1   00    --     10   11   12   13        
+              01   00   01   01      --   05   06   07   08    (09)
+                                     --  (00) (01) (02) (03) (04)    
+--}
+
+
+board03 :: [Int]                   
+board03 = [99, 99, 99, 99, 99, 01, 00, 00, 01, 99, 00, 00, -1, 00, 00, 00, 01, 00, 99, 00, -02, -1, 00,
+           00, 00, 02, 00, 99, 02, 00, -1, 00, 01, 02, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
+{-                                   --  (41) (42) (43) (44) (45)    
+                -1   00   02   00    --     37   38   39   40        
+              01  02   00   00      --   32   33   34   35    (36)
+                02   00   -1   00    --     28   29   30   31        
+              00   00   02   00      --   23   24   25   26    (27)
+                00   -2   -1   00    --     19   20   21   22        
+              00   00   01   00      --   14   15   16   17    (18)
+                00   00   -1   00    --     10   11   12   13        
+              01   00   00   01      --   05   06   07   08    (09)
+                                     --  (00) (01) (02) (03) (04)    
+--}
+m3 = (2507, [17], [21, 12])     --- 25 -> 17 -> 7 jumping 21 and 12
+board03_m3 :: [Int]                   
+board03_m3 = [99, 99, 99, 99, 99, 01, 00, 02, 01, 99, 00, 00, 00, 00, 00, 00, 01, 00, 99, 00, -02, 00, 00,
+              00, 00, 00, 00, 99, 02, 00, -1, 00, 01, 02, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
+{-                                   --  (41) (42) (43) (44) (45)    
+                -1   00   02   00    --     37   38   39   40        
+              01  02   00   00      --   32   33   34   35    (36)
+                02   00   -1   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26    (27)
+                00   -2   00   00    --     19   20   21   22        
+              00   00   01   00      --   14   15   16   17    (18)
+                00   00   00   00    --     10   11   12   13        
+              01   00   02   01      --   05   06   07   08    (09)
                                      --  (00) (01) (02) (03) (04)    
 --}
 
