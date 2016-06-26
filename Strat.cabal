@@ -23,7 +23,6 @@ library
                        CheckersTest,
                        Main
   other-modules:       StratTree.Internal.Trees,
-                       StratTree.Internal.General,
                        StratTree.StratTreeTest
   build-depends:       base >= 4.7 && < 5
                      , containers ==0.5.*
@@ -61,7 +60,6 @@ test-suite StratTreeTest
                      , TicTac.TicTac
                      , TicTac.TicTacTest
                      , StratTree.TreeNode
-                     , StratTree.Internal.General
                      , StratTree.Internal.Trees
                      , StratTree.StratTree
                      , StratTree.StratTreeTest
