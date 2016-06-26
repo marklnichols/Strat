@@ -1,30 +1,29 @@
 module Main where 
 import TicTac.TicTac
 import Checkers
-import TicTac.TicTacEnv
+import StratTree.TreeNode
+import StratTree.StratTree
+import StratIO.StratIO
+
 import System.Environment
 import System.IO
 import System.Exit
-import StratTree.TreeNode
-import StratTree.StratTree
 import Data.Tree
 import Data.Tree.Zipper
 import Data.List
 import Data.Maybe
 import Control.Monad
 import Data.Tuple.Select
-import StratIO.StratIO
 import Control.Monad.Reader
+import Control.Lens
 
 -- :set prompt "ghci>"
--- StratTree.StratTreeTest.main
--- TicTac.TicTacTest.main
+
 -- :set args "tictac"
 -- Main.main
 
---TODO: delete TicTacEnv class
 gameEnv = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = False}
+     _p1Comp = True, _p2Comp = True}
 
 --TODO move command line args to reader monad
 main :: IO () 
@@ -48,6 +47,7 @@ getCheckersStart = Checkers.getStartNode
 loop :: PositionNode n m => Tree n -> Int -> IO ()
 loop node turn = do
     putStrLn $ showPosition $ rootLabel node
+    putStrLn ""
     theNext <- case final $ rootLabel node of  
         WWins -> do
             putStrLn "White wins."
@@ -59,7 +59,7 @@ loop node turn = do
             putStrLn "Draw."
             return Nothing
         _ -> do
-            nextNode <- if runReader (isCompTurn turn) ticTacEnv 
+            nextNode <- if runReader (isCompTurn turn) gameEnv 
                             then computerMove node turn
                             else playerMove node turn 
             return (Just nextNode)
@@ -85,16 +85,17 @@ playerMove tree turn = do
 computerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do 
     putStrLn "Calculating computer move..."
-    let newTree = runReader (expandTree node) ticTacEnv 
-    let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
+    let newTree = runReader (expandTree node) gameEnv 
+    let resultM = runReader (best newTree (turnToColor turn)) gameEnv
     case resultM of 
         Nothing -> do
             putStrLn "Invalid result returned from best"
             exitFailure
         Just result -> do
             let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
-            let finalChoices = runReader badMovesM ticTacEnv
-            putStrLn ("Choices from best: " ++ show (_moveScores result))
+            let badMoves = runReader badMovesM gameEnv
+            let finalChoices = fromMaybe (result ^. moveScores) badMoves
+            putStrLn ("Choices from best: " ++ show (result^.moveScores))
             putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
             moveM <- resolveRandom finalChoices
             case moveM of

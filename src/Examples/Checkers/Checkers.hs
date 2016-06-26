@@ -10,7 +10,7 @@ import Data.List.Lens
 import Control.Lens
 import Data.List hiding (lookup, insert)
 import Data.List.Split
-
+    
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ makeLenses ''CkMove
 data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition}
 makeLenses ''CkNode
 
---data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}1
+--data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}
 --makeLenses ''JumpSeq
 
 instance PositionNode CkNode CkMove where
@@ -166,19 +166,15 @@ movePiece :: CkPosition -> Int -> Int -> CkPosition
 movePiece pos from to = 
     let value = pos ^? (grid . ix from) 
         --tPos ^? grid . (ix 4)
-        valid = value >>= isValidPiece pos
+        valid = value >>= validPiece pos
     in case valid of 
         Nothing -> pos
         Just x ->  let p = set (grid . ix to) x pos
                      in removePiece p from    
         
---TODO change name or make this Bool
-isValidPiece :: CkPosition -> Int -> Maybe Int
-isValidPiece pos x = if x /= 0 && abs x < 3 then Just x else Nothing
-     
-     
---placePiece :: CkPosition -> Int -> Int -> CkPosition
---placePiece pos index val = set (grid . ix index) val pos
+validPiece :: CkPosition -> Int -> Maybe Int
+validPiece pos x = if x /= 0 && abs x < 3 then Just x else Nothing
+
   
 --------------------------------------------------------
 -- Position Evaluation
