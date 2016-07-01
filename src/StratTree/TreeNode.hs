@@ -28,6 +28,8 @@ instance Ord IntMove where
 instance Move IntMove
 -------------------------------------------------
 
+--TODO: getValue, getErrorValue return a Reader monad so scores can depend on
+--depth, skill level settings, etc.
 class Move m => TreeNode t m | t -> m where
     getMove :: t -> m
     getValue :: t -> Int

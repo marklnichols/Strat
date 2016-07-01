@@ -187,13 +187,24 @@ errorEval n = errorEvalGrid $ n ^. ckPosition ^. grid
     
 -- TODO: implement    
 evalGrid :: [Int] ->  (Int, FinalState)
-evalGrid grid = (42, NotFinal)
+evalGrid grid = (kingCount grid * 3 + pieceCount grid, NotFinal)
 
 -- TODO: implement
 errorEvalGrid :: [Int] -> Int
 errorEvalGrid xs = 43
-  
-  
+
+pieceCount :: [Int] -> Int
+pieceCount grid = count grid 1
+
+kingCount :: [Int] -> Int
+kingCount grid = count grid 2
+
+count :: [Int] -> Int -> Int
+count grid p = 
+    let w = length $ filter (== p) grid  
+        b = length $ filter (== (-p)) grid
+    in  w-b
+    
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
