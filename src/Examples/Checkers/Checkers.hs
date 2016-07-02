@@ -10,21 +10,21 @@ import Data.List.Lens
 import Control.Lens
 import Data.List hiding (lookup, insert)
 import Data.List.Split
-
+    
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
 data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''CkPosition
 
-data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int]} 
+data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int], _removedIdxs :: [Int]} 
     deriving (Eq, Ord)
 makeLenses ''CkMove
 
 data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition}
 makeLenses ''CkNode
 
---data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}1
+--data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}
 --makeLenses ''JumpSeq
 
 instance PositionNode CkNode CkMove where
@@ -33,41 +33,42 @@ instance PositionNode CkNode CkMove where
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     showPosition = format
-    parseMove = parseCkMove
+    parseMove = parseCkMove 
     
 -- todo: change this to a better input scheme    
+-- return type to become Maybe CkMove
 parseCkMove :: CkNode -> String -> CkMove
 parseCkMove n s = let i = read s 
                   in CkMove { _isJump = False, 
                               _startIdx = i `div` 100, 
                               _endIdx = i `mod` 100,
-                              _middleIdxs = [] } 
+                              _middleIdxs = [],
+                              _removedIdxs = [] } 
                           
 instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
     getErrorValue = _ckErrorValue
   
+-- TODO: show the removed pieces 
 instance Show CkMove where
-    show m = show (m ^. isJump) ++ " - " ++ show (m ^. startIdx) ++ 
-                case m^.middleIdxs of 
+    show m = "{jmp:" ++ show (m ^. isJump) ++ " st:" ++ show (m ^. startIdx) ++
+                " mid:[" ++ showList (m^.middleIdxs) ++ "]" ++
+                " rem:[" ++ showList (m^.removedIdxs) ++ "]" ++
+                " end:[" ++ show (m^.endIdx) ++ "]}"
+                where showList [] = ""
+                      showList xs = foldr (\y acc -> acc ++ show y ++ " ") "" xs
+                      
+                {--
+                ++ case m^.middleIdxs of 
                     [] -> "" 
-                    xs -> foldr (\y acc -> acc ++ ", " ++ show y) "" xs
-                ++ show (m ^. endIdx)
-
+                    xs -> foldr (\y acc -> acc ++ show y ++ " ") "" xs
+                --}
+                
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition) 
 
- 
-{--  
-instance Eq CkMove where
-   (==) m1 m2 = theInt m1 == theInt m2
-    
-instance Ord CkMove where
-    TBD:(<=) m1 m2 = theInt m1 <= theInt m2
---}   
-   
 instance Move CkMove    
     
 ---------------------------------------------------------------------------------------------------
@@ -75,7 +76,7 @@ instance Move CkMove
 ---------------------------------------------------------------------------------------------------
 getStartNode :: Tree CkNode
 getStartNode = Node 
-    CkNode {_ckMove = CkMove {_isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = []},
+    CkNode {_ckMove = CkMove {_isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [], _removedIdxs = []},
             _ckValue = 0, _ckErrorValue = 0, _ckPosition = 
             CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
         
@@ -145,30 +146,65 @@ toXOs _ = "? "
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
---TODO: implement
 calcNewNode :: CkNode -> CkMove -> CkNode
-calcNewNode node mv = node
-
-
-{-- TicTac version for reference:
-calcNewNode :: TTNode -> IntMove -> TTNode
 calcNewNode node mv =
-    let val
-            | theInt mv >= 0   =  1
-            | otherwise = -1
-        gridSet = set (grid . ix (mvToGridIx mv)) val (_ttPosition node)
-        oldColor = view clr gridSet
-        colorFlipped = set clr (flipColor oldColor) gridSet
-        (score, finalSt) = evalGrid $ _grid colorFlipped
-        errorScore = errorEvalGrid $ _grid colorFlipped
-        allSet = set fin finalSt colorFlipped
-    in  TTNode mv score errorScore allSet
+    let moved = movePiece (node ^. ckPosition) (mv ^. startIdx) (mv ^. endIdx) 
+        captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
+        clrFlipped = set clr (flipColor (captured ^. clr)) captured
+        (score, finalSt) = evalGrid $ clrFlipped ^. grid
+        errScore = errorEvalGrid $ clrFlipped ^. grid
+        allSet = set fin finalSt clrFlipped
+    in  CkNode mv score errScore allSet
+ 
+removePiece :: CkPosition -> Int -> CkPosition
+removePiece pos index = set (grid . ix index) 0 pos
+
+removeMultiple :: CkPosition -> [Int] -> CkPosition
+removeMultiple = foldr (flip removePiece)    
+     
+movePiece :: CkPosition -> Int -> Int -> CkPosition
+movePiece pos from to = 
+    let value = pos ^? (grid . ix from) 
+        --tPos ^? grid . (ix 4)
+        valid = value >>= validPiece pos
+    in case valid of 
+        Nothing -> pos
+        Just x ->  let p = set (grid . ix to) x pos
+                     in removePiece p from    
+        
+validPiece :: CkPosition -> Int -> Maybe Int
+validPiece pos x = if x /= 0 && abs x < 3 then Just x else Nothing
+
+  
+--------------------------------------------------------
+-- Position Evaluation
+--------------------------------------------------------
+eval :: CkNode -> Int
+eval n = fst $ evalGrid $ n ^. ckPosition ^. grid 
+
+errorEval :: CkNode -> Int
+errorEval n = errorEvalGrid $ n ^. ckPosition ^. grid
     
+-- TODO: implement    
+evalGrid :: [Int] ->  (Int, FinalState)
+evalGrid grid = (kingCount grid * 3 + pieceCount grid, NotFinal)
+
+-- TODO: implement
+errorEvalGrid :: [Int] -> Int
+errorEvalGrid grid = fst $ evalGrid grid
+
+pieceCount :: [Int] -> Int
+pieceCount grid = count grid 1
+
+kingCount :: [Int] -> Int
+kingCount grid = count grid 2
+
+count :: [Int] -> Int -> Int
+count grid p = 
+    let w = length $ filter (== p) grid  
+        b = length $ filter (== (-p)) grid
+    in  w-b
     
---}
-
-
-
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
@@ -208,7 +244,7 @@ forwardMoves g idx color =
                         Nothing -> False
                         Just val -> val == 0
     in fmap h newIdxs where
-        h newIdx = CkMove {_isJump = False, _startIdx = idx, _endIdx = newIdx, _middleIdxs = []}       
+        h newIdx = CkMove {_isJump = False, _startIdx = idx, _endIdx = newIdx, _middleIdxs = [], _removedIdxs = []}       
     
 kingMoves :: [Int] -> Int -> [CkMove]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
@@ -240,7 +276,7 @@ forwardJumps g idx color jumpDir =
                         (_, Nothing) -> False
                         (Just jumpOver, Just landing) -> 
                             landing == 0 && jumpOver /= 0 && jumpOver /= 99 && jumpOver * color < 0 
-        h pair = CkMove {_isJump = True, _startIdx = idx, _endIdx = snd pair, _middleIdxs = []}   
+        h pair = CkMove {_isJump = True, _startIdx = idx, _endIdx = snd pair, _middleIdxs = [], _removedIdxs = [fst pair]}   
     in fmap h newIdxPairs 
 
    

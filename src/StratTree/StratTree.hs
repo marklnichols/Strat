@@ -1,8 +1,8 @@
-module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, isWorse, isLegal) where
+module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, isWorse, isLegal, possibleBlunders, worst, best') where
 
 import StratTree.Internal.Trees
 import StratTree.TreeNode
-import StratTree.Internal.General
+
 import Data.Tree
 import Data.Maybe
 import Safe
@@ -10,6 +10,7 @@ import Control.Monad
 import Control.Monad.Reader
 import Control.Lens
 import Debug.Trace
+import Data.Tree.Zipper
 
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
@@ -116,6 +117,22 @@ across depth color colorFlip getMoveValue (rMvs, randChoices, rVal) t =
         EQ -> (rMvs, head newMvs : randChoices, rVal)
         LT -> (newMvs, [], newVal)
         GT ->  (rMvs, randChoices, rVal)
+        
+--updateTree 'visit' function - if not a final position and no children -- create and add children moves
+visitor :: PositionNode n m => TreePos Full n -> Int -> Int -> TreePos Full n
+visitor tPos depth max
+    | final (label tPos) /= NotFinal = tPos
+    | depth == max                   = tPos
+    | not (hasChildren tPos)         = modifyTree addBranches tPos
+    | otherwise                      = tPos
+ 
+--add branches at the bottom of the tree for a new depth-level of moves
+--TODO: evaluate the new positions and set the values (set the move # too) and the "final" flag
+addBranches :: PositionNode n m => Tree n -> Tree n
+addBranches tree =  let n = rootLabel tree
+                        ns = map (newNode n) (possibleMoves n)
+                        ts = map (\n -> Node n []) ns
+                    in Node (rootLabel tree) ts
 {-- 
  in  trace ("Color is " ++ show (colorFlip color) ++ ", comparing " ++ show rVal ++
                 " to " ++ show newVal ++ " results in... ") 

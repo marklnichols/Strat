@@ -90,11 +90,7 @@ after adding, do descnedX where only exchanging nodes are visited, and only move
 -- * for d < depth-1, if no children exist then node is a final move
 -- * for non-exchanging nodes, if at least one child exists, all moves have been created and evaluated.
 -- * for exchanging nodes, if >= 1 child exists, all moves have been created, but possible only exchaning sub-nodes have been evaluted
-    
-    
-    
-    
-    
+   
 
         
 --roseZipper functions to use:
@@ -102,6 +98,14 @@ after adding, do descnedX where only exchanging nodes are visited, and only move
         --(Bool) = firstChild tPos
         --(Maybe full) next tPos
         
- --}       
-        
+ --}    
 
+ 
+blunderTree2 = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0, _tiErrorValue = 0} [
+    Node TreeItem {_tiMove = IntMove 1, _tiValue = 100, _tiErrorValue = 121} [], 
+    Node TreeItem {_tiMove = IntMove 3, _tiValue = 100, _tiErrorValue = 121} [],
+    Node TreeItem {_tiMove = IntMove 4, _tiValue = 100, _tiErrorValue = 121} []]
+        
+            --isJust (runReader (checkBlunders blunderTree2 1 
+            --    [mkMoveScore (IntMove 1) 100, mkMoveScore (IntMove 4) 100,
+            --     mkMoveScore (IntMove 3) 100]) testEnv4) `shouldBe` True

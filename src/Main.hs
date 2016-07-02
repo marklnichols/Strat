@@ -1,38 +1,35 @@
 module Main where 
 import TicTac.TicTac
 import Checkers
-import TicTac.TicTacEnv
+import StratTree.TreeNode
+import StratTree.StratTree
+import StratIO.StratIO
+
 import System.Environment
 import System.IO
 import System.Exit
-import StratTree.TreeNode
-import StratTree.StratTree
 import Data.Tree
 import Data.Tree.Zipper
 import Data.List
 import Data.Maybe
 import Control.Monad
 import Data.Tuple.Select
-import StratIO.StratIO
 import Control.Monad.Reader
+import Control.Lens
 
 -- :set prompt "ghci>"
--- StratTree.StratTreeTest.main
--- TicTac.TicTacTest.main
 -- :set args "tictac"
+-- :set args "checkers"
 -- Main.main
 
---TODO: delete TicTacEnv class
 gameEnv = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = False}
+     _p1Comp = True, _p2Comp = True}
 
---TODO move command line args to reader monad
 main :: IO () 
 main = do 
     a <- getArgs
     parse a 
     return ()
-    --loop getStartNode 1
  
 parse :: [String] -> IO () 
 parse ["tictac"]   = loop getTicTacStart 1
@@ -48,6 +45,8 @@ getCheckersStart = Checkers.getStartNode
 loop :: PositionNode n m => Tree n -> Int -> IO ()
 loop node turn = do
     putStrLn $ showPosition $ rootLabel node
+    putStrLn ""
+    putStrLn ""
     theNext <- case final $ rootLabel node of  
         WWins -> do
             putStrLn "White wins."
@@ -59,7 +58,7 @@ loop node turn = do
             putStrLn "Draw."
             return Nothing
         _ -> do
-            nextNode <- if runReader (isCompTurn turn) ticTacEnv 
+            nextNode <- if runReader (isCompTurn turn) gameEnv 
                             then computerMove node turn
                             else playerMove node turn 
             return (Just nextNode)
@@ -72,7 +71,6 @@ playerMove tree turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
     line <- getLine
     putStrLn ""
-    --let mv = posToMove (read line) turn
     let node = rootLabel tree
     let mv = parseMove node line
     let legal = isLegal tree mv
@@ -85,16 +83,17 @@ playerMove tree turn = do
 computerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do 
     putStrLn "Calculating computer move..."
-    let newTree = runReader (expandTree node) ticTacEnv 
-    let resultM = runReader (best newTree (turnToColor turn)) ticTacEnv
+    let newTree = runReader (expandTree node) gameEnv 
+    let resultM = runReader (best newTree (turnToColor turn)) gameEnv
     case resultM of 
         Nothing -> do
             putStrLn "Invalid result returned from best"
             exitFailure
         Just result -> do
             let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
-            let finalChoices = runReader badMovesM ticTacEnv
-            putStrLn ("Choices from best: " ++ show (_moveScores result))
+            let badMoves = runReader badMovesM gameEnv
+            let finalChoices = fromMaybe (result ^. moveScores) badMoves
+            putStrLn ("Choices from best: " ++ show (result^.moveScores))
             putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
             moveM <- resolveRandom finalChoices
             case moveM of
@@ -102,19 +101,17 @@ computerMove node turn = do
                     putStrLn "Invalid result from resolveRandom"
                     exitFailure
                 Just move -> do    
-                    --let processed = 
                     printMoveChoiceInfo result move 
                     return (processMove newTree move)
 
 printMoveChoiceInfo :: Move m => Result m -> m -> IO ()
 printMoveChoiceInfo result move = do
-    putStrLn ("Computer's move : (m:" ++ show move ++
-                  ", s:" ++ show (_score $ head $ _moveScores result) ++ ")")
-    --putStrLn ("Move value is: " ++ show (_score $ head $ _moveScores result))
     putStrLn ("Equivalent best moves: " ++ show (_moveChoices result))
     putStrLn ("Following moves: " ++ show ( _followingMoves result ))
+    putStrLn ("Computer's move:\n (m:" ++ show move ++
+                  ", s:" ++ show (_score $ head $ _moveScores result) ++ ")")
     putStrLn ""
-
+    
 isCompTurn :: Int -> Reader Env Bool
 isCompTurn turn = do 
     p1 <- asks _p1Comp
@@ -124,12 +121,6 @@ isCompTurn turn = do
 --toBool :: "C" or "c" for computer -> True, "H" or "h" (or anything else for that matter) for Human -> False
 toBool :: String -> Bool
 toBool s = s == "c" || s == "C"
-
---TODO: this needs to be generalized beyond TTT
--- convert input player move 1-9 to (+/-) as per player 1/2
---posToMove :: input position -> turn -> move
---posToMove :: Int -> Int -> IntMove
---posToMove index turn = IntMove turnToColor turn * index 
 
 swapTurns :: Int -> Int
 swapTurns t = 3-t   --alternate between 1 and 2
