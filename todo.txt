@@ -1,0 +1,19 @@
+
+
+Overall:
+packaging/organization (as per lens)
+move tictac to examples
+move imput parsing
+alpha-beta pruning
+Reader monad for move eval
+Move test trees to different file
+
+TicTac:
+Prefer win on next move (after reader monad)
+
+
+Checkers:
+Piece becomes king on last row
+score for mobility
+score for home row filled
+output A-F 1-8 guide

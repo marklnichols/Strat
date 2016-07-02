@@ -191,7 +191,7 @@ evalGrid grid = (kingCount grid * 3 + pieceCount grid, NotFinal)
 
 -- TODO: implement
 errorEvalGrid :: [Int] -> Int
-errorEvalGrid xs = 43
+errorEvalGrid grid = fst $ evalGrid grid
 
 pieceCount :: [Int] -> Int
 pieceCount grid = count grid 1
