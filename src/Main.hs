@@ -71,15 +71,16 @@ playerMove tree turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
     line <- getLine
     putStrLn ""
-    let node = rootLabel tree
-    let mv = parseMove node line
-    let legal = isLegal tree mv
-    if not legal 
-        then do 
-            putStrLn "Not a legal move."
-            playerMove tree turn 
-        else return (processMove tree mv) 
-  
+    case parseMove (rootLabel tree) line of
+        Left err -> do
+            putStrLn err
+            playerMove tree turn
+        Right mv -> if not (isLegal tree mv)
+            then do 
+                putStrLn "Not a legal move."
+                playerMove tree turn  
+            else return (processMove tree mv) 
+   
 computerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do 
     putStrLn "Calculating computer move..."

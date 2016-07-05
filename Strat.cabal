@@ -19,9 +19,9 @@ library
                        StratTree.TreeNode,
                        StratIO.StratIO
                        TicTac.TicTac,
-                       --TTParser,
+                       TicTac.TTParser,
                        Checkers,
-                       --CkParser,
+                       CkParser,
                        CheckersTest,
                        Main
   other-modules:       StratTree.Internal.Trees,
@@ -37,9 +37,8 @@ library
                      , mtl >= 2.2
                      , split >= 0.1
                      , hashtables >= 1.0
-                     -- , polyparse >= 1.1
-                     --, parsec >= 3.1
-                     --, parsec-numbers >= 0.1
+                     , parsec >= 3.1
+                     , parsec-numbers >= 0.1
   default-language:    Haskell2010
 
 test-suite StratTreeTest
@@ -58,15 +57,14 @@ test-suite StratTreeTest
                      , mtl >= 2.2
                      , split >= 0.1
                      , hashtables >= 1.0
-                     -- , polyparse >= 1.1
-                     --, parsec >= 3.1
-                     --, parsec-numbers >= 0.1
+                     , parsec >= 3.1
+                     , parsec-numbers >= 0.1
   other-modules:       Checkers
-                     --, CkParser
+                     , CkParser
                      , CheckersTest
                      , TicTac.TicTac
                      , TicTac.TicTacTest
-                     --, TTParser
+                     , TicTac.TTParser
                      , StratTree.TreeNode
                      , StratTree.Internal.Trees
                      , StratTree.StratTree

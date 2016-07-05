@@ -8,3 +8,5 @@ hlint src\TicTac\TicTac.hs
 hlint src\TicTac\TicTacTest.hs  
 hlint src\Examples\Checkers\Checkers.hs 
 hlint test\CheckersTest.hs
+hlint src\TicTac\TTParser.hs
+hlint src\Examples\Checkers\CkParser.hs

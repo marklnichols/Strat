@@ -16,4 +16,5 @@ Checkers:
 Piece becomes king on last row
 score for mobility
 score for home row filled
-output A-F 1-8 guide
+output A-F 1-8 guideguideguide
+row

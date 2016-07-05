@@ -33,8 +33,8 @@ checkBlunders tree color equivMS = do
     let possibles = possibleBlunders tree depth color equivMS -- :: [MoveScore m] 
     return $ worstMS possibles color >>= (\worst -> if isWorse (worst ^. score) equivScore threshold color 
                                                     then Just (addEquiv worst possibles) 
-                                                    else Just equivMS)
-
+                                                    else Just equivMS)                                                    
+                                                    
 --expandTree :: tree -> depth -> tree
 expandTree :: PositionNode n m => Tree n -> Reader Env (Tree n)
 expandTree tree = do 

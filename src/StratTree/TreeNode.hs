@@ -41,7 +41,7 @@ class (TreeNode n m, Show n, Move m) => PositionNode n m | n -> m where
     possibleMoves :: n -> [m]
     final :: n -> FinalState
     showPosition :: n -> String
-    parseMove :: n -> String -> m -- TODO: make this return Maybe m
+    parseMove :: n -> String -> Either String m
 
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 

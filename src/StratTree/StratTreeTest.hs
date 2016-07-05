@@ -223,8 +223,8 @@ instance PositionNode PosTreeItem IntMove where
     possibleMoves = calcPossibleMoves
     final = ptFinal
     showPosition = show
-    parseMove node str = IntMove $ read str
-
+    parseMove n s = Left "Should not be called."
+     
 calcPossibleMoves :: PosTreeItem -> [IntMove]
 calcPossibleMoves node = case ptMove node of
     IntMove 1 -> [IntMove 4, IntMove 5]
@@ -249,7 +249,8 @@ mvToNode  = Map.fromList [
         ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}}),
     (IntMove 8, PosTreeItem {ptMove=IntMove 8, ptValue=8, ptColor = -1, ptFinal=NotFinal, 
         ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
-
+                   
+        
 -----------------------------------------------
 testEnv1 = Env {_depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}

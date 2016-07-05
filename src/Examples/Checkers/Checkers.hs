@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Checkers where
+import qualified CkParser as Parser
 import Prelude hiding (lookup)
 import Control.Monad.ST
 import Data.HashTable.ST.Basic
@@ -10,6 +11,8 @@ import Data.List.Lens
 import Control.Lens
 import Data.List hiding (lookup, insert)
 import Data.List.Split
+import Data.Char
+import qualified Data.Map as Map
     
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -33,18 +36,31 @@ instance PositionNode CkNode CkMove where
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     showPosition = format
-    parseMove = parseCkMove 
+    parseMove = parseCkMove
     
 -- todo: change this to a better input scheme    
 -- return type to become Maybe CkMove
-parseCkMove :: CkNode -> String -> CkMove
-parseCkMove n s = let i = read s 
-                  in CkMove { _isJump = False, 
-                              _startIdx = i `div` 100, 
-                              _endIdx = i `mod` 100,
-                              _middleIdxs = [],
-                              _removedIdxs = [] } 
-                          
+parseCkMove :: CkNode -> String -> Either String CkMove
+parseCkMove n s 
+    | Left err <- pMove   = Left err
+    | Right x  <- pMove   = toCkMove n x
+        where
+        pMove = Parser.run s
+        
+{-- let x = (runParser Parser.move () "" s)
+    in case x of     
+        Left err -> x
+        Right n -> Right $ buildMove (n) 
+--}        
+
+---------------------------------------------------------------------------------------------------
+-- parse string input to move
+---------------------------------------------------------------------------------------------------  
+--strToMove :: String -> Int -> Either String IntMove    
+--strToMove str color = do 
+    --IntMove $ color * read str
+    
+ 
 instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
@@ -88,20 +104,24 @@ getStartNode = Node
           
    (41) (42) (43) (44) (45)    
    
-      37   38   39   40                          
-    32   33   34   35      (36)        
-      28   29   30   31                                
-    23   24   25   26      (27)               
-      19   20   21   22                              
-    14   15   16   17      (18)              
-      10   11   12   13                              
-    05   06   07   08      (09)         
+H|     37  38  39  40                          
+G|   32  33  34  35  (36)        
+F|     28  29  30  31                                
+E|   23  24  25  26  (27)               
+D|     19  20  21  22                              
+C|   14  15  16  17  (18)              
+B|     10  11  12  13                              
+A|   05  06  07  08  (09)         
                                                      
    (00) (01) (02) (03) (04)    
+     ---------------
+     1 2 3 4 5 6 7 8
 --}                             
 
 offBoard :: [Int]
 offBoard = [0, 1, 2, 3, 4, 9, 18, 27, 36, 41, 42, 43, 44, 45]
+
+--------------------------------------------------------------------
 
 ---------------------------------------------------------------------------------------------------
 -- Initial board position
@@ -142,6 +162,72 @@ toXOs 1 = "X "
 toXOs (-1) = "O "
 toXOs 0 = "- "
 toXOs _ = "? "
+   
+---------------------------------------------------------------------------------------------------
+-- Convert Parser's Move type to CkMove
+---------------------------------------------------------------------------------------------------
+toCkMove :: CkNode -> Parser.Move -> Either String CkMove
+toCkMove node (Parser.Move xs) =     --parser guarentees at least one item in list. TODO: move to non-empty list
+    let xs' = fmap locToInt xs 
+    in case length xs' of 
+        1 -> fromSingleLoc node (head xs')
+        n -> Right $ fromMultLoc xs'
+
+fromSingleLoc :: CkNode -> Int -> Either String CkMove
+fromSingleLoc node x
+    | nMoves + nJumps /= 1  = Left $ show x ++ " is not a valid unique move."
+    | nMoves == 1           = Right $ head moves
+    | otherwise             = Right $ head jumps
+        where
+        moves = pieceMoves node x
+        jumps = pieceJumps node x
+        nMoves = length moves
+        nJumps = length jumps
+
+fromMultLoc :: [Int] -> CkMove
+fromMultLoc xs = 
+    let st = head xs
+        end = last xs
+        mid = init $ tail xs
+        rem = calcRemoved xs
+        isJmp = not (null rem)
+    in  CkMove { _isJump = isJmp, _startIdx = st, _endIdx = end, _middleIdxs = mid, 
+                 _removedIdxs = rem }
+        
+calcRemoved :: [Int] -> [Int]
+calcRemoved xs = foldr f [] (zip xs (tail xs))  where
+    f :: (Int, Int) -> [Int] -> [Int]
+    f (prevX, x) r = case x - prevX of
+                          8  -> x - 4 : r
+                          10 -> x - 5 : r
+                          _  -> r
+
+locToInt :: Parser.Loc -> Int  -- parser ensures valid key
+locToInt (Parser.Loc c d) =  Map.findWithDefault (-1) (toUpper c) rowIndexes + (d `div` 2)
+
+rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 23)]
+
+{--
+A1 = 5, A3 = 6,  A5 = 7,  A7 = 8
+A_ = error
+Note:   
+   5 = 5 + (1 `div` 2)
+   6 = 5 + (3 `div` 2)
+   7 = 5 + (5 `div` 2)
+   8 = 5 + (7 `div` 2) 
+B2 = 10, B4 = 11, B6 = 12, B8 = 13
+B_ = error
+
+C1 = 14, C3 = 15, C4 = 16, C5 = 18
+C_ = error
+
+left most indexes:
+A 5, B 10, C 14, D 19, E 23, F 28, G 32, H 37
+
+From A, add to get to:
+B +5, C +9, D +14, E +18, F +23, G +27, H +32
+
+--}
  
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
@@ -165,7 +251,6 @@ removeMultiple = foldr (flip removePiece)
 movePiece :: CkPosition -> Int -> Int -> CkPosition
 movePiece pos from to = 
     let value = pos ^? (grid . ix from) 
-        --tPos ^? grid . (ix 4)
         valid = value >>= validPiece pos
     in case valid of 
         Nothing -> pos
