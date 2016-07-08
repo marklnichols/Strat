@@ -3,9 +3,8 @@
 Overall:
 packaging/organization (as per lens)
 move tictac to examples
-move imput parsing
 alpha-beta pruning
-Reader monad for move eval
+Reader monad for move eval (for depth, difficulty level, etc.)
 Move test trees to different file
 
 TicTac:
@@ -16,5 +15,4 @@ Checkers:
 Piece becomes king on last row
 score for mobility
 score for home row filled
-output A-F 1-8 guideguideguide
-row
+output A-F 1-8 guide

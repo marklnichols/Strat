@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 --TODO reorganize the exports list -- move those only needed for testing elsewhere
 module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, checkTwoWayWin, scorePos, format, 
-       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask) where
+       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask, strToMove) where
 
 import StratTree.TreeNode hiding (Result, MoveScore)
 import qualified TicTac.TTParser as Parser

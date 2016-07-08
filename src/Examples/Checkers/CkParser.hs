@@ -15,13 +15,12 @@ data Move =  Move [Loc]
 loc :: Parser Loc
 loc = do
     c <- oneOf "abcdefghABCDEFGH"
-    optional $ char '-'
+    --optional $ char '-'
     d <- oneOf "12345678"
-    --optional $ char ','
     return $ Loc c (digitToInt d)
  
 spacers :: Parser ()
-spacers = skipMany (space <|> char ',')
+spacers = skipMany (space <|> oneOf "-.,/|")
  
 move :: Parser Move
 move = do

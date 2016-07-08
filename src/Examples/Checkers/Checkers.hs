@@ -173,6 +173,7 @@ toCkMove node (Parser.Move xs) =     --parser guarentees at least one item in li
         1 -> fromSingleLoc node (head xs')
         n -> Right $ fromMultLoc xs'
 
+        
 fromSingleLoc :: CkNode -> Int -> Either String CkMove
 fromSingleLoc node x
     | nMoves + nJumps /= 1  = Left $ show x ++ " is not a valid unique move."
@@ -184,6 +185,7 @@ fromSingleLoc node x
         nMoves = length moves
         nJumps = length jumps
 
+        
 fromMultLoc :: [Int] -> CkMove
 fromMultLoc xs = 
     let st = head xs
@@ -193,41 +195,24 @@ fromMultLoc xs =
         isJmp = not (null rem)
     in  CkMove { _isJump = isJmp, _startIdx = st, _endIdx = end, _middleIdxs = mid, 
                  _removedIdxs = rem }
-        
+
+                 
 calcRemoved :: [Int] -> [Int]
 calcRemoved xs = foldr f [] (zip xs (tail xs))  where
-    f :: (Int, Int) -> [Int] -> [Int]
-    f (prevX, x) r = case x - prevX of
-                          8  -> x - 4 : r
-                          10 -> x - 5 : r
-                          _  -> r
+    f (prevX, x) r 
+        | abs (x - prevX) `elem` [8, 10] = prevX + (x-prevX) `div` 2 : r
+        | otherwise                      = r
 
+        
 locToInt :: Parser.Loc -> Int  -- parser ensures valid key
-locToInt (Parser.Loc c d) =  Map.findWithDefault (-1) (toUpper c) rowIndexes + (d `div` 2)
+locToInt (Parser.Loc c d)  
+    | d `mod` 2 == 0    = f (d-1)
+    | otherwise         = f d
+        where
+        f x = Map.findWithDefault (-1) (toUpper c) rowIndexes + (x `div` 2)
 
+        
 rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 23)]
-
-{--
-A1 = 5, A3 = 6,  A5 = 7,  A7 = 8
-A_ = error
-Note:   
-   5 = 5 + (1 `div` 2)
-   6 = 5 + (3 `div` 2)
-   7 = 5 + (5 `div` 2)
-   8 = 5 + (7 `div` 2) 
-B2 = 10, B4 = 11, B6 = 12, B8 = 13
-B_ = error
-
-C1 = 14, C3 = 15, C4 = 16, C5 = 18
-C_ = error
-
-left most indexes:
-A 5, B 10, C 14, D 19, E 23, F 28, G 32, H 37
-
-From A, add to get to:
-B +5, C +9, D +14, E +18, F +23, G +27, H +32
-
---}
  
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move

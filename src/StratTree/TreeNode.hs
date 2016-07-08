@@ -2,7 +2,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, 
-       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveScores, Env (..), Move (..), IntMove (..)) where
+       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveScores, Env (..), 
+       Move (..), IntMove (..)) where
 
 import Control.Lens
        

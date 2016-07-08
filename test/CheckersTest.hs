@@ -31,6 +31,12 @@ checkersTest = do
     describe "kingCount" $
         it "Counts the number of white king pieces minus the black king pieces" $ 
             kingCount board04 `shouldBe` 4
+    describe "parseCkMove" $
+        it "parses move input into a CkMove" $ do
+            parseCkMove (nodeFromGridW board01) "A1 B2" `shouldBe` Right (mkSimpleCkMove 510)
+            parseCkMove (nodeFromGridW board01) "A1-b2" `shouldBe` Right (mkSimpleCkMove 510)             
+            parseCkMove (nodeFromGridW board02) "A5 C7" `shouldBe` Right (mkSimpleCkJump (0717, 12))
+            parseCkMove (nodeFromGridW board03) "E5 C7 A5" `shouldBe` Right (mkMultiCkJump m3)
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------            
