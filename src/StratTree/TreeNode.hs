@@ -2,7 +2,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, 
-       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveScores, Env (..), Move (..), IntMove (..)) where
+       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveScores, Env (..), 
+       Move (..), IntMove (..)) where
 
 import Control.Lens
        
@@ -41,7 +42,7 @@ class (TreeNode n m, Show n, Move m) => PositionNode n m | n -> m where
     possibleMoves :: n -> [m]
     final :: n -> FinalState
     showPosition :: n -> String
-    parseMove :: n -> String -> m -- TODO: make this return Maybe m
+    parseMove :: n -> String -> Either String m
 
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 

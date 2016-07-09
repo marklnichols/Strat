@@ -23,7 +23,7 @@ import Control.Lens
 -- Main.main
 
 gameEnv = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = True}
+     _p1Comp = False, _p2Comp = True}
 
 main :: IO () 
 main = do 
@@ -71,15 +71,16 @@ playerMove tree turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
     line <- getLine
     putStrLn ""
-    let node = rootLabel tree
-    let mv = parseMove node line
-    let legal = isLegal tree mv
-    if not legal 
-        then do 
-            putStrLn "Not a legal move."
-            playerMove tree turn 
-        else return (processMove tree mv) 
-  
+    case parseMove (rootLabel tree) line of
+        Left err -> do
+            putStrLn err
+            playerMove tree turn
+        Right mv -> if not (isLegal tree mv)
+            then do 
+                putStrLn "Not a legal move."
+                playerMove tree turn  
+            else return (processMove tree mv) 
+   
 computerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do 
     putStrLn "Calculating computer move..."

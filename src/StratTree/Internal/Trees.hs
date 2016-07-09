@@ -56,7 +56,7 @@ pruneToChild tree move = fromMaybe tree (find (\ x -> move == getMove (rootLabel
 --delParent :: parentTree -> childTree -> childTree
 delParent :: TreeNode t m => Tree t -> Tree t ->Tree t
 delParent parent child = toTree $ modifyTree (const child) $ fromTree parent
-    
+        
 --pruneExcept -- Prune the tree of all the children except the one matching the supplied move
 --pruneExcept :: starting tree -> move to match -> pruned tree
 pruneChildrenExcept :: TreeNode t m => Tree t -> m -> Tree t

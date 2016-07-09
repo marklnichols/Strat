@@ -2,13 +2,14 @@
 {-# LANGUAGE TemplateHaskell #-}
 --TODO reorganize the exports list -- move those only needed for testing elsewhere
 module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, checkTwoWayWin, scorePos, format, 
-       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask) where
+       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask, strToMove) where
 
-import Data.Tree
 import StratTree.TreeNode hiding (Result, MoveScore)
+import qualified TicTac.TTParser as Parser
 import Data.List.Lens
 import Control.Lens
 import Data.List
+import Data.Tree
 
 ------------------------------------------------------------------
 -- Data Types
@@ -18,9 +19,6 @@ makeLenses ''TTPosition
     
 data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
 makeLenses ''TTNode  
-  
--- class Move m => TreeNode t m where  
--- class (TreeNode n m, Show n, Move m) => PositionNode n m where
     
 instance PositionNode TTNode IntMove where
     newNode = calcNewNode
@@ -45,8 +43,13 @@ getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = 0, _ttErrorValue 
 ---------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------    
-strToMove :: String -> Int -> IntMove    
-strToMove str color = IntMove $ color * read str
+strToMove :: String -> Int -> Either String IntMove    
+strToMove str color =
+    let x = Parser.run str
+    in case x of     
+        Left err -> Left err 
+        Right n -> Right $ IntMove (color * n)
+    
     
 --------------------------------------------------------
 -- format position as a string
