@@ -45,28 +45,17 @@ parseCkMove n s
     | Left err <- pMove   = Left err
     | Right x  <- pMove   = toCkMove n x
         where
-        pMove = Parser.run s
-        
-{-- let x = (runParser Parser.move () "" s)
-    in case x of     
-        Left err -> x
-        Right n -> Right $ buildMove (n) 
---}        
+        pMove = Parser.run s  
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------------------------------------------------  
---strToMove :: String -> Int -> Either String IntMove    
---strToMove str color = do 
-    --IntMove $ color * read str
-    
- 
+
 instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
     getErrorValue = _ckErrorValue
   
--- TODO: show the removed pieces 
 instance Show CkMove where
     show m = "{jmp:" ++ show (m ^. isJump) ++ " st:" ++ show (m ^. startIdx) ++
                 " mid:[" ++ showList (m^.middleIdxs) ++ "]" ++
@@ -74,12 +63,6 @@ instance Show CkMove where
                 " end:[" ++ show (m^.endIdx) ++ "]}"
                 where showList [] = ""
                       showList xs = foldr (\y acc -> acc ++ show y ++ " ") "" xs
-                      
-                {--
-                ++ case m^.middleIdxs of 
-                    [] -> "" 
-                    xs -> foldr (\y acc -> acc ++ show y ++ " ") "" xs
-                --}
                 
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
@@ -141,21 +124,31 @@ indexToValue bottomColor idx
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
+
+{--
 format :: CkNode -> String
-format node =   let xs = node ^. ckPosition ^. grid
-                in loop xs 5 "" where
-                    loop :: [Int] -> Int -> String -> String
+format node =   loop (node^.ckPosition^.grid) 5 "" where
                     loop xs 41 result = result
                     loop xs n result =  let (newIdx, spaces) = case n `mod` 9 of
                                                                    0 -> (n + 1, " ") 
                                                                    5 -> (n, "")
                                         in loop xs (newIdx + 4) (result ++ rowToStr xs newIdx spaces)
-                                
+--}
+format :: CkNode -> String
+format node = loop (node^.ckPosition^.grid) 40 "" where
+    loop xs 4 result = result
+    loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
+        (newIdx, spaces) = case n `mod` 9 of
+            0 -> (n-1, "") 
+            4 -> (n, " ")   
+  
+                    
+                                        
 rowToStr :: [Int] -> Int -> String -> String
-rowToStr xs i spaces = spaces ++ toXOs (xs !! i) ++ 
-                                 toXOs (xs !! (i + 1)) ++ 
-                                 toXOs (xs !! (i + 2)) ++ 
-                                 toXOs (xs !! (i + 3)) ++ "\n"
+rowToStr xs i spaces = spaces ++ toXOs (xs !! (i-3)) ++ 
+                                 toXOs (xs !! (i-2)) ++ 
+                                 toXOs (xs !! (i-1)) ++ 
+                                 toXOs (xs !!    i) ++ "\n"
 
 toXOs :: Int -> String
 toXOs 1 = "X "
