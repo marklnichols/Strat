@@ -1,4 +1,7 @@
-
+Current:
+flip board so xx's on bottom and row A = bottom row
+Convert move to algebraic notation for output
+output A-F 1-8 guide
 
 Overall:
 packaging/organization (as per lens)
@@ -15,4 +18,3 @@ Checkers:
 Piece becomes king on last row
 score for mobility
 score for home row filled
-output A-F 1-8 guide

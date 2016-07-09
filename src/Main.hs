@@ -23,7 +23,7 @@ import Control.Lens
 -- Main.main
 
 gameEnv = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = True}
+     _p1Comp = False, _p2Comp = True}
 
 main :: IO () 
 main = do 

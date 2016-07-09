@@ -29,7 +29,7 @@ move = do
  
 run :: String -> Either String Move
 run s = case runParser move () "" s of
-    Left err    -> Left $ concatMap messageString (errorMessages err)
+    Left err    -> Left $ show err
     Right xs    -> Right xs
  
 
