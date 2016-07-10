@@ -136,26 +136,33 @@ format node =   loop (node^.ckPosition^.grid) 5 "" where
 --}
 format :: CkNode -> String
 format node = loop (node^.ckPosition^.grid) 40 "" where
-    loop xs 4 result = result
+    loop xs 4 result = result ++ "\n" ++ colLabels
     loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
         (newIdx, spaces) = case n `mod` 9 of
             0 -> (n-1, "") 
-            4 -> (n, " ")   
+            4 -> (n, "   ")   
   
-                    
-                                        
+                                                            
 rowToStr :: [Int] -> Int -> String -> String
-rowToStr xs i spaces = spaces ++ toXOs (xs !! (i-3)) ++ 
-                                 toXOs (xs !! (i-2)) ++ 
-                                 toXOs (xs !! (i-1)) ++ 
-                                 toXOs (xs !!    i) ++ "\n"
+rowToStr xs i spaces =  Map.findWithDefault ("??") i rowLabels ++ "  " ++ spaces ++ 
+                            toXOs (xs !! (i-3)) ++ gap ++
+                            toXOs (xs !! (i-2)) ++ gap ++
+                            toXOs (xs !! (i-1)) ++ gap ++
+                            toXOs (xs !!    i)  ++ "\n"
 
+gap = "     "
+                            
 toXOs :: Int -> String
-toXOs 1 = "X "
-toXOs (-1) = "O "
-toXOs 0 = "- "
-toXOs _ = "? "
-   
+toXOs 1 = "X"
+toXOs (-1) = "O"
+toXOs 0 = "-"
+toXOs _ = "?"
+
+rowLabels = Map.fromList [(40, "H"), (35, "G"), (31, "F"), (26, "E"), (22, "D"), (17, "C"), (13, "B"), (8, "A")]
+  
+--colLabels = foldr (\x r -> chr x : r) "" [49..56]
+colLabels = "   " ++ intercalate "  " ["1", "2", "3", "4", "5", "6", "7", "8"]
+
 ---------------------------------------------------------------------------------------------------
 -- Convert Parser's Move type to CkMove
 ---------------------------------------------------------------------------------------------------
@@ -205,7 +212,7 @@ locToInt (Parser.Loc c d)
         f x = Map.findWithDefault (-1) (toUpper c) rowIndexes + (x `div` 2)
 
         
-rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 23)]
+rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 23), ('H', 37)]
  
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
