@@ -2,6 +2,7 @@
 module CheckersTest where
 
 import Checkers
+import CkParser
 import Test.Hspec
 import Data.Tree
 import Control.Lens
@@ -37,6 +38,12 @@ checkersTest = do
             parseCkMove (nodeFromGridW board01) "A1-b2" `shouldBe` Right (mkSimpleCkMove 510)             
             parseCkMove (nodeFromGridW board02) "A5 C7" `shouldBe` Right (mkSimpleCkJump (0717, 12))
             parseCkMove (nodeFromGridW board03) "E5 C7 A5" `shouldBe` Right (mkMultiCkJump m3)
+    describe "toParserMove" $
+        it "converts a CkMove to a Parser Move (for display)" $ do
+            toParserMove (mkSimpleCkMove 510) `shouldBe` Just (Move [Loc 'A' 1,  Loc 'B' 2])
+            toParserMove (mkSimpleCkJump (0717, 12)) `shouldBe` Just (Move [Loc 'A' 5, Loc 'C' 7])
+            toParserMove (mkMultiCkJump m3) `shouldBe` Just (Move [Loc 'E' 5, Loc 'C' 7, Loc 'A' 5])
+            
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------            

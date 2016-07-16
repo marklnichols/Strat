@@ -50,19 +50,21 @@ data Env = Env
     {_depth :: Int, _errorDepth :: Int, _equivThreshold :: Int, _errorEquivThreshold :: Int,
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
 
-data MoveScore m = MoveScore {_move :: m, _score :: Int} deriving (Eq, Show)
+makeLenses ''Env     
+
+data MoveScore m = MoveScore {_move :: m, _score :: Int} deriving (Eq)
+
+$(makeLenses ''MoveScore)
+
+instance (Show m) => Show (MoveScore m) where
+    show ms = "(m:" ++ show (ms^.move) ++ " s:" ++ show (ms^.score) ++ ")"
 
 mkMoveScore :: Move m => m -> Int -> MoveScore m
 mkMoveScore = MoveScore
 
---instance Show MoveScore where                                                                                       
---    show (MoveScore m s ) = "(m:" ++ show m ++ ", s:" ++ show s ++ ")"     
-
 data Result m = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScores ::[MoveScore m]} 
                 deriving(Show, Eq)
-           
-$(makeLenses ''MoveScore)
-makeLenses ''Env
+
 makeLenses ''Result      
                 
 -------------------------------------------------------------------------------
