@@ -6,14 +6,15 @@ import Prelude hiding (lookup)
 import Control.Monad.ST
 import Data.HashTable.ST.Basic
 import Data.Tree
-import StratTree.TreeNode hiding (Result, MoveScore)
+import StratTree.TreeNode hiding (MoveScore, Result)
 import Data.List.Lens
 import Control.Lens
 import Data.List hiding (lookup, insert)
 import Data.List.Split
 import Data.Char
+import Data.Maybe
 import qualified Data.Map as Map
-    
+   
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
@@ -27,9 +28,6 @@ makeLenses ''CkMove
 data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition}
 makeLenses ''CkNode
 
---data JumpSeq = JumpSeq { _start :: Int, _middle :: [Int], _end :: Int}
---makeLenses ''JumpSeq
-
 instance PositionNode CkNode CkMove where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
@@ -38,49 +36,36 @@ instance PositionNode CkNode CkMove where
     showPosition = format
     parseMove = parseCkMove
     
--- todo: change this to a better input scheme    
--- return type to become Maybe CkMove
 parseCkMove :: CkNode -> String -> Either String CkMove
 parseCkMove n s 
     | Left err <- pMove   = Left err
     | Right x  <- pMove   = toCkMove n x
         where
-        pMove = Parser.run s
-        
-{-- let x = (runParser Parser.move () "" s)
-    in case x of     
-        Left err -> x
-        Right n -> Right $ buildMove (n) 
---}        
+        pMove = Parser.run s  
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------------------------------------------------  
---strToMove :: String -> Int -> Either String IntMove    
---strToMove str color = do 
-    --IntMove $ color * read str
-    
- 
+
 instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
     getErrorValue = _ckErrorValue
   
--- TODO: show the removed pieces 
 instance Show CkMove where
-    show m = "{jmp:" ++ show (m ^. isJump) ++ " st:" ++ show (m ^. startIdx) ++
+    show move = case toParserMove move of
+                    Just m -> show m
+                    Nothing -> show move
+
+        
+    {-- show m = "{jmp:" ++ show (m ^. isJump) ++ " st:" ++ show (m ^. startIdx) ++
                 " mid:[" ++ showList (m^.middleIdxs) ++ "]" ++
                 " rem:[" ++ showList (m^.removedIdxs) ++ "]" ++
                 " end:[" ++ show (m^.endIdx) ++ "]}"
                 where showList [] = ""
                       showList xs = foldr (\y acc -> acc ++ show y ++ " ") "" xs
-                      
-                {--
-                ++ case m^.middleIdxs of 
-                    [] -> "" 
-                    xs -> foldr (\y acc -> acc ++ show y ++ " ") "" xs
-                --}
-                
+    --}
+    
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition) 
@@ -141,28 +126,35 @@ indexToValue bottomColor idx
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
-format :: CkNode -> String
-format node =   let xs = node ^. ckPosition ^. grid
-                in loop xs 5 "" where
-                    loop :: [Int] -> Int -> String -> String
-                    loop xs 41 result = result
-                    loop xs n result =  let (newIdx, spaces) = case n `mod` 9 of
-                                                                   0 -> (n + 1, " ") 
-                                                                   5 -> (n, "")
-                                        in loop xs (newIdx + 4) (result ++ rowToStr xs newIdx spaces)
-                                
-rowToStr :: [Int] -> Int -> String -> String
-rowToStr xs i spaces = spaces ++ toXOs (xs !! i) ++ 
-                                 toXOs (xs !! (i + 1)) ++ 
-                                 toXOs (xs !! (i + 2)) ++ 
-                                 toXOs (xs !! (i + 3)) ++ "\n"
 
+format :: CkNode -> String
+format node = loop (node^.ckPosition^.grid) 40 "" where
+    loop xs 4 result = result ++ "\n" ++ colLabels
+    loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
+        (newIdx, spaces) = case n `mod` 9 of
+            0 -> (n-1, "") 
+            4 -> (n, "   ")   
+  
+                                                            
+rowToStr :: [Int] -> Int -> String -> String
+rowToStr xs i spaces =  Map.findWithDefault "??" i labelMap ++ "  " ++ spaces ++ 
+                            toXOs (xs !! (i-3)) ++ gap ++
+                            toXOs (xs !! (i-2)) ++ gap ++
+                            toXOs (xs !! (i-1)) ++ gap ++
+                            toXOs (xs !!    i)  ++ "\n"
+
+gap = "     "
+                            
 toXOs :: Int -> String
-toXOs 1 = "X "
-toXOs (-1) = "O "
-toXOs 0 = "- "
-toXOs _ = "? "
-   
+toXOs 1 = "X"
+toXOs (-1) = "O"
+toXOs 0 = "-"
+toXOs _ = "?"
+
+labelMap = Map.fromList [(40, "H"), (35, "G"), (31, "F"), (26, "E"), (22, "D"), (17, "C"), (13, "B"), (8, "A")]
+  
+colLabels = "   " ++ intercalate "  " ["1", "2", "3", "4", "5", "6", "7", "8"]
+
 ---------------------------------------------------------------------------------------------------
 -- Convert Parser's Move type to CkMove
 ---------------------------------------------------------------------------------------------------
@@ -212,7 +204,38 @@ locToInt (Parser.Loc c d)
         f x = Map.findWithDefault (-1) (toUpper c) rowIndexes + (x `div` 2)
 
         
-rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 23)]
+rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 23), ('H', 37)] 
+ 
+---------------------------------------------------------------------------------------------------
+-- Convert CkMove to Parser Move (for display)
+---------------------------------------------------------------------------------------------------
+toParserMove :: CkMove -> Maybe Parser.Move
+toParserMove move = 
+    let mAll = intToLoc (move^.startIdx) : fmap intToLoc (move^.middleIdxs) ++ [intToLoc (move^.endIdx)]
+        locs = catMaybes mAll
+    in  if length locs == length mAll
+            then Just $ Parser.Move locs
+            else Nothing
+ 
+intToLoc :: Int -> Maybe Parser.Loc
+intToLoc n = 
+    let num = offset n + colPlus n + 1
+        mChar = rowLabels ^? element (labelIdx n)
+    in case mChar of 
+        Nothing -> Nothing
+        Just c -> Just $ Parser.Loc c num
+
+offset :: Int -> Int
+offset n =  if ((n-5) `mod` 9) `div` 5 == 0 then 0 else 1
+
+colPlus :: Int -> Int
+colPlus n = (((n-5) `mod` 9) `mod` 5) * 2
+
+labelIdx :: Int -> Int
+labelIdx n = ((n-5) `div` 9) * 2 + ((n-5) `mod` 9) `div` 5
+ 
+rowLabels = ['A'..'H']
+
  
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
@@ -255,7 +278,7 @@ eval n = fst $ evalGrid $ n ^. ckPosition ^. grid
 errorEval :: CkNode -> Int
 errorEval n = errorEvalGrid $ n ^. ckPosition ^. grid
     
--- TODO: implement    
+-- TODO: further implement    
 evalGrid :: [Int] ->  (Int, FinalState)
 evalGrid grid = (kingCount grid * 3 + pieceCount grid, NotFinal)
 
@@ -332,10 +355,8 @@ pieceJumps node idx =
             Just val -> if isKing val 
                 then kingJumps g idx color 
                 else forwardJumps g idx color color
-    
---jumpSeqToMap :: JumpSeq -> CkMove
---jumpSeqToMap js = IntMove $ 10000 + js ^. start * 100 + js ^. end    
-                        
+
+                
 --todo: implement multi-step jumps
 forwardJumps :: [Int] -> Int -> Int -> Int -> [CkMove]
 forwardJumps g idx color jumpDir = 

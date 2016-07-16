@@ -4,13 +4,20 @@ import Text.Parsec
 import Text.Parsec.String
 import Text.ParserCombinators.Parsec.Error
 import Data.Char  
+import Data.List
  
 data Loc 
     = Loc Char Int
-    deriving Show
+    deriving Eq
+   
+instance Show Loc where
+    show (Loc c i) = c : show i    
    
 data Move =  Move [Loc]
-   deriving Show
+   deriving Eq
+ 
+instance Show Move where
+    show (Move xs) = init $ concatMap (\x -> show x ++ "-") xs
  
 loc :: Parser Loc
 loc = do
