@@ -1,20 +1,25 @@
 Current:
-Convert move to algebraic notation for output
-output A-F 1-8 guide
+F4 G3 or F2 G3 ?? E5 g7 f6 g5
 
 Overall:
+Bare-bones web GUI
+pause to ghci / continue
+set a position / continue
+load position / game from disk 
 packaging/organization (as per lens)
 move tictac to examples
 alpha-beta pruning
 Reader monad for move eval (for depth, difficulty level, etc.)
 Move test trees to different file
 Set the proper exports (comment out for debugging)
+Turn debugging on/off
+Debugging mode: show tree size
 
 TicTac:
 Prefer win on next move (after reader monad)
 
-
 Checkers:
-Piece becomes king on last row
+make jumps mandatory
 score for mobility
 score for home row filled
+
