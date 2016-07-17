@@ -146,8 +146,10 @@ rowToStr xs i spaces =  Map.findWithDefault "??" i labelMap ++ "  " ++ spaces ++
 gap = "     "
                             
 toXOs :: Int -> String
-toXOs 1 = "X"
-toXOs (-1) = "O"
+toXOs 1 = "x"
+toXOs (-1) = "o"
+toXOs (2) = "X"
+toXOs (-2) = "O"
 toXOs 0 = "-"
 toXOs _ = "?"
 
@@ -262,13 +264,21 @@ movePiece pos from to =
         valid = value >>= validPiece pos
     in case valid of 
         Nothing -> pos
-        Just x ->  let p = set (grid . ix to) x pos
-                     in removePiece p from    
+        Just x ->  let z = checkPromote pos x to
+                       p = set (grid . ix to) z pos
+                   in removePiece p from    
         
 validPiece :: CkPosition -> Int -> Maybe Int
 validPiece pos x = if x /= 0 && abs x < 3 then Just x else Nothing
 
-  
+checkPromote :: CkPosition -> Int -> Int -> Int
+checkPromote pos value to
+    | color > 0 && to > 36  = 2 * color
+    | color < 0 && to < 9   = 2 * color
+    | otherwise             = value
+        where color = pos^.clr
+    
+ 
 --------------------------------------------------------
 -- Position Evaluation
 --------------------------------------------------------

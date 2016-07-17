@@ -43,7 +43,12 @@ checkersTest = do
             toParserMove (mkSimpleCkMove 510) `shouldBe` Just (Move [Loc 'A' 1,  Loc 'B' 2])
             toParserMove (mkSimpleCkJump (0717, 12)) `shouldBe` Just (Move [Loc 'A' 5, Loc 'C' 7])
             toParserMove (mkMultiCkJump m3) `shouldBe` Just (Move [Loc 'E' 5, Loc 'C' 7, Loc 'A' 5])
-            
+    describe "checkPromote" $
+        it "promotes a piece to king if it has reached the back row" $ do
+            checkPromote (positionFromGridW board05) 01 38 `shouldBe` 2
+            checkPromote (positionFromGridB board05) (-1) 07 `shouldBe` (-2)
+            checkPromote (positionFromGridW board05) 01 25 `shouldBe` 1
+      
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------            
@@ -63,6 +68,12 @@ nodeFromGridW g = rootLabel $ treeFromGridW g
  
 nodeFromGridB :: [Int] -> CkNode
 nodeFromGridB g = rootLabel $ treeFromGridB g 
+
+positionFromGridW :: [Int] -> CkPosition
+positionFromGridW g = nodeFromGridW g ^. ckPosition
+ 
+positionFromGridB :: [Int] -> CkPosition
+positionFromGridB g = nodeFromGridB g ^. ckPosition 
 
 mkSimpleCkMove :: Int -> CkMove
 mkSimpleCkMove i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = [], _removedIdxs = []}
@@ -177,14 +188,31 @@ board04 = [99, 99, 99, 99, 99, 00, 01, 00, 02, 99, 00, -1, 00, 00, -1, 00, 00, 0
            00, 00, 00, 00, 99, 00, -2, 00, 00, 00, 02, 00, -1, 99, 02, 00, 00, 02, 99, 99, 99, 99, 99]
 board04_pc = -2
 board04_kc = 1
+       
+board05 :: [Int]                    
+board05 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, -1, 00, 00, 00, 00, 00, 00, 99, 00, 00, 01, 00,
+           00, -1, 00, 00, 99, 00, 00, 00, 00, 00, 01, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
            
+{--                                  --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   01   00   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              00   -1   00   00      --   23   24   25   26      (27)
+                00   00   01   00    --     19   20   21   22        
+              00   00   00   00      --   14   15   16   17      (18)
+                00   -1   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)
+--}
+
+       
 {-- 
 board0n :: [Int]                    
 board0n = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
            00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
            
                                      --  (41) (42) (43) (44) (45)    
-                00   00   02   00    --     37   38   39   40        
+                00   00   00   00    --     37   38   39   40        
               00   00   00   00      --   32   33   34   35      (36)
                 00   00   00   00    --     28   29   30   31        
               00   00   00   00      --   23   24   25   26      (27)
