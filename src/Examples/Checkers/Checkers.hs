@@ -51,21 +51,12 @@ instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
     getErrorValue = _ckErrorValue
-  
+    
 instance Show CkMove where
     show move = case toParserMove move of
                     Just m -> show m
                     Nothing -> show move
-
         
-    {-- show m = "{jmp:" ++ show (m ^. isJump) ++ " st:" ++ show (m ^. startIdx) ++
-                " mid:[" ++ showList (m^.middleIdxs) ++ "]" ++
-                " rem:[" ++ showList (m^.removedIdxs) ++ "]" ++
-                " end:[" ++ show (m^.endIdx) ++ "]}"
-                where showList [] = ""
-                      showList xs = foldr (\y acc -> acc ++ show y ++ " ") "" xs
-    --}
-    
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition) 
@@ -206,7 +197,7 @@ locToInt (Parser.Loc c d)
         f x = Map.findWithDefault (-1) (toUpper c) rowIndexes + (x `div` 2)
 
         
-rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 23), ('H', 37)] 
+rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 32), ('H', 37)] 
  
 ---------------------------------------------------------------------------------------------------
 -- Convert CkMove to Parser Move (for display)
