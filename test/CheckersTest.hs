@@ -21,6 +21,8 @@ checkersTest = do
                                                                        ++ fmap mkSimpleCkJump [(0717, 12), (1624, 20), (1626, 21), (2515, 20), (2517, 21), (2535, 30)]
             getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkMove    [2015, 2024, 2117, 3026]
                                                                        ++ fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
+            getPossibleMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkMove    [2933, 2934]
+                                                                       ++ fmap mkSimpleCkJump [(2535, 30)]
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do 
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. ckPosition ^. grid `shouldBe` board01_m1
@@ -205,6 +207,22 @@ board05 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, -1, 00, 00, 00, 00, 00, 0
                                      --  (00) (01) (02) (03) (04)
 --}
 
+
+board06 :: [Int]                    
+board06 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, -1, 00, 00, 99, 00, 00, 00, 00,
+           00, 00, 01, 00, 99, 00, 01, -1, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--            
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   01   -1   00    --     28   29   30   31        
+              00   00   01   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              00   -1   00   00      --   14   15   16   17      (18)
+                00   00   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
        
 {-- 
 board0n :: [Int]                    
@@ -222,3 +240,13 @@ board0n = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 0
               00   00   00   00      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)       
 -} 
+
+{--
+    --To run from a given position within ghci:
+    let n = nodeFromGridW board06
+    let t = Node n []
+    loop t 1
+    
+    --or 
+    loop (Node (nodeFromGridW board06) []) 1
+--}
