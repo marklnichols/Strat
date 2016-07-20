@@ -17,12 +17,9 @@ checkersTest = do
             
             getPossibleMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935] 
             getPossibleMoves (nodeFromGridB board01) `shouldMatchList` fmap mkSimpleCkMove    [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712] 
-            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` fmap mkSimpleCkMove    [510, 711, 813, 2529, 2823, 2824, 3329, 3338, 3934, 3935]
-                                                                       ++ fmap mkSimpleCkJump [(0717, 12), (1624, 20), (1626, 21), (2515, 20), (2517, 21), (2535, 30)]
-            getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkMove    [2015, 2024, 2117, 3026]
-                                                                       ++ fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
-            getPossibleMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkMove    [2933, 2934]
-                                                                       ++ fmap mkSimpleCkJump [(2535, 30)]
+            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` fmap mkSimpleCkJump [(0717, 12), (1624, 20), (1626, 21), (2515, 20), (2517, 21), (2535, 30)]
+            getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
+            getPossibleMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do 
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. ckPosition ^. grid `shouldBe` board01_m1
