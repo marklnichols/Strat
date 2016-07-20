@@ -303,9 +303,15 @@ count grid p =
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
 getPossibleMoves :: CkNode -> [CkMove]
-getPossibleMoves n = foldr f [] (getPieceLocs n) where
+getPossibleMoves n = requireJumps $ foldr f [] (getPieceLocs n) where
                         f x r = r ++ pieceMoves n x ++ pieceJumps n x
 
+requireJumps :: [CkMove] -> [CkMove]
+requireJumps xs = case filter (^. isJump) xs of
+                    [] -> xs    --no jumps
+                    js -> js    --return only the jumps
+                        
+                        
 getPieceLocs :: CkNode -> [Int]
 getPieceLocs node = 
     let pos = node ^. ckPosition
@@ -358,7 +364,6 @@ pieceJumps node idx =
                 else forwardJumps g idx color color
 
                 
---todo: implement multi-step jumps
 forwardJumps :: [Int] -> Int -> Int -> Int -> [CkMove]
 forwardJumps g idx color jumpDir = 
     let newIdxPairs = filter f [(idx + (jumpDir * 4), idx + (jumpDir * 8)), 

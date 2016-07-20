@@ -1,5 +1,5 @@
 Current:
-F4 G3 or F2 G3 ?? E5 g7 f6 g5
+multi jumps - legal and required for player, chosen for computer
 
 Overall:
 Bare-bones web GUI
@@ -19,7 +19,6 @@ TicTac:
 Prefer win on next move (after reader monad)
 
 Checkers:
-make jumps mandatory
 score for mobility
 score for home row filled
 
