@@ -3,6 +3,7 @@
 module Checkers where
 import qualified CkParser as Parser
 import Prelude hiding (lookup)
+import Control.Monad
 import Control.Monad.ST
 import Data.HashTable.ST.Basic
 import Data.Tree
@@ -22,11 +23,14 @@ data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} d
 makeLenses ''CkPosition
 
 data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int], _removedIdxs :: [Int]} 
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 makeLenses ''CkMove
 
 data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition}
 makeLenses ''CkNode
+
+data JumpOff = JumpOff {_jmpOver :: Int, _land :: Int}
+makeLenses ''JumpOff 
 
 instance PositionNode CkNode CkMove where
     newNode = calcNewNode
@@ -35,7 +39,7 @@ instance PositionNode CkNode CkMove where
     final = view (ckPosition . fin)
     showPosition = format
     parseMove = parseCkMove
-    
+        
 parseCkMove :: CkNode -> String -> Either String CkMove
 parseCkMove n s 
     | Left err <- pMove   = Left err
@@ -52,10 +56,10 @@ instance TreeNode CkNode CkMove where
     getValue = _ckValue
     getErrorValue = _ckErrorValue
     
-instance Show CkMove where
-    show move = case toParserMove move of
-                    Just m -> show m
-                    Nothing -> show move
+--instance Show CkMove where
+--    show move = case toParserMove move of
+--                    Just m -> show m
+--                    Nothing -> show move
         
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
@@ -350,19 +354,8 @@ kingMoves :: [Int] -> Int -> [CkMove]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
 ---------------------------------------------------------------------------------------------------
--- calculate available jumps
+-- old: calculate available jumps
 ---------------------------------------------------------------------------------------------------
-pieceJumps :: CkNode -> Int -> [CkMove]
-pieceJumps node idx = 
-    let pos = node ^. ckPosition
-        g = pos ^. grid
-        color = pos ^. clr
-    in case g ^? ix idx of
-            Nothing -> []
-            Just val -> if isKing val 
-                then kingJumps g idx color 
-                else forwardJumps g idx color color
-
                 
 forwardJumps :: [Int] -> Int -> Int -> Int -> [CkMove]
 forwardJumps g idx color jumpDir = 
@@ -380,9 +373,137 @@ forwardJumps g idx color jumpDir =
 kingJumps :: [Int] -> Int -> Int -> [CkMove]
 kingJumps g idx color = forwardJumps g idx color (-1) ++ forwardJumps g idx color 1
 
-
-
+---------------------------------------------------------------------------------------------------
+-- calculate (possibly multiple) available jumps for a piece at a given index
+---------------------------------------------------------------------------------------------------
+pieceJumps :: CkNode -> Int -> [CkMove]
+pieceJumps node idx = 
+    let pos = node ^. ckPosition
+        g = pos ^. grid
+        color = pos ^. clr
+    in case g ^? ix idx of
+            Nothing -> []
+            Just val -> multiJumps g color (offsets val) idx where
+                offsets x
+                    | isKing val = [JumpOff 4 8, JumpOff 5 10, JumpOff (-4) (-8), JumpOff (-5) (-10)]
+                    | otherwise  = [JumpOff (4 * color) (8 * color), JumpOff (5 * color) (10 * color)]
 
     
+multiJumps :: [Int] -> Int -> [JumpOff] -> Int -> [CkMove]
+multiJumps g color offsets index = jmpsToCkMoves $ fmap reverse (outer index []) where
+    outer :: Int -> [Int] -> [[Int]] 
+    outer x xs = 
+        let next = jmpIndexes g color x offsets
+        in case next of
+            [] -> [x : xs]
+            _  -> inner x next xs where
+                    inner :: Int -> [Int] -> [Int] -> [[Int]]
+                    inner y ys acc = let acc'  = y : acc
+                                         f x r = outer x acc' ++ r
+                                     in foldr f [[]] ys
+
+{--
+multiJumps :: [Int] -> Int -> [JumpOff] -> Int -> [CkMove]
+multiJumps g color offsets index = jmpsToCkMoves $ fmap reverse (outer g color offsets index [])
+
+outer :: [Int] -> Int -> [JumpOff] -> Int -> [Int] -> [[Int]]
+outer g color offsets x xs = 
+        let next = jmpIndexes g color x offsets
+        in case next of
+            [] -> [x : xs]
+            _  -> inner x next xs where
+                    inner :: Int -> [Int] -> [Int] -> [[Int]]
+                    inner y ys acc = let acc'  = y : acc
+                                         f x r = outer g color offsets x acc' ++ r
+                                     in foldr f [[]] ys          
+
+outer2 :: [Int] -> Int -> [JumpOff] -> Int -> [Int] -> [[Int]]
+outer2 g color offsets x xs = 
+        let next = jmpIndexes g color x offsets
+        in case next of
+            [] -> [x : xs]
+            _  -> inner x next xs where
+                    inner :: Int -> [Int] -> [Int] -> [[Int]]
+                    inner y ys acc = let acc'  = y : acc
+                                         f x r = outer2 g color offsets x acc' ++ r
+                                     in foldr f [[]] ys                                       
+ --}
+ 
+jmpsToCkMoves :: [[Int]] -> [CkMove] 
+jmpsToCkMoves = foldr f [] where
+    f []  r = r
+    f [x] r = r 
+    f xs  r = CkMove { _isJump = True, _startIdx = head xs, _endIdx = last xs, 
+                       _middleIdxs = init $ tail xs, 
+                       _removedIdxs = fmap (\(m, n) -> (n-m) `div` 2 + m) (zip xs (tail xs))
+                     } : r                                     
+                                     
+ 
+jmpIndexes :: [Int] -> Int -> Int -> [JumpOff] -> [Int]                  
+jmpIndexes g color startIdx jos = catMaybes $ fmap f jos where
+    f x = if isValidJump g color (startIdx + x ^. jmpOver) (startIdx + x ^. land)
+              then Just $ startIdx + x ^. land 
+              else Nothing 
+ 
+                     
+isValidJump :: [Int] -> Int -> Int -> Int -> Bool
+isValidJump g color loc1 loc2 = 
+    let mOver = g ^? ix loc1
+        mLand = g ^? ix loc2
+    in fromMaybe False (liftM2 check mOver mLand)
+        where 
+            check over land = land == 0 && over /= 0 && over /= 99 && over * color < 0
+ 
+{-
+let color = 1
+let offsets = [JumpOff 4 8, JumpOff 5 10]
+let g = board02
+let n = nodeFromGridW board02
+getPieceLocs n  --  5, 7, 8, 16, 25, 28, 32, 33, 39
+
+let index = 07  
+multiJumps g color offsets index -- hangs...
+
+outer g color offsets index []
+
+jmpIndexes g color index offsets -- [0] ??
+
+
+
+
+Checkers.getPossibleMoves (nodeFromGridW board01)
+
+
+
+
+
+
+
+Start with:            A3                                        06
+then:       A3-C1              A3-C5             |   06-14                06-16 
+then:     A3-C1-E3     A3-C5-E3     A3-C5-E7     |  06-14-24     06-16-24      06-16-26
+then:      (done)       (done)     A3-C5-E7-G5   |   (done)       (done)      06-16-26-34
+
+Result: xxs = [[16, 14, 24], [06, 16, 24], [06, 16, 26, 34]]   
+   
+   
+multi-jumps: A3-C1-E3, A3-C5-E3, A3-C5-E7-G5        
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   00   -1   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                -1   -1   -1   00    --     19   20   21   22        
+              00   00   00   00      --   14   15   16   17      (18)
+                -1   -1   00   00    --     10   11   12   13        
+              00   01   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
+
+    
+    
+ 
+
+
 
 

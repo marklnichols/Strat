@@ -17,7 +17,8 @@ checkersTest = do
             
             getPossibleMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935] 
             getPossibleMoves (nodeFromGridB board01) `shouldMatchList` fmap mkSimpleCkMove    [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712] 
-            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` fmap mkSimpleCkJump [(0717, 12), (1624, 20), (1626, 21), (2515, 20), (2517, 21), (2535, 30)]
+            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` mkMultiCkJump m02Multi : fmap mkSimpleCkJump [(0717, 12), (1624, 20), (2515, 20), (2517, 21), (2535, 30)]
+                                                                                            
             getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
             getPossibleMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
     describe "calcNewNode" $
@@ -118,7 +119,8 @@ board01_m1 = [99, 99, 99, 99, 99, 01, 00, -02, 00, 99, 00, 00, 00, 00, 00, 00, 0
                                      --  (00) (01) (02) (03) (04)    
 --}
 
-board02 :: [Int]                   
+m02Multi = (1634, [26], [21, 30])     --- 16 -> 26 -> 34 jumping 21 and 30  
+board02 :: [Int] 
 board02 = [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 00, 00, -1, 00, 00, 00, 01, 00, 99, 00, -02, -1, 00,
            00, 00, 02, 00, 99, 02, 00, -1, 00, 01, 02, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
            
@@ -220,6 +222,25 @@ board06 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, -1, 00, 0
               00   00   00   00      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)       
 -} 
+
+
+board07 :: [Int]                    
+board07 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
+           00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--   
+multi-jumps: A3-C1-E3, A3-C5-E3, A3-C5-E7, A3-C5-E7-G5       
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   00   -1   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                -1   -1   -1   00    --     19   20   21   22        
+              00   00   00   00      --   14   15   16   17      (18)
+                -1   -1   00   00    --     10   11   12   13        
+              00   01   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
+
        
 {-- 
 board0n :: [Int]                    
