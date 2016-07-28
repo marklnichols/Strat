@@ -23,7 +23,7 @@ data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} d
 makeLenses ''CkPosition
 
 data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int], _removedIdxs :: [Int]} 
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord)
 makeLenses ''CkMove
 
 data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition}
@@ -56,10 +56,10 @@ instance TreeNode CkNode CkMove where
     getValue = _ckValue
     getErrorValue = _ckErrorValue
     
---instance Show CkMove where
---    show move = case toParserMove move of
---                    Just m -> show m
---                    Nothing -> show move
+instance Show CkMove where
+    show move = case toParserMove move of
+                    Just m -> show m
+                    Nothing -> show move
         
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: " 
@@ -402,32 +402,6 @@ multiJumps g color offsets index = jmpsToCkMoves $ fmap reverse (outer index [])
                                          f x r = outer x acc' ++ r
                                      in foldr f [[]] ys
 
-{--
-multiJumps :: [Int] -> Int -> [JumpOff] -> Int -> [CkMove]
-multiJumps g color offsets index = jmpsToCkMoves $ fmap reverse (outer g color offsets index [])
-
-outer :: [Int] -> Int -> [JumpOff] -> Int -> [Int] -> [[Int]]
-outer g color offsets x xs = 
-        let next = jmpIndexes g color x offsets
-        in case next of
-            [] -> [x : xs]
-            _  -> inner x next xs where
-                    inner :: Int -> [Int] -> [Int] -> [[Int]]
-                    inner y ys acc = let acc'  = y : acc
-                                         f x r = outer g color offsets x acc' ++ r
-                                     in foldr f [[]] ys          
-
-outer2 :: [Int] -> Int -> [JumpOff] -> Int -> [Int] -> [[Int]]
-outer2 g color offsets x xs = 
-        let next = jmpIndexes g color x offsets
-        in case next of
-            [] -> [x : xs]
-            _  -> inner x next xs where
-                    inner :: Int -> [Int] -> [Int] -> [[Int]]
-                    inner y ys acc = let acc'  = y : acc
-                                         f x r = outer2 g color offsets x acc' ++ r
-                                     in foldr f [[]] ys                                       
- --}
  
 jmpsToCkMoves :: [[Int]] -> [CkMove] 
 jmpsToCkMoves = foldr f [] where
