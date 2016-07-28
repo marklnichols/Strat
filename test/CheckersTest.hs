@@ -5,6 +5,7 @@ import Checkers
 import CkParser
 import Test.Hspec
 import Data.Tree
+import Data.Either
 import Control.Lens
 import Control.Lens.Setter
 import StratTree.TreeNode
@@ -21,6 +22,10 @@ checkersTest = do
                                                                                             
             getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
             getPossibleMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
+            
+            getPossibleMoves (nodeFromGridW board07) `shouldMatchList` snd (partitionEithers (fmap 
+                (parseCkMove (nodeFromGridW board07)) ["A3-C1-E3", "A3-C5-E3", "A3-C5-E7-G5"])) 
+            
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do 
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. ckPosition ^. grid `shouldBe` board01_m1
@@ -225,10 +230,10 @@ board06 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, -1, 00, 0
 
 
 board07 :: [Int]                    
-board07 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
-           00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+board07 = [99, 99, 99, 99, 99, 00, 01, 00, 00, 99, -1, -1, 00, 00, 00, 00, 00, 00, 99, -1, -1, -1, 00,
+           00, 00, 00, 00, 99, 00, 00, -1, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
 {--   
-multi-jumps: A3-C1-E3, A3-C5-E3, A3-C5-E7, A3-C5-E7-G5       
+multi-jumps: A3-C1-E3, A3-C5-E3, A3-C5-E7-G5       
                                      --  (41) (42) (43) (44) (45)    
                 00   00   00   00    --     37   38   39   40        
               00   00   00   00      --   32   33   34   35      (36)
