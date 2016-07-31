@@ -5,6 +5,7 @@ import Checkers
 import CkParser
 import Test.Hspec
 import Data.Tree
+import Data.Either
 import Control.Lens
 import Control.Lens.Setter
 import StratTree.TreeNode
@@ -17,9 +18,13 @@ checkersTest = do
             
             getPossibleMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935] 
             getPossibleMoves (nodeFromGridB board01) `shouldMatchList` fmap mkSimpleCkMove    [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712] 
-            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` fmap mkSimpleCkJump [(0717, 12), (1624, 20), (1626, 21), (2515, 20), (2517, 21), (2535, 30)]
+            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` mkMultiCkJump m02Multi : fmap mkSimpleCkJump [(0717, 12), (1624, 20), (2515, 20), (2517, 21), (2535, 30)]
+                                                                                            
             getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
             getPossibleMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
+            
+            getPossibleMoves (nodeFromGridW board07) `shouldMatchList` snd (partitionEithers (fmap 
+                (parseCkMove (nodeFromGridW board07)) ["A3-C1-E3", "A3-C5-E3", "A3-C5-E7-G5"])) 
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do 
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. ckPosition ^. grid `shouldBe` board01_m1
@@ -44,9 +49,13 @@ checkersTest = do
             toParserMove (mkMultiCkJump m3) `shouldBe` Just (Move [Loc 'E' 5, Loc 'C' 7, Loc 'A' 5])
     describe "checkPromote" $
         it "promotes a piece to king if it has reached the back row" $ do
-            checkPromote (positionFromGridW board05) 01 38 `shouldBe` 2
-            checkPromote (positionFromGridB board05) (-1) 07 `shouldBe` (-2)
-            checkPromote (positionFromGridW board05) 01 25 `shouldBe` 1
+            checkPromote (nodeFromGridW board05) 01 38 `shouldBe` 2
+            checkPromote (nodeFromGridB board05) (-1) 07 `shouldBe` (-2)
+            checkPromote (nodeFromGridW board05) 01 25 `shouldBe` 1
+    describe "checkFinal" $
+        it "checks to see if the game is over" $ do
+            checkFinal (nodeFromGridW board09) `shouldBe` BWins
+            checkFinal (nodeFromGridB board09) `shouldBe` WWins
       
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -118,7 +127,8 @@ board01_m1 = [99, 99, 99, 99, 99, 01, 00, -02, 00, 99, 00, 00, 00, 00, 00, 00, 0
                                      --  (00) (01) (02) (03) (04)    
 --}
 
-board02 :: [Int]                   
+m02Multi = (1634, [26], [21, 30])     --- 16 -> 26 -> 34 jumping 21 and 30  
+board02 :: [Int] 
 board02 = [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 00, 00, -1, 00, 00, 00, 01, 00, 99, 00, -02, -1, 00,
            00, 00, 02, 00, 99, 02, 00, -1, 00, 01, 02, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
            
@@ -220,7 +230,75 @@ board06 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, -1, 00, 0
               00   00   00   00      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)       
 -} 
-       
+
+
+board07 :: [Int]                    
+board07 = [99, 99, 99, 99, 99, 00, 01, 00, 00, 99, -1, -1, 00, 00, 00, 00, 00, 00, 99, -1, -1, -1, 00,
+           00, 00, 00, 00, 99, 00, 00, -1, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--   
+multi-jumps: A3-C1-E3, A3-C5-E3, A3-C5-E7-G5       
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   00   -1   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                -1   -1   -1   00    --     19   20   21   22        
+              00   00   00   00      --   14   15   16   17      (18)
+                -1   -1   00   00    --     10   11   12   13        
+              00   01   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
+
+boardDebug1 :: [Int]                    
+boardDebug1 = [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, 01, 01, 00, 01, -1, 00, 01, 00, 99, 00, 00, 00, 00,
+           -1, 00, -1, 00, 99, 01, 00, 00, -1, 00, 00, 00, -1, 99, -1, -1, -1, -1, 99, 99, 99, 99, 99]
+{--           
+                                     --  (41) (42) (43) (44) (45)    
+                -1   -1   -1   -1    --     37   38   39   40        
+              00   00   00   -1      --   32   33   34   35      (36)
+                01   00   00   -1    --     28   29   30   31        
+              -1   00   -1   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              -1   00   01   00      --   14   15   16   17      (18)
+                01   01   00   01    --     10   11   12   13        
+              01   01   01   01      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)  
+--}        
+
+  
+boardDebug2 :: [Int]                    
+boardDebug2 = [99, 99, 99, 99, 99, 00, -1, 00, 00, 99, 00, 00, 00, 00, 01, 00, 00, 00, 99, 00, 00, 00, 00,
+           00, 00, 00, -1, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 01, 00, 00, 99, 99, 99, 99, 99]
+{--            
+                                     --  (41) (42) (43) (44) (45)    
+                00   01   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              00   00   00  -1      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              01   00   00   00      --   14   15   16   17      (18)
+                00   00   00   00    --     10   11   12   13        
+              00   -1   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
+                                 
+
+board09 :: [Int]                    
+board09 = [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, -1, -1, -1, -1, -1, -1, -1, -1, 99, 00, 00, 00, 00,
+           00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--            
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              -1   -1   -1   -1      --   14   15   16   17      (18)
+                -1   -1   -1   -1    --     10   11   12   13        
+              01  01   01   01      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
+  
 {-- 
 board0n :: [Int]                    
 board0n = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
@@ -238,12 +316,8 @@ board0n = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 0
                                      --  (00) (01) (02) (03) (04)       
 -} 
 
-{--
-    --To run from a given position within ghci:
-    let n = nodeFromGridW board06
-    let t = Node n []
-    loop t 1
+{-- To run from a given position within ghci:
     
-    --or 
-    loop (Node (nodeFromGridW board06) []) 1
+    loop (Node (nodeFromGridW boardDebug1) []) 1  -- white to move next
+    loop (Node (nodeFromGridB boardDebug1) []) 2 -- black to move next   
 --}
