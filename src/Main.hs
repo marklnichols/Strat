@@ -17,7 +17,6 @@ import Data.Tuple.Select
 import Control.Monad.Reader
 import Control.Lens
 
--- :set prompt "ghci>"
 -- :set args "tictac"
 -- :set args "checkers"
 -- Main.main
