@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Checkers where
 import qualified CkParser as Parser
 import Prelude hiding (lookup)
@@ -39,17 +40,8 @@ instance PositionNode CkNode CkMove where
     final = view (ckPosition . fin)
     showPosition = format
     parseMove = parseCkMove
-        
-parseCkMove :: CkNode -> String -> Either String CkMove
-parseCkMove n s 
-    | Left err <- pMove   = Left err
-    | Right x  <- pMove   = toCkMove n x
-        where
-        pMove = Parser.run s  
+    
 
----------------------------------------------------------------------------------------------------
--- parse string input to move
----------------------------------------------------------------------------------------------------  
 
 instance TreeNode CkNode CkMove where
     getMove = _ckMove
@@ -66,7 +58,17 @@ instance Show CkNode where
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition) 
 
 instance Move CkMove    
-    
+
+---------------------------------------------------------------------------------------------------
+-- parse string input to move
+---------------------------------------------------------------------------------------------------     
+parseCkMove :: CkNode -> String -> Either String CkMove
+parseCkMove n s 
+    | Left err <- pMove   = Left err
+    | Right x  <- pMove   = toCkMove n x
+        where
+        pMove = Parser.run s  
+  
 ---------------------------------------------------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------------------------------------------------
@@ -76,7 +78,6 @@ getStartNode = Node
             _ckValue = 0, _ckErrorValue = 0, _ckPosition = 
             CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
         
-
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
 ---------------------------------------------------------------------------------------------------
@@ -279,17 +280,27 @@ checkPromote node value to
 --------------------------------------------------------
 -- Position Evaluation
 --------------------------------------------------------
---TODO: addional position evaluation criteria 
+homeRowFull = 4
+homeRowPartial = 2
+homeRowNone = 0
+
+kingVal = 15
+pieceVal = 5
+mobilityVal = 1
+
+finalValW = 1000
+vinalValB = -1000
+
 evalNode :: CkNode -> (Int, FinalState)
 evalNode n = let g =   n ^. ckPosition ^. grid
-                 mat = kingCount g * 15 + pieceCount g * 5
-                 mob = mobility n
-                 home = homeRow g
+                 mat = kingCount g * kingVal + pieceCount g * pieceVal
+                 mob = mobility n * mobilityVal
+                 home = homeRow g 
                  final = checkFinal n
              in case final of
-                    NotFinal -> (mat + mob, final)
-                    WWins    -> (1000, final)
-                    BWins    -> (-1000, final)
+                    NotFinal -> (mat + mob + home, final)
+                    WWins    -> (finalValW, final)
+                    BWins    -> (vinalValB, final)
                           
 --TODO: add draw conditions             
 checkFinal :: CkNode -> FinalState
@@ -319,11 +330,27 @@ mobility node = wMoves - bMoves where
     wMoves = moveCount (node & ckPosition.clr .~ 1)
     bMoves = moveCount (node & ckPosition.clr .~ (-1))
     
-    
---TODO: implement
 homeRow :: [Int] -> Int
-homeRow grid = 0                    
-   
+homeRow grid = homeRow' grid 1 - homeRow' grid (-1)
+
+homeRow' :: [Int] -> Int -> Int
+homeRow' grid 1    = checkRow grid 1 [5..8]
+homeRow' grid (-1) = checkRow grid (-1) [37..40] 
+
+checkRow :: [Int] -> Int -> [Int] -> Int
+checkRow grid color range 
+    | len == 4  = homeRowFull
+    | len == 3  = homeRowPartial
+    | len == 2  = if checkTwo then homeRowPartial else homeRowNone
+    | otherwise = homeRowNone
+    where 
+        zipped = zip range (fmap (\x -> grid ^? ix x) range)
+        filtered = filter (\(x, y) -> y == Just color || y == Just (color * 2)) zipped
+        len = length filtered 
+        checkTwo = foldl f 0 (fmap fst filtered) == 2
+            where f :: Int -> Int -> Int
+                  f r x = x - r 
+            
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
@@ -335,8 +362,7 @@ requireJumps :: [CkMove] -> [CkMove]
 requireJumps xs = case filter (^. isJump) xs of
                     [] -> xs    --no jumps
                     js -> js    --return only the jumps
-                        
-                        
+                                               
 getPieceLocs :: CkNode -> [Int]
 getPieceLocs node = 
     let pos = node ^. ckPosition
@@ -395,13 +421,11 @@ pieceJumps node idx =
                     
 multiJumps :: [Int] -> Int -> [JumpOff] -> Int -> [CkMove]
 multiJumps grid color offsets index = jmpsToCkMoves $ fmap reverse (outer grid index []) where
-    outer :: [Int] -> Int -> [Int] -> [[Int]] 
     outer g x xs = 
         let (nextIdxs, gNew) = jmpIndexes g color x offsets
         in case nextIdxs of
             [] -> [x : xs]
             _  -> inner gNew x nextIdxs xs where
-                    inner :: [Int] -> Int -> [Int] -> [Int] -> [[Int]]
                     inner gNew' y ys acc =  let acc'  = y : acc
                                                 f x r = outer gNew' x acc' ++ r
                                             in foldr f [[]] ys
@@ -442,42 +466,15 @@ jmpsToCkMoves = foldr f [] where
                        _middleIdxs = init $ tail xs, 
                        _removedIdxs = fmap (\(m, n) -> (n-m) `div` 2 + m) (zip xs (tail xs))
                      } : r     
-                     
-{-----------------------------------------
---White to move next...
-------------------------------------------
-let color = 1
-let offsets = [JumpOff 4 8, JumpOff 5 10]
-let g = boardDebug1
-let n = nodeFromGridW boardDebug1
+       
 
-loop (Node (nodeFromGridW boardDebug1) []) 1
-
-Checkers.getPossibleMoves (nodeFromGridW board01)
-------------------------------------------
---Black to move next...
------------------------------------------
+{--
+let range = [37..40]
+let grid = board10
+let zipped = zip range (fmap (\x -> grid ^? ix x) range)
 let color = -1
-let offsets = [JumpOff (-4) (-8), JumpOff (-5) (-10)]
-let g = boardDebug1
-let n = nodeFromGridB boardDebug1
+let filtered = filter (\(x, y) -> y == Just color || y == Just (color * 2)) zipped
 
-loop (Node (nodeFromGridB boardDebug1) []) 2
-
-Checkers.getPossibleMoves (nodeFromGridB boardDebug1)   
-
--------------------------------------------
--- works for either moving next...
-------------------------------------------
-getPieceLocs n  --  [5,6,7,8,10,11,13,16,28]
-
-let index = 23 
-multiJumps g color offsets index
-
-fmap (multiJumps g color offsets) (getPieceLocs n)
-
-outer g color offsets index []
-
-jmpIndexes g color index offsets
-        
--}
+let f x r = x - r
+foldr f 0 (fmap fst filtered)
+--}
