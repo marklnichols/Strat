@@ -282,10 +282,12 @@ checkPromote node value to
 --TODO: addional position evaluation criteria 
 evalNode :: CkNode -> (Int, FinalState)
 evalNode n = let g =   n ^. ckPosition ^. grid
-                 score = kingCount g * 3 + pieceCount g
+                 mat = kingCount g * 15 + pieceCount g * 5
+                 mob = mobility n
+                 home = homeRow g
                  final = checkFinal n
              in case final of
-                    NotFinal -> (score, final)
+                    NotFinal -> (mat + mob, final)
                     WWins    -> (1000, final)
                     BWins    -> (-1000, final)
                           
@@ -311,7 +313,17 @@ count grid p =
     let w = length $ filter (== p) grid  
         b = length $ filter (== (-p)) grid
     in  w-b
+   
+mobility :: CkNode -> Int
+mobility node = wMoves - bMoves where
+    wMoves = moveCount (node & ckPosition.clr .~ 1)
+    bMoves = moveCount (node & ckPosition.clr .~ (-1))
     
+    
+--TODO: implement
+homeRow :: [Int] -> Int
+homeRow grid = 0                    
+   
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
