@@ -60,7 +60,15 @@ checkersTest = do
         it "determine the mobility of each side" $ do
             mobility (nodeFromGridW board01) `shouldBe` -1
             mobility (nodeFromGridB board03) `shouldBe`  3
-                       
+    describe "homeRow'" $
+        it "checks to see if the home row is full or if two no adjacent squares are occupied" $ do
+            homeRow' board01 1 `shouldBe` homeRowNone
+            homeRow' board01 (-1) `shouldBe` homeRowNone
+            homeRow' board10 1 `shouldBe` homeRowPartial
+            homeRow' board10 (-1) `shouldBe` homeRowPartial
+            homeRow' board08 1 `shouldBe` homeRowFull
+            homeRow' board08 (-1) `shouldBe` homeRowFull              
+  
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------            
@@ -253,8 +261,8 @@ multi-jumps: A3-C1-E3, A3-C5-E3, A3-C5-E7-G5
                                      --  (00) (01) (02) (03) (04)       
 -} 
 
-boardDebug1 :: [Int]                    
-boardDebug1 = [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, 01, 01, 00, 01, -1, 00, 01, 00, 99, 00, 00, 00, 00,
+board08 :: [Int]                    
+board08 =  [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, 01, 01, 00, 01, -1, 00, 01, 00, 99, 00, 00, 00, 00,
            -1, 00, -1, 00, 99, 01, 00, 00, -1, 00, 00, 00, -1, 99, -1, -1, -1, -1, 99, 99, 99, 99, 99]
 {--           
                                      --  (41) (42) (43) (44) (45)    
@@ -302,6 +310,22 @@ board09 = [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, -1, -1, -1, -1, -1, -1, -1, -
               01  01   01   01      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)       
 -} 
+
+board10 :: [Int]                    
+board10 =  [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 01, 01, 00, 01, -1, 00, 01, 00, 99, 00, 00, 00, 00,
+            -1, 00, -1, 00, 99, 01, 00, 00, -1, 00, 00, 00, -1, 99, -1, 00, -1, 00, 99, 99, 99, 99, 99]
+{--           
+                                     --  (41) (42) (43) (44) (45)    
+                -1   00   -1   00    --     37   38   39   40        
+              00   00   00   -1      --   32   33   34   35      (36)
+                01   00   00   -1    --     28   29   30   31        
+              -1   00   -1   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              -1   00   01   00      --   14   15   16   17      (18)
+                01   01   00   01    --     10   11   12   13        
+              01   00   01   01      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)  
+--}      
   
 {-- 
 board0n :: [Int]                    
