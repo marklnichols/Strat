@@ -56,7 +56,11 @@ checkersTest = do
         it "checks to see if the game is over" $ do
             checkFinal (nodeFromGridW board09) `shouldBe` BWins
             checkFinal (nodeFromGridB board09) `shouldBe` WWins
-      
+    describe "mobility" $
+        it "determine the mobility of each side" $ do
+            mobility (nodeFromGridW board01) `shouldBe` -1
+            mobility (nodeFromGridB board03) `shouldBe`  3
+                       
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------            
