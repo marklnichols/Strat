@@ -32,10 +32,10 @@ checkersTest = do
             calcNewNode (nodeFromGridW board03) (mkMultiCkJump m3) ^. ckPosition ^. grid `shouldBe` board03_m3
     describe "pieceCount" $
         it "Counts the number of white regular pieces minus the black regular pieces" $ 
-            pieceCount board04 `shouldBe` -2
+            totalPieceCount board04 `shouldBe` -2
     describe "kingCount" $
         it "Counts the number of white king pieces minus the black king pieces" $ 
-            kingCount board04 `shouldBe` 4
+            totalKingCount board04 `shouldBe` 4
     describe "parseCkMove" $
         it "parses move input into a CkMove" $ do
             parseCkMove (nodeFromGridW board01) "A1 B2" `shouldBe` Right (mkSimpleCkMove 510)
@@ -54,8 +54,13 @@ checkersTest = do
             checkPromote (nodeFromGridW board05) 01 25 `shouldBe` 1
     describe "checkFinal" $
         it "checks to see if the game is over" $ do
-            checkFinal (nodeFromGridW board09) `shouldBe` BWins
-            checkFinal (nodeFromGridB board09) `shouldBe` WWins
+            checkFinal (nodeFromGridW board09) `shouldBe` Draw
+            checkFinal (nodeFromGridB board09) `shouldBe` NotFinal
+            checkFinal (nodeFromGridW board09b) `shouldBe` NotFinal
+            checkFinal (nodeFromGridB board09b) `shouldBe` Draw
+            checkFinal (nodeFromGridB board11) `shouldBe` WWins
+            checkFinal (nodeFromGridW board12) `shouldBe` BWins
+                        
     describe "mobility" $
         it "determine the mobility of each side" $ do
             mobility (nodeFromGridW board01) `shouldBe` -1
@@ -294,22 +299,41 @@ boardDebug2 = [99, 99, 99, 99, 99, 00, -1, 00, 00, 99, 00, 00, 00, 00, 01, 00, 0
                                      --  (00) (01) (02) (03) (04)       
 -} 
                                  
-
 board09 :: [Int]                    
-board09 = [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, -1, -1, -1, -1, -1, -1, -1, -1, 99, 00, 00, 00, 00,
-           00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
-{--            
+board09 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
+           00, 00, 00, 00, 99, 00, 00, 00, 00, 01, 00, 00, 00, 99, -1, 00, 00, 00, 99, 99, 99, 99, 99]
+{--          
+                                     --  (41) (42) (43) (44) (45)    
+                -1   00   00   00    --     37   38   39   40        
+              01   00   00   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              00   00   00   00      --   14   15   16   17      (18)
+                00   00   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
+ 
+board09b :: [Int]                    
+board09b =  [99, 99, 99, 99, 99, 00, 00, 00, 01, 99, 00, 00, 00, -2, 00, 00, 00, 01, 99, 00, 00, 01, 00,
+             00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--           
                                      --  (41) (42) (43) (44) (45)    
                 00   00   00   00    --     37   38   39   40        
               00   00   00   00      --   32   33   34   35      (36)
                 00   00   00   00    --     28   29   30   31        
               00   00   00   00      --   23   24   25   26      (27)
-                00   00   00   00    --     19   20   21   22        
-              -1   -1   -1   -1      --   14   15   16   17      (18)
-                -1   -1   -1   -1    --     10   11   12   13        
-              01  01   01   01      --   05   06   07   08      (09)
+                00   00   01   00    --     19   20   21   22        
+              00   00   00   01      --   14   15   16   17      (18)
+                00   00   00   -2    --     10   11   12   13        
+              00   00   00   01      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)       
 -} 
+
+
+
+
 
 board10 :: [Int]                    
 board10 =  [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 01, 01, 00, 01, -1, 00, 01, 00, 99, 00, 00, 00, 00,
@@ -325,7 +349,39 @@ board10 =  [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 01, 01, 00, 01, -1, 00, 01, 
                 01   01   00   01    --     10   11   12   13        
               01   00   01   01      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)  
---}      
+--}  
+
+board11 :: [Int]                    
+board11 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 01, 99, 00, 00, 00, 00,
+           00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 02, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--            
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   02   00   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              00   00   00   01      --   14   15   16   17      (18)
+                00   00   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
+
+board12 :: [Int]                    
+board12 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
+           00, -1, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--            
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              00   -1   00   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              00   00   00   00      --   14   15   16   17      (18)
+                00   00   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-} 
   
 {-- 
 board0n :: [Int]                    
