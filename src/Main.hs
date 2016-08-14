@@ -21,7 +21,7 @@ import Control.Lens
 -- :set args "checkers"
 -- Main.main
 
-gameEnv = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
+gameEnv = Env {_depth = 4, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = False, _p2Comp = True}
 
 main :: IO () 

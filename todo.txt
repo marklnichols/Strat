@@ -1,24 +1,25 @@
 Current:
-multi jumps - legal and required for player, chosen for computer
+
 
 Overall:
+Show score of current board
 Bare-bones web GUI
-pause to ghci / continue
-set a position / continue
-load position / game from disk 
-packaging/organization (as per lens)
-move tictac to examples
+show number of positions searched
 alpha-beta pruning
 Reader monad for move eval (for depth, difficulty level, etc.)
-Move test trees to different file
-Set the proper exports (comment out for debugging)
-Turn debugging on/off
-Debugging mode: show tree size
+Turn debugging display on/off
 
 TicTac:
 Prefer win on next move (after reader monad)
 
 Checkers:
-score for mobility
-score for home row filled
+End game improvment with opponent having one king only
+Add conditions for draw
+Test: is check blunders resulting in changed list of choices?
+Add some specific blunder evaluation?
 
+Project organization:
+move tictac to examples
+packaging/organization (as per lens)
+Move test trees to different file
+Set the proper exports (comment out for debugging)

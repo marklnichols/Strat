@@ -289,41 +289,50 @@ pieceVal = 5
 mobilityVal = 1
 
 finalValW = 1000
-vinalValB = -1000
+finalValB = -1000
+drawVal   = 0
 
 evalNode :: CkNode -> (Int, FinalState)
 evalNode n = let g =   n ^. ckPosition ^. grid
-                 mat = kingCount g * kingVal + pieceCount g * pieceVal
+                 mat = totalKingCount g * kingVal + totalPieceCount g * pieceVal
                  mob = mobility n * mobilityVal
                  home = homeRow g 
                  final = checkFinal n
              in case final of
                     NotFinal -> (mat + mob + home, final)
                     WWins    -> (finalValW, final)
-                    BWins    -> (vinalValB, final)
+                    BWins    -> (finalValB, final)
+                    Draw     -> (drawVal, final)
                           
---TODO: add draw conditions             
 checkFinal :: CkNode -> FinalState
 checkFinal n
-    | moveCount n /= 0        = NotFinal
-    | n^.ckPosition^.clr == 1 = BWins
-    | otherwise               = WWins
- 
+    | numPieces == 0    = colorToWinState $ negate color
+    | moveCount n == 0  = Draw
+    | otherwise         = NotFinal
+        where 
+            g = n^.ckPosition^.grid
+            numPieces = pieceCount g color + kingCount g color 
+            color = n^.ckPosition^.clr
+              
+colorToWinState :: Int -> FinalState
+colorToWinState 1 = WWins
+colorToWinState _ = BWins
+              
 -- TODO: implement
 errorEvalNode :: CkNode -> Int
 errorEvalNode n = fst $ evalNode n
 
-pieceCount :: [Int] -> Int
-pieceCount grid = count grid 1
+totalPieceCount :: [Int] -> Int
+totalPieceCount grid = pieceCount grid 1 - pieceCount grid (-1) 
 
-kingCount :: [Int] -> Int
-kingCount grid = count grid 2
+totalKingCount :: [Int] -> Int
+totalKingCount grid = kingCount grid 1 - kingCount grid (-1)
 
-count :: [Int] -> Int -> Int
-count grid p = 
-    let w = length $ filter (== p) grid  
-        b = length $ filter (== (-p)) grid
-    in  w-b
+pieceCount :: [Int] -> Int -> Int
+pieceCount grid color = length $ filter (== color) grid
+
+kingCount :: [Int] -> Int -> Int
+kingCount grid color = length $ filter (== 2 * color) grid
    
 mobility :: CkNode -> Int
 mobility node = wMoves - bMoves where
