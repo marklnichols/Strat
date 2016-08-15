@@ -6,14 +6,9 @@ import StratTree.StratTree
 import StratIO.StratIO
 
 import System.Environment
-import System.IO
 import System.Exit
 import Data.Tree
-import Data.Tree.Zipper
-import Data.List
 import Data.Maybe
-import Control.Monad
-import Data.Tuple.Select
 import Control.Monad.Reader
 import Control.Lens
 
@@ -21,7 +16,7 @@ import Control.Lens
 -- :set args "checkers"
 -- Main.main
 
-gameEnv = Env {_depth = 4, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
+gameEnv = Env {_depth = 5, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0,
      _p1Comp = False, _p2Comp = True}
 
 main :: IO () 
@@ -90,7 +85,7 @@ computerMove node turn = do
             putStrLn "Invalid result returned from best"
             exitFailure
         Just result -> do
-            let badMovesM = checkBlunders newTree (turnToColor turn) (_moveScores result)
+            let badMovesM = checkBlunders newTree (turnToColor turn) (result^.moveScores)
             let badMoves = runReader badMovesM gameEnv
             let finalChoices = fromMaybe (result ^. moveScores) badMoves
             putStrLn ("Choices from best: " ++ show (result^.moveScores))
@@ -106,10 +101,10 @@ computerMove node turn = do
 
 printMoveChoiceInfo :: Move m => Result m -> m -> IO ()
 printMoveChoiceInfo result move = do
-    putStrLn ("Equivalent best moves: " ++ show (_moveChoices result))
-    putStrLn ("Following moves: " ++ show ( _followingMoves result ))
+    putStrLn ("Equivalent best moves: " ++ show (result^.moveChoices))
+    putStrLn ("Following moves: " ++ show ( result^.followingMoves))
     putStrLn ("Computer's move:\n (m:" ++ show move ++
-                  ", s:" ++ show (_score $ head $ _moveScores result) ++ ")")
+                  ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
     putStrLn ""
     
 isCompTurn :: Int -> Reader Env Bool

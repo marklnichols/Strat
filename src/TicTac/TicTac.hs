@@ -6,9 +6,7 @@ module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, 
 
 import StratTree.TreeNode hiding (Result, MoveScore)
 import qualified TicTac.TTParser as Parser
-import Data.List.Lens
 import Control.Lens
-import Data.List
 import Data.Tree
 
 ------------------------------------------------------------------
@@ -23,15 +21,17 @@ makeLenses ''TTNode
 instance PositionNode TTNode IntMove where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
-    color = _clr . _ttPosition
-    final = _fin . _ttPosition
+    --color = _clr . _ttPosition
+    color n = n ^. (ttPosition . clr) 
+    --final = _fin . _ttPosition
+    final n = n ^. (ttPosition . fin)
     showPosition = format
     parseMove n s = strToMove s (color n) 
  
 instance TreeNode TTNode IntMove where
-    getMove = _ttMove
-    getValue = _ttValue
-    getErrorValue = _ttErrorValue
+    getMove t = t ^. ttMove
+    getValue t = t ^. ttValue
+    getErrorValue t = t ^. ttErrorValue
     
 ---------------------------------------------------------
 -- starting position,
@@ -72,11 +72,11 @@ calcNewNode node mv =
     let val
             | theInt mv >= 0   =  1
             | otherwise = -1
-        gridSet = set (grid . ix (mvToGridIx mv)) val (_ttPosition node)
+        gridSet = set (grid . ix (mvToGridIx mv)) val (node ^. ttPosition)
         oldColor = view clr gridSet
         colorFlipped = set clr (flipColor oldColor) gridSet
-        (score, finalSt) = evalGrid $ _grid colorFlipped
-        errorScore = errorEvalGrid $ _grid colorFlipped
+        (score, finalSt) = evalGrid $ colorFlipped ^. grid
+        errorScore = errorEvalGrid $ colorFlipped ^. grid
         allSet = set fin finalSt colorFlipped
     in  TTNode mv score errorScore allSet
 
@@ -90,22 +90,18 @@ mvToGridIx mv = abs (theInt mv) -1     --moves are (+/-) 1-9 vs indexes 0-8
 ---------------------------------------------------------
 -- get list of possible moves from a given position
 ---------------------------------------------------------
--- TODO extend the use of lens to navigate node -> position ->
 getPossibleMoves :: TTNode -> [IntMove]
-getPossibleMoves n =  foldr f [] (zip (_ttPosition n ^. grid) [1..9]) where
+getPossibleMoves n =  foldr f [] (zip (n ^. (ttPosition . grid)) [1..9]) where
     f (x, idx) newList
-        | x == 0        = IntMove (idx * _clr (_ttPosition n)) : newList
+        | x == 0        = IntMove (idx * (n ^. ttPosition . clr)) : newList
         | otherwise     = newList
 
 --------------------------------------------------------
 -- Position Evaluation
 --------------------------------------------------------
 eval :: TTNode -> Int
-eval n = fst $ evalGrid $ _grid (_ttPosition n)
+eval n = fst $ evalGrid $ n ^. ttPosition . grid 
 
-errorEval :: TTNode -> Int
-errorEval n = errorEvalGrid $ _grid (_ttPosition n)
-    
 evalGrid :: [Int] ->  (Int, FinalState)
 evalGrid grid   
     | checkWins grid 1        = (100, WWins)
@@ -127,7 +123,6 @@ errorEvalGrid grid
 ---------------------------------------------------------------------
 -- Check positions for winning / losing conditions 
 ---------------------------------------------------------------------
---checkWins :: [grid] -> color -> Bool
 checkWins :: [Int] -> Int -> Bool
 checkWins pos = wins (sums $ applyMask pos masks) 
 
@@ -155,9 +150,6 @@ scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
 --------------------------------------------------------------------
 -- helper functions
 --------------------------------------------------------------------    
---hasTwoOf :: [a] -> a -> Bool
---hasTwoOf xs x = length . (filter (\y -> y == x) xs) == 2
-
 wins :: [Int] -> Int -> Bool
 wins sums color = (color * 3) `elem` sums  
 

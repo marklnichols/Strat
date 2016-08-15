@@ -9,7 +9,7 @@ import Safe
 import Control.Monad
 import Control.Monad.Reader
 import Control.Lens
-import Debug.Trace
+--import Debug.Trace
 import Data.Tree.Zipper
 
 ----------------------------------------------------------------------------------------------------
@@ -35,7 +35,6 @@ checkBlunders tree color equivMS = do
                                                     then Just (addEquiv worst possibles) 
                                                     else Just equivMS)                                                    
                                                     
---expandTree :: tree -> depth -> tree
 expandTree :: PositionNode n m => Tree n -> Reader Env (Tree n)
 expandTree tree = do 
     depth <- asks _depth
@@ -43,7 +42,6 @@ expandTree tree = do
     
 --process a chosen move - prune the tree down so the selected move is the new head 
 --if there are no child moves at all, create a tree with just the single position corresponding to the move  
---processMove :: tree -> move -> tree
 processMove :: PositionNode n m => Tree n -> m -> Tree n
 processMove tree move = case subForest tree of 
     [] -> Node (newNode (rootLabel tree) move) []
@@ -55,7 +53,6 @@ isLegal tree move = move `elem` possibleMoves (rootLabel tree)
 ---------------------------------------------------------------------------------------------------
 -- non-exported functions
 ---------------------------------------------------------------------------------------------------    
-    
 --"worse" here is better wrt color used, since color is from tree level above 
 isWorse :: Int -> Int -> Int -> Int -> Bool
 isWorse  scoreToCheck compareTo margin color 

@@ -7,7 +7,6 @@ import Test.Hspec
 import Data.Tree
 import Data.Either
 import Control.Lens
-import Control.Lens.Setter
 import StratTree.TreeNode
 
 checkersTest = do

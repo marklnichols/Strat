@@ -14,13 +14,11 @@ import Data.Maybe
 import Data.Map
 import Test.Hspec
 import qualified Data.Map as Map
-import Data.Tuple.Select
 import Control.Monad.Reader
 
 ------------------------------------------------------------------------------------------------
 -- hspec tests
 -------------------------------------------------------------------------------------------------
---main = hspec $ do
 stratTreeTest = do  
     describe "best" $ do
         it "calculates the best moves" $ do
@@ -261,8 +259,8 @@ testEnv2 = Env {_depth = 2, _errorDepth = 2, _equivThreshold = 0, _errorEquivThr
 testEnv3 = Env {_depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
 
-testEnv4 = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = True}
+--testEnv4 = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, --_errorEquivThreshold = 10,
+--     _p1Comp = True, _p2Comp = True}
      
 testEnvMax = Env {_depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}     
@@ -373,9 +371,10 @@ blunderTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0, _tiErrorValue = 
         Node TreeItem {_tiMove = IntMove 22, _tiValue = -40, _tiErrorValue = -40} [
             Node TreeItem {_tiMove = IntMove 25, _tiValue = 5, _tiErrorValue = 5} [], 
             Node TreeItem {_tiMove = IntMove 26, _tiValue = 80, _tiErrorValue = 80} []]]]   
-            
+
+{--            
 prunedToChild = Node TreeItem {_tiMove = IntMove 2, _tiValue = 70, _tiErrorValue = 70} [
-        Node TreeItem {_tiMove = IntMove 5, _tiValue = 45, _tiErrorValue = 45} [
+        Node TreeItem {_tiMove = IntMove 5, _tiValue =   45, _tiErrorValue = 45} [
             Node TreeItem {_tiMove = IntMove 11, _tiValue = 0, _tiErrorValue = 0} [], 
             Node TreeItem {_tiMove = IntMove 12, _tiValue = -10, _tiErrorValue = -10} []], 
         Node TreeItem {_tiMove = IntMove 6, _tiValue = -60, _tiErrorValue = -60} [
@@ -385,7 +384,8 @@ prunedToChild = Node TreeItem {_tiMove = IntMove 2, _tiValue = 70, _tiErrorValue
             Node TreeItem {_tiMove = IntMove 15, _tiValue= 80, _tiErrorValue = 80} [], 
             Node TreeItem {_tiMove = IntMove 16, _tiValue= -90, _tiErrorValue = -90} [], 
             Node TreeItem {_tiMove = IntMove 17, _tiValue = 10, _tiErrorValue = 10} []]]
-
+--}
+            
 aTree2 = Node TreeItem {_tiMove = IntMove 0, _tiValue = 0, _tiErrorValue = 0 } [
     Node TreeItem {_tiMove = IntMove 1, _tiValue = 10, _tiErrorValue =  10} [
         Node TreeItem {_tiMove = IntMove 4, _tiValue = 40, _tiErrorValue = 40 } [

@@ -2,7 +2,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, 
-       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveScores, Env (..), 
+       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveChoices, 
+       followingMoves, moveScores, Env (..), 
        Move (..), IntMove (..)) where
 
 import Control.Lens
@@ -49,8 +50,6 @@ data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 data Env = Env 
     {_depth :: Int, _errorDepth :: Int, _equivThreshold :: Int, _errorEquivThreshold :: Int,
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
-
-makeLenses ''Env     
 
 data MoveScore m = MoveScore {_move :: m, _score :: Int} deriving (Eq)
 
