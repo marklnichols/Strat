@@ -2,9 +2,9 @@ module CkParser (Move (..), Loc (..), run) where
 
 import Text.Parsec
 import Text.Parsec.String
-import Text.ParserCombinators.Parsec.Error
+--import Text.ParserCombinators.Parsec.Error
 import Data.Char  
-import Data.List
+--import Data.List
  
 data Loc 
     = Loc Char Int

@@ -5,14 +5,10 @@ module Checkers where
 import qualified CkParser as Parser
 import Prelude hiding (lookup)
 import Control.Monad
-import Control.Monad.ST
-import Data.HashTable.ST.Basic
 import Data.Tree
 import StratTree.TreeNode hiding (MoveScore, Result)
-import Data.List.Lens
 import Control.Lens
 import Data.List hiding (lookup, insert)
-import Data.List.Split
 import Data.Char
 import Data.Maybe
 import qualified Data.Map as Map
@@ -41,8 +37,6 @@ instance PositionNode CkNode CkMove where
     showPosition = format
     parseMove = parseCkMove
     
-
-
 instance TreeNode CkNode CkMove where
     getMove = _ckMove
     getValue = _ckValue
@@ -248,7 +242,7 @@ calcNewNode node mv =
         
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue score finSet
-        errScoreSet = set ckErrorValue score scoreSet
+        errScoreSet = set ckErrorValue errScore scoreSet
     in  set ckMove mv errScoreSet   
  
 removePiece :: CkNode -> Int -> CkNode

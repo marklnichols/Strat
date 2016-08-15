@@ -22,7 +22,6 @@ getSiblings tree = case parent tree of
                        Just t  -> getChildren t
 
 --follows a path of moves to the tree corresponding to the last move in the list
---decendPath :: [moves] -> starting tree -> maybe (last child in list)
 descendPath :: TreeNode t m => [m] -> TreePos Full t -> Maybe (TreePos Full t)
 descendPath moves startTree = foldl f (Just startTree) moves 
     where 
@@ -30,7 +29,6 @@ descendPath moves startTree = foldl f (Just startTree) moves
         f r move = r >>= childByMove move 
    
 --visit all the nodes and modify the tree via the visit function
---visitTree :: tree -> max depth -> visit function -> new Tree
 visitTree :: PositionNode n m => Tree n -> Int -> (TreePos Full n -> Int -> Int -> TreePos Full n) -> Tree n
 visitTree tree max visitFunct = toTree $ descend' (visitFunct (fromTree tree) 0 max) 0 where
     descend' tPos depth =
@@ -48,17 +46,11 @@ childByMove :: TreeNode t m => m -> TreePos Full t -> Maybe (TreePos Full t)
 childByMove move tree  = 
     find (\x -> move == getMove (label x)) (getChildren tree) 
 
---pruneToChild -- prune the tree down to the subtree whose root matches the given child
---pruneToChild :: starting tree -> move to match -> new pruned sub tree                             
+--pruneToChild -- prune the tree down to the subtree whose root matches the given child                   
 pruneToChild :: TreeNode t m => Tree t -> m -> Tree t
-pruneToChild tree move = fromMaybe tree (find (\ x -> move == getMove (rootLabel x)) (subForest tree))                                                                                     
-
---delParent :: parentTree -> childTree -> childTree
-delParent :: TreeNode t m => Tree t -> Tree t ->Tree t
-delParent parent child = toTree $ modifyTree (const child) $ fromTree parent
+pruneToChild tree move = fromMaybe tree (find (\ x -> move == getMove (rootLabel x)) (subForest tree))
         
 --pruneExcept -- Prune the tree of all the children except the one matching the supplied move
---pruneExcept :: starting tree -> move to match -> pruned tree
 pruneChildrenExcept :: TreeNode t m => Tree t -> m -> Tree t
 pruneChildrenExcept tree move = 
     let mPair = delOneUntilLast (firstChild $ fromTree tree) move

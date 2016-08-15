@@ -2,7 +2,7 @@ module StratIO.StratIO (resolveRandom) where
 
 import StratTree.TreeNode
 import System.Random
-import System.IO
+--import System.IO
 
 resolveRandom :: Move m => [MoveScore m] -> IO (Maybe m)
 resolveRandom [] = return Nothing
