@@ -6,8 +6,11 @@ import CkParser
 import Test.Hspec
 import Data.Tree
 import Data.Either
+import Data.Maybe
 import Control.Lens
+import Control.Monad.Reader
 import StratTree.TreeNode
+import StratTree.StratTree
 
 checkersTest = do
     describe "getPossibleMoves" $
@@ -59,7 +62,6 @@ checkersTest = do
             checkFinal (nodeFromGridB board09b) `shouldBe` Draw
             checkFinal (nodeFromGridB board11) `shouldBe` WWins
             checkFinal (nodeFromGridW board12) `shouldBe` BWins
-                        
     describe "mobility" $
         it "determine the mobility of each side" $ do
             mobility (nodeFromGridW board01) `shouldBe` -1
@@ -71,7 +73,7 @@ checkersTest = do
             homeRow' board10 1 `shouldBe` homeRowPartial
             homeRow' board10 (-1) `shouldBe` homeRowPartial
             homeRow' board08 1 `shouldBe` homeRowFull
-            homeRow' board08 (-1) `shouldBe` homeRowFull              
+            homeRow' board08 (-1) `shouldBe` homeRowFull       
   
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -107,6 +109,12 @@ mkSimpleCkJump (mv, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100,
 
 mkMultiCkJump :: (Int, [Int], [Int]) -> CkMove
 mkMultiCkJump (mv, middle, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100, _endIdx = mv `mod` 100, _middleIdxs = middle, _removedIdxs = removed}
+
+---------------------------------------------------------------------------------------------------
+-- Test Reader environments
+---------------------------------------------------------------------------------------------------
+envDepth6 = Env {_depth =6, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0,
+     _p1Comp = False, _p2Comp = True}
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
@@ -330,10 +338,6 @@ board09b =  [99, 99, 99, 99, 99, 00, 00, 00, 01, 99, 00, 00, 00, -2, 00, 00, 00,
                                      --  (00) (01) (02) (03) (04)       
 -} 
 
-
-
-
-
 board10 :: [Int]                    
 board10 =  [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 01, 01, 00, 01, -1, 00, 01, 00, 99, 00, 00, 00, 00,
             -1, 00, -1, 00, 99, 01, 00, 00, -1, 00, 00, 00, -1, 99, -1, 00, -1, 00, 99, 99, 99, 99, 99]
@@ -382,6 +386,57 @@ board12 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 0
                                      --  (00) (01) (02) (03) (04)       
 -} 
   
+boardXtoWin :: [Int]                    
+boardXtoWin = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
+               -2, 02, 02, 00, 99, 00, 00, 00, 00, 00, 00, -2, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+{--            
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   -2   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              -2   02   02   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              00   00   00   00      --   14   15   16   17      (18)
+                00   00   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-}   
+
+blunderBoard1 :: [Int]                    
+blunderBoard1 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 01, 00, 00, 00, 00, 00, 01, 00, 99, 00, 00, 00, 00,
+                 00, 00, 00, 00, 99, 00, 00, -2, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+-- black to move, if f6-e5 checking obvious mistake of E3-D4 or E3-F4
+{--           
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   00   00      --   32   33   34   35      (36)
+                00   00   -2   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22        
+              00   00   01   00      --   14   15   16   17      (18)
+                01   00   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-}  
+ 
+ 
+blunderBoard2 :: [Int]                    
+blunderBoard2 = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, -2, 00, 99, 02, 00, 00, 00,
+                00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 02, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+ -- c5-d4 allows possible blunder d2-e1 or d2-c1
+{--            
+                                     --  (41) (42) (43) (44) (45)    
+                00   00   00   00    --     37   38   39   40        
+              00   00   02   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31        
+              00   00   00   00      --   23   24   25   26      (27)
+                02   00   00   00    --     19   20   21   22        
+              00   00   -2   00      --   14   15   16   17      (18)
+                00   00   00   00    --     10   11   12   13        
+              00   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)       
+-}
+  
 {-- 
 board0n :: [Int]                    
 board0n = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
@@ -402,5 +457,9 @@ board0n = [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 0
 {-- To run from a given position within ghci:
     
     loop (Node (nodeFromGridW boardDebug1) []) 1  -- white to move next
-    loop (Node (nodeFromGridB boardDebug1) []) 2 -- black to move next   
+    loop (Node (nodeFromGridB boardDebug1) []) 2  -- black to move next   
+  
+    loop (Node (nodeFromGridB boardXtoWin) []) 2 -- black to move, at level 6 should see all white wins
+    loop (Node (nodeFromGridB blunderBoard1) []) 2
+    loop (Node (nodeFromGridB blunderBoard2) []) 2 -- black to move, at levle 6 should see blunder move
 --}

@@ -470,14 +470,3 @@ jmpsToCkMoves = foldr f [] where
                        _removedIdxs = fmap (\(m, n) -> (n-m) `div` 2 + m) (zip xs (tail xs))
                      } : r     
        
-
-{--
-let range = [37..40]
-let grid = board10
-let zipped = zip range (fmap (\x -> grid ^? ix x) range)
-let color = -1
-let filtered = filter (\(x, y) -> y == Just color || y == Just (color * 2)) zipped
-
-let f x r = x - r
-foldr f 0 (fmap fst filtered)
---}
