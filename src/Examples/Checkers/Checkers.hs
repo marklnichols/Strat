@@ -11,12 +11,13 @@ import Control.Lens
 import Data.List hiding (lookup, insert)
 import Data.Char
 import Data.Maybe
+import qualified Data.Vector as V
 import qualified Data.Map as Map
    
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
-data CkPosition = CkPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
+data CkPosition = CkPosition {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''CkPosition
 
 data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int], _removedIdxs :: [Int]} 
@@ -101,8 +102,8 @@ offBoard = [0, 1, 2, 3, 4, 9, 18, 27, 36, 41, 42, 43, 44, 45]
 ---------------------------------------------------------------------------------------------------
 -- Initial board position
 ---------------------------------------------------------------------------------------------------                                                                                    
-mkStartGrid :: Int -> [Int] 
-mkStartGrid bottomColor =  fmap (indexToValue bottomColor) [0..45]
+mkStartGrid :: Int -> V.Vector Int 
+mkStartGrid bottomColor =  fmap (indexToValue bottomColor) (V.fromList [0..45])
 
 indexToValue :: Int -> Int -> Int
 indexToValue bottomColor idx 
@@ -126,12 +127,12 @@ format node = loop (node^.ckPosition^.grid) 40 "" where
             4 -> (n, "   ")   
   
                                                             
-rowToStr :: [Int] -> Int -> String -> String
+rowToStr :: V.Vector Int -> Int -> String -> String
 rowToStr xs i spaces =  Map.findWithDefault "??" i labelMap ++ "  " ++ spaces ++ 
-                            toXOs (xs !! (i-3)) ++ gap ++
-                            toXOs (xs !! (i-2)) ++ gap ++
-                            toXOs (xs !! (i-1)) ++ gap ++
-                            toXOs (xs !!    i)  ++ "\n"
+                            toXOs (xs V.! (i-3)) ++ gap ++
+                            toXOs (xs V.! (i-2)) ++ gap ++
+                            toXOs (xs V.! (i-1)) ++ gap ++
+                            toXOs (xs V.!    i)  ++ "\n"
 
 gap = "     "
                             
@@ -316,31 +317,31 @@ colorToWinState _ = BWins
 errorEvalNode :: CkNode -> Int
 errorEvalNode n = fst $ evalNode n
 
-totalPieceCount :: [Int] -> Int
+totalPieceCount :: V.Vector Int -> Int
 totalPieceCount grid = pieceCount grid 1 - pieceCount grid (-1) 
 
-totalKingCount :: [Int] -> Int
+totalKingCount :: V.Vector Int -> Int
 totalKingCount grid = kingCount grid 1 - kingCount grid (-1)
 
-pieceCount :: [Int] -> Int -> Int
-pieceCount grid color = length $ filter (== color) grid
+pieceCount :: V.Vector Int -> Int -> Int
+pieceCount grid color = length $ V.filter (== color) grid
 
-kingCount :: [Int] -> Int -> Int
-kingCount grid color = length $ filter (== 2 * color) grid
+kingCount :: V.Vector Int -> Int -> Int
+kingCount grid color = length $ V.filter (== 2 * color) grid
    
 mobility :: CkNode -> Int
 mobility node = wMoves - bMoves where
     wMoves = moveCount (node & ckPosition.clr .~ 1)
     bMoves = moveCount (node & ckPosition.clr .~ (-1))
     
-homeRow :: [Int] -> Int
+homeRow :: V.Vector Int -> Int
 homeRow grid = homeRow' grid 1 - homeRow' grid (-1)
 
-homeRow' :: [Int] -> Int -> Int
+homeRow' :: V.Vector Int -> Int -> Int
 homeRow' grid 1    = checkRow grid 1 [5..8]
 homeRow' grid (-1) = checkRow grid (-1) [37..40] 
 
-checkRow :: [Int] -> Int -> [Int] -> Int
+checkRow :: V.Vector Int -> Int -> [Int] -> Int
 checkRow grid color range 
     | len == 4  = homeRowFull
     | len == 3  = homeRowPartial
@@ -370,7 +371,7 @@ getPieceLocs :: CkNode -> [Int]
 getPieceLocs node = 
     let pos = node ^. ckPosition
         c = pos ^. clr
-        pairs = zip [0..45] (pos ^. grid)
+        pairs = zip [0..45] (V.toList $ pos ^. grid)
     in fmap fst (filter (pMatch c) pairs)
         where pMatch color pair =
                 let val = snd pair
@@ -394,7 +395,7 @@ pieceMoves node idx =
         Nothing -> []
         Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr) 
 
-forwardMoves :: [Int] -> Int -> Int -> [CkMove]
+forwardMoves :: V.Vector Int -> Int -> Int -> [CkMove]
 forwardMoves g idx color = 
     let newIdxs = filter f [idx + (color * 4), idx + (color * 5)] 
         f idx = case g ^? ix idx of
@@ -403,7 +404,7 @@ forwardMoves g idx color =
     in fmap h newIdxs where
         h newIdx = CkMove {_isJump = False, _startIdx = idx, _endIdx = newIdx, _middleIdxs = [], _removedIdxs = []}       
     
-kingMoves :: [Int] -> Int -> [CkMove]
+kingMoves :: V.Vector Int -> Int -> [CkMove]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
 ---------------------------------------------------------------------------------------------------
@@ -422,7 +423,7 @@ pieceJumps node idx =
                     | otherwise  = [JumpOff (4 * color) (8 * color), JumpOff (5 * color) (10 * color)]
 
                     
-multiJumps :: [Int] -> Int -> [JumpOff] -> Int -> [CkMove]
+multiJumps :: V.Vector Int -> Int -> [JumpOff] -> Int -> [CkMove]
 multiJumps grid color offsets index = jmpsToCkMoves $ fmap reverse (outer grid index []) where
     outer g x xs = 
         let (nextIdxs, gNew) = jmpIndexes g color x offsets
@@ -434,7 +435,7 @@ multiJumps grid color offsets index = jmpsToCkMoves $ fmap reverse (outer grid i
                                             in foldr f [[]] ys
                                 
                                       
-jmpIndexes :: [Int] -> Int -> Int -> [JumpOff] -> ([Int], [Int])                  
+jmpIndexes :: V.Vector Int -> Int -> Int -> [JumpOff] -> ([Int], V.Vector Int)                  
 jmpIndexes g color startIdx jos = 
     let pairs = catMaybes $ fmap f jos
         validIdxs = fmap fst pairs
@@ -446,7 +447,7 @@ jmpIndexes g color startIdx jos =
     in (validIdxs, newG)
    
                
-isValidJump :: [Int] -> Int -> Int -> Int -> Bool
+isValidJump :: V.Vector Int -> Int -> Int -> Int -> Bool
 isValidJump g color loc1 loc2 = 
     let mOver = g ^? ix loc1
         mLand = g ^? ix loc2
@@ -455,9 +456,9 @@ isValidJump g color loc1 loc2 =
             check over land = land == 0 && over /= 0 && over /= 99 && over * color < 0
  
  
-removeCaptured :: [Int] -> [Int] -> [Int]
+removeCaptured :: V.Vector Int -> [Int] -> V.Vector Int
 removeCaptured = foldr f where
-                    f :: Int -> [Int] -> [Int]
+                    f :: Int -> V.Vector Int -> V.Vector Int
                     f idx grid' = grid' & ix idx .~ 0   
                                               
  
