@@ -1,4 +1,4 @@
-hlint src\main.hs
+hlint src\Strat-commandline\main.hs
 hlint src\StratTree\StratTree.hs
 hlint src\StratTree\StratTreeTest.hs
 hlint src\StratTree\TreeNode.hs
