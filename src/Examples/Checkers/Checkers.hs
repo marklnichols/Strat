@@ -366,7 +366,8 @@ requireJumps :: [CkMove] -> [CkMove]
 requireJumps xs = case filter (^. isJump) xs of
                     [] -> xs    --no jumps
                     js -> js    --return only the jumps
-                                               
+ 
+{-- 
 getPieceLocs :: CkNode -> [Int]
 getPieceLocs node = 
     let pos = node ^. ckPosition
@@ -377,7 +378,18 @@ getPieceLocs node =
                 let val = snd pair
                     av = abs val 
                 in (av > 0 && av <3 && (val * color) > 0)
-
+--}
+getPieceLocs :: CkNode -> [Int]
+getPieceLocs node = 
+    let pos = node ^. ckPosition
+        c = pos ^. clr
+        pairs = V.zip (V.fromList [0..45]) (pos ^. grid)
+    in V.toList $ fmap fst (V.filter (pMatch c) pairs)
+        where pMatch color pair =
+                let val = snd pair
+                    av = abs val 
+                in (av > 0 && av <3 && (val * color) > 0)
+                
 isKing :: Int -> Bool
 isKing move = abs move > 1
 
