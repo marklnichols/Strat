@@ -1,4 +1,4 @@
-module Main where 
+module Main where
 import TicTac.TicTac
 import Checkers
 import StratTree.TreeNode
@@ -16,32 +16,32 @@ import Control.Lens
 -- :set args "checkers"
 -- Main.main
 
-gameEnv = Env {_depth = 6, _errorDepth = 6, _equivThreshold = 0, _errorEquivThreshold = 0,
-     _p1Comp = True, _p2Comp = True}
+gameEnv = Env {_depth = 5, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
+     _p1Comp = False, _p2Comp = True}
 
-main :: IO () 
-main = do 
+main :: IO ()
+main = do
     a <- getArgs
-    parse a 
+    parse a
     return ()
- 
-parse :: [String] -> IO () 
+
+parse :: [String] -> IO ()
 parse ["tictac"]   = loop getTicTacStart 1
 parse ["checkers"] = loop getCheckersStart 1
-parse _            = putStrLn "Usage: main tictac | checkers" 
+parse _            = putStrLn "Usage: main tictac | checkers"
 
 getTicTacStart :: Tree TTNode
-getTicTacStart = TicTac.TicTac.getStartNode 
+getTicTacStart = TicTac.TicTac.getStartNode
 
 getCheckersStart :: Tree CkNode
-getCheckersStart = Checkers.getStartNode 
- 
+getCheckersStart = Checkers.getStartNode
+
 loop :: PositionNode n m => Tree n -> Int -> IO ()
 loop node turn = do
     putStrLn $ showPosition $ rootLabel node
+    putStrLn ("Current position score: " ++ show (getValue (rootLabel node)))
     putStrLn ""
-    putStrLn ""
-    theNext <- case final $ rootLabel node of  
+    theNext <- case final $ rootLabel node of
         WWins -> do
             putStrLn "White wins."
             return Nothing
@@ -52,14 +52,14 @@ loop node turn = do
             putStrLn "Draw."
             return Nothing
         _ -> do
-            nextNode <- if runReader (isCompTurn turn) gameEnv 
+            nextNode <- if runReader (isCompTurn turn) gameEnv
                             then computerMove node turn
-                            else playerMove node turn 
+                            else playerMove node turn
             return (Just nextNode)
-    case theNext of 
+    case theNext of
         Nothing -> return ()
         Just next -> loop next (swapTurns turn)
-  
+
 playerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
 playerMove tree turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
@@ -70,17 +70,17 @@ playerMove tree turn = do
             putStrLn err
             playerMove tree turn
         Right mv -> if not (isLegal tree mv)
-            then do 
+            then do
                 putStrLn "Not a legal move."
-                playerMove tree turn  
-            else return (processMove tree mv) 
-   
+                playerMove tree turn
+            else return (processMove tree mv)
+
 computerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
-computerMove node turn = do 
+computerMove node turn = do
     putStrLn "Calculating computer move..."
-    let newTree = runReader (expandTree node) gameEnv 
+    let newTree = runReader (expandTree node) gameEnv
     let resultM = runReader (best newTree (turnToColor turn)) gameEnv
-    case resultM of 
+    case resultM of
         Nothing -> do
             putStrLn "Invalid result returned from best"
             exitFailure
@@ -95,8 +95,8 @@ computerMove node turn = do
                 Nothing -> do
                     putStrLn "Invalid result from resolveRandom"
                     exitFailure
-                Just move -> do    
-                    printMoveChoiceInfo result move 
+                Just move -> do
+                    printMoveChoiceInfo result move
                     return (processMove newTree move)
 
 printMoveChoiceInfo :: Move m => Result m -> m -> IO ()
@@ -106,9 +106,9 @@ printMoveChoiceInfo result move = do
     putStrLn ("Computer's move:\n (m:" ++ show move ++
                   ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
     putStrLn ""
-    
+
 isCompTurn :: Int -> Reader Env Bool
-isCompTurn turn = do 
+isCompTurn turn = do
     p1 <- asks _p1Comp
     p2 <- asks _p2Comp
     if turn == 1 then return p1 else return p2
