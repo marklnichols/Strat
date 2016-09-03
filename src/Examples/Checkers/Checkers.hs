@@ -363,10 +363,12 @@ progress grid = f 1 - f (-1) where
     f color = pieceProgress (V.filter (== color) grid) color
 
 pieceProgress :: V.Vector Int -> Int -> Int
-pieceProgress xs color = V.foldr f 0 xs where
-    f x r 
-        | labelIdx x < 4 = r
-        | otherwise      = r + (labelIdx x + (color - 1) * 7 `div` 2)
+pieceProgress xs color =
+    let vals    = case color of
+                    1 -> [ 0,  0,  0,  0,  1,  2,  3,  4] :: [Int]
+                    _ -> [-4, -3, -2, -1,  0,  0,  0,  0] :: [Int]
+        f x r   = r +  fromMaybe 0 (vals ^? ix (labelIdx x))
+    in V.foldr f 0 xs
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position

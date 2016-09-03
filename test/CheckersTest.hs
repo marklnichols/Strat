@@ -74,8 +74,8 @@ checkersTest = do
             homeRow' board08 (-1) `shouldBe` homeRowFull
     describe "piecePrgress" $
         it "calculates the sum of values corresponding to how far non-king piece has progressed down the board" $ do
-            pieceProgress (V.fromList [15, 33]) 1 `shouldBe` 8
-            pieceProgress (V.fromList [15, 33]) (-1) `shouldBe` -6
+            pieceProgress (V.fromList [15, 33]) 1 `shouldBe` 3
+            pieceProgress (V.fromList [15, 33]) (-1) `shouldBe` -2
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
