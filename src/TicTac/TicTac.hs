@@ -1,8 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 --TODO reorganize the exports list -- move those only needed for testing elsewhere
-module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, checkTwoWayWin, scorePos, format, 
-       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask, strToMove) where
+module TicTac.TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, checkTwoWayWin, scorePos, format,
+       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask, wins, strToMove) where
 
 import StratTree.TreeNode hiding (Result, MoveScore)
 import qualified TicTac.TTParser as Parser
@@ -14,48 +14,48 @@ import Data.Tree
 ------------------------------------------------------------------
 data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
-    
+
 data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
-makeLenses ''TTNode  
-    
+makeLenses ''TTNode
+
 instance PositionNode TTNode IntMove where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
     --color = _clr . _ttPosition
-    color n = n ^. (ttPosition . clr) 
+    color n = n ^. (ttPosition . clr)
     --final = _fin . _ttPosition
     final n = n ^. (ttPosition . fin)
     showPosition = format
-    parseMove n s = strToMove s (color n) 
- 
+    parseMove n s = strToMove s (color n)
+
 instance TreeNode TTNode IntMove where
     getMove t = t ^. ttMove
     getValue t = t ^. ttValue
     getErrorValue t = t ^. ttErrorValue
-    
+
 ---------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = 0, _ttErrorValue = 0, _ttPosition = TTPosition 
+getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = 0, _ttErrorValue = 0, _ttPosition = TTPosition
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
 ---------------------------------------------------------
 -- parse string input to move
----------------------------------------------------------    
-strToMove :: String -> Int -> Either String IntMove    
+---------------------------------------------------------
+strToMove :: String -> Int -> Either String IntMove
 strToMove str color =
     let x = Parser.run str
-    in case x of     
-        Left err -> Left err 
+    in case x of
+        Left err -> Left err
         Right n -> Right $ IntMove (color * n)
-    
-    
+
+
 --------------------------------------------------------
 -- format position as a string
 --------------------------------------------------------
 format :: TTNode -> String
-format n = 
+format n =
     let g = n ^. ttPosition ^. grid
         rows = take 3 g : take 3 (drop 3 g) : [take 3 $ drop 6 g]
     in  foldr f "" rows where
@@ -75,7 +75,7 @@ calcNewNode node mv =
         gridSet = set (grid . ix (mvToGridIx mv)) val (node ^. ttPosition)
         oldColor = view clr gridSet
         colorFlipped = set clr (flipColor oldColor) gridSet
-        (score, finalSt) = evalGrid $ colorFlipped ^. grid
+        (score, finalSt) = evalGrid $ colorFlipped
         errorScore = errorEvalGrid $ colorFlipped ^. grid
         allSet = set fin finalSt colorFlipped
     in  TTNode mv score errorScore allSet
@@ -85,8 +85,8 @@ calcNewNode node mv =
 -- convert from move value to grid index
 ----------------------------------------------------------
 mvToGridIx :: IntMove -> Int
-mvToGridIx mv = abs (theInt mv) -1     --moves are (+/-) 1-9 vs indexes 0-8 
-    
+mvToGridIx mv = abs (theInt mv) -1     --moves are (+/-) 1-9 vs indexes 0-8
+
 ---------------------------------------------------------
 -- get list of possible moves from a given position
 ---------------------------------------------------------
@@ -100,42 +100,49 @@ getPossibleMoves n =  foldr f [] (zip (n ^. (ttPosition . grid)) [1..9]) where
 -- Position Evaluation
 --------------------------------------------------------
 eval :: TTNode -> Int
-eval n = fst $ evalGrid $ n ^. ttPosition . grid 
+eval n = fst $ evalGrid $ n ^. ttPosition
 
-evalGrid :: [Int] ->  (Int, FinalState)
-evalGrid grid   
-    | checkWins grid 1        = (100, WWins)
-    | checkWins grid (-1)     = (-100, BWins)
-    | checkTwoWayWin grid 1    = (80, NotFinal)
-    | checkTwoWayWin grid (-1) = (-80, NotFinal)
-    | checkDraw grid          = (0, Draw)
-    | otherwise               = (scorePos grid, NotFinal)
-    
+evalGrid :: TTPosition ->  (Int, FinalState)
+evalGrid pos
+    | checkWins g 1         = (100, colorToFinalState color)
+    | checkWins g (-1)      = (-100, colorToFinalState (negate color))
+    | checkTwoWayWin g 1    = (80, NotFinal)
+    | checkTwoWayWin g (-1) = (-80, NotFinal)
+    | checkDraw g           = (0, Draw)
+    | otherwise             = (scorePos g, NotFinal)
+    where g = pos ^. grid
+          color = pos ^. clr
+
+colorToFinalState :: Int -> FinalState
+colorToFinalState 1 = WWins
+colorToFinalState _ = BWins
+
+
 errorEvalGrid :: [Int] -> Int
-errorEvalGrid grid   
+errorEvalGrid grid
     | checkTwoWayWin grid 1    = 121
     | checkTwoWayWin grid (-1) = -121
     | checkWins grid 1        = 101
     | checkWins grid (-1)     = -101
-    | checkDraw grid          = 1 
-    | otherwise               = 1 -- scorePos grid    
- 
+    | checkDraw grid          = 1
+    | otherwise               = 1 -- scorePos grid
+
 ---------------------------------------------------------------------
--- Check positions for winning / losing conditions 
+-- Check positions for winning / losing conditions
 ---------------------------------------------------------------------
 checkWins :: [Int] -> Int -> Bool
-checkWins pos = wins (sums $ applyMask pos masks) 
+checkWins pos = wins (sums $ applyMask pos masks)
 
 checkDraw :: [Int] -> Bool
 checkDraw = notElem 0
 
 checkTwoWayWin :: [Int] -> Int -> Bool
-checkTwoWayWin pos color = 
+checkTwoWayWin pos color =
     let theSums = sums $ applyMask pos masks
         count = foldr f 0 theSums where
                     f x r = if x == 2*color then r+1 else r
     in count >= 2
-    
+
 ---------------------------------------------------------------------
 -- Additional positions evaluation functions
 ---------------------------------------------------------------------
@@ -146,12 +153,12 @@ scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
     --(7, 1, -1)  -> 10
     --(7, -1, 1)  -> -10
     (_, _, _)   -> 0
-    
+
 --------------------------------------------------------------------
 -- helper functions
---------------------------------------------------------------------    
+--------------------------------------------------------------------
 wins :: [Int] -> Int -> Bool
-wins sums color = (color * 3) `elem` sums  
+wins sums color = (color * 3) `elem` sums
 
 sums :: [[Int]] -> [Int]
 sums = map sum
