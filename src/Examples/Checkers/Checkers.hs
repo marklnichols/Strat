@@ -25,13 +25,17 @@ data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middle
     deriving (Eq, Ord)
 makeLenses ''CkMove
 
-data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: Int, _ckErrorValue :: Int, _ckPosition :: CkPosition}
+data CkEval = CkEval {_total :: Int, _details :: String}
+    deriving (Eq, Ord)
+makeLenses ''CkEval
+
+data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: CkEval, _ckErrorValue :: CkEval, _ckPosition :: CkPosition}
 makeLenses ''CkNode
 
 data JumpOff = JumpOff {_jmpOver :: Int, _land :: Int}
 makeLenses ''JumpOff
 
-instance PositionNode CkNode CkMove where
+instance PositionNode CkNode CkMove CkEval where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
     color = view (ckPosition . clr)
@@ -39,7 +43,7 @@ instance PositionNode CkNode CkMove where
     showPosition = format
     parseMove = parseCkMove
 
-instance TreeNode CkNode CkMove where
+instance TreeNode CkNode CkMove CkEval where
     getMove = _ckMove
     getValue = _ckValue
     getErrorValue = _ckErrorValue
@@ -53,7 +57,15 @@ instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: "
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
 
+instance Show CkEval where
+    show e = "Total: " ++ show (e ^. total) ++ " made up of: " ++ (e ^. details)
+
 instance Move CkMove
+
+instance Eval CkEval where
+    getInt e = e ^. total
+    setInt e n = e & total .~ n
+    fromInt n = CkEval {_total = n, _details = ""}
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
@@ -70,9 +82,10 @@ parseCkMove n s
 ---------------------------------------------------------------------------------------------------
 getStartNode :: Tree CkNode
 getStartNode = Node
-    CkNode {_ckMove = CkMove {_isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [], _removedIdxs = []},
-            _ckValue = 0, _ckErrorValue = 0, _ckPosition =
-            CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
+    CkNode {_ckMove = CkMove {_isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [],
+            _removedIdxs = []}, _ckValue = CkEval {_total = 0, _details = ""},
+            _ckErrorValue = CkEval {_total = 0, _details = ""},
+            _ckPosition = CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
 
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
@@ -237,14 +250,15 @@ calcNewNode :: CkNode -> CkMove -> CkNode
 calcNewNode node mv =
     let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
-        clrFlipped = set (ckPosition . clr) (flipColor (captured ^. ckPosition ^. clr)) captured
+        clrFlipped = set (ckPosition . clr) (negate (captured ^. ckPosition ^. clr)) captured
 
         (score, finalSt) = evalNode clrFlipped
         errScore = errorEvalNode clrFlipped
 
         finSet = set (ckPosition . fin) finalSt clrFlipped
-        scoreSet = set ckValue score finSet
-        errScoreSet = set ckErrorValue errScore scoreSet
+        scoreSet = set ckValue CkEval {_total = score, _details = ""} finSet
+
+        errScoreSet = set ckErrorValue CkEval {_total = errScore, _details = ""} scoreSet
     in  set ckMove mv errScoreSet
 
 removePiece :: CkNode -> Int -> CkNode

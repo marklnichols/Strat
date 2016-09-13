@@ -36,7 +36,7 @@ getTicTacStart = TicTac.TicTac.getStartNode
 getCheckersStart :: Tree CkNode
 getCheckersStart = Checkers.getStartNode
 
-loop :: PositionNode n m => Tree n -> Int -> IO ()
+loop :: PositionNode n m e => Tree n -> Int -> IO ()
 loop node turn = do
     putStrLn $ showPosition $ rootLabel node
     putStrLn ("Current position score: " ++ show (getValue (rootLabel node)))
@@ -60,7 +60,7 @@ loop node turn = do
         Nothing -> return ()
         Just next -> loop next (swapTurns turn)
 
-playerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
+playerMove :: PositionNode n m e => Tree n -> Int -> IO (Tree n)
 playerMove tree turn = do
     putStrLn ("Enter player " ++ show turn ++ "'s move:")
     line <- getLine
@@ -75,7 +75,7 @@ playerMove tree turn = do
                 playerMove tree turn
             else return (processMove tree mv)
 
-computerMove :: PositionNode n m => Tree n -> Int -> IO (Tree n)
+computerMove :: PositionNode n m e => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do
     putStrLn "Calculating computer move..."
     let newTree = runReader (expandTree node) gameEnv
@@ -99,7 +99,7 @@ computerMove node turn = do
                     printMoveChoiceInfo result move
                     return (processMove newTree move)
 
-printMoveChoiceInfo :: Move m => Result m -> m -> IO ()
+printMoveChoiceInfo :: (Eval e, Move m) => Result m e -> m -> IO ()
 printMoveChoiceInfo result move = do
     putStrLn ("Equivalent best moves: " ++ show (result^.moveChoices))
     putStrLn ("Following moves: " ++ show ( result^.followingMoves))
