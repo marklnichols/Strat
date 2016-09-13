@@ -84,11 +84,15 @@ blackFirstStartNode :: CkNode
 blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
-treeFromGridW g = Node CkNode {_ckMove = mkSimpleCkMove (-1), _ckValue = 0, _ckErrorValue = 0,
+treeFromGridW g = Node CkNode {_ckMove = mkSimpleCkMove (-1), 
+    _ckValue = CkEval {_total = 0, _details = ""}, 
+    _ckErrorValue = CkEval {_total = 0, _details = ""},
     _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
-treeFromGridB g = Node CkNode {_ckMove = mkSimpleCkMove (-1), _ckValue = 0, _ckErrorValue = 0,
+treeFromGridB g = Node CkNode {_ckMove = mkSimpleCkMove (-1), 
+    _ckValue = CkEval {_total = 0, _details = ""},
+    _ckErrorValue = CkEval {_total = 0, _details = ""},
     _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
 
 nodeFromGridW :: V.Vector Int -> CkNode

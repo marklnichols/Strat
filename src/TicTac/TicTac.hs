@@ -15,10 +15,10 @@ import Data.Tree
 data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''TTPosition
 
-data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: Int, _ttErrorValue :: Int, _ttPosition :: TTPosition} deriving (Show)
+data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: IntEval, _ttErrorValue :: IntEval, _ttPosition :: TTPosition} deriving (Show)
 makeLenses ''TTNode
 
-instance PositionNode TTNode IntMove where
+instance PositionNode TTNode IntMove IntEval where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
     --color = _clr . _ttPosition
@@ -28,7 +28,7 @@ instance PositionNode TTNode IntMove where
     showPosition = format
     parseMove n s = strToMove s (color n)
 
-instance TreeNode TTNode IntMove where
+instance TreeNode TTNode IntMove IntEval where
     getMove t = t ^. ttMove
     getValue t = t ^. ttValue
     getErrorValue t = t ^. ttErrorValue
@@ -37,7 +37,7 @@ instance TreeNode TTNode IntMove where
 -- starting position,
 ---------------------------------------------------------
 getStartNode :: Tree TTNode
-getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = 0, _ttErrorValue = 0, _ttPosition = TTPosition
+getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = IntEval 0, _ttErrorValue = IntEval 0, _ttPosition = TTPosition
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
 ---------------------------------------------------------
@@ -74,11 +74,11 @@ calcNewNode node mv =
             | otherwise = -1
         gridSet = set (grid . ix (mvToGridIx mv)) val (node ^. ttPosition)
         oldColor = view clr gridSet
-        colorFlipped = set clr (flipColor oldColor) gridSet
-        (score, finalSt) = evalGrid $ colorFlipped
+        colorFlipped = set clr (negate oldColor) gridSet
+        (score, finalSt) = evalGrid colorFlipped
         errorScore = errorEvalGrid $ colorFlipped ^. grid
         allSet = set fin finalSt colorFlipped
-    in  TTNode mv score errorScore allSet
+    in  TTNode mv (IntEval score) (IntEval errorScore) allSet
 
 
 ----------------------------------------------------------
