@@ -376,8 +376,8 @@ checkRow grid color range
                   f r x = x - r
 
 progress :: CkNode -> Int
-progress node = pieceProgress (getPieceLocs (setColor node 1)) 1
-                -  pieceProgress (getPieceLocs (setColor node (-1))) (-1)
+progress node = pieceProgress (getNonKingLocs (setColor node 1)) 1
+                -  pieceProgress (getNonKingLocs (setColor node (-1))) (-1)
 
 pieceProgress :: [Int] -> Int -> Int
 pieceProgress xs color =
@@ -422,8 +422,18 @@ getPieceLocs node =
                     av = abs val
                 in (av > 0 && av <3 && (val * color) > 0)
 
+getNonKingLocs :: CkNode -> [Int]
+getNonKingLocs node = filter f (getPieceLocs node) where
+    g =  node ^. (ckPosition . grid)
+    f idx = case g ^? ix idx of
+                    Nothing     -> False
+                    (Just val)  -> isNonKing val
+
 isKing :: Int -> Bool
 isKing move = abs move > 1
+
+isNonKing :: Int -> Bool
+isNonKing move = not $ isKing move
 
 moveCount :: CkNode -> Int
 moveCount n = length $ getPossibleMoves n
