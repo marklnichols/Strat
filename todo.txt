@@ -4,6 +4,7 @@ Test: is check blunders resulting in changed list of choices?
 in text output, "Computers move s:Total X" -- X should be neg for black
 
 Overall:
+look for space leaks
 make look-ahead increase with less pieces
 alpha-beta pruning
 additional profiling - improve performance

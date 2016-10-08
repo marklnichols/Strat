@@ -16,7 +16,6 @@ import Test.Hspec
 import qualified Data.Map as Map
 import Control.Monad.Reader
 
-
 ------------------------------------------------------------------------------------------------
 -- hspec tests
 -------------------------------------------------------------------------------------------------
@@ -174,7 +173,7 @@ validPathCheck tree color =
                           mPathBottom = descendPath path (fromTree tree)
                       in case mPathBottom of
                           Nothing -> False
-                          Just tPos -> getInt (getValue (label tPos)) * color == getInt bestValue
+                          Just tPos -> getInt (getValue (label tPos)) == getInt bestValue
 
 testVisitor :: TreePos Full PosTreeItem -> Int -> Int -> TreePos Full PosTreeItem
 testVisitor tPos depth max

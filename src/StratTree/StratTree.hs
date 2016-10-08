@@ -85,7 +85,11 @@ worst tree depth color = best' tree depth color keepColor getErrorValue
 
 best' :: (Eval e, TreeNode t m e) => Tree t -> Int -> Int -> (e -> e) -> (t -> e) -> Maybe (Result m e)
 best' tree depth color colorFlip getValue =
-    let (path, rChoices, bestScore) = down tree depth color colorFlip getValue
+    let (path, rChoices, flippedScore) = down tree depth color colorFlip getValue
+
+        --black score has been flipped to positive for the comparisons, flip it back to negative:
+        bestScore = setInt flippedScore (color * getInt flippedScore)
+
         pathM = tailMay path -- without the tree's starting "move"
         headM = pathM >>= headMay
         followingM = pathM >>= tailMay
@@ -114,7 +118,6 @@ across depth color colorFlip getValue (rMvs, randChoices, rVal) t =
         (newMvs, newVal) = (mvs, colorFlip v)
     in  case rVal `compare` newVal of
         EQ -> (rMvs, head newMvs : randChoices, rVal)
-        LT -> (newMvs, [], newVal)
         GT ->  (rMvs, randChoices, rVal)
 
 --updateTree 'visit' function - if not a final position and no children -- create and add children moves
