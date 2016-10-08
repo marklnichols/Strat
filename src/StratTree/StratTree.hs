@@ -118,6 +118,7 @@ across depth color colorFlip getValue (rMvs, randChoices, rVal) t =
         (newMvs, newVal) = (mvs, colorFlip v)
     in  case rVal `compare` newVal of
         EQ -> (rMvs, head newMvs : randChoices, rVal)
+        LT -> (newMvs, [], newVal)
         GT ->  (rMvs, randChoices, rVal)
 
 --updateTree 'visit' function - if not a final position and no children -- create and add children moves
