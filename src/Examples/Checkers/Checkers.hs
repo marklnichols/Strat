@@ -37,7 +37,7 @@ makeLenses ''JumpOff
 
 instance PositionNode CkNode CkMove CkEval where
     newNode = calcNewNode
-    possibleMoves = getPossibleMoves
+    possibleMoves = getAllowedMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     showPosition = format
@@ -58,7 +58,7 @@ instance Show CkNode where
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
 
 instance Show CkEval where
-    show e = "Total: " ++ show (e ^. total) ++ " made up of: " ++ (e ^. details)
+    show e = "Total " ++ show (e ^. total) ++ " made up of " ++ (e ^. details)
 
 instance Move CkMove
 
@@ -251,14 +251,11 @@ calcNewNode node mv =
     let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
         clrFlipped = set (ckPosition . clr) (negate (captured ^. ckPosition ^. clr)) captured
-
-        (score, finalSt) = evalNode clrFlipped
-        errScore = errorEvalNode clrFlipped
-
+        (eval, finalSt) = evalNode clrFlipped
+        errEval = errorEvalNode clrFlipped
         finSet = set (ckPosition . fin) finalSt clrFlipped
-        scoreSet = set ckValue CkEval {_total = score, _details = ""} finSet
-
-        errScoreSet = set ckErrorValue CkEval {_total = errScore, _details = ""} scoreSet
+        scoreSet = set ckValue eval finSet
+        errScoreSet = set ckErrorValue errEval scoreSet
     in  set ckMove mv errScoreSet
 
 removePiece :: CkNode -> Int -> CkNode
@@ -303,18 +300,24 @@ finalValW = 1000
 finalValB = -1000
 drawVal   = 0
 
-evalNode :: CkNode -> (Int, FinalState)
+evalNode :: CkNode -> (CkEval, FinalState)
 evalNode n = let g =   n ^. ckPosition ^. grid
                  mat = totalKingCount g * kingVal + totalPieceCount g * pieceVal
                  mob = mobility n * mobilityVal
                  home = homeRow g
-                 prog = progress g * progressVal
+                 prog = progress n * progressVal
                  final = checkFinal n
              in case final of
-                    NotFinal -> (mat + mob + home + prog, final)
-                    WWins    -> (finalValW, final)
-                    BWins    -> (finalValB, final)
-                    Draw     -> (drawVal, final)
+                    NotFinal ->
+                        (CkEval {_total = mat + mob + home + prog,
+                                 _details = "mat<" ++ show mat ++ "> mob<" ++ show mob ++ "> home<"
+                                            ++ show home ++ "> prog<" ++ show prog ++ ">"}, final)
+                    WWins    -> (CkEval {_total = finalValW,
+                                        _details="wwins<" ++ show finalValW ++ ">"}, final)
+                    BWins    -> (CkEval {_total = finalValB,
+                                         _details="bwins<" ++ show finalValB ++ ">"}, final)
+                    Draw     -> (CkEval {_total = drawVal,
+                                         _details="draw<" ++ show drawVal ++ ">"}, final)
 
 checkFinal :: CkNode -> FinalState
 checkFinal n
@@ -331,7 +334,7 @@ colorToWinState 1 = WWins
 colorToWinState _ = BWins
 
 -- TODO: implement
-errorEvalNode :: CkNode -> Int
+errorEvalNode :: CkNode -> CkEval
 errorEvalNode n = fst $ evalNode n
 
 totalPieceCount :: V.Vector Int -> Int
@@ -348,8 +351,8 @@ kingCount grid color = V.length $ V.filter (== 2 * color) grid
 
 mobility :: CkNode -> Int
 mobility node = wMoves - bMoves where
-    wMoves = moveCount (node & ckPosition.clr .~ 1)
-    bMoves = moveCount (node & ckPosition.clr .~ (-1))
+    wMoves = moveCount (setColor node 1)
+    bMoves = moveCount (setColor node (-1))
 
 homeRow :: V.Vector Int -> Int
 homeRow grid = homeRow' grid 1 - homeRow' grid (-1)
@@ -372,24 +375,33 @@ checkRow grid color range
             where f :: Int -> Int -> Int
                   f r x = x - r
 
-progress :: V.Vector Int -> Int
-progress grid = f 1 - f (-1) where
-    f color = pieceProgress (V.filter (== color) grid) color
+progress :: CkNode -> Int
+progress node = pieceProgress (getNonKingLocs (setColor node 1)) 1
+                -  pieceProgress (getNonKingLocs (setColor node (-1))) (-1)
 
-pieceProgress :: V.Vector Int -> Int -> Int
+pieceProgress :: [Int] -> Int -> Int
 pieceProgress xs color =
     let vals    = case color of
-                    1 -> [ 0,  0,  0,  0,  1,  2,  3,  4] :: [Int]
-                    _ -> [-4, -3, -2, -1,  0,  0,  0,  0] :: [Int]
+                    1 -> [0, 0, 0, 0,  1,  2,  3,  4] :: [Int]
+                    _ -> [4, 3, 2, 1,  0,  0,  0,  0] :: [Int]
         f x r   = r +  fromMaybe 0 (vals ^? ix (labelIdx x))
-    in V.foldr f 0 xs
+    in foldr f 0 xs
+
+swapColor :: CkNode -> CkNode
+swapColor node = setColor node $ negate (node ^. ckPosition.clr)
+
+setColor :: CkNode -> Int -> CkNode
+setColor node color = node & ckPosition.clr .~ color
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 ---------------------------------------------------------------------------------------------------
 getPossibleMoves :: CkNode -> [CkMove]
-getPossibleMoves n = requireJumps $ foldr f [] (getPieceLocs n) where
+getPossibleMoves n = foldr f [] (getPieceLocs n) where
                         f x r = r ++ pieceMoves n x ++ pieceJumps n x
+
+getAllowedMoves :: CkNode -> [CkMove]
+getAllowedMoves = requireJumps . getPossibleMoves
 
 requireJumps :: [CkMove] -> [CkMove]
 requireJumps xs = case filter (^. isJump) xs of
@@ -410,8 +422,18 @@ getPieceLocs node =
                     av = abs val
                 in (av > 0 && av <3 && (val * color) > 0)
 
+getNonKingLocs :: CkNode -> [Int]
+getNonKingLocs node = filter f (getPieceLocs node) where
+    g =  node ^. (ckPosition . grid)
+    f idx = case g ^? ix idx of
+                    Nothing     -> False
+                    (Just val)  -> isNonKing val
+
 isKing :: Int -> Bool
 isKing move = abs move > 1
+
+isNonKing :: Int -> Bool
+isNonKing move = not $ isKing move
 
 moveCount :: CkNode -> Int
 moveCount n = length $ getPossibleMoves n

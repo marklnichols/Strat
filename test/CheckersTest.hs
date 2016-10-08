@@ -11,19 +11,19 @@ import Control.Lens
 import StratTree.TreeNode
 
 checkersTest = do
-    describe "getPossibleMoves" $
-        it "Gets the list of possible moves for a given color from a given position." $ do
-            getPossibleMoves (rootLabel getStartNode) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
-            getPossibleMoves blackFirstStartNode `shouldMatchList` fmap mkSimpleCkMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
+    describe "getAllowedMoves" $
+        it "Gets the list of allowed moves for a given color from a given position." $ do
+            getAllowedMoves (rootLabel getStartNode) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
+            getAllowedMoves blackFirstStartNode `shouldMatchList` fmap mkSimpleCkMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
 
-            getPossibleMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935]
-            getPossibleMoves (nodeFromGridB board01) `shouldMatchList` fmap mkSimpleCkMove    [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712]
-            getPossibleMoves (nodeFromGridW board02) `shouldMatchList` mkMultiCkJump m02Multi : fmap mkSimpleCkJump [(0717, 12), (1624, 20), (2515, 20), (2517, 21), (2535, 30)]
+            getAllowedMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935]
+            getAllowedMoves (nodeFromGridB board01) `shouldMatchList` fmap mkSimpleCkMove    [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712]
+            getAllowedMoves (nodeFromGridW board02) `shouldMatchList` mkMultiCkJump m02Multi : fmap mkSimpleCkJump [(0717, 12), (1624, 20), (2515, 20), (2517, 21), (2535, 30)]
 
-            getPossibleMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
-            getPossibleMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
+            getAllowedMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
+            getAllowedMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
 
-            getPossibleMoves (nodeFromGridW board07) `shouldMatchList` snd (partitionEithers (fmap
+            getAllowedMoves (nodeFromGridW board07) `shouldMatchList` snd (partitionEithers (fmap
                 (parseCkMove (nodeFromGridW board07)) ["A3-C1-E3", "A3-C5-E3", "A3-C5-E7-G5"]))
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
@@ -63,7 +63,7 @@ checkersTest = do
     describe "mobility" $
         it "determine the mobility of each side" $ do
             mobility (nodeFromGridW board01) `shouldBe` -1
-            mobility (nodeFromGridB board03) `shouldBe`  3
+            mobility (nodeFromGridB board03) `shouldBe`  7
     describe "homeRow'" $
         it "checks to see if the home row is full or if two no adjacent squares are occupied" $ do
             homeRow' board01 1 `shouldBe` homeRowNone
@@ -72,10 +72,16 @@ checkersTest = do
             homeRow' board10 (-1) `shouldBe` homeRowPartial
             homeRow' board08 1 `shouldBe` homeRowFull
             homeRow' board08 (-1) `shouldBe` homeRowFull
-    describe "piecePrgress" $
+    describe "pieceProgress" $
         it "calculates the sum of values corresponding to how far non-king piece has progressed down the board" $ do
-            pieceProgress (V.fromList [15, 33]) 1 `shouldBe` 3
-            pieceProgress (V.fromList [15, 33]) (-1) `shouldBe` -2
+            pieceProgress [15, 33] 1 `shouldBe` 3
+            pieceProgress [15, 33] (-1) `shouldBe` 2
+    describe "progress" $
+        it "evaluates pieceProgress of white pieces vs pieceProgress of black pieces" $ do
+            progress (nodeFromGridW evalBoard01) `shouldBe` -1
+            progress (nodeFromGridB evalBoard01) `shouldBe` -1
+            progress (nodeFromGridW evalBoard02) `shouldBe` 0
+            progress (nodeFromGridB blunderBoard0) `shouldBe` 0
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -84,13 +90,13 @@ blackFirstStartNode :: CkNode
 blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
-treeFromGridW g = Node CkNode {_ckMove = mkSimpleCkMove (-1), 
-    _ckValue = CkEval {_total = 0, _details = ""}, 
+treeFromGridW g = Node CkNode {_ckMove = mkSimpleCkMove (-1),
+    _ckValue = CkEval {_total = 0, _details = ""},
     _ckErrorValue = CkEval {_total = 0, _details = ""},
     _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
-treeFromGridB g = Node CkNode {_ckMove = mkSimpleCkMove (-1), 
+treeFromGridB g = Node CkNode {_ckMove = mkSimpleCkMove (-1),
     _ckValue = CkEval {_total = 0, _details = ""},
     _ckErrorValue = CkEval {_total = 0, _details = ""},
     _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
@@ -408,40 +414,86 @@ boardXtoWin = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00
                                      --  (00) (01) (02) (03) (04)
 -}
 
-blunderBoard1 :: V.Vector Int
-blunderBoard1 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 01, 00, 00, 00, 00, 00, 01, 00, 99, 00, 00, 00, 00,
-                            00, 00, 00, 00, 99, 00, 00, -2, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
--- black to move, if f6-e5 checking obvious mistake of E3-D4 or E3-F4
+
+blunderBoard0 :: V.Vector Int
+blunderBoard0 = V.fromList [99, 99, 99, 99, 99, -2, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, -2, 02,
+                            00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 02, 00, 00, 00, 99, 99, 99, 99, 99]
 {--
                                      --  (41) (42) (43) (44) (45)
-                00   00   00   00    --     37   38   39   40
-              00   00   00   00      --   32   33   34   35      (36)
-                00   00   -2   00    --     28   29   30   31
-              00   00   00   00      --   23   24   25   26      (27)
-                00   00   00   00    --     19   20   21   22
-              00   00   01   00      --   14   15   16   17      (18)
-                01   00   00   00    --     10   11   12   13
-              00   00   00   00      --   05   06   07   08      (09)
-                                     --  (00) (01) (02) (03) (04)
--}
-
-
-blunderBoard2 :: V.Vector Int
-blunderBoard2 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, -2, 00, 99, 02, 00, 00, 00,
-                            00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 02, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
- -- c5-d4 allows possible blunder d2-e1 or d2-c1
-{--
-                                     --  (41) (42) (43) (44) (45)
-                00   00   00   00    --     37   38   39   40
-              00   00   02   00      --   32   33   34   35      (36)
+                02   00   00   00    --     37   38   39   40
+              00  00   00   00      --   32   33   34   35      (36)
                 00   00   00   00    --     28   29   30   31
               00   00   00   00      --   23   24   25   26      (27)
-                02   00   00   00    --     19   20   21   22
-              00   00   -2   00      --   14   15   16   17      (18)
+                00   00   -2   02    --     19   20   21   22
+              00   00   00   00      --   14   15   16   17      (18)
                 00   00   00   00    --     10   11   12   13
+              -2   00   00   00      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)
+-}
+
+blunderBoard1 :: V.Vector Int
+blunderBoard1 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 01, 00, 00, -2, 00, 00, 00, 00, 99, 00, 00, 00, 00,
+                            00, 00, 01, 01, 99, 00, 00, 00, 00, -1, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
+-- black to move, if b8-c7 checking obvious mistake of white not moving one of e7, e5
+{--
+                                     --  (41) (42) (43) (44) (45)
+                00   00   00   00    --     37   38   39   40
+              -1   00   00   00      --   32   33   34   35      (36)
+                00   00   00   00    --     28   29   30   31
+              00   00   01   01      --   23   24   25   26      (27)
+                00   00   00   00    --     19   20   21   22
+              00   00   00   00      --   14   15   16   17      (18)
+                01   00   00  -2    --     10   11   12   13
               00   00   00   00      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)
 -}
+
+evalBoard01 :: V.Vector Int
+evalBoard01 = V.fromList [99, 99, 99, 99, 99, 00, 01, 00, 01, 99, 01, 00, 01, 01, 01, 01, 01, 01, 99, 01, -1, 01, 00,
+                      -1, -1, 00, -1, 99, -1, -1, 00, -1, 00, 00, 00, 00, 99, -1, -1, -1, -1, 99, 99, 99, 99, 99]
+{-
+                                     --  (41) (42) (43) (44) (45)
+                -1   -1   -1   -1    --     37   38   39   40
+              00   00   00   00      --   32   33   34   35      (36)
+                -1   -1   00   -1    --     28   29   30   31
+              -1   -1   00   -1      --   23   24   25   26      (27)
+                01   -1   01   00    --     19   20   21   22
+              01   01   01   01      --   14   15   16   17      (18)
+                01   00   01   01    --     10   11   12   13
+              00   01   00   01      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)
+-}
+
+evalBoard02 :: V.Vector Int
+evalBoard02 = V.fromList [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, 01, 00, 01, 01, 01, 00, 01, 01, 99, 00, -1, 00, 00,
+                          01, -1, 00, 00, 99, -1, -1, 00, -1, -1, 00, 00, -1, 99, -1, -1, -1, -1, 99, 99, 99, 99, 99]
+{-
+                                     --  (41) (42) (43) (44) (45)
+                -1   -1   -1   -1    --     37   38   39   40
+              -1  00   00   -1      --   32   33   34   35      (36)
+                -1   -1   00   -1    --     28   29   30   31
+              01  -1   00   00      --   23   24   25   26      (27)
+                00   -1   00   00    --     19   20   21   22
+              01   00   01   01      --   14   15   16   17      (18)
+                01   00   01   01    --     10   11   12   13
+              01   01   01   01      --   05   06   07   08      (09)
+                                     --  (00) (01) (02) (03) (04)
+-}
+
+{--
+H     o     o     o     o
+G  o     -     -     o
+F     o     o     -     o
+E  x     o     -     -
+D     -     o     -     -
+C  x     -     x     x
+B     x     -     x     x
+A  x     x     x     x
+
+   1  2  3  4  5  6  7  8
+Current position score: Total 1 made up of mat<0> mob<-1> home<0> prog<2>
+--}
+
 
 {--
 board0n :: V.Vector Int

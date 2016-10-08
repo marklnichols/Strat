@@ -85,7 +85,11 @@ worst tree depth color = best' tree depth color keepColor getErrorValue
 
 best' :: (Eval e, TreeNode t m e) => Tree t -> Int -> Int -> (e -> e) -> (t -> e) -> Maybe (Result m e)
 best' tree depth color colorFlip getValue =
-    let (path, rChoices, bestScore) = down tree depth color colorFlip getValue
+    let (path, rChoices, flippedScore) = down tree depth color colorFlip getValue
+
+        --black score has been flipped to positive for the comparisons, flip it back to negative:
+        bestScore = setInt flippedScore (color * getInt flippedScore)
+
         pathM = tailMay path -- without the tree's starting "move"
         headM = pathM >>= headMay
         followingM = pathM >>= tailMay
