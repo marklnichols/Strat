@@ -1,8 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module TicTac.TicTacTest where
+module TicTacTest where
 
 import StratTree.TreeNode
-import TicTac.TicTac
 import Test.Hspec
 
 -- main = hspec $ do

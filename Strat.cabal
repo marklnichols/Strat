@@ -14,12 +14,12 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src, src/Examples/Checkers, test
+  hs-source-dirs:      src, src/Examples/Checkers, src/Examples/TicTac, test
   exposed-modules:     StratTree.StratTree,
                        StratTree.TreeNode,
                        StratIO.StratIO
-                       TicTac.TicTac,
-                       TicTac.TTParser,
+                       TicTac,
+                       TTParser,
                        Checkers,
                        CkParser,
                        CheckersTest
@@ -41,7 +41,7 @@ library
                      , vector >= 0.11
   default-language:    Haskell2010
 
-  
+
 executable Strat-commandline
   hs-source-dirs:   src/Strat-commandline
   main-is:          Main.hs
@@ -52,14 +52,14 @@ executable Strat-commandline
                     , containers ==0.5.*
                     , mtl >= 2.2
                     , lens ==4.13.*
-  default-language:   Haskell2010 
-  
-  
-  
-  
+  default-language:   Haskell2010
+
+
+
+
 test-suite StratTreeTest
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test, src, src/Examples/Checkers
+  hs-source-dirs:      test, src, src/Examples/Checkers, src/Examples/TicTac
   main-is:             TestSuite.hs
   build-depends:       base
 --                   , Strat
@@ -79,14 +79,14 @@ test-suite StratTreeTest
   other-modules:       Checkers
                      , CkParser
                      , CheckersTest
-                     , TicTac.TicTac
-                     , TicTac.TicTacTest
-                     , TicTac.TTParser
+                     , TicTac
+                     , TicTacTest
+                     , TTParser
                      , StratTree.TreeNode
                      , StratTree.Internal.Trees
                      , StratTree.StratTree
                      , StratTree.StratTreeTest
-                     
+
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 

@@ -1,5 +1,5 @@
 module Main where
-import TicTac.TicTac
+import TicTac
 import Checkers
 import StratTree.TreeNode
 import StratTree.StratTree
@@ -31,7 +31,7 @@ parse ["checkers"] = loop getCheckersStart 1
 parse _            = putStrLn "Usage: main tictac | checkers"
 
 getTicTacStart :: Tree TTNode
-getTicTacStart = TicTac.TicTac.getStartNode
+getTicTacStart = TicTac.getStartNode
 
 getCheckersStart :: Tree CkNode
 getCheckersStart = Checkers.getStartNode
