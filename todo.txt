@@ -1,11 +1,14 @@
 Current:
 Bare-bones web GUI
-Test: is check blunders resulting in changed list of choices?
-in text output, "Computers move s:Total X" -- X should be neg for black
+make look-ahead increase with less pieces
+
+Project organization:
+packaging/organization (as per lens)
+Set the proper exports (comment out for debugging)
 
 Overall:
+Test: is check blunders resulting in changed list of choices?
 look for space leaks
-make look-ahead increase with less pieces
 alpha-beta pruning
 additional profiling - improve performance
 try using foundation (instead of prelude)
@@ -20,8 +23,3 @@ Checkers:
 Add score for "pinned" pieces
 End game improvment with opponent having one king only
 Add some specific blunder evaluation?
-
-Project organization:
-move tictac to examples
-packaging/organization (as per lens)
-Set the proper exports (comment out for debugging)

@@ -2,6 +2,7 @@
 module TicTacTest where
 
 import StratTree.TreeNode
+import TicTac
 import Test.Hspec
 
 -- main = hspec $ do
