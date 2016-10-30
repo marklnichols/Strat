@@ -14,6 +14,7 @@ import Data.Maybe
 --import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
+import Safe
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -287,18 +288,19 @@ checkPromote node value to
 --------------------------------------------------------
 -- Position Evaluation
 --------------------------------------------------------
-homeRowFull = 4
+homeRowFull    = 4      -- (home row values for non-kings only)
 homeRowPartial = 2
-homeRowNone = 0
+homeRowNone    = 0
 
-kingVal = 15
-pieceVal = 5
-mobilityVal = 1
-progressVal = 1
+kingVal        = 15
+pieceVal       = 5
+mobilityVal    = 1      -- range 0-2 for non-kings, 0-4 for kings
+progressVal    = 1      -- range: 0-4 (for non-kings only)
+kProximityVal  = 1      -- range 0-6, (for kings only)
 
-finalValW = 1000
+finalValW =  1000
 finalValB = -1000
-drawVal   = 0
+drawVal   =  0
 
 evalNode :: CkNode -> (CkEval, FinalState)
 evalNode n = let g =   n ^. ckPosition ^. grid
@@ -306,12 +308,14 @@ evalNode n = let g =   n ^. ckPosition ^. grid
                  mob = mobility n * mobilityVal
                  home = homeRow g
                  prog = progress n * progressVal
+                 kProximity = kingProximity n * kProximityVal
                  final = checkFinal n
              in case final of
                     NotFinal ->
                         (CkEval {_total = mat + mob + home + prog,
                                  _details = "mat<" ++ show mat ++ "> mob<" ++ show mob ++ "> home<"
-                                            ++ show home ++ "> prog<" ++ show prog ++ ">"}, final)
+                                            ++ show home ++ "> prog<" ++ show prog ++ "> kProx<"
+                                            ++ show kProximity ++ "> "}, final)
                     WWins    -> (CkEval {_total = finalValW,
                                         _details="wwins<" ++ show finalValW ++ ">"}, final)
                     BWins    -> (CkEval {_total = finalValB,
@@ -423,11 +427,17 @@ getPieceLocs node =
                 in (av > 0 && av <3 && (val * color) > 0)
 
 getNonKingLocs :: CkNode -> [Int]
-getNonKingLocs node = filter f (getPieceLocs node) where
+getNonKingLocs node = filterLocs node isNonKing
+
+getKingLocs :: CkNode -> [Int]
+getKingLocs node = filterLocs node isKing
+
+filterLocs :: CkNode -> (Int -> Bool) -> [Int]
+filterLocs node test = filter f (getPieceLocs node) where
     g =  node ^. (ckPosition . grid)
     f idx = case g ^? ix idx of
                     Nothing     -> False
-                    (Just val)  -> isNonKing val
+                    (Just val)  -> test val
 
 isKing :: Int -> Bool
 isKing move = abs move > 1
@@ -524,3 +534,34 @@ jmpsToCkMoves = foldr f [] where
                        _middleIdxs = init $ tail xs,
                        _removedIdxs = fmap (\(m, n) -> (n-m) `div` 2 + m) (zip xs (tail xs))
                      } : r
+
+---------------------------------------------------------------------------------------------------
+-- Give kings a preference to move towards other pieces
+---------------------------------------------------------------------------------------------------
+--evaluates white king farthest from any opposing pieces vs. black king farthest from any opposing pieces
+kingProximity :: CkNode -> Int
+kingProximity node =
+    let wAll   = getPieceLocs (setColor node 1)
+        bAll   = getPieceLocs (setColor node (-1))
+        wKings = getKingLocs (setColor node 1)
+        bKings = getKingLocs (setColor node (-1))
+        glbClosestW = fromMaybe 7 $ maximumMay $ fmap (`closestToKing` bAll) wKings
+        glbClosestB = fromMaybe 7 $ maximumMay $ fmap (`closestToKing` wAll) bKings
+        --subtract from 7 to convert distance 1-7 into range 7-1 where closer means a higher score
+        -- note: (7 - glbClosestW) - (7 - glbClosestB) === glbClosestB - closestW
+        in glbClosestB - glbClosestW
+
+
+closestToKing :: Int -> [Int] -> Int
+closestToKing k foes = fromMaybe 7 $ minimumMay $ fmap (`distance` k) foes
+
+
+distance :: Int -> Int -> Int
+distance p1 p2 = max (hDistance p1 p2) (vDistance p1 p2)
+
+
+hDistance :: Int -> Int -> Int
+hDistance p1 p2 = abs $ (offset p1 + colPlus p1) - (offset p2 + colPlus p2)
+
+vDistance :: Int -> Int -> Int
+vDistance p1 p2 = abs $ labelIdx p1 - labelIdx p2

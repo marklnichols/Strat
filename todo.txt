@@ -1,25 +1,26 @@
 Current:
 Bare-bones web GUI
-make look-ahead increase with less pieces
+Move StratTreeTest to the test directory
+Test: is check blunders resulting in changed list of choices?
+
 
 Project organization:
 packaging/organization (as per lens)
 Set the proper exports (comment out for debugging)
 
 Overall:
-Test: is check blunders resulting in changed list of choices?
-look for space leaks
 alpha-beta pruning
 additional profiling - improve performance
 try using foundation (instead of prelude)
 show number of positions searched and/or try to get from profiling
 Reader monad for move eval (for depth, difficulty level, etc.)
 Turn debugging display on/off
+String to Text conversion -- ugh =(
 
 TicTac:
 Prefer win on next move (after reader monad)
 
 Checkers:
 Add score for "pinned" pieces
-End game improvment with opponent having one king only
+End game improvment: avoid mindless moves by kings when no tangible results within the search window
 Add some specific blunder evaluation?

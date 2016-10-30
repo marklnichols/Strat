@@ -82,6 +82,18 @@ checkersTest = do
             progress (nodeFromGridB evalBoard01) `shouldBe` -1
             progress (nodeFromGridW evalBoard02) `shouldBe` 0
             progress (nodeFromGridB blunderBoard0) `shouldBe` 0
+    describe "closestToKing" $
+        it "Finds the opposing piece closest to a given king" $ do
+            closestToKing 5 [8, 21] `shouldBe` 5
+            closestToKing 32 [40, 17, 13] `shouldBe` 6
+    describe "kingProximity" $
+        it ("evaluates white king farthest from opposing pieces vs. "
+                ++ "black king farthest from opposing pieces") $ do
+            kingProximity (nodeFromGridW board01) `shouldBe` 0
+            kingProximity (nodeFromGridW board11) `shouldBe` 0
+            kingProximity (nodeFromGridW board09b) `shouldBe` (-6)
+            kingProximity (nodeFromGridW blunderBoard0) `shouldBe` 3
+            kingProximity (nodeFromGridB blunderBoard0) `shouldBe` 3
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
