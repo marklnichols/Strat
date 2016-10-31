@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-module StratTree.Internal.Trees (getChildren, getSiblings, descendPath, childByMove,
+module StratTree.Trees (getChildren, getSiblings, descendPath, childByMove,
     pruneChildrenExcept, visitTree, pruneToChild) where
 
 import StratTree.TreeNode
