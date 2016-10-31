@@ -22,5 +22,4 @@ Prefer win on next move (after reader monad)
 
 Checkers:
 Add score for "pinned" pieces
-End game improvment: avoid mindless moves by kings when no tangible results within the search window
 Add some specific blunder evaluation?

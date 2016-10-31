@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Main where
 
-import StratTree.StratTreeTest
+import StratTreeTest
 import TicTacTest
 import CheckersTest
 import Test.Hspec
