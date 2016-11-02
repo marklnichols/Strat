@@ -3,6 +3,8 @@ import TicTac
 import Checkers
 import StratTree.TreeNode
 import StratTree.StratTree
+import StratTree.Trees
+
 import StratIO.StratIO
 
 import System.Environment
@@ -10,7 +12,7 @@ import System.Exit
 import Data.Tree
 import Data.Maybe
 import Control.Monad.Reader
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Control.Lens
 
 -- :set args "tictac"
@@ -97,11 +99,13 @@ computerMove node turn = do
                     putStrLn "Invalid result from resolveRandom"
                     exitFailure
                 Just move -> do
-                    printMoveChoiceInfo result move
+                    printMoveChoiceInfo newTree result move
                     return (processMove newTree move)
 
-printMoveChoiceInfo :: (Eval e, Move m) => Result m e -> m -> IO ()
-printMoveChoiceInfo result move = do
+--printMoveChoiceInfo :: (Eval e, Move m) => Result m e -> m -> IO ()
+printMoveChoiceInfo :: PositionNode n m e => Tree n -> Result m e -> m -> IO ()
+printMoveChoiceInfo tree result move = do
+    putStrLn ("Tree size: " ++ show (treeSize tree))
     putStrLn ("Equivalent best moves: " ++ show (result^.moveChoices))
     putStrLn ("Following moves: " ++ show ( result^.followingMoves))
     putStrLn ("Computer's move:\n (m:" ++ show move ++

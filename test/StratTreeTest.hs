@@ -15,7 +15,7 @@ import Data.Map
 import Test.Hspec
 import qualified Data.Map as Map
 import Control.Monad.Reader
-import Control.Monad.State
+import Control.Monad.State.Strict
 
 ------------------------------------------------------------------------------------------------
 -- hspec tests

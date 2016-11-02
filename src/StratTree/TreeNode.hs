@@ -10,7 +10,7 @@ module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), fl
 
 import Control.Lens
 import Control.Monad.Reader
-import Control.Monad.State
+import Control.Monad.State.Strict
 
 -------------------------------------------------------------
 -- Data types

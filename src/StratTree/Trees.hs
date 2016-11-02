@@ -1,6 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 module StratTree.Trees (getChildren, getSiblings, descendPath, childByMove,
-    pruneChildrenExcept, visitTree, pruneToChild) where
+    pruneChildrenExcept, visitTree, pruneToChild, treeSize) where
 
 import StratTree.TreeNode
 import Data.Tree
@@ -68,3 +68,9 @@ delOneUntilLast (Just tp) move
 
 isOnlyChild :: TreePos Full t -> Bool
 isOnlyChild tp = isFirst tp && isLast tp
+
+--gets the number of elements at each level of the tree plus the total size
+--for debugging / analysis only
+treeSize :: TreeNode t m e => Tree t -> (Int, [Int])
+treeSize tree = let levelTotals = fmap length (levels tree)
+                in (sum levelTotals, levelTotals)
