@@ -22,9 +22,9 @@ library
                        TTParser,
                        Checkers,
                        CkParser,
-                       CheckersTest
-  other-modules:       StratTree.Trees,
-                       StratTreeTest
+                       CheckersTest,
+                       StratTree.Trees
+  other-modules:       StratTreeTest
   build-depends:       base >= 4.7 && < 5
                      , containers ==0.5.*
                      , rosezipper ==0.2.*
