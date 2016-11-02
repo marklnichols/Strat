@@ -1,12 +1,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, keepColor,
        mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveChoices,
-       followingMoves, moveScores, Env (..),
-       Move (..), Eval (..), IntMove (..), IntEval (..)) where
+       followingMoves, moveScores, Env (..), Move (..), Eval (..), IntMove (..), IntEval (..),
+       RST (..), RSTransformer, GameState(..)) where
 
 import Control.Lens
+import Control.Monad.Reader
+import Control.Monad.State
 
 -------------------------------------------------------------
 -- Data types
@@ -95,6 +99,16 @@ data Result m e = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScor
                 deriving(Show, Eq)
 
 makeLenses ''Result
+
+data GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
+
+---------------------------------------------------------------------------------------------------
+-- Monad Transformer stack
+---------------------------------------------------------------------------------------------------
+type RSTransformer a = ReaderT Env (State GameState) a
+
+newtype RST a = RST { unRST :: RSTransformer a }
+  deriving (Monad, Applicative, Functor, MonadReader Env, MonadState GameState)
 
 -------------------------------------------------------------------------------
 flipColor :: Eval e => e -> e

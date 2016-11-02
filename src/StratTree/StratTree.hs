@@ -8,6 +8,7 @@ import Data.Maybe
 import Safe
 import Control.Monad
 import Control.Monad.Reader
+import Control.Monad.State
 import Control.Lens
 --import Debug.Trace
 import Data.Tree.Zipper
@@ -15,13 +16,13 @@ import Data.Tree.Zipper
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 -------------------------------------------------------------
-best :: (Move m, Eval e, TreeNode t m e) => Tree t -> Int -> Reader Env (Maybe (Result m e))
+best :: (Move m, Eval e, TreeNode t m e) => Tree t -> Int -> RST (Maybe (Result m e))
 best tree color = do
     depth <- asks _depth
     return (best' tree depth color flipColor getValue)
 
 --TODO: move to lens getters
-checkBlunders :: TreeNode t m e => Tree t -> Int -> [MoveScore m e] -> Reader Env (Maybe [MoveScore m e])
+checkBlunders :: TreeNode t m e => Tree t -> Int -> [MoveScore m e] -> RST (Maybe [MoveScore m e])
 checkBlunders tree color [] = return Nothing
 checkBlunders tree color [ms] = return $ Just [ms]
 checkBlunders tree color equivMS = do
@@ -35,7 +36,7 @@ checkBlunders tree color equivMS = do
                                                     then Just (addEquiv worst possibles)
                                                     else Just equivMS)
 
-expandTree :: PositionNode n m e => Tree n -> Reader Env (Tree n)
+expandTree :: PositionNode n m e => Tree n -> RST (Tree n)
 expandTree tree = do
     depth <- asks _depth
     return $ visitTree tree depth visitor

@@ -53,9 +53,9 @@ loop node turn = do
             putStrLn "Draw."
             return Nothing
         _ -> do
-            nextNode <- if runReader (isCompTurn turn) gameEnv
+            nextNode <- if evalState (runReaderT (unRST (isCompTurn turn)) gameEnv) (GameState 0)
                             then computerMove node turn
-                            else playerMove node turn
+                            else  playerMove node turn
             return (Just nextNode)
     case theNext of
         Nothing -> return ()
@@ -79,15 +79,15 @@ playerMove tree turn = do
 computerMove :: PositionNode n m e => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do
     putStrLn "Calculating computer move..."
-    let newTree = runReader (expandTree node) gameEnv
-    let resultM = runReader (best newTree (turnToColor turn)) gameEnv
+    let newTree = evalState (runReaderT (unRST (expandTree node)) gameEnv) (GameState 0)
+    let resultM = evalState (runReaderT (unRST (best newTree (turnToColor turn))) gameEnv) (GameState 0)
     case resultM of
         Nothing -> do
             putStrLn "Invalid result returned from best"
             exitFailure
         Just result -> do
             let badMovesM = checkBlunders newTree (turnToColor turn) (result^.moveScores)
-            let badMoves = runReader badMovesM gameEnv
+            let badMoves = evalState (runReaderT (unRST badMovesM) gameEnv) (GameState 0)
             let finalChoices = fromMaybe (result ^. moveScores) badMoves
             putStrLn ("Choices from best: " ++ show (result^.moveScores))
             putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
@@ -108,11 +108,11 @@ printMoveChoiceInfo result move = do
                   ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
     putStrLn ""
 
-isCompTurn :: Int -> Reader Env Bool
+isCompTurn :: Int -> RST Bool
 isCompTurn turn = do
     p1 <- asks _p1Comp
     p2 <- asks _p2Comp
-    if turn == 1 then return p1 else return p2
+    return $ if turn == 1 then p1 else p2
 
 --toBool :: "C" or "c" for computer -> True, "H" or "h" (or anything else for that matter) for Human -> False
 toBool :: String -> Bool
