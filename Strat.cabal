@@ -14,16 +14,19 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src, src/Examples/Checkers, src/Examples/TicTac, test
-  exposed-modules:     StratTree.StratTree,
-                       StratTree.TreeNode,
-                       StratIO.StratIO
-                       TicTac,
-                       TTParser,
-                       Checkers,
-                       CkParser,
-                       CheckersTest,
-                       StratTree.Trees
+  hs-source-dirs:      src, src/Examples/Checkers, src/Examples/Chess, src/Examples/TicTac, test
+  exposed-modules:     StratTree.StratTree
+                       ,StratTree.TreeNode
+                       ,StratIO.StratIO
+                       ,TicTac
+                       ,TTParser
+                       ,Checkers
+                       ,CkParser
+                       ,CheckersTest
+                       ,Chess
+                       ,ChessParser
+                       ,ChessTest
+                       ,StratTree.Trees
   other-modules:       StratTreeTest
   build-depends:       base >= 4.7 && < 5
                      , containers ==0.5.*
@@ -59,7 +62,7 @@ executable Strat-commandline
 
 test-suite StratTreeTest
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test, src, src/Examples/Checkers, src/Examples/TicTac
+  hs-source-dirs:      test, src, src/Examples/Checkers, src/Examples/Chess, src/Examples/TicTac
   main-is:             TestSuite.hs
   build-depends:       base
 --                   , Strat
@@ -79,6 +82,9 @@ test-suite StratTreeTest
   other-modules:       Checkers
                      , CkParser
                      , CheckersTest
+                     , Chess
+                     , ChessParser
+                     , ChessTest
                      , TicTac
                      , TicTacTest
                      , TTParser
