@@ -15,6 +15,13 @@ import qualified ChessParser as Parser
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
+
+
+
+
+--Data PieceType = KingType | QueenType | RookType | BishopType | KnightType | PawnType deriving (Show, EQ)
+
+
 data ChessPos = ChessPos {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''ChessPos
 
@@ -28,6 +35,23 @@ makeLenses ''ChessEval
 
 data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval, _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
+
+class ChessPiece a where
+    legalMoves :: a -> ChessPos -> Int -> [ChessMv]
+    pVal :: a -> Int
+
+data King = King deriving (Show, Eq)
+instance ChessPiece King where
+    legalMoves = legalKingMoves
+    pVal k = 1000
+
+data Queen = Queen deriving (Show, Eq)
+instance ChessPiece Queen where
+    legalMoves = legalQueenMoves
+    pVal q = 9
+
+
+--Rook | Bishop | Knight | Pawn
 
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
@@ -96,3 +120,9 @@ calcNewNode node mv = undefined
 --------------------------------------------------------------------------------------------------
 getAllowedMoves :: ChessNode -> [ChessMv]
 getAllowedMoves = undefined
+
+legalKingMoves :: King -> ChessPos -> Int -> [ChessMv]
+legalKingMoves king pos idx = undefined
+
+legalQueenMoves :: Queen -> ChessPos -> Int -> [ChessMv]
+legalQueenMoves queen pos idx = undefined
