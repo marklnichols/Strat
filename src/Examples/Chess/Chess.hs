@@ -39,17 +39,21 @@ makeLenses ''ChessNode
 class ChessPiece a where
     legalMoves :: a -> ChessPos -> Int -> [ChessMv]
     pVal :: a -> Int
+    dirs :: a -> [Int -> Int]
 
 data King = King deriving (Show, Eq)
 instance ChessPiece King where
-    legalMoves = legalKingMoves
     pVal k = 1000
+    dirs k = kingDirs
+    --TBD: some type i.e., glide, hop, shuffle, pawnie
+    legalMoves = legalKingMoves --still need this?
 
 data Queen = Queen deriving (Show, Eq)
 instance ChessPiece Queen where
-    legalMoves = legalQueenMoves
     pVal q = 9
-
+    dirs q = queenDirs
+    --TBD: some type i.e., glide, hop, shuffle, pawnie
+    legalMoves = legalQueenMoves --still need this?
 
 --Rook | Bishop | Knight | Pawn
 
@@ -90,6 +94,79 @@ instance Eval ChessEval where
 ---------------------------------------------------------------------------------------------------
 getStartNode :: Tree ChessNode
 getStartNode = undefined
+
+---------------------------------------------------------------------------------------------------
+-- Grid layout - indexes 0-99
+---------------------------------------------------------------------------------------------------
+{-- how indexes relate to board position (indexes in parens are not on the board):
+
+   (41) (42) (43) (44) (45)
+
+H|     37  38  39  40
+G|   32  33  34  35  (36)
+F|     28  29  30  31
+E|   23  24  25  26  (27)
+D|     19  20  21  22
+C| (30)  31   32   33   34   35   36   37   38  (39)
+B| (20)  21   22   23   24   25   26   27   28  (29)
+A| (10)  11   12   13   14   15   16   17   18  (19)
+
+   (00) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+     ---------------
+    1    2     3    4    5    6    7   8
+
+
+    Direction   add/subtract        Direction   add/subtract
+    Right       1                   Knight U/L+   +8
+    Left        -1                  Knght  D/R+   -8
+    Up          10                  Knight D/L+   -12
+    Down        -10                 Knight U/R+   +12
+    Diag U/L    +9                  Knight U+/L   +19
+    Diag D/R    -9                  Knight D+/R   -19
+    Diag U/R    +11                 Knight U+/R   +21
+    Diag D/L    -11                 Knight D+/L   -21
+--}
+
+right :: Int -> Int
+right = (+1)
+
+left :: Int -> Int
+left = ((-)1)
+
+up :: Int -> Int
+up = (+10)
+
+down :: Int -> Int
+down = ((-)10)
+
+diagUL  :: Int -> Int
+diagUL = (+9)
+
+diagDR :: Int -> Int
+diagDR = ((-)9)
+
+diagUR :: Int -> Int
+diagUR = (+11)
+
+diagDL :: Int -> Int
+diagDL = ((-)11)
+
+queenDirs :: [Int -> Int]
+queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
+
+kingDirs :: [Int -> Int]
+kingDirs = queenDirs
+
+rookDirs :: [Int -> Int]
+rookDirs = [up, down, left, right]
+
+bishopDirs :: [Int -> Int]
+bishopDirs = [diagUL, diagDR, diagUR, diagDL]
+
+--knightDirs -- tbd
+
+--pawnDirs -- tbd
+
 
 ---------------------------------------------------------------------------------------------------
 -- Convert ChessMv to Parser Move (for display)
