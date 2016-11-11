@@ -17,6 +17,7 @@ import Control.Lens
 
 -- :set args "tictac"
 -- :set args "checkers"
+-- :set args "chess"
 -- Main.main
 
 gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
