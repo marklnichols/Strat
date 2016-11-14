@@ -1,20 +1,21 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module CkParser (Move (..), Loc (..), run) where
 
 import Text.Parsec
 import Text.Parsec.String
---import Text.ParserCombinators.Parsec.Error
-import Data.Char  
---import Data.List
+import Data.Char
+import GHC.Generics
  
 data Loc 
     = Loc Char Int
-    deriving Eq
+    deriving (Eq, Generic)
    
 instance Show Loc where
     show (Loc c i) = c : show i    
    
 data Move =  Move [Loc]
-   deriving Eq
+   deriving (Eq, Generic)
  
 instance Show Move where
     show (Move xs) = init $ concatMap (\x -> show x ++ "-") xs
