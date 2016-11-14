@@ -118,7 +118,7 @@ A| (10)  11   12   13   14   15   16   17   18  (19)
 
     Direction   add/subtract        Direction   add/subtract
     Right       1                   Knight LU   +8    -- first listed direction is the longer side of
-                                                      -- the 'L'-move, so UL is 2 up and one left, 
+                                                      -- the 'L'-move, so UL is 2 up and one left,
                                                       -- while LU is 2 left and 1 up.
     Left        -1                  Knght  RD   -8
     Up          10                  Knight LD   -12
@@ -130,52 +130,52 @@ A| (10)  11   12   13   14   15   16   17   18  (19)
 --}
 
 right :: Int -> Int
-right = (+1)
+right = (1+)
 
 left :: Int -> Int
-left = ((-)1)
+left = (1-)
 
 up :: Int -> Int
-up = (+10)
+up = (10+)
 
 down :: Int -> Int
-down = ((-)10)
+down = (10-)
 
 diagUL  :: Int -> Int
-diagUL = (+9)
+diagUL = (9+)
 
 diagDR :: Int -> Int
-diagDR = ((-)9)
+diagDR = (9-)
 
 diagUR :: Int -> Int
-diagUR = (+11)
+diagUR = (11+)
 
 diagDL :: Int -> Int
-diagDL = ((-)11)
+diagDL = (11-)
 
 knightLU :: Int -> Int
-knightLU = (+8)
+knightLU = (8+)
 
 knightRD :: Int -> Int
-knightRD = ((-)8)
+knightRD = (8-)
 
 knightLD :: Int -> Int
-knightLD = ((-)12)
+knightLD = (12-)
 
 knightRU :: Int -> Int
-knightRU = (+12)
+knightRU = (12+)
 
 knightUL :: Int -> Int
-knightUL = (+19)
+knightUL = (19+)
 
 knightDR :: Int -> Int
-knightDR = ((-)19)
+knightDR = (19-)
 
 knightUR :: Int -> Int
-knightUR = 21
+knightUR = (21+)
 
 knightDL :: Int -> Int
-knightDL = ((-)21
+knightDL = (21-)
 
 queenDirs :: [Int -> Int]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
@@ -190,7 +190,7 @@ bishopDirs :: [Int -> Int]
 bishopDirs = [diagUL, diagDR, diagUR, diagDL]
 
 knightDirs :: [Int -> Int]
-knightDirs = []
+knightDirs = [knightLU, knightRD, knightLD, knightRU, knightUL, knightDR, knightUR, knightDL]
 
 --pawnDirs -- tbd
 
