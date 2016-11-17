@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module ChessTest where
 
+{-
 import Chess
 import ChessParser
 import Test.Hspec
@@ -11,3 +12,4 @@ import Control.Lens
 import StratTree.TreeNode
 
 chessTest = undefined
+-}

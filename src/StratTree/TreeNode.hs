@@ -5,7 +5,7 @@
 
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, keepColor,
        mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveChoices,
-       followingMoves, moveScores, Env (..), Move (..), Eval (..), IntMove (..), IntEval (..),
+       followingMoves, moveScores, Env (..), Move, Eval (..), IntMove (..), IntEval (..),
        RST (..), RSTransformer, GameState(..)) where
 
 import Control.Lens
@@ -54,18 +54,12 @@ instance Ord IntEval where
 
 instance Eval IntEval where
     getInt = theVal
-    setInt e = IntEval
+    setInt _ = IntEval
     fromInt = IntEval
 
 -------------------------------------------------
 --TODO: getValue, getErrorValue return a Reader monad so scores can depend on
 --depth, skill level settings, etc.
-{-
-class Move m => TreeNode t m | t -> m where
-    getMove :: t -> m
-    getValue :: t -> Int
-    getErrorValue :: t -> Int
- -}
 class (Move m, Eval e) => TreeNode t m e | t -> m, t -> e where
      getMove :: t -> m
      getValue :: t -> e
@@ -92,7 +86,7 @@ $(makeLenses ''MoveScore)
 instance (Show m, Show e) => Show (MoveScore m e) where
     show ms = "(m:" ++ show (ms^.move) ++ " s:" ++ show (ms^.score) ++ ")"
 
-mkMoveScore :: (Move m, Eval e) => m -> e -> MoveScore m e
+mkMoveScore :: m -> e -> MoveScore m e
 mkMoveScore = MoveScore
 
 data Result m e = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScores ::[MoveScore m e]}
@@ -114,5 +108,5 @@ newtype RST a = RST { unRST :: RSTransformer a }
 flipColor :: Eval e => e -> e
 flipColor e = setInt e (negate (getInt e))
 
-keepColor :: Eval e => e -> e
+keepColor :: e -> e
 keepColor = id
