@@ -44,11 +44,11 @@ getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = IntEval 0, _ttErr
 -- parse string input to move
 ---------------------------------------------------------
 strToMove :: String -> Int -> Either String IntMove
-strToMove str color =
+strToMove str colr =
     let x = Parser.run str
     in case x of
         Left err -> Left err
-        Right n -> Right $ IntMove (color * n)
+        Right n -> Right $ IntMove (colr * n)
 
 
 --------------------------------------------------------
@@ -56,13 +56,14 @@ strToMove str color =
 --------------------------------------------------------
 format :: TTNode -> String
 format n =
-    let g = n ^. ttPosition ^. grid
-        rows = take 3 g : take 3 (drop 3 g) : [take 3 $ drop 6 g]
+    let gr = n ^. ttPosition ^. grid
+        rows = take 3 gr : take 3 (drop 3 gr) : [take 3 $ drop 6 gr]
     in  foldr f "" rows where
         f ns str = foldr h "" ns ++ "\n" ++ str where
             h 1    s = "X " ++ s
             h (-1) s = "O " ++ s
             h 0    s = "- " ++ s
+            h _    s = "na" ++ s    --should never happen
 
 --------------------------------------------------------
 -- calculate new node from a previous node and a move
@@ -75,10 +76,10 @@ calcNewNode node mv =
         gridSet = set (grid . ix (mvToGridIx mv)) val (node ^. ttPosition)
         oldColor = view clr gridSet
         colorFlipped = set clr (negate oldColor) gridSet
-        (score, finalSt) = evalGrid colorFlipped
-        errorScore = errorEvalGrid $ colorFlipped ^. grid
+        (scr, finalSt) = evalGrid colorFlipped
+        errorScr = errorEvalGrid $ colorFlipped ^. grid
         allSet = set fin finalSt colorFlipped
-    in  TTNode mv (IntEval score) (IntEval errorScore) allSet
+    in  TTNode mv (IntEval scr) (IntEval errorScr) allSet
 
 
 ----------------------------------------------------------
@@ -104,14 +105,14 @@ eval n = fst $ evalGrid $ n ^. ttPosition
 
 evalGrid :: TTPosition ->  (Int, FinalState)
 evalGrid pos
-    | checkWins g 1         = (100, colorToFinalState color)
-    | checkWins g (-1)      = (-100, colorToFinalState (negate color))
-    | checkTwoWayWin g 1    = (80, NotFinal)
-    | checkTwoWayWin g (-1) = (-80, NotFinal)
-    | checkDraw g           = (0, Draw)
-    | otherwise             = (scorePos g, NotFinal)
-    where g = pos ^. grid
-          color = pos ^. clr
+    | checkWins grd 1         = (100, colorToFinalState colr)
+    | checkWins grd (-1)      = (-100, colorToFinalState (negate colr))
+    | checkTwoWayWin grd 1    = (80, NotFinal)
+    | checkTwoWayWin grd (-1) = (-80, NotFinal)
+    | checkDraw grd           = (0, Draw)
+    | otherwise               = (scorePos grd, NotFinal)
+    where grd = pos ^. grid
+          colr = pos ^. clr
 
 colorToFinalState :: Int -> FinalState
 colorToFinalState 1 = WWins
@@ -119,12 +120,12 @@ colorToFinalState _ = BWins
 
 
 errorEvalGrid :: [Int] -> Int
-errorEvalGrid grid
-    | checkTwoWayWin grid 1    = 121
-    | checkTwoWayWin grid (-1) = -121
-    | checkWins grid 1        = 101
-    | checkWins grid (-1)     = -101
-    | checkDraw grid          = 1
+errorEvalGrid grd
+    | checkTwoWayWin grd 1    = 121
+    | checkTwoWayWin grd (-1) = -121
+    | checkWins grd 1        = 101
+    | checkWins grd (-1)     = -101
+    | checkDraw grd          = 1
     | otherwise               = 1 -- scorePos grid
 
 ---------------------------------------------------------------------
@@ -137,10 +138,11 @@ checkDraw :: [Int] -> Bool
 checkDraw = notElem 0
 
 checkTwoWayWin :: [Int] -> Int -> Bool
-checkTwoWayWin pos color =
+checkTwoWayWin pos colr =
     let theSums = sums $ applyMask pos masks
         count = foldr f 0 theSums where
-                    f x r = if x == 2*color then r+1 else r
+                    f :: Int -> Int -> Int
+                    f x r = if x == 2*colr then r+1 else r
     in count >= 2
 
 ---------------------------------------------------------------------
@@ -158,7 +160,7 @@ scorePos xs = case (countEmpty xs, valCenter xs, sumCorners xs) of
 -- helper functions
 --------------------------------------------------------------------
 wins :: [Int] -> Int -> Bool
-wins sums color = (color * 3) `elem` sums
+wins xs colr = (colr * 3) `elem` xs
 
 sums :: [[Int]] -> [Int]
 sums = map sum
@@ -182,9 +184,14 @@ modN2AndNot n1 n2 = map (\y x -> x `mod` n1 == y && x `mod` n2 /= y)
 divN :: Int -> [Int] -> [Int -> Bool]
 divN n = map (\y x -> x `div` n == y)
 
-offsets = [0, 1..8] :: [Int]
-rhs = [0, 1, 2] :: [Int]
-zeron = [0] :: [Int]
+offsets :: [Int]
+offsets = [0, 1..8]
+
+rhs :: [Int]
+rhs = [0, 1, 2]
+
+zeron :: [Int]
+zeron = [0]
 
 countEmpty :: [Int] -> Int
 countEmpty xs = length $ filter (==0) xs

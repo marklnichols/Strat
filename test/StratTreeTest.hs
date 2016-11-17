@@ -20,6 +20,7 @@ import Control.Monad.State.Strict
 ------------------------------------------------------------------------------------------------
 -- hspec tests
 -------------------------------------------------------------------------------------------------
+stratTreeTest :: SpecWith ()
 stratTreeTest = do
     describe "best" $ do
         it "calculates the best moves" $ do
@@ -165,29 +166,29 @@ fromTransformer :: RST a -> Env -> a
 fromTransformer rst env = evalState (runReaderT (unRST rst) env) (GameState 0)
 
 descendPathTest :: [IntMove] -> Tree TreeItem -> Int
-descendPathTest xs tree = case descendPath xs (fromTree tree) of
-                                        Nothing -> -1
-                                        Just x  -> getInt $ getValue $ label x
+descendPathTest xs t = case descendPath xs (fromTree t) of
+                            Nothing -> -1
+                            Just x  -> getInt $ getValue $ label x
 
 --check that the path of moves retured by best is valid & the node at the bottom contains the correct --value
-validPathCheck :: (Eval e, TreeNode t m e) => Tree t -> Int -> Bool
-validPathCheck tree color =
-        case fromTransformer (best tree color) testEnvMax of
+validPathCheck :: TreeNode t m e => Tree t -> Int -> Bool
+validPathCheck t colr =
+        case fromTransformer (best t colr) testEnvMax of
             Nothing -> False
             Just r -> let path = head (_moveChoices r) : _followingMoves r
                           bestValue = _score (head (_moveScores r))
-                          mPathBottom = descendPath path (fromTree tree)
+                          mPathBottom = descendPath path (fromTree t)
                       in case mPathBottom of
                           Nothing -> False
                           Just tPos -> getInt (getValue (label tPos)) == getInt bestValue
 
 testVisitor :: TreePos Full PosTreeItem -> Int -> Int -> TreePos Full PosTreeItem
-testVisitor tPos depth max
-    | depth == max  = modifyTree addBranch tPos
+testVisitor tPos depth maxi
+    | depth == maxi  = modifyTree addBranch tPos
     | otherwise     = tPos
 
 addBranch :: Tree PosTreeItem -> Tree PosTreeItem
-addBranch tree = Node (rootLabel tree) [newBranch]
+addBranch t = Node (rootLabel t) [newBranch]
 
 ------------------------------------------------------------------------
 
@@ -227,7 +228,7 @@ instance PositionNode PosTreeItem IntMove IntEval where
     possibleMoves = calcPossibleMoves
     final = ptFinal
     showPosition = show
-    parseMove n s = Left "Should not be called."
+    parseMove _ _ = Left "Should not be called."
 
 calcPossibleMoves :: PosTreeItem -> [IntMove]
 calcPossibleMoves node = case ptMove node of
@@ -237,7 +238,7 @@ calcPossibleMoves node = case ptMove node of
     _ -> []
 
 calcNewNode :: PosTreeItem -> IntMove -> PosTreeItem
-calcNewNode tp mv = fromJust $ Map.lookup mv mvToNode
+calcNewNode _ mv = fromJust $ Map.lookup mv mvToNode
 
 mvToNode :: Map IntMove PosTreeItem
 mvToNode  = Map.fromList [
@@ -256,32 +257,41 @@ mvToNode  = Map.fromList [
 
 
 -----------------------------------------------
+testEnv1 :: Env
 testEnv1 = Env {_depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
 
+testEnv2 :: Env
 testEnv2 = Env {_depth = 2, _errorDepth = 2, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
 
+testEnv3 :: Env
 testEnv3 = Env {_depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
 
 --testEnv4 = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, --_errorEquivThreshold = 10,
 --     _p1Comp = True, _p2Comp = True}
 
+testEnvMax :: Env
 testEnvMax = Env {_depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
 
+rootOnly :: Tree PosTreeItem
 rootOnly = Node PosTreeItem {ptMove=IntMove 0, ptValue = IntEval 0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []
 
+root2 :: Tree PosTreeItem
 root2 = Node PosTreeItem {ptMove=IntMove 2, ptValue=IntEval 2, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 1, 0]}} []
 
+aMiniTree :: Tree TreeItem
 aMiniTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0 } [
     Node TreeItem {_tiMove = IntMove 1, _tiValue = IntEval 1, _tiErrorValue = IntEval 1} [],
     Node TreeItem {_tiMove = IntMove 2, _tiValue = IntEval 2, _tiErrorValue = IntEval 2} [],
     Node TreeItem {_tiMove = IntMove 3, _tiValue = IntEval 3, _tiErrorValue = IntEval 3} []]
 
+newBranch :: Tree PosTreeItem    
 newBranch =  Node PosTreeItem {ptMove=IntMove 4, ptValue=IntEval 4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []
 
+modTree :: Tree PosTreeItem
 modTree = Node PosTreeItem {ptMove=IntMove 0, ptValue=IntEval 0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
     Node PosTreeItem {ptMove=IntMove 1, ptValue=IntEval 1, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
         Node PosTreeItem {ptMove=IntMove 4 , ptValue=IntEval 4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []],
@@ -290,11 +300,13 @@ modTree = Node PosTreeItem {ptMove=IntMove 0, ptValue=IntEval 0, ptColor=1, ptFi
     Node PosTreeItem {ptMove=IntMove 3, ptValue=IntEval 3, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [
         Node PosTreeItem {ptMove=IntMove 4, ptValue=IntEval 4, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 4, 0, 0]}} []]]
 
+aMiniPosTree :: Tree PosTreeItem        
 aMiniPosTree = Node PosTreeItem {ptMove=IntMove 0, ptValue=IntEval 0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
     Node PosTreeItem {ptMove=IntMove 1, ptValue=IntEval 1, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
     Node PosTreeItem {ptMove=IntMove 2, ptValue=IntEval 2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
     Node PosTreeItem {ptMove=IntMove 3, ptValue=IntEval 3, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
+expandedTree :: Tree PosTreeItem
 expandedTree =
     Node PosTreeItem {ptMove=IntMove 0, ptValue=IntEval 0, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
         Node PosTreeItem {ptMove=IntMove 1, ptValue=IntEval 1, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [
@@ -306,16 +318,19 @@ expandedTree =
         Node PosTreeItem {ptMove=IntMove 3, ptValue=IntEval 3, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} [
             Node PosTreeItem {ptMove=IntMove 8, ptValue=IntEval 8, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}} []]]
 
+prunedExpandedTree :: Tree PosTreeItem            
 prunedExpandedTree =
     Node PosTreeItem {ptMove=IntMove 2, ptValue=IntEval 2, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [
         Node PosTreeItem {ptMove=IntMove 6, ptValue=IntEval 6, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} [],
         Node PosTreeItem {ptMove=IntMove 7, ptValue=IntEval 7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []]
 
+finalTestTree :: Tree PosTreeItem        
 finalTestTree = Node PosTreeItem {ptMove=IntMove 0, ptValue= IntEval 0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
     Node PosTreeItem {ptMove=IntMove 1, ptValue=IntEval 1, ptColor=1, ptFinal=BWins, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
     Node PosTreeItem {ptMove=IntMove 2, ptValue=IntEval 2, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 0, 0, 0]}} [],
     Node PosTreeItem {ptMove=IntMove 3, ptValue=IntEval 3, ptColor=1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
+expandedFinalTree :: Tree PosTreeItem    
 expandedFinalTree =
     Node PosTreeItem {ptMove=IntMove 0, ptValue=IntEval 0, ptColor = 1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} [
         Node PosTreeItem {ptMove=IntMove 1, ptValue=IntEval 1, ptColor = 1, ptFinal=BWins, ptPosition=TreePosition {tts = [1, 0, 0, 0, 0, 0, 0, 0, 0]}} [],
@@ -324,15 +339,18 @@ expandedFinalTree =
             Node PosTreeItem {ptMove=IntMove 7, ptValue=IntEval 7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
         Node PosTreeItem {ptMove=IntMove 3, ptValue=IntEval 3, ptColor = 1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
+miniTree :: Tree TreeItem        
 miniTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} [
     Node TreeItem {_tiMove = IntMove 1, _tiValue = IntEval 10, _tiErrorValue = IntEval 10} [
         Node TreeItem {_tiMove = IntMove 3, _tiValue = IntEval 30, _tiErrorValue = IntEval 30} [] ],
     Node TreeItem {_tiMove = IntMove 2, _tiValue = IntEval 0, _tiErrorValue = IntEval 20} [
         Node TreeItem {_tiMove = IntMove 4, _tiValue = IntEval 40, _tiErrorValue = IntEval 40} [] ]]
 
+prunedTree :: Tree TreeItem        
 prunedTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} [
     Node TreeItem {_tiMove = IntMove 2, _tiValue = IntEval 2, _tiErrorValue = IntEval 2} []]
 
+aTree :: Tree TreeItem    
 aTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} [
     Node TreeItem {_tiMove = IntMove 1, _tiValue = IntEval (-80), _tiErrorValue = IntEval (-80)} [
         Node TreeItem {_tiMove = IntMove 3, _tiValue = IntEval 20, _tiErrorValue = IntEval 20} [
@@ -352,6 +370,7 @@ aTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue 
             Node TreeItem {_tiMove = IntMove 16, _tiValue= IntEval (-90), _tiErrorValue = IntEval (-90)} [],
             Node TreeItem {_tiMove = IntMove 17, _tiValue = IntEval 10, _tiErrorValue = IntEval 10} []]]]
 
+blunderTree :: Tree TreeItem            
 blunderTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} [
     Node TreeItem {_tiMove = IntMove 1, _tiValue = IntEval (-80), _tiErrorValue = IntEval (-80)} [
         Node TreeItem {_tiMove = IntMove 3, _tiValue = IntEval 20, _tiErrorValue = IntEval 20} [
@@ -392,6 +411,7 @@ prunedToChild = Node TreeItem {_tiMove = IntMove 2, _tiValue = IntEval 70, _tiEr
             Node TreeItem {_tiMove = IntMove 17, _tiValue = IntEval 10, _tiErrorValue = IntEval 10} []]]
 --}
 
+aTree2 :: Tree TreeItem
 aTree2 = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0 } [
     Node TreeItem {_tiMove = IntMove 1, _tiValue = IntEval 10, _tiErrorValue = IntEval  10} [
         Node TreeItem {_tiMove = IntMove 4, _tiValue = IntEval 40, _tiErrorValue = IntEval 40 } [

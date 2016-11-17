@@ -20,8 +20,8 @@ import Control.Lens
 -- :set args "chess"
 -- Main.main
 
-gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
-     _p1Comp = False, _p2Comp = True}
+gameEnv :: Env
+gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0,               _errorEquivThreshold = 0, _p1Comp = False, _p2Comp = True}
 
 main :: IO ()
 main = do
@@ -99,17 +99,17 @@ computerMove node turn = do
                 Nothing -> do
                     putStrLn "Invalid result from resolveRandom"
                     exitFailure
-                Just move -> do
-                    printMoveChoiceInfo newTree result move
-                    return (processMove newTree move)
+                Just mv -> do
+                    printMoveChoiceInfo newTree result mv
+                    return (processMove newTree mv)
 
 --printMoveChoiceInfo :: (Eval e, Move m) => Result m e -> m -> IO ()
 printMoveChoiceInfo :: PositionNode n m e => Tree n -> Result m e -> m -> IO ()
-printMoveChoiceInfo tree result move = do
+printMoveChoiceInfo tree result mv = do
     putStrLn ("Tree size: " ++ show (treeSize tree))
     putStrLn ("Equivalent best moves: " ++ show (result^.moveChoices))
     putStrLn ("Following moves: " ++ show ( result^.followingMoves))
-    putStrLn ("Computer's move:\n (m:" ++ show move ++
+    putStrLn ("Computer's move:\n (m:" ++ show mv ++
                   ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
     putStrLn ""
 

@@ -2,13 +2,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Chess where
-import Control.Monad
 import Data.Tree
 import StratTree.TreeNode
 import Control.Lens
-import Data.List
-import Data.Char
-import Data.Maybe
 import qualified Data.Vector.Unboxed as V
 import qualified ChessParser as Parser
 
@@ -43,15 +39,15 @@ class ChessPiece a where
 
 data King = King deriving (Show, Eq)
 instance ChessPiece King where
-    pVal k = 1000
-    dirs k = kingDirs
+    pVal _ = 1000
+    dirs _ = kingDirs
     --TBD: some type i.e., glide, hop, shuffle, pawnie
     legalMoves = legalKingMoves --still need this?
 
 data Queen = Queen deriving (Show, Eq)
 instance ChessPiece Queen where
-    pVal q = 9
-    dirs q = queenDirs
+    pVal _ = 9
+    dirs _ = queenDirs
     --TBD: some type i.e., glide, hop, shuffle, pawnie
     legalMoves = legalQueenMoves --still need this?
 
@@ -71,9 +67,9 @@ instance TreeNode ChessNode ChessMv ChessEval where
     getErrorValue = _chessErrorVal
 
 instance Show ChessMv where
-    show move = case toParserMove move of
+    show mv = case toParserMove mv of
                     Just m -> show m
-                    Nothing -> show move
+                    Nothing -> show mv
 
 instance Show ChessNode where
     show n = "move: " ++ show (n ^. chessMv) ++ " value: " ++ show (n ^. chessVal) ++ " errorValue: "
@@ -199,25 +195,25 @@ knightDirs = [knightLU, knightRD, knightLD, knightRU, knightUL, knightDR, knight
 -- Convert ChessMv to Parser Move (for display)
 ---------------------------------------------------------------------------------------------------
 toParserMove :: ChessMv -> Maybe Parser.Move
-toParserMove move = undefined
+toParserMove _ = undefined
 
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
 format :: ChessNode -> String
-format node = undefined
+format _ = undefined
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------------------------------------------------
 parseChessMv :: ChessNode -> String -> Either String ChessMv
-parseChessMv n s = undefined
+parseChessMv _ _ = undefined
 
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: ChessNode -> ChessMv -> ChessNode
-calcNewNode node mv = undefined
+calcNewNode _ _ = undefined
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
@@ -226,7 +222,7 @@ getAllowedMoves :: ChessNode -> [ChessMv]
 getAllowedMoves = undefined
 
 legalKingMoves :: King -> ChessPos -> Int -> [ChessMv]
-legalKingMoves king pos idx = undefined
+legalKingMoves _ _ _ = undefined
 
 legalQueenMoves :: Queen -> ChessPos -> Int -> [ChessMv]
-legalQueenMoves queen pos idx = undefined
+legalQueenMoves _ _ _ = undefined
