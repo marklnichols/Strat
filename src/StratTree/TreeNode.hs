@@ -6,11 +6,12 @@
 module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, keepColor,
        mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveChoices,
        followingMoves, moveScores, Env (..), Move, Eval (..), IntMove (..), IntEval (..),
-       RST (..), RSTransformer, GameState(..)) where
+       RST (..), RSTransformer, GameState(..), Output(..)) where
 
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
+import Data.Tree
 
 -------------------------------------------------------------
 -- Data types
@@ -73,6 +74,12 @@ class (TreeNode n m e, Show n, Move m, Eval e) => PositionNode n m e | n -> m, n
     showPosition :: n -> String
     parseMove :: n -> String -> Either String m
 
+class Output o n m | o -> n, n -> m where 
+    out :: o -> String -> IO ()
+    updateBoard :: o -> n -> IO ()
+    getPlayerMove :: o -> Tree n -> Int -> IO m    
+    gameError :: o -> String -> IO ()
+        
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 
 data Env = Env

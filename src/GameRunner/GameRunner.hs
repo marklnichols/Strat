@@ -1,6 +1,7 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module GameRunner where
-import TicTac
-import Checkers
+
 import StratTree.TreeNode
 import StratTree.StratTree
 import StratTree.Trees
@@ -11,49 +12,41 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Lens
 
-class Output o where 
-    out :: o -> String -> IO ()
-    updateAll :: 0 -> TBD -> IO ()
-    getMove :: o -> TBD
-  
+gameEnv :: Env  
 gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
      _p1Comp = False, _p2Comp = True}
 
-startGame :: Output a => a -> [String] -> IO ()
-startGame ["tictac"]   = loop getTicTacStart 1
-startGame ["checkers"] = loop getCheckersStart 1
-startGame _            = out "Usage: main tictac | checkers" -- TBD fix this
+startGame :: (Output o n m, PositionNode n m e) => o -> Tree n -> IO ()
+startGame o node = loop o node 1
 
-getTicTacStart :: Tree TTNode
-getTicTacStart = TicTac.getStartNode
-
-getCheckersStart :: Tree CkNode
-getCheckersStart = Checkers.getStartNode
-
-loop :: PositionNode n m e => Tree n -> Int -> IO ()
-loop node turn = do
-    out $ showPosition $ rootLabel node
-    out ("Current position score: " ++ show (getValue (rootLabel node)))
-    out ""
+loop :: (Output o n m, PositionNode n m e) => o -> Tree n -> Int -> IO ()
+loop o node turn = do    
+    
+    --putStrLn showPosition $ rootLabel node
+    updateBoard o $ rootLabel node
+    --putStrLn ("Current position score: " ++ show (getValue (rootLabel node)))
+    --putStrLn ""
+    
     theNext <- case final $ rootLabel node of
         WWins -> do
-            out "White wins."
+            out o "White wins."
             return Nothing
         BWins -> do
-            out "White wins."
+            out o "White wins."
             return Nothing
         Draw -> do
-            out "Draw."
+            out o "Draw."
             return Nothing
         _ -> do
             nextNode <- if evalState (runReaderT (unRST (isCompTurn turn)) gameEnv) (GameState 0)
-                            then computerMove node turn
-                            else  playerMove node turn
+                            then computerMove o node turn
+                            else playerMove o node turn
             return (Just nextNode)
     case theNext of
         Nothing -> return ()
-        Just next -> loop next (swapTurns turn)
+        Just next -> loop o next (swapTurns turn)
 
+{-
 playerMove :: PositionNode n m e => Tree n -> Int -> IO (Tree n)
 playerMove tree turn = do
     out ("Enter player " ++ show turn ++ "'s move:")
@@ -68,39 +61,70 @@ playerMove tree turn = do
                 out "Not a legal move."
                 playerMove tree turn
             else return (processMove tree mv)
-
+-}
+playerMove :: (Output o n m, PositionNode n m e) => o -> Tree n -> Int -> IO (Tree n)
+playerMove o tree turn = do
+    mv <- getPlayerMove o tree turn
+    return (processMove tree mv)
+            
+{-          
 computerMove :: PositionNode n m e => Tree n -> Int -> IO (Tree n)
 computerMove node turn = do
-    out "Calculating computer move..."
+    putStrLn "Calculating computer move..."
     let newTree = evalState (runReaderT (unRST (expandTree node)) gameEnv) (GameState 0)
     let resultM = evalState (runReaderT (unRST (best newTree (turnToColor turn))) gameEnv) (GameState 0)
     case resultM of
         Nothing -> do
-            out "Invalid result returned from best"
+            putStrLn "Invalid result returned from best"
             exitFailure
         Just result -> do
             let badMovesM = checkBlunders newTree (turnToColor turn) (result^.moveScores)
             let badMoves = evalState (runReaderT (unRST badMovesM) gameEnv) (GameState 0)
             let finalChoices = fromMaybe (result ^. moveScores) badMoves
-            out ("Choices from best: " ++ show (result^.moveScores))
-            out ("Choices after checkBlunders: " ++ show finalChoices)
+            putStrLn ("Choices from best: " ++ show (result^.moveScores))
+            putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
             moveM <- resolveRandom finalChoices
             case moveM of
                 Nothing -> do
-                    out "Invalid result from resolveRandom"
+                    putStrLn "Invalid result from resolveRandom"
                     exitFailure
-                Just move -> do
-                    printMoveChoiceInfo newTree result move
-                    return (processMove newTree move)
+                Just mv -> do
+                    printMoveChoiceInfo newTree result mv
+                    return (processMove newTree mv)
+-}
+computerMove :: (Output o n m, PositionNode n m e) => o -> Tree n -> Int -> IO (Tree n)
+computerMove o node turn = do
+    out o "Calculating computer move..."
+    let newTree = evalState (runReaderT (unRST (expandTree node)) gameEnv) (GameState 0)
+    let resultM = evalState (runReaderT (unRST (best newTree (turnToColor turn))) gameEnv) (GameState 0)
+    case resultM of
+        Nothing -> do 
+            gameError o "Invalid result returned from best"
+            return newTree
+        Just result -> do
+            let badMovesM = checkBlunders newTree (turnToColor turn) (result^.moveScores)
+            let badMoves = evalState (runReaderT (unRST badMovesM) gameEnv) (GameState 0)
+            let finalChoices = fromMaybe (result ^. moveScores) badMoves
+            out o ("Choices from best: " ++ show (result^.moveScores))
+            out o ("Choices after checkBlunders: " ++ show finalChoices)
+            moveM <- resolveRandom finalChoices
+            case moveM of
+                Nothing -> do
+                    gameError o "Invalid result from resolveRandom"
+                    return newTree
+                Just mv -> do
+                    printMoveChoiceInfo o newTree result mv
+                    return (processMove newTree mv)
+                     
 
-printMoveChoiceInfo :: PositionNode n m e => Tree n -> Result m e -> m -> IO ()
-printMoveChoiceInfo tree result move = do
-    out ("Tree size: " ++ show (treeSize tree))
-    out ("Equivalent best moves: " ++ show (result^.moveChoices))
-    out ("Following moves: " ++ show ( result^.followingMoves))
-    out ("Computer's move:\n (m:" ++ show move ++
+printMoveChoiceInfo :: (Output o n m, PositionNode n m e) => o -> Tree n -> Result m e -> m -> IO ()
+printMoveChoiceInfo o tree result mv = do
+    out o ("Tree size: " ++ show (treeSize tree))
+    out o ("Equivalent best moves: " ++ show (result^.moveChoices))
+    out o ("Following moves: " ++ show ( result^.followingMoves))
+    out o ("Computer's move:\n (m:" ++ show mv ++
                   ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
-    out ""
+    out o ""
 
 isCompTurn :: Int -> RST Bool
 isCompTurn turn = do

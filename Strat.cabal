@@ -14,20 +14,25 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src, src/Examples/Checkers, src/Examples/Chess, src/Examples/TicTac, test
-  exposed-modules:     StratTree.StratTree
-                       ,StratTree.TreeNode
-                       ,StratIO.StratIO
-                       ,TicTac
-                       ,TTParser
-                       ,Checkers
-                       ,CkParser
-                       ,CheckersJson
-                       ,Chess
-                       ,ChessParser
-                       ,StratTree.Trees
-  other-modules:       
-  build-depends:       base >= 4.7 && < 5
+  hs-source-dirs:    src
+                     , src/Examples/Checkers
+                     , src/Examples/Chess
+                     , src/Examples/TicTac
+                     , src/GameRunner
+  exposed-modules:   StratTree.StratTree
+                     , StratTree.TreeNode
+                     , StratIO.StratIO
+                     , StratTree.Trees
+  other-modules:     TicTac
+                     , TTParser
+                     , Checkers
+                     , CkParser
+                     , CheckersJson
+                     , GameRunner
+                     , CheckersText
+                     , Chess
+                     , ChessParser
+  build-depends:     base >= 4.7 && < 5
                      , containers ==0.5.*
                      , rosezipper ==0.2.*
                      , lens >= 4.0
@@ -43,30 +48,60 @@ library
                      , vector >= 0.11
                      , aeson >= 0.11
                      , text >= 1.2
-  ghc-options:         -Wall
-  default-language:    Haskell2010
+  ghc-options:       -Wall
+  default-language:  Haskell2010
 
 
 executable Strat-commandline
-  hs-source-dirs:   src/Strat-commandline
-  main-is:          Main.hs
-  other-modules:
-  build-depends:
-                      base >= 4 && <= 5
-                    , Strat
-                    , containers ==0.5.*
-                    , mtl >= 2.2
-                    , lens >= 4.0
-  default-language:   Haskell2010
+  hs-source-dirs:    src/Strat-commandline
+                     , src
+                     , src/Examples/Checkers
+                     , src/Examples/Chess
+                     , src/Examples/TicTac
+                     , src/GameRunner
+  main-is:           Main.hs
+  other-modules:     StratTree.StratTree
+                     , StratTree.TreeNode
+                     , StratIO.StratIO
+                     , StratTree.Trees
+                     , TicTac
+                     , TTParser
+                     , Checkers
+                     , CkParser
+                     , CheckersJson
+                     , GameRunner
+                     , CheckersText
+                     , Chess
+                     , ChessParser
+  build-depends:     base >= 4 && <= 5
+                     , containers ==0.5.*
+                     , rosezipper ==0.2.*
+                     , lens >= 4.0
+                     , tuple >= 0.3
+                     , hspec >= 2.0
+                     , random >= 1.0
+                     , safe >= 0.3
+                     , mtl >= 2.2
+                     , split >= 0.1
+                     , hashtables >= 1.0
+                     , parsec >= 3.1
+                     , parsec-numbers >= 0.1
+                     , vector >= 0.11
+                     , aeson >= 0.11
+                     , text >= 1.2
+  default-language:  Haskell2010
 
-
-
-
-test-suite StratTreeTest
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test, src, src/Examples/Checkers, src/Examples/Chess, src/Examples/TicTac
-  main-is:             TestSuite.hs
-  build-depends:       base
+  
+test-suite           StratTreeTest
+  type:              exitcode-stdio-1.0
+  hs-source-dirs:    test
+                     ,src
+                     ,src/Examples/Checkers
+                     ,src/Examples/Chess
+                     ,src/Examples/TicTac
+                     , src/GameRunner
+  main-is:           TestSuite.hs
+  build-depends:     base
 --                   , Strat
                      , containers ==0.5.*
                      , rosezipper ==0.2.*
@@ -83,9 +118,11 @@ test-suite StratTreeTest
                      , vector >= 0.11
                      , aeson >= 0.11
                      , text >= 1.2
-  other-modules:       Checkers
+  other-modules:     Checkers
                      , CkParser
                      , CheckersJson
+                     , GameRunner
+                     , CheckersText
                      , CheckersTest
                      , Chess
                      , ChessParser
@@ -98,8 +135,8 @@ test-suite StratTreeTest
                      , StratTree.StratTree
                      , StratTreeTest
 
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
-  default-language:    Haskell2010
+  ghc-options:       -threaded -rtsopts -with-rtsopts=-N -Wall
+  default-language:  Haskell2010
 
 source-repository head
   type:     git

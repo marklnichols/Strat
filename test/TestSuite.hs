@@ -7,6 +7,7 @@ import CheckersTest
 --import ChessTest
 import Test.Hspec
 
+main :: IO ()
 main = hspec $ do
     stratTreeTest
     ticTacTest

@@ -1,4 +1,5 @@
-module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, isWorse, isLegal, possibleBlunders, worst, best') where
+module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, 
+                             isWorse, isLegal, possibleBlunders, worst, best') where
 
 import StratTree.Trees
 import StratTree.TreeNode
