@@ -12,7 +12,6 @@ import Control.Lens
 import Data.List hiding (lookup, insert)
 import Data.Char
 import Data.Maybe
---import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
 import Safe
@@ -133,7 +132,7 @@ indexToValue bottomColor idx
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
-
+--TODO: remove this stuff once working elsewhere
 format :: CkNode -> String
 format node = loop (node^.ckPosition^.grid) 40 "" where
     loop _ 4 result = result ++ "\n" ++ colLabels
