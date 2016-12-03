@@ -25,7 +25,6 @@ instance PositionNode TTNode IntMove IntEval where
     color n = n ^. (ttPosition . clr)
     --final = _fin . _ttPosition
     final n = n ^. (ttPosition . fin)
-    showPosition = format
     parseMove n s = strToMove s (color n)
 
 instance TreeNode TTNode IntMove IntEval where

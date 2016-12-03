@@ -5,8 +5,10 @@ hlint src\StratTree\Trees.hs
 hlint src\StratIO\StratIO.hs
 hlint src\Examples\TicTac\TicTac.hs  
 hlint src\Examples\TicTac\TTParser.hs 
-hlint src\Examples\Checkers\Checkers.hs 
+hlint src\Examples\Checkers\Checkers.hs
+hlint src\Examples\Checkers\CheckersText.hs
 hlint src\Examples\Checkers\CkParser.hs
+hlint src\Examples\Checkers\CheckersWeb.hs  
 hlint src\Examples\Checkers\CheckersJson.hs
 hlint src\Examples\Chess\Chess.hs
 hlint src\Examples\Chess\ChessParser.hs

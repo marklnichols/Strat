@@ -227,7 +227,7 @@ instance PositionNode PosTreeItem IntMove IntEval where
     color = ptColor
     possibleMoves = calcPossibleMoves
     final = ptFinal
-    showPosition = show
+    --showPosition = show
     parseMove _ _ = Left "Should not be called."
 
 calcPossibleMoves :: PosTreeItem -> [IntMove]

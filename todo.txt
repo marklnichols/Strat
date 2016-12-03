@@ -1,7 +1,8 @@
 Current:
 Bare-bones web GUI
-try RTS Monad instead of transformer
-Impove end game logic
+Chess basics
+Proper command line parsing
+Add readMe explaining state of the project
 
 Project organization:
 Set the proper exports (comment out for debugging)
@@ -12,7 +13,8 @@ additional profiling - improve performance
 try using foundation (instead of prelude)
 Reader monad for move eval (for depth, difficulty level, etc.)
 Turn debugging display on/off
-String to Text conversion -- ugh =(
+remove the blunder code?
+try RTS Monad instead of transformer
 
 TicTac:
 Prefer win on next move (after reader monad)
@@ -20,3 +22,7 @@ Prefer win on next move (after reader monad)
 Checkers:
 Add score for "pinned" pieces
 Add some specific blunder evaluation?
+Impove end game logic for checkers
+
+Chess:
+Get basic piece moves, etc.
