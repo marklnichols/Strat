@@ -35,7 +35,6 @@ instance FromJSON Move
 loc :: Parser Loc
 loc = do
     c <- oneOf "abcdefghABCDEFGH"
-    --optional $ char '-'
     d <- oneOf "12345678"
     return $ Loc c (digitToInt d)
  

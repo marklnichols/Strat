@@ -9,7 +9,6 @@ import Control.Monad
 import Data.Tree
 import StratTree.TreeNode hiding (MoveScore, Result)
 import Control.Lens
-import Data.List hiding (lookup, insert)
 import Data.Char
 import Data.Maybe
 import qualified Data.Vector.Unboxed as V
@@ -41,7 +40,6 @@ instance PositionNode CkNode CkMove CkEval where
     possibleMoves = getAllowedMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
-    showPosition = format
     parseMove = parseCkMove
 
 instance TreeNode CkNode CkMove CkEval where
@@ -130,54 +128,23 @@ indexToValue bottomColor idx
     | otherwise             = negate bottomColor -- player at top initial pieces
 
 ---------------------------------------------------------------------------------------------------
--- format position as a string
----------------------------------------------------------------------------------------------------
---TODO: remove this stuff once working elsewhere
-format :: CkNode -> String
-format node = loop (node^.ckPosition^.grid) 40 "" where
-    loop _ 4 result = result ++ "\n" ++ colLabels
-    loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
-        (newIdx, spaces) = case n `mod` 9 of
-            0 -> (n-1, "")
-            4 -> (n, "   ")
-            _ -> (n, "   ") --should never happen
-
-
-rowToStr :: V.Vector Int -> Int -> String -> String
-rowToStr xs i spaces =  Map.findWithDefault "??" i labelMap ++ "  " ++ spaces ++
-                            toXOs (xs V.! (i-3)) ++ gap ++
-                            toXOs (xs V.! (i-2)) ++ gap ++
-                            toXOs (xs V.! (i-1)) ++ gap ++
-                            toXOs (xs V.!    i)  ++ "\n"
-
-gap :: String
-gap = "     "
-
-toXOs :: Int -> String
-toXOs 1 = "x"
-toXOs (-1) = "o"
-toXOs (2) = "X"
-toXOs (-2) = "O"
-toXOs 0 = "-"
-toXOs _ = "?"
-
-labelMap :: Map.Map Int String
-labelMap = Map.fromList [(40, "H"), (35, "G"), (31, "F"), (26, "E"), (22, "D"), (17, "C"), (13, "B"), (8, "A")]
-
-colLabels :: String
-colLabels = "   " ++ intercalate "  " ["1", "2", "3", "4", "5", "6", "7", "8"]
-
----------------------------------------------------------------------------------------------------
 -- Convert Parser's Move type to CkMove
 ---------------------------------------------------------------------------------------------------
+--supports infering move from single loc if there is a unique one
+--TODO fix: one move + one jump should == unique jump
 toCkMove :: CkNode -> Parser.Move -> Either String CkMove
 toCkMove node (Parser.Move xs) =     --parser guarentees at least one item in list. TODO: move to non-empty list
-    let xs' = fmap locToInt xs
+    let xs' = fmap locToInt xs 
     in case length xs' of
         1 -> fromSingleLoc node (head xs')
         _ -> Right $ fromMultLoc xs'
 
-
+--This variant doesnt require CkNode, but doesn't support inferring move from a single loc
+parserToCkMove :: Parser.Move -> Maybe CkMove
+parserToCkMove (Parser.Move xs) 
+    | length xs < 2     = Nothing
+    | otherwise         = Just $ fromMultLoc $ fmap locToInt xs
+                
 fromSingleLoc :: CkNode -> Int -> Either String CkMove
 fromSingleLoc node x
     | nMoves + nJumps /= 1  = Left $ show x ++ " is not a valid unique move."
@@ -188,7 +155,6 @@ fromSingleLoc node x
         jumps = pieceJumps node x
         nMoves = length moves
         nJumps = length jumps
-
 
 fromMultLoc :: [Int] -> CkMove
 fromMultLoc xs =
@@ -219,7 +185,7 @@ rowIndexes :: Map.Map Char Int
 rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 32), ('H', 37)]
 
 ---------------------------------------------------------------------------------------------------
--- Convert CkMove to Parser Move (for display)
+-- Convert CkMove to Parser Move
 ---------------------------------------------------------------------------------------------------
 toParserMove :: CkMove -> Maybe Parser.Move
 toParserMove mv =

@@ -6,7 +6,9 @@ import CkParser
 import Test.Hspec
 import Data.Tree
 import Data.Either
+import Data.Maybe
 import qualified Data.Vector.Unboxed as V
+import qualified CheckersJson as J
 import Control.Lens
 import StratTree.TreeNode
 
@@ -95,6 +97,11 @@ checkersTest = do
             kingProximity (nodeFromGridW board09b) `shouldBe` (-6)
             kingProximity (nodeFromGridW blunderBoard0) `shouldBe` 3
             kingProximity (nodeFromGridB blunderBoard0) `shouldBe` 3
+    describe "jsonToCkMove" $
+        it "converts a Json move into a CKMove" $ do
+            J.jsonToCkMove (mkSimpleJsonMove m1) `shouldBe` Just (mkSimpleCkMove m1)
+            J.jsonToCkMove (mkSimpleJsonJump m2) `shouldBe` Just (mkSimpleCkJump m2)
+            J.jsonToCkMove (mkMultiJsonJump m3) `shouldBe` Just (mkMultiCkJump m3)
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -128,12 +135,21 @@ positionFromGridB g = nodeFromGridB g ^. ckPosition
 
 mkSimpleCkMove :: Int -> CkMove
 mkSimpleCkMove i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = [], _removedIdxs = []}
+           
+mkSimpleJsonMove :: Int -> String
+mkSimpleJsonMove x = fromMaybe "" (J.jsonFromCkMove (mkSimpleCkMove x))
 
 mkSimpleCkJump :: (Int, Int) -> CkMove
 mkSimpleCkJump (mv, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100, _endIdx = mv `mod` 100, _middleIdxs = [], _removedIdxs = [removed]}
 
+mkSimpleJsonJump :: (Int, Int) -> String
+mkSimpleJsonJump (mv, removed) = fromMaybe "" (J.jsonFromCkMove (mkSimpleCkJump (mv, removed)))
+
 mkMultiCkJump :: (Int, [Int], [Int]) -> CkMove
 mkMultiCkJump (mv, middle, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100, _endIdx = mv `mod` 100, _middleIdxs = middle, _removedIdxs = removed}
+
+mkMultiJsonJump :: (Int, [Int], [Int]) -> String
+mkMultiJsonJump (mv, middle, removed) = fromMaybe "" (J.jsonFromCkMove (mkMultiCkJump (mv, middle, removed)))
 
 ---------------------------------------------------------------------------------------------------
 -- Test Reader environments

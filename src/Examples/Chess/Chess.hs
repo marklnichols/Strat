@@ -58,7 +58,6 @@ instance PositionNode ChessNode ChessMv ChessEval where
     possibleMoves = getAllowedMoves
     color = view (chessPos . clr)
     final = view (chessPos . fin)
-    showPosition = format
     parseMove = parseChessMv
 
 instance TreeNode ChessNode ChessMv ChessEval where

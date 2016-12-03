@@ -1,37 +1,51 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-
 module CheckersText where
 
 import StratTree.TreeNode
 import StratTree.StratTree
+import StratTree.Trees
 import Data.Tree
 import Data.List
 import System.Exit
 import Control.Lens
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
+import Checkers
 
---TODO: remove these 'hiding' once stuff is removed from Checkers
-import Checkers hiding (colLabels, rowToStr, labelMap, toXOs, gap )
 
 data CheckersText = CheckersText
 
-instance Output CheckersText CkNode CkMove where
-    out _ str = printString str 
+instance Output CheckersText CkNode CkMove CkEval where
+    out _ = printString
     updateBoard = showBoard
-    getPlayerMove _ node turn = playerMove node turn
+    showCompMove _ = printMoveChoiceInfo
+    getPlayerMove _ = playerMove
     gameError = exitFail
 
+-- class Output o n m | o -> n, n -> m where 
+-- showCompMove :: o -> Tree n -> Result m e -> m -> IO ()    
+    
 printString :: String -> IO ()
-printString str = do
-    putStrLn str
+printString = putStrLn
     
 showBoard :: CheckersText -> CkNode -> IO ()
 showBoard _ node = do  
     putStrLn $ formatBoard node 
     putStrLn ("Current position score: " ++ show (getValue node))
     putStrLn ""
-  
+ 
+printMoveChoiceInfo :: Tree CkNode -> [MoveScore CkMove CkEval] -> Result CkMove CkEval ->  CkMove -> IO ()
+printMoveChoiceInfo tree finalChoices result mv = do
+    putStrLn ("Choices from best: " ++ show (result^.moveScores))
+    putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
+    putStrLn ("Tree size: " ++ show (treeSize tree))
+    putStrLn ("Equivalent best moves: " ++ show (result^.moveChoices))
+    putStrLn ("Following moves: " ++ show ( result^.followingMoves))
+    putStrLn ("Computer's move:\n (m:" ++ show mv ++
+                  ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
+    putStrLn ""
+
+ 
 exitFail :: CheckersText -> String -> IO ()
 exitFail _ s = do
     putStrLn s
