@@ -55,6 +55,7 @@ library
 
 executable Strat-commandline
   hs-source-dirs:    src/Strat-commandline
+                     , src/Strat-web
                      , src
                      , src/Examples/Checkers
                      , src/Examples/Chess
@@ -75,6 +76,11 @@ executable Strat-commandline
                      , CheckersWeb
                      , Chess
                      , ChessParser
+                     , WebMain
+                     , Controllers.MainController
+                     , Views.Home
+                     , Views.Move
+                     , Views.NewGame
   build-depends:     base >= 4 && <= 5
                      , containers ==0.5.*
                      , rosezipper ==0.2.*
@@ -92,6 +98,9 @@ executable Strat-commandline
                      , aeson >= 0.11
                      , text >= 1.2
                      , bytestring >= 0.10.8
+                     , wai-extra >=3.0.0
+                     , wai-middleware-static
+                     , scotty
   ghc-options:       -Wall
   default-language:  Haskell2010
 
