@@ -1,0 +1,166 @@
+<html>
+<head> 
+<meta charset="UTF-8"> 
+<title>Gameboard</title>
+<style type="text/css">
+.gameboard { 
+    width: 640px; 
+    height: 640px; 
+    margin: 20px; 
+    border: 25px solid #333; 
+}
+.black { 
+    float: left; 
+    width: 80px;
+    height: 80px; 
+    background-color: #999; 
+    font-size: 50px; 
+    text-align:center; 
+    display: table-cell; 
+    vertical-align:middle;
+}
+.white { 
+    float: left; 
+    width: 80px;
+    height: 80px; 
+    background-color: #fff; 
+    font-size: 50px; 
+    text-align: center; 
+    display: table-cell; 
+    vertical-align:middle;
+}
+
+.selected { 
+    background-color: #f70000;
+}
+</style>
+</head>
+
+<body>
+
+
+<script src="jquery-3.1.1.min.js"></script>
+
+<script> 
+
+var game = { } ;
+
+  //$(function(){
+  //    $("#specificGame").load("checkers.html"); 
+  //    //$("#specificGame").load("chess.html");
+  //  });
+
+function rowCol2Id(row, col) { 
+    return String.fromCharCode(97 + row) + col.toString();
+}
+
+function deselectSquare() { 
+    if (game.selectedId) { 
+        $('#'+game.selectedId).removeClass("selected"); 
+        game.selectedId = undefined;
+    }
+}    
+        
+function selectSquare(id) { 
+    $('#'+id).addClass("selected"); 
+    game.selectedId = id;
+}
+
+function onClick(event) { 
+    deselectSquare();
+    selectSquare(this.id);
+}
+
+$(document).ready(function() { 
+    // attach mouse click handler to each div sqare 
+    for (var i = 0; i < 8; i++) { 
+        for (var j = 1; j < 9; j++) { 
+            //build strings #a1 - #h8
+            var id = rowCol2Id(i, j); 
+            $('#'+id).click(onClick);
+        }
+    }
+});
+
+</script>
+
+<!-- div id="specificGame"></div-->
+
+<div class="gameboard">
+<!-- 1st -->
+<div id="hl" class="white"></div> 
+<div id="h2" class="black">&#9922;</div> 
+<div id="h3" class="white"></div> 
+<div id="h4" class="black">&#9922;</div> 
+<div id="h5" class="white"></div>
+<div id="h6" class="black">&#9922;</div> 
+<div id="h7" class="white"></div> 
+<div id="h8" class="black">&#9922;</div>
+<!-- 2nd -->
+<div id="gl" class="black">&#9922;</div> 
+<div id="g2" class="white"></div> 
+<div id="g3" class="black">&#9922;</div> 
+<div id="g4" class="white"></div>
+<div id="g5" class="black">&#9922;</div>
+<div id="g6" class="white"></div> 
+<div id="g7" class="black">&#9922;</div> 
+<div id="g8" class="white"></div>
+<!-- 3rd -->
+<div id="f1" class="white"></div> 
+<div id="f2" class="black"></div> 
+<div id="f3" class="white"></div> 
+<div id="f4" class="black">&#9922;</div> 
+<div id="f5" class="white"></div> 
+<div id="f6" class="black">&#9922;</div> 
+<div id="f7" class="white"></div> 
+<div id="f8" class="black">&#9922;</div> 
+<!-- 4th -->
+<div id="e1" class="black"></div> 
+<div id="e2" class="white"></div>
+<div id="e3" class="black">&#9922;</div> 
+<div id="e4" class="white"></div>
+<div id="e5" class="black"></div> 
+<div id="e6" class="white"></div>
+<div id="e7" class="black"></div> 
+<div id="e8" class="white"></div>
+<!-- 5th -->
+<div id="d1" class="white"></div> 
+<div id="d2" class="black"></div> 
+<div id="d3" class="white"></div> 
+<div id="d4" class="black"></div> 
+<div id="d5" class="white"></div> 
+<div id="d6" class="black"></div> 
+<div id="d7" class="white"></div> 
+<div id="d8" class="black"></div> 
+<!-- 6th -->
+<div id="c1" class="black">&#9920;</div> 
+<div id="c2" class="white"></div> 
+<div id="c3" class="black">&#9920;</div> 
+<div id="c4" class="white"></div> 
+<div id="c5" class="black">&#9920;</div> 
+<div id="c6" class="white"></div> 
+<div id="c7" class="black">&#9920;</div> 
+<div id="c8" class="white"></div> 
+<!-- 7th -->
+<div id="bl" class="white"></div>
+<div id="b2" class="black">&#9920;</div> 
+<div id="b3" class="white"></div> 
+<div id="b4" class="black">&#9920;</div> 
+<div id="b5" class="white"></div>
+<div id="b6" class="black">&#9920;</div> 
+<div id="b7" class="white"></div> 
+<div id="b8" class="black">&#9920;</div>
+<!-- 8th -->
+<div id="al" class="black">&#9920;</div> 
+<div id="a2" class="white"></div> 
+<div id="a3" class="black">&#9920;</div> 
+<div id="a4" class="white"></div> 
+<div id="a5" class="black">&#9920;</div>
+<div id="a6" class="white"></div> 
+<div id="a7" class="black">&#9920;</div> 
+<div id="a8" class="white"></div>
+</div>
+
+
+</body>
+</html>
