@@ -35,6 +35,10 @@ makeLenses ''CkNode
 data JumpOff = JumpOff {_jmpOver :: Int, _land :: Int}
 makeLenses ''JumpOff
 
+data PieceLoc = PieceLoc {pieceLoc :: Parser.Loc, pieceLocValue :: Int}
+
+data PieceList = PieceList {pieceLocs :: [PieceLoc]}
+
 instance PositionNode CkNode CkMove CkEval where
     newNode = calcNewNode
     possibleMoves = getAllowedMoves
@@ -134,17 +138,17 @@ indexToValue bottomColor idx
 --TODO fix: one move + one jump should == unique jump
 toCkMove :: CkNode -> Parser.Move -> Either String CkMove
 toCkMove node (Parser.Move xs) =     --parser guarentees at least one item in list. TODO: move to non-empty list
-    let xs' = fmap locToInt xs 
+    let xs' = fmap locToInt xs
     in case length xs' of
         1 -> fromSingleLoc node (head xs')
         _ -> Right $ fromMultLoc xs'
 
 --This variant doesnt require CkNode, but doesn't support inferring move from a single loc
 parserToCkMove :: Parser.Move -> Maybe CkMove
-parserToCkMove (Parser.Move xs) 
+parserToCkMove (Parser.Move xs)
     | length xs < 2     = Nothing
     | otherwise         = Just $ fromMultLoc $ fmap locToInt xs
-                
+
 fromSingleLoc :: CkNode -> Int -> Either String CkMove
 fromSingleLoc node x
     | nMoves + nJumps /= 1  = Left $ show x ++ " is not a valid unique move."
@@ -216,6 +220,23 @@ rowLabels :: String
 rowLabels = ['A'..'H']
 
 ---------------------------------------------------------------------------------------------------
+-- Convert Board to a PieceList (for conversion to JSon, etc.)
+---------------------------------------------------------------------------------------------------
+boardAsPieceList :: CkNode -> PieceList
+boardAsPieceList node =
+    let g = node ^. (ckPosition . grid)
+        range = V.fromList [0..45] :: V.Vector Int
+        pairs = V.zip range g :: V.Vector (Int, Int)
+        filtrd = V.filter pMatch pairs :: V.Vector (Int, Int) where
+            pMatch pair = (abs (snd pair) > 0 && abs (snd pair) < 3)
+        pLocs = V.foldr f z0 filtrd where
+            z0 = [] :: [PieceLoc]
+            f x r = case intToLoc $ fst x of
+                        Nothing  -> r
+                        Just l -> PieceLoc {pieceLoc = l, pieceLocValue = snd x} : r
+        in PieceList {pieceLocs = pLocs}
+
+---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: CkNode -> CkMove -> CkNode
@@ -267,7 +288,7 @@ homeRowPartial = 2
 
 homeRowNone :: Int
 homeRowNone    = 0
-   
+
 kingVal :: Int
 kingVal        = 15
 

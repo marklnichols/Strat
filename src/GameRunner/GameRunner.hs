@@ -11,7 +11,7 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Lens
 
-gameEnv :: Env  
+gameEnv :: Env
 gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
      _p1Comp = False, _p2Comp = True}
 
@@ -19,13 +19,13 @@ startGame :: (Output o n m e, PositionNode n m e) => o -> Tree n -> IO ()
 startGame o node = loop o node 1
 
 loop :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO ()
-loop o node turn = do    
-    
+loop o node turn = do
+
     --putStrLn showPosition $ rootLabel node
     updateBoard o $ rootLabel node
     --putStrLn ("Current position score: " ++ show (getValue (rootLabel node)))
     --putStrLn ""
-    
+
     theNext <- case final $ rootLabel node of
         WWins -> do
             out o "White wins."
@@ -51,14 +51,14 @@ playerMove o tree turn = do
     mv <- getPlayerMove o tree turn
     return (processMove tree mv)
 
-    
+
 computerMove :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO (Tree n)
 computerMove o node turn = do
     out o "Calculating computer move..."
     let newTree = evalState (runReaderT (unRST (expandTree node)) gameEnv) (GameState 0)
     let resultM = evalState (runReaderT (unRST (best newTree (turnToColor turn))) gameEnv) (GameState 0)
     case resultM of
-        Nothing -> do 
+        Nothing -> do
             gameError o "Invalid result returned from best"
             return newTree
         Just result -> do
@@ -73,7 +73,7 @@ computerMove o node turn = do
                 Just mv -> do
                     showCompMove o newTree finalChoices result mv
                     return (processMove newTree mv)
-    
+
 isCompTurn :: Int -> RST Bool
 isCompTurn turn = do
     p1 <- asks _p1Comp
