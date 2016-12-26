@@ -3,6 +3,12 @@ hlint src\StratTree\StratTree.hs
 hlint src\StratTree\TreeNode.hs
 hlint src\StratTree\Trees.hs
 hlint src\StratIO\StratIO.hs
+hlint src\Strat-web\WebMain.hs
+hlint src\Strat-web\WebRunner.hs
+hlint src\Strat-web\Controllers\MainController.hs
+hlint src\Strat-web\Views\Home.hs
+hlint src\Strat-web\Views\Move.hs
+hlint src\Strat-web\Views\NewGame.hs
 hlint src\Examples\TicTac\TicTac.hs  
 hlint src\Examples\TicTac\TTParser.hs 
 hlint src\Examples\Checkers\Checkers.hs

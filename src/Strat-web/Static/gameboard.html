@@ -74,11 +74,11 @@ function onClick(event) {
 $(document).ready(function() { 
     //get pieces...
     $.ajax ("http://localhost:3000/newGame", {
-        success: function(data) {
-            ...
+        success: function() {
+            newGameBoard(data);
         },
         error: function() {
-            ...
+            //TODO: 
         }
     })
     // attach mouse click handler to each div sqare 
@@ -91,22 +91,24 @@ $(document).ready(function() {
     }
 });
 
-// data is what comes back from the ajax response
-// get the board array
-var board = JSON.parse(data).board;
+function newGameBoard(data) {
+    // data is what comes back from the ajax response
+    // get the board array
+    var board = JSON.parse(data).board;
 
-// clear the board
-for (var i = 0; i < 8; i++) {
-   for (var j = 1; j < 9; j++) {
-      var id = rowCol2Id(i, j);
-      $('#'+id).text("");
-   }
-}
+    // clear the board
+    for (var i = 0; i < 8; i++) {
+        for (var j = 1; j < 9; j++) {
+            var id = rowCol2Id(i, j);
+            $('#'+id).text("");
+        }
+    }   
 
-// set the pieces
-for (var i = 0; i < board.length; i++) {
-   var e = $('#'+board[i].row.toLowerCase()+board[i].col);
-   $(e).text(board[i].color === 1 ? "&whitePieceChar;" : "&blackPieceChar;");
+    // set the pieces
+    for (var i = 0; i < board.length; i++) {
+        var e = $('#'+board[i].row.toLowerCase()+board[i].col);
+        $(e).text(board[i].color === 1 ? "&whitePieceChar;" : "&blackPieceChar;");
+    }
 }
 
 </script>
