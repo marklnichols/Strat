@@ -1,21 +1,36 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Controllers.MainController
-    ( home
-      ,move
-      ,newGame
+    (   home
+      , newGame
+      , newGameRespond
+      , playerMove
+      , playerMoveRespond
+      , computerMove
     ) where
 
 import Views.Home (homeView)
-import Views.Move (moveView)
-import Views.NewGame (newGameView)
+import Views.NewGame (newGameView, newGameRespondView)
+import Views.PlayerMove (playerMoveView , playerMoveRespondView)
+import Views.ComputerMove (computerMoveView)
 import Web.Scotty (ScottyM, get)
+import qualified Web.Scotty.Trans as T
+import Data.Text.Lazy (Text)
+import GlobalState
 
-move :: ScottyM ()
-move = get "/move" moveView
+newGameRespond :: T.ScottyT Text WebM ()
+newGameRespond = T.get "/new/respond" newGameRespondView
 
-home :: ScottyM ()
-home = get "/" homeView
+newGame :: T.ScottyT Text WebM ()
+newGame = T.get "/new" newGameView
 
-newGame :: ScottyM ()
-newGame = get "/new" newGameView
+playerMoveRespond :: T.ScottyT Text WebM ()
+playerMoveRespond = T.get "/playerMove/respond" playerMoveRespondView
+
+playerMove :: T.ScottyT Text WebM ()
+playerMove = T.get "/playerMove" playerMoveView
+
+computerMove :: T.ScottyT Text WebM ()
+computerMove = T.get "/computerMove" computerMoveView
+
+home :: T.ScottyT Text WebM ()
+home = T.get "/" homeView

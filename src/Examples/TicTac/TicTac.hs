@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
+-- {-# OPTIONS_GHC -F -pgmF autoexporter #-}
 --TODO reorganize the exports list -- move those only needed for testing elsewhere
 module TicTac (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, checkTwoWayWin, scorePos, format,
        TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask, wins, strToMove) where

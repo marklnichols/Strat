@@ -1,4 +1,5 @@
 :set -fwarn-unused-binds -fwarn-unused-imports
 :set -isrc
-:set prompt "ghci>"
+:set prompt "λ> "
 :set args "checkers"
+

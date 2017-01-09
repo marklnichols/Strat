@@ -57,16 +57,8 @@ instance ToJSON LegalMoves where
 instance FromJSON LegalMoves    
 
 ----------------------------------------------------------------------------
-data Board = Board {squares :: [JsonSquare]} deriving (Generic, Show)
-
-instance ToJSON Board where
-    toEncoding = genericToEncoding defaultOptions
-
-instance FromJSON Board
-
-----------------------------------------------------------------------------
 data FullUpdate = FullUpdate {msg :: String,
-                              board :: Board,
+                              board :: [JsonSquare],
                               legalMoves :: LegalMoves} deriving (Generic, Show)
 
 instance ToJSON FullUpdate where
@@ -100,39 +92,23 @@ jsonFromCkMove :: Ck.CkMove -> Maybe String
 jsonFromCkMove mv = let bs = fmap (encode . jsonFromParserMove) (Ck.toParserMove mv)
                     in fmap bsToStr bs  
  
-{- 
-updateToJson :: String -> Ck.CkNode  -> [Ck.CkMove] -> String
-updateToJson str node ckMoves = 
-        --todo: change this:
-    let parserMoves = catMaybes $ fmap Ck.toParserMove ckMoves
-        legals = LegalMoves {moves = fmap jsonFromParserMove parserMoves}
-    in  bsToStr $ encode FullUpdate {msg = str, board = boardToJson node, legalMoves = legals}
--}
 jsonUpdate :: String -> Ck.CkNode -> [Ck.CkMove] -> FullUpdate    
 jsonUpdate str node ckMoves = 
     let parserMoves = catMaybes $ fmap Ck.toParserMove ckMoves
         legals = LegalMoves {moves = fmap jsonFromParserMove parserMoves}
     in  FullUpdate {msg = str, board = boardToJson node, legalMoves = legals}
 
-{-    
-messageToJson :: String -> String
-messageToJson s = bsToStr $ encode Message {message = s}            
--}
 jsonMessage :: String -> Message
 jsonMessage s = Message {message = s}
 
-{-
-errorToJson :: String -> String
-errorToJson s = bsToStr $ encode JsonError {jsonErr = s}         
--}
 jsonError :: String -> JsonError
 jsonError s = JsonError {jsonErr = s}
 
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
 ---------------------------------------------------------------------------------------------------- 
-boardToJson :: Ck.CkNode -> Board
-boardToJson node = Board {squares = fmap toJsonSquare $ Ck.pieceLocs $ Ck.boardAsPieceList node}
+boardToJson :: Ck.CkNode -> [JsonSquare]
+boardToJson node = fmap toJsonSquare $ Ck.pieceLocs $ Ck.boardAsPieceList node
    
 toJsonSquare :: Ck.PieceLoc -> JsonSquare
 toJsonSquare pieceloc = 
@@ -159,3 +135,15 @@ jsonFromParserMove (P.Move xs) = JsonMove {locs = fmap fromParserLoc xs}
 jsonToParserMove :: JsonMove -> P.Move
 jsonToParserMove jMv = P.Move (fmap toParserLoc (locs jMv))
     
+----------------------------------------------------------------------------------------------------
+-- Example messages
+----------------------------------------------------------------------------------------------------
+{-
+FullUpdate - 
+{"msg": "New Game, player moves first",
+ "board":[{"loc":{"row":"A","col":1},"pieceType":1,"color":1},
+                            {"loc":{"row":"H","col":8},"pieceType":1,"color":-1}],
+ "legalMoves": {"moves":   [{"locs":[{"row":"C","col":7},{"row":"D","col":6}]},
+                            {"locs":[{"row":"C","col":1},{"row":"D","col":2}]}]}
+}
+-}

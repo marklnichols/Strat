@@ -31,13 +31,12 @@
 }
 
 .selected { 
-    background-color: #f70000;
+    background-color: #3c5a8c;
 }
 </style>
 </head>
 
 <body>
-
 
 <script src="jquery-3.1.1.min.js"></script>
 
@@ -71,16 +70,13 @@ function onClick(event) {
     selectSquare(this.id);
 }
 
+
 $(document).ready(function() { 
     //get pieces...
-    $.ajax ("http://localhost:3000/newGame", {
-        success: function() {
-            newGameBoard(data);
-        },
-        error: function() {
-            //TODO: 
-        }
-    })
+    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
+            newGameBoard(result);
+        }})
+    
     // attach mouse click handler to each div sqare 
     for (var i = 0; i < 8; i++) { 
         for (var j = 1; j < 9; j++) { 
@@ -92,10 +88,10 @@ $(document).ready(function() {
 });
 
 function newGameBoard(data) {
-    // data is what comes back from the ajax response
-    // get the board array
-    var board = JSON.parse(data).board;
-
+    var whitePieceChar = '\u26c0'
+    var blackPieceChar = '\u26c2'
+    var board = data.board
+    
     // clear the board
     for (var i = 0; i < 8; i++) {
         for (var j = 1; j < 9; j++) {
@@ -103,12 +99,19 @@ function newGameBoard(data) {
             $('#'+id).text("");
         }
     }   
-
+    
     // set the pieces
     for (var i = 0; i < board.length; i++) {
-        var e = $('#'+board[i].row.toLowerCase()+board[i].col);
-        $(e).text(board[i].color === 1 ? "&whitePieceChar;" : "&blackPieceChar;");
+        var e = $('#'+board[i].loc.row.toLowerCase()+board[i].loc.col);
+        $(e).text(board[i].color === 1 ? whitePieceChar : blackPieceChar);
     }
+    autoPlay()
+}
+
+function autoPlay() {
+    $.ajax ({url: "http://localhost:3000/computerMove", success: function(result) {
+            newGameBoard(result);
+        }})
 }
 
 </script>
@@ -180,13 +183,13 @@ function newGameBoard(data) {
 <div id="b7" class="white"></div> 
 <div id="b8" class="black"></div> 
 <!-- 8th -->
-<div id="h2" class="black"></div> 
+<div id="a1" class="black"></div> 
 <div id="a2" class="white"></div> 
-<div id="h2" class="black"></div>  
+<div id="a3" class="black"></div>  
 <div id="a4" class="white"></div> 
-<div id="h2" class="black"></div> 
+<div id="a5" class="black"></div> 
 <div id="a6" class="white"></div> 
-<div id="h2" class="black"></div> 
+<div id="a7" class="black"></div> 
 <div id="a8" class="white"></div>
 </div>
 

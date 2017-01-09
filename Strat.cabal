@@ -48,10 +48,9 @@ library
                      , vector >= 0.11
                      , aeson >= 0.11
                      , text >= 1.2
-                     , bytestring >= 0.10.8
+                     , bytestring >= 0.10.8                   
   ghc-options:       -Wall
   default-language:  Haskell2010
-
 
 executable Strat-commandline
   hs-source-dirs:    src/Strat-commandline
@@ -74,14 +73,16 @@ executable Strat-commandline
                      , GameRunner
                      , WebRunner
                      , CheckersText
-                     , CheckersWeb
                      , Chess
                      , ChessParser
                      , WebMain
                      , Controllers.MainController
                      , Views.Home
-                     , Views.Move
+                     , Views.PlayerMove
+                     , Views.ComputerMove
                      , Views.NewGame
+                     , Session
+                     , GlobalState
   build-depends:     base >= 4 && <= 5
                      , containers ==0.5.*
                      , rosezipper ==0.2.*
@@ -102,17 +103,21 @@ executable Strat-commandline
                      , wai-extra >=3.0.0
                      , wai-middleware-static
                      , scotty
+                     , fast-logger >= 2.4
+                     , data-default >= 0.7
+                     , data-default-class >= 0.1.2
+                     , scotty-login-session >= 0.1
+                     , stm >= 2.4
   ghc-options:       -Wall
   default-language:  Haskell2010
-
   
 test-suite           StratTreeTest
   type:              exitcode-stdio-1.0
   hs-source-dirs:    test
-                     ,src
-                     ,src/Examples/Checkers
-                     ,src/Examples/Chess
-                     ,src/Examples/TicTac
+                     , src
+                     , src/Examples/Checkers
+                     , src/Examples/Chess
+                     , src/Examples/TicTac
                      , src/GameRunner
   main-is:           TestSuite.hs
   build-depends:     base
