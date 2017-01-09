@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
+-- {-# OPTIONS_GHC -F -pgmF autoexporter #-}
 
 module Checkers where
 import qualified CkParser as Parser

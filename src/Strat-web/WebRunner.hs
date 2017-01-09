@@ -16,22 +16,6 @@ import qualified Checkers as Ck
 
 --TODO: fix -- to get things working, for the moment this web piece is checkers specific
 
-{-  Outline of flow -- to be deleted
- /newGame
-    create new board / tree
-    respond with new board, 1st move if computer plays first
- /playerMove
-    update board with move
-    if game over, send message
-
-    swapTurn (e.g. was loop next (swapTurns turn))
-    and:
-      make computer move
-      update board again
-      return all with new board, move, etc.
-         (if game over, include in message inside update)
--}
-
 --TODO: move to common...
 gameEnv :: Env
 gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
@@ -43,21 +27,34 @@ gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThre
 data Jsonable = forall j. ToJSON j => Jsonable j 
   
 --start game request received  
-processStartGame :: Tree Ck.CkNode -> IO Jsonable
-processStartGame node = 
-    if compMoveNext node 1
+--TODO new session key, put node after optional move into session
+processStartGame :: Tree Ck.CkNode -> Bool -> IO Jsonable
+processStartGame node bComputerResponse = 
+    if bComputerResponse
         then computerResponse node 1 
         else return $ createUpdate "New Game, player moves first" (rootLabel node)                  
-                
---play move (web request) received
-processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> IO Jsonable
-processPlayerMove tree mv = do
+ 
+--TODO: get node from session, update session after move(s)
+--player move (web request) received
+processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> Bool -> IO Jsonable
+processPlayerMove tree mv bComputerResponse = do
     let processed = processMove tree mv
     let done = checkGameOver processed
     if fst done
         then return $ createMessage (snd done) 
-        else computerResponse processed 1 --TODO: replace turn swapping
-
+        else if bComputerResponse
+            then do 
+                let posColor = rootLabel tree ^. (Ck.ckPosition . Ck.clr)
+                computerResponse processed (colorToTurn posColor) 
+            else return $ createUpdate "No computer move" (rootLabel processed)
+            
+--TODO: get node from session, put new node in hastable for session
+{-
+processComputerMoveOnly :: Tree Ck.CkNode -> SESSION -> IO Jsonable
+processComputerMoveOnly tree = do
+    let posColor = (rootLabel tree)^.(Ck.ckPosition . Ck.clr)
+    computerResponse tree (colorToTurn posColor)
+-}        
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
 ----------------------------------------------------------------------------------------------------                 
@@ -107,12 +104,17 @@ toBool :: String -> Bool
 toBool s = s == "c" || s == "C"
 
 swapTurns :: Int -> Int
-swapTurns t = 3-t   --alternate between 1 and 2
+swapTurns t = 3-t   -- alternate between 1 and 2
 
 -- convert 1, 2 to +1, -1
 turnToColor :: Int -> Int
 turnToColor 2 = -1
 turnToColor _ = 1
+
+--convert +1, -1 to 1, 2
+colorToTurn :: Int -> Int
+colorToTurn 1 = 1
+colorToTurn _ = 2
 
 createMessage :: String -> Jsonable
 createMessage s = Jsonable (J.jsonMessage s)

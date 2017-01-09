@@ -1,15 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Views.Home (homeView) where
             
-import           Prelude                        hiding (div, head, id)
-import           Web.Scotty                  
+import Prelude hiding (div, head, id)
+import qualified Web.Scotty.Trans as T
+import Data.Text.Lazy (Text)                 
+import Control.Monad.IO.Class
+import GlobalState 
 
-homeView :: ActionM ()
+homeView :: T.ActionT Text WebM () 
 homeView = do 
-    setHeader "Content-Type" "text/html"
-    file "src/Strat-web/Static/gameboard.html"
-
-
-
-
+    liftIO $ putStrLn "Incoming 'home' request"
+    T.file "src/Strat-web/Static/gameboard.html" 
