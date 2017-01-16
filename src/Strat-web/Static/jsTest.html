@@ -42,12 +42,9 @@
 
 <script> 
 
-var game = { } ;
+var testData = {"msg":"New Game, player moves first","board":[{"loc":{"col":"A","row":1},"pieceType":1,"color":1},{"loc":{"col":"A","row":3},"pieceType":1,"color":1},{"loc":{"col":"A","row":5},"pieceType":1,"color":1},{"loc":{"col":"A","row":7},"pieceType":1,"color":1},{"loc":{"col":"B","row":2},"pieceType":1,"color":1},{"loc":{"col":"B","row":4},"pieceType":1,"color":1},{"loc":{"col":"B","row":6},"pieceType":1,"color":1},{"loc":{"col":"B","row":8},"pieceType":1,"color":1},{"loc":{"col":"C","row":1},"pieceType":1,"color":1},{"loc":{"col":"C","row":3},"pieceType":1,"color":1},{"loc":{"col":"C","row":5},"pieceType":1,"color":1},{"loc":{"col":"C","row":7},"pieceType":1,"color":1},{"loc":{"col":"F","row":2},"pieceType":1,"color":-1},{"loc":{"col":"F","row":4},"pieceType":1,"color":-1},{"loc":{"col":"F","row":6},"pieceType":1,"color":-1},{"loc":{"col":"F","row":8},"pieceType":1,"color":-1},{"loc":{"col":"G","row":1},"pieceType":1,"color":-1},{"loc":{"col":"G","row":3},"pieceType":1,"color":-1},{"loc":{"col":"G","row":5},"pieceType":1,"color":-1},{"loc":{"col":"G","row":7},"pieceType":1,"color":-1},{"loc":{"col":"H","row":2},"pieceType":1,"color":-1},{"loc":{"col":"H","row":4},"pieceType":1,"color":-1},{"loc":{"col":"H","row":6},"pieceType":1,"color":-1},{"loc":{"col":"H","row":8},"pieceType":1,"color":-1}],"legalMoves":{"moves":[{"locs":[{"col":"C","row":7},{"col":"D","row":6}]},{"locs":[{"col":"C","row":7},{"col":"D","row":8}]},{"locs":[{"col":"C","row":5},{"col":"D","row":4}]},{"locs":[{"col":"C","row":5},{"col":"D","row":6}]},{"locs":[{"col":"C","row":3},{"col":"D","row":2}]},{"locs":[{"col":"C","row":3},{"col":"D","row":4}]},{"locs":[{"col":"C","row":1},{"col":"D","row":2}]}]}}
 
-  //$(function(){
-  //    $("#specificGame").load("checkers.html"); 
-  //    //$("#specificGame").load("chess.html");
-  //  });
+var game = { } ;
 
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col, row) { 
@@ -74,9 +71,7 @@ function onClick(event) {
 
 $(document).ready(function() { 
     //get pieces...
-    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
-            newGameBoard(result);
-        }})
+    newGameBoard(testData)
     
     // attach mouse click handler to each div sqare 
     for (var i = 0; i < 8; i++) { 
@@ -106,7 +101,7 @@ function newGameBoard(data) {
         var e = $('#'+board[i].loc.col.toLowerCase()+board[i].loc.row);
         $(e).text(board[i].color === 1 ? whitePieceChar : blackPieceChar);
     }
-    autoPlay()
+    //autoPlay()
 }
 
 function autoPlay() {

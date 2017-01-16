@@ -14,7 +14,7 @@ import qualified Checkers as Ck
 ----------------------------------------------------------------------------------------------------
 -- Data types and instances
 ----------------------------------------------------------------------------------------------------
-data JsonLoc = JsonLoc {row :: Char, col :: Int } deriving Generic
+data JsonLoc = JsonLoc {col :: Char, row :: Int } deriving Generic
 
 instance ToJSON JsonLoc where
     toEncoding = genericToEncoding defaultOptions
@@ -22,7 +22,7 @@ instance ToJSON JsonLoc where
 instance FromJSON JsonLoc
 
 instance Show JsonLoc where
-    show jl = "row: " ++ show (row jl) ++ "col: " ++ show (col jl) 
+    show jl = "col: " ++ show (col jl) ++ "row: " ++ show (row jl) 
 
 ----------------------------------------------------------------------------               
 --JsonSquare is a JsonLoc plus the contents (piece type, color) at that loc
@@ -118,10 +118,10 @@ toJsonSquare pieceloc =
     in  JsonSquare {loc = fromParserLoc (Ck.pieceLoc pieceloc), pieceType = absVal, color = clr}
   
 fromParserLoc :: P.Loc -> JsonLoc
-fromParserLoc (P.Loc c i) = JsonLoc {row = c, col = i} 
+fromParserLoc (P.Loc c i) = JsonLoc {col = c, row = i} 
 
 toParserLoc :: JsonLoc -> P.Loc
-toParserLoc jLoc = P.Loc (row jLoc) (col jLoc)
+toParserLoc jLoc = P.Loc (col jLoc) (row jLoc)
 
 bsToStr :: B.ByteString -> String
 bsToStr = map (chr . fromEnum) . B.unpack
@@ -142,8 +142,8 @@ jsonToParserMove jMv = P.Move (fmap toParserLoc (locs jMv))
 FullUpdate - 
 {"msg": "New Game, player moves first",
  "board":[{"loc":{"row":"A","col":1},"pieceType":1,"color":1},
-                            {"loc":{"row":"H","col":8},"pieceType":1,"color":-1}],
- "legalMoves": {"moves":   [{"locs":[{"row":"C","col":7},{"row":"D","col":6}]},
-                            {"locs":[{"row":"C","col":1},{"row":"D","col":2}]}]}
+                            {"loc":{"col":"H","row":8},"pieceType":1,"color":-1}],
+ "legalMoves": {"moves":   [{"locs":[{"col":"C","row":7},{"col":"D","row":6}]},
+                            {"locs":[{"col":"C","row":1},{"col":"D","row":2}]}]}
 }
 -}
