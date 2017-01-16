@@ -5,13 +5,9 @@ hlint src\StratTree\Trees.hs
 hlint src\StratIO\StratIO.hs
 hlint src\Strat-web\WebMain.hs
 hlint src\Strat-web\WebRunner.hs
+hlint src\Strat-web\YesodMain.hs
 hlint src\Strat-web\GlobalState.hs
 hlint src\Strat-web\Session.hs
-hlint src\Strat-web\Controllers\MainController.hs
-hlint src\Strat-web\Views\Home.hs
-hlint src\Strat-web\Views\PlayerMove.hs
-hlint src\Strat-web\Views\ComputerMove.hs
-hlint src\Strat-web\Views\NewGame.hs
 hlint src\Examples\TicTac\TicTac.hs  
 hlint src\Examples\TicTac\TTParser.hs 
 hlint src\Examples\Checkers\Checkers.hs

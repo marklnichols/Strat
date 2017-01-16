@@ -58,7 +58,7 @@ processPlayerMove tree mv bComputerResponse = do
 
 processComputerMove :: Tree Ck.CkNode -> IO Jsonable
 processComputerMove tree = do
-    let posColor = (rootLabel tree)^.(Ck.ckPosition . Ck.clr)
+    let posColor = rootLabel tree ^. Ck.ckPosition . Ck.clr
     computerResponse tree (colorToTurn posColor)
         
 ----------------------------------------------------------------------------------------------------

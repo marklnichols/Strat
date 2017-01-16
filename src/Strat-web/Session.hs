@@ -8,10 +8,7 @@ import Data.HashTable.ST.Basic
 import Data.Tree
 import qualified Data.Text.Lazy as T
 import qualified Checkers as CK
-import  Web.Scotty.Login.Session
 
-conf :: SessionConfig
-conf = defaultSessionConfig
 
 --TODO: make this non-checkers specific
 
