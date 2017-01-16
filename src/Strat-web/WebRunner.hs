@@ -13,6 +13,9 @@ import Control.Lens
 import Data.Aeson
 import qualified CheckersJson as J
 import qualified Checkers as Ck
+import qualified Web.Scotty.Trans as T
+import Data.Text.Lazy (Text) 
+import GlobalState
 
 --TODO: fix -- to get things working, for the moment this web piece is checkers specific
 
@@ -21,10 +24,15 @@ gameEnv :: Env
 gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
      _p1Comp = False, _p2Comp = True}
 
+data Jsonable = forall j. ToJSON j => Jsonable j 
+
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 ----------------------------------------------------------------------------------------------------         
-data Jsonable = forall j. ToJSON j => Jsonable j 
+jsonableToActionT :: Jsonable -> T.ActionT Text WebM ()
+jsonableToActionT j = 
+    case j of
+        Jsonable x -> T.json x
   
 --start game request received  
 --TODO new session key, put node after optional move into session
@@ -34,7 +42,6 @@ processStartGame node bComputerResponse =
         then computerResponse node 1 
         else return $ createUpdate "New Game, player moves first" (rootLabel node)                  
  
---TODO: get node from session, update session after move(s)
 --player move (web request) received
 processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> Bool -> IO Jsonable
 processPlayerMove tree mv bComputerResponse = do
@@ -48,13 +55,12 @@ processPlayerMove tree mv bComputerResponse = do
                 computerResponse processed (colorToTurn posColor) 
             else return $ createUpdate "No computer move" (rootLabel processed)
             
---TODO: get node from session, put new node in hastable for session
-{-
-processComputerMoveOnly :: Tree Ck.CkNode -> SESSION -> IO Jsonable
-processComputerMoveOnly tree = do
+
+processComputerMove :: Tree Ck.CkNode -> IO Jsonable
+processComputerMove tree = do
     let posColor = (rootLabel tree)^.(Ck.ckPosition . Ck.clr)
     computerResponse tree (colorToTurn posColor)
--}        
+        
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
 ----------------------------------------------------------------------------------------------------                 
