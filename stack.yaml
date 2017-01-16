@@ -6,7 +6,6 @@ resolver: lts-7.14   #ghc-8.0.1
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
-- github/scotty-login-session
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps: [tuple-0.3.0.2, OneTuple-0.2.1, parsec-numbers-0.1.0, scotty-cookie-0.1.0.3]

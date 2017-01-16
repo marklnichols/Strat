@@ -3,19 +3,12 @@
 {-# LANGUAGE ExistentialQuantification #-}
 module GlobalState where
 
-import Control.Applicative
 import Control.Concurrent.STM
 import Control.Monad.Reader
 import Control.Monad.ST
 import Data.Default.Class
-import Data.String
-import Data.Text.Lazy (Text)
-import Data.Tree
-import Network.Wai.Middleware.RequestLogger
-import Prelude
-import Web.Scotty.Trans
 import Session
-import Checkers
+
 
 ----------------------------------------------------------------------------------------------------
 -- Global state for the web app

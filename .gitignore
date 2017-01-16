@@ -1,5 +1,6 @@
 dist
 cabal-dev
+profiling
 *.o
 *.hi
 *.chi
