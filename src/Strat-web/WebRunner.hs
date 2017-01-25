@@ -13,9 +13,6 @@ import Control.Lens
 import Data.Aeson
 import qualified CheckersJson as J
 import qualified Checkers as Ck
-import qualified Web.Scotty.Trans as T
-import Data.Text.Lazy (Text) 
-import GlobalState
 
 --TODO: fix -- to get things working, for the moment this web piece is checkers specific
 
@@ -26,50 +23,57 @@ gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThre
 
 data Jsonable = forall j. ToJSON j => Jsonable j 
 
+data NodeWrapper = NodeWrapper {getNode :: Tree Ck.CkNode, getJsonable :: Jsonable}
+
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 ----------------------------------------------------------------------------------------------------         
-jsonableToActionT :: Jsonable -> T.ActionT Text WebM ()
-jsonableToActionT j = 
-    case j of
-        Jsonable x -> T.json x
-  
 --start game request received  
---TODO new session key, put node after optional move into session
-processStartGame :: Tree Ck.CkNode -> Bool -> IO Jsonable
+processStartGame :: Tree Ck.CkNode -> Bool -> IO NodeWrapper
 processStartGame node bComputerResponse = 
     if bComputerResponse
         then computerResponse node 1 
-        else return $ createUpdate "New Game, player moves first" (rootLabel node)                  
+        else return $ createUpdate "New Game, player moves first" node      
+
+processComputerMove :: Tree Ck.CkNode -> IO NodeWrapper
+processComputerMove tree = do
+    let posColor = rootLabel tree ^. Ck.ckPosition . Ck.clr
+    computerResponse tree (colorToTurn posColor)
+      
  
 --player move (web request) received
-processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> Bool -> IO Jsonable
+processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> Bool -> IO NodeWrapper
 processPlayerMove tree mv bComputerResponse = do
     let processed = processMove tree mv
     let done = checkGameOver processed
     if fst done
-        then return $ createMessage (snd done) 
+        then return $ createMessage (snd done) tree
         else if bComputerResponse
             then do 
                 let posColor = rootLabel tree ^. (Ck.ckPosition . Ck.clr)
                 computerResponse processed (colorToTurn posColor) 
-            else return $ createUpdate "No computer move" (rootLabel processed)
-            
+            else return $ createUpdate "No computer move" processed
+ 
+processMessage :: String -> Tree Ck.CkNode -> IO NodeWrapper
+processMessage str tree = return $ createMessage str tree
 
-processComputerMove :: Tree Ck.CkNode -> IO Jsonable
-processComputerMove tree = do
-    let posColor = rootLabel tree ^. Ck.ckPosition . Ck.clr
-    computerResponse tree (colorToTurn posColor)
-        
+processError :: String -> Tree Ck.CkNode -> IO NodeWrapper
+processError str tree = return $ createError str tree
+ 
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
-----------------------------------------------------------------------------------------------------                 
-computerResponse :: Tree Ck.CkNode -> Int -> IO Jsonable
-computerResponse node turn = do
-    eitherNode <- computerMove node turn
+----------------------------------------------------------------------------------------------------  11
+--jsonableToActionT :: Jsonable -> T.ActionT Text WebM ()
+--jsonableToActionT j = 
+--    case j of
+--        Jsonable x -> T.json x  
+    
+computerResponse :: Tree Ck.CkNode -> Int -> IO NodeWrapper
+computerResponse tree turn = do
+    eitherNode <- computerMove tree turn
     case eitherNode of
-        Left s -> return $ createError s
-        Right n -> return $ createUpdate (snd (checkGameOver n)) (rootLabel n)        
+        Left s -> return $ createError s tree
+        Right n -> return $ createUpdate (snd (checkGameOver n)) n       
         
 computerMove :: Tree Ck.CkNode -> Int -> IO (Either String (Tree Ck.CkNode))
 computerMove node turn = do
@@ -122,11 +126,13 @@ colorToTurn :: Int -> Int
 colorToTurn 1 = 1
 colorToTurn _ = 2
 
-createMessage :: String -> Jsonable
-createMessage s = Jsonable (J.jsonMessage s)
+createMessage :: String -> Tree Ck.CkNode -> NodeWrapper
+createMessage s node = NodeWrapper {getNode = node, getJsonable = Jsonable (J.jsonMessage s)}
 
-createUpdate :: String -> Ck.CkNode -> Jsonable
-createUpdate msg node =  Jsonable $ J.jsonUpdate msg node (Ck.getPossibleMoves node)
+createUpdate :: String -> Tree Ck.CkNode -> NodeWrapper
+createUpdate msg node = 
+    NodeWrapper {getNode = node, 
+                 getJsonable = Jsonable $ J.jsonUpdate msg (rootLabel node) (Ck.getPossibleMoves (rootLabel node))}
 
-createError :: String -> Jsonable
-createError s = Jsonable (J.jsonError s)
+createError :: String -> Tree Ck.CkNode -> NodeWrapper
+createError s node = NodeWrapper {getNode = node, getJsonable = Jsonable (J.jsonError s)}
