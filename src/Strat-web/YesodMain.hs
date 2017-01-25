@@ -1,29 +1,51 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, TypeFamilies, MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wall -fno-warn-missing-signatures -fno-warn-unused-binds #-}
-
 module YesodMain (webInit) where
 
-import Yesod
+import Yesod hiding (insert)
 import Yesod.Static
-import Checkers as Ck
+import Checkers as CK
 import WebRunner
 import Data.Text (Text)
+import Data.Aeson (Value)
 import Data.Maybe
-
+import Data.IORef
+import qualified Data.Map.Strict as M
+import Data.Tree
+    
 staticFilesList "src/Strat-web/Static" ["gameboard.html"] -- , "image.png"]
 
-data App = App
-    { getStatic :: Static
-    }
+data GameApp = GameApp { getStatic :: Static, 
+                         getCounter :: IORef Integer, 
+                         getMap :: IORef (M.Map Text (Tree CK.CkNode)) }
 
-mkYesod "App" [parseRoutes|
+emptyMap :: M.Map Text (Tree CK.CkNode)
+emptyMap = M.empty                                     
+                                     
+mkYesod "GameApp" [parseRoutes|
 / RootR GET
 /new NewGameR GET
-/j JsonTestR GET
+/computerMove ComputerMoveR GET
+/count CounterR GET
 /static StaticR Static getStatic
 |]
 
-instance Yesod App
+instance Yesod GameApp
+
+getCounterR :: Handler Html
+getCounterR = do 
+    yesod <- getYesod
+    cnt <- liftIO $ incCount $ getCounter yesod
+    liftIO $ putStrLn $ "Sending Response " ++ show cnt
+    defaultLayout [whamlet|Hello World #{cnt}|]
+
+incCount :: Num a => IORef a -> IO a
+incCount counter = atomicModifyIORef counter (\c -> (c+1, c))
+
+updateMap :: IORef (M.Map Text (Tree CK.CkNode)) -> Text -> Tree CK.CkNode -> IO ()
+updateMap mapRef key value = do 
+    theMap <- readIORef mapRef
+    writeIORef mapRef (M.insert key value theMap)
 
 uniqueIdKey :: Text
 uniqueIdKey = "uniqueId"
@@ -31,16 +53,21 @@ uniqueIdKey = "uniqueId"
 getRootR :: Handler Html
 getRootR = do
     liftIO $ putStrLn "Incoming 'home' request"
-    idMay <- readSession uniqueIdKey -- :: Maybe Text
-    uniqueId <- if isJust idMay
-            then do
-                liftIO $ putStrLn "Retrieved id from session... "
-                return $ fromJust idMay
-            else do
-                liftIO $ putStrLn "Adding new unique id..."
-                addUniqueId   
-    liftIO $ putStrLn $ "uniqueId: " ++ show uniqueId
+    _ <- getGameSession
     redirect $ StaticR gameboard_html                         
+      
+getGameSession :: HandlerT GameApp IO Text
+getGameSession = do 
+    idMay <- readSession uniqueIdKey  -- :: Maybe Text
+    if isNothing idMay  -- u1 :: HandlerT GameApp IO Text
+        then do
+            liftIO $ putStrLn "Adding new unique id to session: "
+            newId <- addUniqueId 
+            liftIO $ putStrLn $ "uniqueId: " ++ show newId
+            return newId
+        else do
+            liftIO $ putStrLn "Retrieved id from session... "
+            return (fromJust idMay) 
     
 addUniqueId :: Handler Text
 addUniqueId = do
@@ -50,31 +77,45 @@ addUniqueId = do
 
 readSession :: Text -> Handler (Maybe Text)
 readSession = lookupSession
---readSession name = do
---    textValue <- lookupSession name
---    return textValue
-    
+
+getNewGameR :: Handler Value
 getNewGameR = do
     liftIO $ putStrLn "incoming new game request"
-    jAble <- liftIO $ processStartGame Ck.getStartNode True     
+    uniqueId <- getGameSession
+    wrapper <- liftIO $ processStartGame CK.getStartNode True
+    let node = getNode wrapper
+    let jAble = getJsonable wrapper
+    yesod <- getYesod
+    liftIO $ updateMap (getMap yesod) uniqueId node
     case jAble of 
-        Jsonable j -> returnJsonEncoding j
- 
-getJsonTestR =  do
-    --defaultLayout [whamlet|$newline never
-    --    <img src=@{StaticR image_png}/>|]
-    jAble <- liftIO $ processStartGame Ck.getStartNode True     
-    case jAble of 
-        Jsonable j -> returnJsonEncoding j
-        --returnJsonEncoding :: (Monad m, J.ToJSON a) => a -> m J.Encoding
+        Jsonable j -> returnJson j      
+
+getComputerMoveR :: Handler Value                
+getComputerMoveR = do
+    liftIO $ putStrLn "incoming computer move request"
+    uniqueId <- getGameSession  
+    yesod <- getYesod
+    theMap <- liftIO $ readIORef $ getMap yesod
+    wrapper <- liftIO $ case M.lookup uniqueId theMap of
+                            Nothing -> do 
+                                liftIO $ putStrLn "getComputerMoveR - no tree found in the map"
+                                processError "Something is wrong with this game" CK.getStartNode
+                            Just t -> processComputerMove t 
+    let node = getNode wrapper
+    liftIO $ updateMap (getMap yesod) uniqueId node
+    let jAble = getJsonable wrapper
+    case jAble of
+        Jsonable j -> returnJson j
   
 webInit :: IO ()
 webInit = do
-    -- Get the static subsite, as well as the settings it is based on
-    --s@(Static settings) <- static "src/Strat-web/Static"
+    counter <- newIORef 0
+    newMap <- newIORef emptyMap
     s <- static "src/Strat-web/Static"
-    warp 3000 $ App s
-{-    
+    warp 3000 GameApp {getStatic = s, getCounter = counter, getMap = newMap}
+    
 typeHole :: a -> a -> a
 typeHole _ y = y 
--}   
+  
+  
+  
