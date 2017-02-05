@@ -85,8 +85,13 @@ instance FromJSON JsonError
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 ----------------------------------------------------------------------------------------------------
+--todo: do I now not need this since Yesod does the decode?
 jsonToCkMove :: String -> Maybe Ck.CkMove
 jsonToCkMove s = (jsonToParserMove <$> decode (strToBs s)) >>= Ck.parserToCkMove
+--instead:
+jsonMoveToCkMove :: JsonMove -> Maybe Ck.CkMove
+jsonMoveToCkMove jMove = Ck.parserToCkMove $ jsonToParserMove jMove
+  
   
 jsonFromCkMove :: Ck.CkMove -> Maybe String
 jsonFromCkMove mv = let bs = fmap (encode . jsonFromParserMove) (Ck.toParserMove mv)

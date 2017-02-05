@@ -33,6 +33,11 @@
 .selected { 
     background-color: #3c5a8c;
 }
+
+.dblclicked { 
+    background-color: #42f4d1;
+}
+
 </style>
 </head>
 
@@ -54,6 +59,18 @@ function rowCol2Id(col, row) {
     return String.fromCharCode(97 + col) + row.toString();
 }
 
+function idToRow(id) {
+    return id.charAt(1).parseInt
+}
+
+function idToCol(id) {
+    return id.charAt(0)
+}
+
+function resetSelections() {
+    game.selections = new Array();
+}
+
 function deselectSquare() { 
     if (game.selectedId) { 
         $('#'+game.selectedId).removeClass("selected"); 
@@ -63,32 +80,70 @@ function deselectSquare() {
         
 function selectSquare(id) { 
     $('#'+id).addClass("selected"); 
+    pushLocation(id)
     game.selectedId = id;
 }
 
-function onClick(event) { 
+function pushLocation(id) {
+    var c = idToCol(id)
+    var r = idToRow(id)
+    var new_loc = new loc(c, r)
+    game.selections.push(new_loc)
+}
+
+function loc(col, row) {
+    this.col = col
+    this.row = row
+}
+
+function move(locs) {
+    this.locs = locs
+}
+
+function selectSquareDbl(id) { 
+    $('#'+id).addClass("dblclicked"); 
+    pushLocation(id)
+}
+
+function submitMove(id) {
+    var new_move = new move(game.selections)
+    var json = JSON.stringify(new_move);
+    //need: {move: [{"loc":{"col":"H","row":8}, {"loc":{"col":"F","row":6}, etc ]}
+    
+    $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
+        updateGameBoard(result);;
+    }})
+}
+
+function onClick(event) {
+ 
     deselectSquare();
     selectSquare(this.id);
 }
 
+function onDblClick(event) { 
+    selectSquareDbl(this.id);
+    submitMove(this.id)
+}
 
 $(document).ready(function() { 
-    //get pieces...
-    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
-            newGameBoard(result);
-        }})
-    
     // attach mouse click handler to each div sqare 
     for (var i = 0; i < 8; i++) { 
         for (var j = 1; j < 9; j++) { 
             //build strings #a1 - #h8
             var id = rowCol2Id(i, j); 
             $('#'+id).click(onClick);
+            $('#'+id).dblclick(onDblClick);
         }
     }
+    resetSelections()
+    //get pieces...
+    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
+        updateGameBoard(result);
+    }})
 });
 
-function newGameBoard(data) {
+function updateGameBoard(data) {
     var whitePieceChar = '\u26c0'
     var blackPieceChar = '\u26c2'
     var board = data.board
@@ -100,19 +155,18 @@ function newGameBoard(data) {
             $('#'+id).text("");
         }
     }   
-    
     // set the pieces
     for (var i = 0; i < board.length; i++) {
         var e = $('#'+board[i].loc.col.toLowerCase()+board[i].loc.row);
         $(e).text(board[i].color === 1 ? whitePieceChar : blackPieceChar);
     }
-    autoPlay()
+    //autoPlay()
 }
 
 function autoPlay() {
     $.ajax ({url: "http://localhost:3000/computerMove", success: function(result) {
-            newGameBoard(result);
-        }})
+        updateGameBoard(result);
+    }})
 }
 
 </script>
@@ -121,77 +175,77 @@ function autoPlay() {
 
 <div class="gameboard">
 <!-- 1st -->
-<div id="hl" class="white"></div> 
-<div id="h2" class="black"></div> 
-<div id="h3" class="white"></div> 
-<div id="h4" class="black"></div> 
-<div id="h5" class="white"></div>
-<div id="h6" class="black"></div>  
-<div id="h7" class="white"></div> 
+<div id="a8" class="white"></div> 
+<div id="b8" class="black"></div> 
+<div id="c8" class="white"></div> 
+<div id="d8" class="black"></div> 
+<div id="e8" class="white"></div>
+<div id="f8" class="black"></div>  
+<div id="g8" class="white"></div> 
 <div id="h8" class="black"></div> 
 <!-- 2nd -->
-<div id="g1" class="black"></div>  
-<div id="g2" class="white"></div> 
-<div id="g3" class="black"></div>  
-<div id="g4" class="white"></div>
-<div id="g5" class="black"></div> 
-<div id="g6" class="white"></div> 
-<div id="g7" class="black"></div> 
-<div id="g8" class="white"></div>
-<!-- 3rd -->
-<div id="f1" class="white"></div> 
-<div id="f2" class="black"></div> 
-<div id="f3" class="white"></div> 
-<div id="f4" class="black"></div> 
-<div id="f5" class="white"></div> 
-<div id="f6" class="black"></div> 
-<div id="f7" class="white"></div> 
-<div id="f8" class="black"></div> 
-<!-- 4th -->
-<div id="e1" class="black"></div> 
-<div id="e2" class="white"></div>
-<div id="e3" class="black"></div> 
-<div id="e4" class="white"></div>
-<div id="e5" class="black"></div> 
-<div id="e6" class="white"></div>
-<div id="e7" class="black"></div> 
-<div id="e8" class="white"></div>
-<!-- 5th -->
-<div id="d1" class="white"></div> 
-<div id="d2" class="black"></div> 
-<div id="d3" class="white"></div> 
-<div id="d4" class="black"></div> 
-<div id="d5" class="white"></div> 
-<div id="d6" class="black"></div> 
-<div id="d7" class="white"></div> 
-<div id="d8" class="black"></div> 
-<!-- 6th -->
-<div id="c1" class="black"></div> 
-<div id="c2" class="white"></div> 
-<div id="c3" class="black"></div> 
-<div id="c4" class="white"></div> 
-<div id="c5" class="black"></div>  
-<div id="c6" class="white"></div> 
-<div id="c7" class="black"></div>  
-<div id="c8" class="white"></div> 
-<!-- 7th -->
-<div id="bl" class="white"></div>
-<div id="b2" class="black"></div> 
-<div id="b3" class="white"></div> 
-<div id="b4" class="black"></div>  
-<div id="b5" class="white"></div>
-<div id="b6" class="black"></div>  
+<div id="a7" class="black"></div>  
 <div id="b7" class="white"></div> 
-<div id="b8" class="black"></div> 
+<div id="c7" class="black"></div>  
+<div id="d7" class="white"></div>
+<div id="e7" class="black"></div> 
+<div id="f7" class="white"></div> 
+<div id="g7" class="black"></div> 
+<div id="h7" class="white"></div>
+<!-- 3rd -->
+<div id="a6" class="white"></div> 
+<div id="b6" class="black"></div> 
+<div id="c6" class="white"></div> 
+<div id="d6" class="black"></div> 
+<div id="e6" class="white"></div> 
+<div id="f6" class="black"></div> 
+<div id="g6" class="white"></div> 
+<div id="h6" class="black"></div> 
+<!-- 4th -->
+<div id="a5" class="black"></div> 
+<div id="b5" class="white"></div>
+<div id="c5" class="black"></div> 
+<div id="d5" class="white"></div>
+<div id="e5" class="black"></div> 
+<div id="f5" class="white"></div>
+<div id="g5" class="black"></div> 
+<div id="h5" class="white"></div>
+<!-- 5th -->
+<div id="a4" class="white"></div> 
+<div id="b4" class="black"></div> 
+<div id="c4" class="white"></div> 
+<div id="d4" class="black"></div> 
+<div id="e4" class="white"></div> 
+<div id="f4" class="black"></div> 
+<div id="g4" class="white"></div> 
+<div id="h4" class="black"></div> 
+<!-- 6th -->
+<div id="a3" class="black"></div> 
+<div id="b3" class="white"></div> 
+<div id="c3" class="black"></div> 
+<div id="d3" class="white"></div> 
+<div id="e3" class="black"></div>  
+<div id="f3" class="white"></div> 
+<div id="g3" class="black"></div>  
+<div id="h3" class="white"></div> 
+<!-- 7th -->
+<div id="a2" class="white"></div>
+<div id="b2" class="black"></div> 
+<div id="c2" class="white"></div> 
+<div id="d2" class="black"></div>  
+<div id="e2" class="white"></div>
+<div id="f2" class="black"></div>  
+<div id="g2" class="white"></div> 
+<div id="h2" class="black"></div> 
 <!-- 8th -->
 <div id="a1" class="black"></div> 
-<div id="a2" class="white"></div> 
-<div id="a3" class="black"></div>  
-<div id="a4" class="white"></div> 
-<div id="a5" class="black"></div> 
-<div id="a6" class="white"></div> 
-<div id="a7" class="black"></div> 
-<div id="a8" class="white"></div>
+<div id="b1" class="white"></div> 
+<div id="c1" class="black"></div>  
+<div id="d1" class="white"></div> 
+<div id="e1" class="black"></div> 
+<div id="f1" class="white"></div> 
+<div id="g1" class="black"></div> 
+<div id="h1" class="white"></div>
 </div>
 
 
