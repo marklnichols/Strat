@@ -1,7 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
--- {-# OPTIONS_GHC -F -pgmF autoexporter #-}
 
 module Checkers where
 import qualified CkParser as Parser
@@ -53,10 +52,8 @@ instance TreeNode CkNode CkMove CkEval where
     getErrorValue = _ckErrorValue
 
 instance Show CkMove where
-    show mv = case toParserMove mv of
-                    Just m -> show m
-                    Nothing -> show mv
-
+    show mv = show $ toParserMove mv
+    
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: "
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
@@ -98,18 +95,18 @@ getStartNode = Node
 
    (41) (42) (43) (44) (45)
 
-H|     37  38  39  40
-G|   32  33  34  35  (36)
-F|     28  29  30  31
-E|   23  24  25  26  (27)
-D|     19  20  21  22
-C|   14  15  16  17  (18)
-B|     10  11  12  13
-A|   05  06  07  08  (09)
+8|     37  38  39  40
+7|   32  33  34  35  (36)
+6|     28  29  30  31
+5|   23  24  25  26  (27)
+4|     19  20  21  22
+3|   14  15  16  17  (18)
+2|     10  11  12  13
+1|   05  06  07  08  (09)
 
    (00) (01) (02) (03) (04)
      ---------------
-     1 2 3 4 5 6 7 8
+     A B C D E F G H
 --}
 
 offBoard :: [Int]
@@ -178,35 +175,27 @@ calcRemoved xs = foldr f [] (zip xs (tail xs))  where
         | abs (x - prevX) `elem` [8, 10] = prevX + (x-prevX) `div` 2 : r
         | otherwise                      = r
 
-
 locToInt :: Parser.Loc -> Int  -- parser ensures valid key
-locToInt (Parser.Loc c d)
-    | d `mod` 2 == 0    = f (d-1)
-    | otherwise         = f d
-        where
-        f x = Map.findWithDefault (-1) (toUpper c) rowIndexes + (x `div` 2)
-
-rowIndexes :: Map.Map Char Int
-rowIndexes = Map.fromList [('A', 5), ('B', 10), ('C', 14), ('D', 19), ('E', 23), ('F', 28), ('G', 32), ('H', 37)]
+locToInt (Parser.Loc c d) = 
+    let col = ord (toUpper c) - 65
+    in Map.findWithDefault (-1) d rowIndexes + (col `div` 2) 
+     
+rowIndexes :: Map.Map Int Int
+rowIndexes = Map.fromList [(1, 5), (2, 10), (3, 14), (4, 19), (5, 23), (6, 28), (7, 32), (8, 37)]
 
 ---------------------------------------------------------------------------------------------------
 -- Convert CkMove to Parser Move
 ---------------------------------------------------------------------------------------------------
-toParserMove :: CkMove -> Maybe Parser.Move
+toParserMove :: CkMove -> Parser.Move
 toParserMove mv =
     let mAll = intToLoc (mv^.startIdx) : fmap intToLoc (mv^.middleIdxs) ++ [intToLoc (mv^.endIdx)]
-        locs = catMaybes mAll
-    in  if length locs == length mAll
-            then Just $ Parser.Move locs
-            else Nothing
-
-intToLoc :: Int -> Maybe Parser.Loc
+    in Parser.Move mAll
+      
+intToLoc :: Int -> Parser.Loc
 intToLoc n =
-    let num = offset n + colPlus n + 1
-        mChar = rowLabels ^? element (labelIdx n)
-    in case mChar of
-        Nothing -> Nothing
-        Just c -> Just $ Parser.Loc c num
+    let mchar = chr $ 65 + offset n + colPlus n
+        num = rowNum n
+    in Parser.Loc mchar num      
 
 offset :: Int -> Int
 offset n =  if ((n-5) `mod` 9) `div` 5 == 0 then 0 else 1
@@ -214,10 +203,10 @@ offset n =  if ((n-5) `mod` 9) `div` 5 == 0 then 0 else 1
 colPlus :: Int -> Int
 colPlus n = (((n-5) `mod` 9) `mod` 5) * 2
 
-labelIdx :: Int -> Int
-labelIdx n = ((n-5) `div` 9) * 2 + ((n-5) `mod` 9) `div` 5
+rowNum :: Int -> Int
+rowNum n = ((n-5) `div` 9) * 2 + ((n-5) `mod` 9) `div` 5 + 1
 
-rowLabels :: String
+rowLabels :: String     
 rowLabels = ['A'..'H']
 
 ---------------------------------------------------------------------------------------------------
@@ -232,9 +221,10 @@ boardAsPieceList node =
             pMatch pair = (abs (snd pair) > 0 && abs (snd pair) < 3)
         pLocs = V.foldr f z0 filtrd where
             z0 = [] :: [PieceLoc]
-            f x r = case intToLoc $ fst x of
-                        Nothing  -> r
-                        Just l -> PieceLoc {pieceLoc = l, pieceLocValue = snd x} : r
+            --f x r = case intToLoc $ fst x of
+            --            Nothing  -> r
+            --            Just l -> PieceLoc {pieceLoc = l, pieceLocValue = snd x} : r
+            f x r = PieceLoc {pieceLoc = (intToLoc $ fst x), pieceLocValue = snd x} : r
         in PieceList {pieceLocs = pLocs}
 
 ---------------------------------------------------------------------------------------------------
@@ -401,7 +391,7 @@ pieceProgress xs colr =
     let vals    = case colr of
                     1 -> [0, 0, 0, 0,  1,  2,  3,  4] :: [Int]
                     _ -> [4, 3, 2, 1,  0,  0,  0,  0] :: [Int]
-        f x r   = r +  fromMaybe 0 (vals ^? ix (labelIdx x))
+        f x r   = r +  fromMaybe 0 (vals ^? ix (rowNum x - 1))
     in foldr f 0 xs
 
 swapColor :: CkNode -> CkNode
@@ -471,7 +461,7 @@ pieceMoves node idx =
     in case g ^? ix idx of
         Nothing -> []
         Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr)
-
+       
 forwardMoves :: V.Vector Int -> Int -> Int -> [CkMove]
 forwardMoves g indx colr =
     let newIdxs = filter f [indx + (colr * 4), indx + (colr * 5)]
@@ -480,7 +470,7 @@ forwardMoves g indx colr =
                         Just val -> val == 0
     in fmap h newIdxs where
         h newIdx = CkMove {_isJump = False, _startIdx = indx, _endIdx = newIdx, _middleIdxs = [], _removedIdxs = []}
-
+        
 kingMoves :: V.Vector Int -> Int -> [CkMove]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
@@ -499,7 +489,6 @@ pieceJumps node idx =
                     | isKing x = [JumpOff 4 8, JumpOff 5 10, JumpOff (-4) (-8), JumpOff (-5) (-10)]
                     | otherwise  = [JumpOff (4 * colr) (8 * colr), JumpOff (5 * colr) (10 * colr)]
 
-
 multiJumps :: V.Vector Int -> Int -> [JumpOff] -> Int -> [CkMove]
 multiJumps grd colr offsets indx = jmpsToCkMoves $ fmap reverse (outer grd indx []) where
     outer g x xs =
@@ -510,7 +499,6 @@ multiJumps grd colr offsets indx = jmpsToCkMoves $ fmap reverse (outer grd indx 
                     inner gNew' y ys acc =  let acc'  = y : acc
                                                 f z r = outer gNew' z acc' ++ r
                                             in foldr f [[]] ys
-
 
 jmpIndexes :: V.Vector Int -> Int -> Int -> [JumpOff] -> ([Int], V.Vector Int)
 jmpIndexes grd colr start jos =
@@ -523,7 +511,6 @@ jmpIndexes grd colr start jos =
                 else Nothing
     in (validIdxs, newG)
 
-
 isValidJump :: V.Vector Int -> Int -> Int -> Int -> Bool
 isValidJump grd colr loc1 loc2 =
     let mOver = grd ^? ix loc1
@@ -532,12 +519,10 @@ isValidJump grd colr loc1 loc2 =
         where
             check jmpOvr landOn = landOn == 0 && jmpOvr /= 0 && jmpOvr /= 99 && jmpOvr * colr < 0
 
-
 removeCaptured :: V.Vector Int -> [Int] -> V.Vector Int
 removeCaptured = foldr f where
                     f :: Int -> V.Vector Int -> V.Vector Int
                     f idx grid' = grid' & ix idx .~ 0
-
 
 jmpsToCkMoves :: [[Int]] -> [CkMove]
 jmpsToCkMoves = foldr f [] where
@@ -564,17 +549,14 @@ kingProximity node =
         -- note: (7 - glbClosestW) - (7 - glbClosestB) === glbClosestB - closestW
         in glbClosestB - glbClosestW
 
-
 closestToKing :: Int -> [Int] -> Int
 closestToKing k foes = fromMaybe 7 $ minimumMay $ fmap (`distance` k) foes
 
-
 distance :: Int -> Int -> Int
 distance p1 p2 = max (hDistance p1 p2) (vDistance p1 p2)
-
 
 hDistance :: Int -> Int -> Int
 hDistance p1 p2 = abs $ (offset p1 + colPlus p1) - (offset p2 + colPlus p2)
 
 vDistance :: Int -> Int -> Int
-vDistance p1 p2 = abs $ labelIdx p1 - labelIdx p2
+vDistance p1 p2 = abs $ rowNum p1 - rowNum p2

@@ -6,7 +6,6 @@ import CkParser
 import Test.Hspec
 import Data.Tree
 import Data.Either
-import Data.Maybe
 import qualified Data.Vector.Unboxed as V
 import qualified CheckersJson as J
 import Control.Lens
@@ -27,7 +26,7 @@ checkersTest = do
             getAllowedMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
 
             getAllowedMoves (nodeFromGridW board07) `shouldMatchList` snd (partitionEithers (fmap
-                (parseCkMove (nodeFromGridW board07)) ["A3-C1-E3", "A3-C5-E3", "A3-C5-E7-G5"]))
+                (parseCkMove (nodeFromGridW board07)) ["C1-A3-C5", "C1-E3-C5", "C1-E3-G5-E7"]))
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. ckPosition ^. grid `shouldBe` board01_m1
@@ -43,13 +42,13 @@ checkersTest = do
         it "parses move input into a CkMove" $ do
             parseCkMove (nodeFromGridW board01) "A1 B2" `shouldBe` Right (mkSimpleCkMove 510)
             parseCkMove (nodeFromGridW board01) "A1-b2" `shouldBe` Right (mkSimpleCkMove 510)
-            parseCkMove (nodeFromGridW board02) "A5 C7" `shouldBe` Right (mkSimpleCkJump (0717, 12))
-            parseCkMove (nodeFromGridW board03) "E5 C7 A5" `shouldBe` Right (mkMultiCkJump m3)
+            parseCkMove (nodeFromGridW board02) "E1 G3" `shouldBe` Right (mkSimpleCkJump (0717, 12))
+            parseCkMove (nodeFromGridW board03) "E5 G3 E1" `shouldBe` Right (mkMultiCkJump m3)
     describe "toParserMove" $
         it "converts a CkMove to a Parser Move (for display)" $ do
-            toParserMove (mkSimpleCkMove 510) `shouldBe` Just (Move [Loc 'A' 1,  Loc 'B' 2])
-            toParserMove (mkSimpleCkJump (0717, 12)) `shouldBe` Just (Move [Loc 'A' 5, Loc 'C' 7])
-            toParserMove (mkMultiCkJump m3) `shouldBe` Just (Move [Loc 'E' 5, Loc 'C' 7, Loc 'A' 5])
+            toParserMove (mkSimpleCkMove 510) `shouldBe` Move [Loc 'A' 1,  Loc 'B' 2]
+            toParserMove (mkSimpleCkJump (0717, 12)) `shouldBe` Move [Loc 'E' 1, Loc 'G' 3]
+            toParserMove (mkMultiCkJump m3) `shouldBe` Move [Loc 'E' 5, Loc 'G' 3, Loc 'E' 1]
     describe "checkPromote" $
         it "promotes a piece to king if it has reached the back row" $ do
             checkPromote (nodeFromGridW board05) 01 38 `shouldBe` 2
@@ -137,19 +136,19 @@ mkSimpleCkMove :: Int -> CkMove
 mkSimpleCkMove i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = [], _removedIdxs = []}
            
 mkSimpleJsonMove :: Int -> String
-mkSimpleJsonMove x = fromMaybe "" (J.jsonFromCkMove (mkSimpleCkMove x))
+mkSimpleJsonMove x = J.jsonFromCkMove (mkSimpleCkMove x)
 
 mkSimpleCkJump :: (Int, Int) -> CkMove
 mkSimpleCkJump (mv, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100, _endIdx = mv `mod` 100, _middleIdxs = [], _removedIdxs = [removed]}
 
 mkSimpleJsonJump :: (Int, Int) -> String
-mkSimpleJsonJump (mv, removed) = fromMaybe "" (J.jsonFromCkMove (mkSimpleCkJump (mv, removed)))
+mkSimpleJsonJump (mv, removed) = J.jsonFromCkMove (mkSimpleCkJump (mv, removed))
 
 mkMultiCkJump :: (Int, [Int], [Int]) -> CkMove
 mkMultiCkJump (mv, middle, removed) = CkMove {_isJump = True, _startIdx = mv `div` 100, _endIdx = mv `mod` 100, _middleIdxs = middle, _removedIdxs = removed}
 
 mkMultiJsonJump :: (Int, [Int], [Int]) -> String
-mkMultiJsonJump (mv, middle, removed) = fromMaybe "" (J.jsonFromCkMove (mkMultiCkJump (mv, middle, removed)))
+mkMultiJsonJump (mv, middle, removed) = J.jsonFromCkMove (mkMultiCkJump (mv, middle, removed))
 
 ---------------------------------------------------------------------------------------------------
 -- Test Reader environments

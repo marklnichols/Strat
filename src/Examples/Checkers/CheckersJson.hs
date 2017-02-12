@@ -4,7 +4,6 @@ module CheckersJson where
 
 import Data.Aeson
 import Data.Char
-import Data.Maybe
 import GHC.Generics
 import qualified CkParser as P
 import qualified Data.ByteString.Lazy as B
@@ -92,14 +91,12 @@ jsonToCkMove s = (jsonToParserMove <$> decode (strToBs s)) >>= Ck.parserToCkMove
 jsonMoveToCkMove :: JsonMove -> Maybe Ck.CkMove
 jsonMoveToCkMove jMove = Ck.parserToCkMove $ jsonToParserMove jMove
   
-  
-jsonFromCkMove :: Ck.CkMove -> Maybe String
-jsonFromCkMove mv = let bs = fmap (encode . jsonFromParserMove) (Ck.toParserMove mv)
-                    in fmap bsToStr bs  
- 
+jsonFromCkMove :: Ck.CkMove -> String
+jsonFromCkMove mv = (bsToStr . encode . jsonFromParserMove) (Ck.toParserMove mv)
+                    
 jsonUpdate :: String -> Ck.CkNode -> [Ck.CkMove] -> FullUpdate    
 jsonUpdate str node ckMoves = 
-    let parserMoves = catMaybes $ fmap Ck.toParserMove ckMoves
+    let parserMoves = fmap Ck.toParserMove ckMoves
         legals = LegalMoves {moves = fmap jsonFromParserMove parserMoves}
     in  FullUpdate {msg = str, board = boardToJson node, legalMoves = legals}
 

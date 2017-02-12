@@ -75,7 +75,6 @@ executable Strat
                      , CheckersText
                      , Chess
                      , ChessParser
-                     , WebMain
                      , Session
                      , GlobalState
                      , YesodMain
