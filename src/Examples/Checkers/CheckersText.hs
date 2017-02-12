@@ -101,7 +101,7 @@ toXOs 0 = "-"
 toXOs _ = "?"
 
 labelMap :: Map.Map Int String
-labelMap = Map.fromList [(40, "H"), (35, "G"), (31, "F"), (26, "E"), (22, "D"), (17, "C"), (13, "B"), (8, "A")]
+labelMap = Map.fromList [(40, "8"), (35, "7"), (31, "6"), (26, "5"), (22, "4"), (17, "3"), (13, "2"), (8, "1")]
 
 colLabels :: String
-colLabels = "   " ++ intercalate "  " ["1", "2", "3", "4", "5", "6", "7", "8"]
+colLabels = "   " ++ intercalate "  " ["A", "B", "C", "D", "E", "F", "G", "H"]
