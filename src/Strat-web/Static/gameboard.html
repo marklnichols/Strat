@@ -42,25 +42,27 @@
 </head>
 
 <body>
-
+<!--input type="text" onkeydown="keyFunction(event)"-->
 <script src="jquery-3.1.1.min.js"></script>
 
 <script> 
 
 var game = { } ;
 
-  //$(function(){
-  //    $("#specificGame").load("checkers.html"); 
-  //    //$("#specificGame").load("chess.html");
-  //  });
-
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col, row) { 
     return String.fromCharCode(97 + col) + row.toString();
 }
 
+function locToId(aLoc) {
+    var aCol = aLoc.col
+    var aRow = aLoc.row
+    var anId = aCol + aRow.toString()
+    return anId
+}
+
 function idToRow(id) {
-    return id.charAt(1).parseInt
+    return parseInt(id.charAt(1))
 }
 
 function idToCol(id) {
@@ -68,27 +70,40 @@ function idToCol(id) {
 }
 
 function resetSelections() {
+    for (var i = 0; i < game.selections.length; i++) { 
+        var aLoc = game.selections[i]
+        var anId = locToId(aLoc)
+        $('#'+anId).removeClass("selected"); 
+    }
     game.selections = new Array();
 }
 
-function deselectSquare() { 
-    if (game.selectedId) { 
-        $('#'+game.selectedId).removeClass("selected"); 
-        game.selectedId = undefined;
-    }
-}    
-        
+       
 function selectSquare(id) { 
     $('#'+id).addClass("selected"); 
-    pushLocation(id)
-    game.selectedId = id;
 }
 
 function pushLocation(id) {
     var c = idToCol(id)
     var r = idToRow(id)
     var new_loc = new loc(c, r)
-    game.selections.push(new_loc)
+    
+    if ( !(isDuplicate(new_loc)) ) {
+        game.selections.push(new_loc)
+    }
+}
+
+function isDuplicate(new_loc) {
+    var len = game.selections.length
+    if (len == 0) {
+        return false
+    }
+    var top = game.selections[len-1]
+    if (JSON.stringify(top) === JSON.stringify(new_loc)) {
+        return true
+    } else {
+        return false
+    }
 }
 
 function loc(col, row) {
@@ -108,23 +123,31 @@ function selectSquareDbl(id) {
 function submitMove(id) {
     var new_move = new move(game.selections)
     var json = JSON.stringify(new_move);
-    //need: {move: [{"loc":{"col":"H","row":8}, {"loc":{"col":"F","row":6}, etc ]}
+    resetSelections()
     
     $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
-        updateGameBoard(result);;
+      updateGameBoard(result);;
     }})
 }
 
 function onClick(event) {
- 
-    deselectSquare();
+    pushLocation(this.id)
     selectSquare(this.id);
 }
 
 function onDblClick(event) { 
-    selectSquareDbl(this.id);
     submitMove(this.id)
 }
+
+
+
+$(document).keydown(function(e) {
+  if(e.which == 27) {
+    //alert ("You pressed the Escape key!");
+    resetSelections()
+  }
+});
+
 
 $(document).ready(function() { 
     // attach mouse click handler to each div sqare 
@@ -136,7 +159,7 @@ $(document).ready(function() {
             $('#'+id).dblclick(onDblClick);
         }
     }
-    resetSelections()
+    game.selections = new Array();
     //get pieces...
     $.ajax ({url: "http://localhost:3000/new", success: function(result) {
         updateGameBoard(result);
@@ -163,17 +186,18 @@ function updateGameBoard(data) {
     //autoPlay()
 }
 
-function autoPlay() {
-    $.ajax ({url: "http://localhost:3000/computerMove", success: function(result) {
-        updateGameBoard(result);
-    }})
-}
+//function autoPlay() {
+    //$.ajax ({url: "http://localhost:3000/computerMove", success: function(result) {
+    //    updateGameBoard(result);
+    //}})
+//}
 
 </script>
 
 <!-- div id="specificGame"></div-->
 
-<div class="gameboard">
+<div class="gameboard" >
+
 <!-- 1st -->
 <div id="a8" class="white"></div> 
 <div id="b8" class="black"></div> 

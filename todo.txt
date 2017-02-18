@@ -1,8 +1,16 @@
-Current:
-Bare-bones web GUI
+Current: Web GUI
+Display King correctly
+Dont submit incorrect moves
+Move player piece before submitting move
+Display messages from server
+Clearly show move submitted, move returned for a few seconds
+Fix char highlight after computer move
+
 Chess basics
 Proper command line parsing
 Add readMe explaining state of the project
+Move chess to WIP section
+Get basic piece moves, etc. - human vs human game
 
 Project organization:
 Set the proper exports (comment out for debugging)
@@ -10,7 +18,6 @@ Set the proper exports (comment out for debugging)
 Overall:
 alpha-beta pruning
 additional profiling - improve performance
-try using foundation (instead of prelude)
 Reader monad for move eval (for depth, difficulty level, etc.)
 Turn debugging display on/off
 remove the blunder code?
@@ -24,5 +31,3 @@ Add score for "pinned" pieces
 Add some specific blunder evaluation?
 Impove end game logic for checkers
 
-Chess:
-Get basic piece moves, etc.

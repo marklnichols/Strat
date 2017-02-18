@@ -85,7 +85,7 @@ getNewGameR :: Handler Value
 getNewGameR = do
     liftIO $ putStrLn "incoming new game request"
     uniqueId <- getGameSession
-    wrapper <- liftIO $ processStartGame getStartNode True
+    wrapper <- liftIO $ processStartGame getStartNode False
     let node = getNode wrapper
     let jAble = getJsonable wrapper
     yesod <- getYesod
@@ -113,7 +113,7 @@ getComputerMoveR = do
 --TODO: factor out some common code        
 postPlayerMoveR :: Handler Value
 postPlayerMoveR = do
-    liftIO $ putStrLn "incoming computer player move"
+    liftIO $ putStrLn "incoming player move"
     (resultM :: Result JsonMove) <- parseJsonBody 
     yesod <- getYesod
     theMap <- liftIO $ readIORef $ getMap yesod
@@ -129,7 +129,8 @@ postPlayerMoveR = do
                     liftIO $ putStrLn "getPlayerMoveR - could not parse the json from the client"
                     liftIO $ putStrLn ("Error retuned: " ++ e)
                     processError "Something is wrong with this game" getStartNode
-                Success jMove ->   
+                Success jMove -> do
+                    liftIO $ putStrLn $ "Player move: " ++ show jMove
                     case jsonMoveToCkMove jMove of
                         Nothing -> do
                             liftIO $ putStrLn "getPlayerMoveR - could not covert to CkMove"
@@ -139,8 +140,13 @@ postPlayerMoveR = do
     let node = getNode wrapper 
     liftIO $ updateMap (getMap yesod) uniqueId node
     let jAble = getJsonable wrapper
-    case jAble of
-        Jsonable j -> returnJson j
+    case jAble of 
+        Jsonable j -> do
+            case getLastMove wrapper of
+                Just m -> liftIO $ putStrLn $ "Computer's move: " ++ 
+                                              (jsonFromCkMove $ m)
+                Nothing -> liftIO $ putStrLn $ "(No computer move)"
+            returnJson j
         
 webInit :: IO ()
 webInit = do
