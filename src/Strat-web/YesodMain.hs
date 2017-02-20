@@ -15,6 +15,7 @@ import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
     
+-- 123    
 staticFilesList "src/Strat-web/Static" ["gameboard.html"] -- , "image.png"]
 
 data GameApp = GameApp { getStatic :: Static, 
