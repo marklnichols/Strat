@@ -1,9 +1,7 @@
 Current: Web GUI
-Display King correctly
-Dont submit incorrect moves
 Move player piece before submitting move
 Display messages from server
-Clearly show move submitted, move returned for a few seconds
+Clearly show computer move for a few seconds
 Fix char highlight after computer move
 
 Chess basics

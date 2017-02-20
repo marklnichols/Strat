@@ -137,7 +137,7 @@ createUpdate msg node mvMay =
     NodeWrapper {getNode = node, 
                  getLastMove = mvMay, 
                  getJsonable = Jsonable $ J.jsonUpdate msg (rootLabel node) 
-                                         (Ck.getPossibleMoves (rootLabel node))
+                                         (Ck.getAllowedMoves (rootLabel node))
                 }
                  
 createError :: String -> Tree Ck.CkNode -> NodeWrapper
