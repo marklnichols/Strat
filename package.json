@@ -1,0 +1,29 @@
+{
+  "name": "strat",
+  "version": "1.0.0",
+  "description": "strat stuff",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "@types/jquery": "^2.0.40"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marklnichols/Strat.git"
+  },
+  "keywords": [
+    "strat"
+  ],
+  "author": "mln",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/marklnichols/Strat/issues"
+  },
+  "homepage": "https://github.com/marklnichols/Strat#readme"
+}

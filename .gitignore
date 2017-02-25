@@ -20,3 +20,9 @@ sessions.sqlite3
 github
 todo.txt
 *.session
+.idea
+.ideaHaskellLib
+out
+.profiling
+*.iml
+node_modules
