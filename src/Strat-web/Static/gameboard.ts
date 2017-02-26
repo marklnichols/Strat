@@ -9,14 +9,15 @@ import * as $ from "jquery";
 //}
 
 class Game {
-    constructor (public selections: Loc[], public validMoves: Moves) {
+    constructor (public selections: Loc[], public validMoves: Moves, public latestMove: Move) {
         this.selections = selections;
         this.validMoves = validMoves;
+        this.latestMove = latestMove
     }
 }
 
 class Loc {
-    constructor(public col, public row) {}
+    constructor(public col: string, public row: number) {}
 }
 
 class Moves {
@@ -27,10 +28,14 @@ class Move {
     constructor(public locs: Loc[]) {}
 }
 
-var game = new Game([], new Moves([]));
+class Square {
+    constructor(public loc: Loc, public pieceType: number, public color: number) {}
+}
+
+var game = new Game([], new Moves([]), new Move([]));
 
 //column indexes 0-7 -> A-H, row indexes 1-8
-function rowCol2Id(col, row) { 
+function rowCol2Id(col: number, row: number) { 
     return String.fromCharCode(97 + col) + row.toString();
 }
 
@@ -41,11 +46,11 @@ function locToId(aLoc: Loc) {
     return anId
 }
 
-function idToRow(id) {
+function idToRow(id: string) {
     return parseInt(id.charAt(1))
 }
 
-function idToCol(id) {
+function idToCol(id: string) {
     return id.charAt(0)
 }
 
@@ -69,13 +74,12 @@ function resetSelections() {
     }
     game.selections = new Array();
 }
-
        
-function selectSquare(id) { 
+function selectSquare(id: string) { 
     $('#'+id).addClass("selected"); 
 }
 
-function pushLocation(id) {
+function pushLocation(id: string) {
     var c = idToCol(id)
     var r = idToRow(id)
     var new_loc = new Loc(c, r)
@@ -85,7 +89,7 @@ function pushLocation(id) {
     }
 }
 
-function isDuplicate(new_loc) {
+function isDuplicate(new_loc: Loc) {
     var len = game.selections.length
     if (len == 0) {
         return false
@@ -98,19 +102,19 @@ function isDuplicate(new_loc) {
     }
 }
 
-
-function selectSquareDbl(id) { 
+function selectSquareDbl(id: string) { 
     $('#'+id).addClass("dblclicked"); 
     pushLocation(id)
 }
 
-function submitMove(id) {
+function submitMove(id: string) {
     var new_move = new Move(game.selections)
     if (checkValidMove(new_move)) {
         var json = JSON.stringify(new_move);
         flashSelections()
         $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
             setValidMoves(result.legalMoves);
+            setLatestMove(result.latestMove)
             updateGameBoard(result.board);
         }})
     } else {
@@ -119,8 +123,7 @@ function submitMove(id) {
    }
 }
 
-
-function checkValidMove(new_move) {
+function checkValidMove(new_move: Move) {
     var valid = game.validMoves.moves;
     for (var i = 0; i < valid.length; i++) { 
         var move = valid[i]
@@ -131,7 +134,7 @@ function checkValidMove(new_move) {
     return false
 }
 
-function compareMoves(m1, m2) {
+function compareMoves(m1: Move, m2: Move) {
     var l1 = m1.locs
     var l2 = m2.locs
     
@@ -152,26 +155,23 @@ function compareMoves(m1, m2) {
     } else {
         return false
     }
- }
-    
+ }    
 
-function onClick(event) {
+function onClick(event: Event) {
     pushLocation(this.id)
     selectSquare(this.id);
 }
 
-function onDblClick(event) { 
+function onDblClick(event: Event) { 
     submitMove(this.id)
 }
 
-
-$(document).keydown(function(e) {
+$(document).keydown(function(e: KeyboardEvent) {
   if(e.which == 27) {
     //alert ("You pressed the Escape key!");
     resetSelections()
   }
 });
-
 
 $(document).ready(function() { 
     // attach mouse click handler to each div sqare 
@@ -187,15 +187,20 @@ $(document).ready(function() {
     //get pieces...
     $.ajax ({url: "http://localhost:3000/new", success: function(result) {
         setValidMoves(result.legalMoves)
+        setLatestMove(result.latestMove)
         updateGameBoard(result.board);
     }})
 });
 
-function setValidMoves(moves) {
+function setValidMoves(moves: Moves) {
     game.validMoves = moves;
 }
 
-function updateGameBoard(board) {
+function setLatestMove(move: Move) {
+    game.latestMove = move;
+}
+
+function updateGameBoard(squares: Square[]) {
     var whitePieceChar = '\u26c0'
     var blackPieceChar = '\u26c2'
     var whitePieceKing = '\u26c1'
@@ -209,12 +214,12 @@ function updateGameBoard(board) {
         }
     }   
     // set the pieces
-    for (var i = 0; i < board.length; i++) {
-        var e = $('#'+board[i].loc.col.toLowerCase()+board[i].loc.row);
-        if (board[i].pieceType == 1) { //if regular piece
-            $(e).text(board[i].color === 1 ? whitePieceChar : blackPieceChar);
+    for (var i = 0; i < squares.length; i++) {
+        var e = $('#'+squares[i].loc.col.toLowerCase()+squares[i].loc.row);
+        if (squares[i].pieceType == 1) { //if regular piece
+            $(e).text(squares[i].color === 1 ? whitePieceChar : blackPieceChar);
         } else { //else piece is a king
-            $(e).text(board[i].color === 1 ? whitePieceKing : blackPieceKing);
+            $(e).text(squares[i].color === 1 ? whitePieceKing : blackPieceKing);
         }
     }
     //autoPlay()

@@ -58,7 +58,8 @@ instance FromJSON LegalMoves
 ----------------------------------------------------------------------------
 data FullUpdate = FullUpdate {msg :: String,
                               board :: [JsonSquare],
-                              legalMoves :: LegalMoves} deriving (Generic, Show)
+                              legalMoves :: LegalMoves,
+                              latestMove :: JsonMove} deriving (Generic, Show)
 
 instance ToJSON FullUpdate where
     toEncoding = genericToEncoding defaultOptions
@@ -93,12 +94,13 @@ jsonMoveToCkMove jMove = Ck.parserToCkMove $ jsonToParserMove jMove
   
 jsonFromCkMove :: Ck.CkMove -> String
 jsonFromCkMove mv = (bsToStr . encode . jsonFromParserMove) (Ck.toParserMove mv)
-                    
-jsonUpdate :: String -> Ck.CkNode -> [Ck.CkMove] -> FullUpdate    
-jsonUpdate str node ckMoves = 
+                
+jsonUpdate :: String -> Ck.CkNode -> [Ck.CkMove] -> Maybe Ck.CkMove -> FullUpdate    
+jsonUpdate str node ckMoves moveMay = 
     let parserMoves = fmap Ck.toParserMove ckMoves
         legals = LegalMoves {moves = fmap jsonFromParserMove parserMoves}
-    in  FullUpdate {msg = str, board = boardToJson node, legalMoves = legals}
+        latest = jsonFromParserMove . Ck.maybeToParserMove $ moveMay
+    in  FullUpdate {msg = str, board = boardToJson node, legalMoves = legals, latestMove = latest}
 
 jsonMessage :: String -> Message
 jsonMessage s = Message {message = s}

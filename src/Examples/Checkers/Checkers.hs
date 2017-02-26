@@ -190,6 +190,10 @@ toParserMove :: CkMove -> Parser.Move
 toParserMove mv =
     let mAll = intToLoc (mv^.startIdx) : fmap intToLoc (mv^.middleIdxs) ++ [intToLoc (mv^.endIdx)]
     in Parser.Move mAll
+    
+maybeToParserMove :: Maybe CkMove -> Parser.Move
+maybeToParserMove (Just mv) = toParserMove mv    
+maybeToParserMove Nothing   = Parser.Move []          
       
 intToLoc :: Int -> Parser.Loc
 intToLoc n =
