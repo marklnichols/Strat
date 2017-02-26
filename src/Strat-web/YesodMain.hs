@@ -15,8 +15,8 @@ import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
     
--- 1234567    
-staticFilesList "src/Strat-web/Static" ["gameboard.html"] -- , "image.png"]
+-- 12345678901    
+staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js"] -- , "image.png"]
 
 data GameApp = GameApp { getStatic :: Static, 
                          getCounter :: IORef Integer, 
