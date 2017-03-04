@@ -10225,18 +10225,20 @@ return jQuery;
 exports.__esModule = true;
 var $ = require("jquery");
 //function flash (anId){
-//    $('#'+anId).addClass("processing");
+//    $('#'+anId).addClass("playermove");
 //    
 //    setTimeout( function(){
-//        $('#'+anId).removeClass("processing");
+//        $('#'+anId).removeClass("playermove");
 //    }, 1000);	// Timeout must be the same length as the CSS3 transition or longer (or you'll mess up the transition)
 //}
 var Game = (function () {
-    function Game(selections, validMoves, latestMove) {
+    function Game(selections, flashing, validMoves, latestMove) {
         this.selections = selections;
+        this.flashing = flashing;
         this.validMoves = validMoves;
         this.latestMove = latestMove;
         this.selections = selections;
+        this.flashing = flashing;
         this.validMoves = validMoves;
         this.latestMove = latestMove;
     }
@@ -10269,7 +10271,17 @@ var Square = (function () {
     }
     return Square;
 }());
-var game = new Game([], new Moves([]), new Move([]));
+var Result = (function () {
+    function Result(msg, prevBoard, board, legalMoves, latestMove) {
+        this.msg = msg;
+        this.prevBoard = prevBoard;
+        this.board = board;
+        this.legalMoves = legalMoves;
+        this.latestMove = latestMove;
+    }
+    return Result;
+}());
+var game = new Game([], [], new Moves([]), new Move([]));
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col, row) {
     return String.fromCharCode(97 + col) + row.toString();
@@ -10277,7 +10289,7 @@ function rowCol2Id(col, row) {
 function locToId(aLoc) {
     var aCol = aLoc.col;
     var aRow = aLoc.row;
-    var anId = aCol + aRow.toString();
+    var anId = aCol.toLowerCase() + aRow.toString();
     return anId;
 }
 function idToRow(id) {
@@ -10286,22 +10298,56 @@ function idToRow(id) {
 function idToCol(id) {
     return id.charAt(0);
 }
-function flashSelections() {
-    for (var i = 0; i < game.selections.length; i++) {
-        var aLoc = game.selections[i];
+function addCSSClass(locs, cssClass) {
+    for (var i = 0; i < locs.length; i++) {
+        var aLoc = locs[i];
         var anId = locToId(aLoc);
-        $('#' + anId).addClass("processing");
+        $('#' + anId).addClass(cssClass);
     }
-    setTimeout(function () {
-        resetSelections();
+}
+function rmCSSClasses(locs) {
+    for (var i = 0; i < locs.length; i++) {
+        var aLoc = locs[i];
+        var anId = locToId(aLoc);
+        $('#' + anId).removeClass("selected");
+        $('#' + anId).removeClass("computermove");
+        $('#' + anId).removeClass("playermove");
+    }
+}
+/*
+function flashSelections (){
+    flashLocs(game.selections)
+}
+
+function flashLocs (locs: Loc[]) {
+    for (var i = 0; i < locs.length; i++) {
+        var aLoc = locs[i]
+        var anId = locToId(aLoc)
+        $('#'+anId).addClass("playermove");
+        game.flashing = locs
+    }
+    setTimeout( function(){
+        resetFlashing()
     }, 1000);
 }
+
+
+function resetFlashing() {
+    for (var i = 0; i < game.flashing.length; i++) {
+        var aLoc = game.flashing[i]
+        var anId = locToId(aLoc)
+        $('#'+anId).removeClass("selected");
+        $('#'+anId).removeClass("playermove");
+    }
+    game.selections = new Array();
+}
+*/
 function resetSelections() {
     for (var i = 0; i < game.selections.length; i++) {
         var aLoc = game.selections[i];
         var anId = locToId(aLoc);
         $('#' + anId).removeClass("selected");
-        $('#' + anId).removeClass("processing");
+        $('#' + anId).removeClass("playermove");
     }
     game.selections = new Array();
 }
@@ -10337,17 +10383,34 @@ function submitMove(id) {
     var new_move = new Move(game.selections);
     if (checkValidMove(new_move)) {
         var json = JSON.stringify(new_move);
-        flashSelections();
+        //flashSelections()
+        addCSSClass(new_move.locs, "playermove");
         $.ajax({ url: "http://localhost:3000/playerMove", method: "post", data: json, success: function (result) {
                 setValidMoves(result.legalMoves);
                 setLatestMove(result.latestMove);
-                updateGameBoard(result.board);
+                rmCSSClasses(new_move.locs);
+                game.selections = new Array();
+                updateGameBoard(result.prevBoard);
+                addCSSClass(result.latestMove.locs, "computermove");
+                setTimeout(function () {
+                    rmCSSClasses(result.latestMove.locs);
+                    updateGameBoard(result.board);
+                }, 1500);
             } });
     }
     else {
-        alert("Invalid move.");
+        alert("Invalid move: " + moveToStr(new_move));
         resetSelections();
     }
+}
+function moveToStr(move) {
+    var locs = move.locs;
+    var moveStr = "";
+    for (var i = 0; i < locs.length; i++) {
+        var loc = locs[i];
+        moveStr = moveStr + locToId(loc) + " ";
+    }
+    return moveStr;
 }
 function checkValidMove(new_move) {
     var valid = game.validMoves.moves;
@@ -10373,7 +10436,7 @@ function compareMoves(m1, m2) {
     return true;
 }
 function compareLocs(loc1, loc2) {
-    if (loc1.col.toUpperCase() == loc2.col.toUpperCase() && loc1.row == loc2.row) {
+    if (loc1.col.toLowerCase() == loc2.col.toLowerCase() && loc1.row == loc2.row) {
         return true;
     }
     else {

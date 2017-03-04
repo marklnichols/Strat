@@ -37,7 +37,7 @@ processStartGame :: Tree Ck.CkNode -> Bool -> IO NodeWrapper
 processStartGame node bComputerResponse = 
     if bComputerResponse
         then computerResponse node 1 
-        else return $ createUpdate "New Game, player moves first" node Nothing    
+        else return $ createUpdate "New Game, player moves first" node node Nothing    
 
 processComputerMove :: Tree Ck.CkNode -> IO NodeWrapper
 processComputerMove tree = do
@@ -58,7 +58,7 @@ processPlayerMove tree mv bComputerResponse = do
                 let posColor = rootLabel processed ^. (Ck.ckPosition . Ck.clr)
                 liftIO $ putStrLn $ "Computer move (In processPlayerMove), turn = " ++ show (colorToTurn posColor)
                 computerResponse processed (colorToTurn posColor) 
-            else return $ createUpdate "No computer move" processed Nothing
+            else return $ createUpdate "No computer move" processed processed Nothing
  
 processMessage :: String -> Tree Ck.CkNode -> IO NodeWrapper
 processMessage str tree = return $ createMessage str tree
@@ -71,11 +71,11 @@ processError str tree = return $ createError str tree
 ----------------------------------------------------------------------------------------------------  11
    
 computerResponse :: Tree Ck.CkNode -> Int -> IO NodeWrapper
-computerResponse tree turn = do
-    eitherNode <- computerMove tree turn
+computerResponse prevNode turn = do
+    eitherNode <- computerMove prevNode turn
     case eitherNode of
-        Left s -> return $ createError s tree
-        Right (n, m) -> return $ createUpdate (snd (checkGameOver n)) n (Just m)      
+        Left s -> return $ createError s prevNode
+        Right (n, m) -> return $ createUpdate (snd (checkGameOver n)) prevNode n (Just m)      
         
 computerMove :: Tree Ck.CkNode -> Int -> IO (Either String (Tree Ck.CkNode, Ck.CkMove))
 computerMove node turn = do
@@ -132,12 +132,12 @@ createMessage :: String -> Tree Ck.CkNode -> NodeWrapper
 createMessage s node = NodeWrapper {getNode = node, getLastMove = Nothing, 
                                     getJsonable = Jsonable (J.jsonMessage s)}
 
-createUpdate :: String -> Tree Ck.CkNode -> Maybe Ck.CkMove -> NodeWrapper
-createUpdate msg node mv = 
-    NodeWrapper {getNode = node, 
+createUpdate :: String -> Tree Ck.CkNode -> Tree Ck.CkNode -> Maybe Ck.CkMove -> NodeWrapper
+createUpdate msg prevN newN mv = 
+    NodeWrapper {getNode = newN, 
                  getLastMove =  mv, 
-                 getJsonable = Jsonable $ J.jsonUpdate msg (rootLabel node) 
-                                         (Ck.getAllowedMoves (rootLabel node)) mv
+                 getJsonable = Jsonable $ J.jsonUpdate msg (rootLabel prevN) (rootLabel newN)
+                                         (Ck.getAllowedMoves (rootLabel newN)) mv
                 }
                  
 createError :: String -> Tree Ck.CkNode -> NodeWrapper
