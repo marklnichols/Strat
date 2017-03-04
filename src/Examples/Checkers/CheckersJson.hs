@@ -57,6 +57,7 @@ instance FromJSON LegalMoves
 
 ----------------------------------------------------------------------------
 data FullUpdate = FullUpdate {msg :: String,
+                              prevBoard :: [JsonSquare],
                               board :: [JsonSquare],
                               legalMoves :: LegalMoves,
                               latestMove :: JsonMove} deriving (Generic, Show)
@@ -95,12 +96,13 @@ jsonMoveToCkMove jMove = Ck.parserToCkMove $ jsonToParserMove jMove
 jsonFromCkMove :: Ck.CkMove -> String
 jsonFromCkMove mv = (bsToStr . encode . jsonFromParserMove) (Ck.toParserMove mv)
                 
-jsonUpdate :: String -> Ck.CkNode -> [Ck.CkMove] -> Maybe Ck.CkMove -> FullUpdate    
-jsonUpdate str node ckMoves moveMay = 
+jsonUpdate :: String -> Ck.CkNode -> Ck.CkNode -> [Ck.CkMove] -> Maybe Ck.CkMove -> FullUpdate    
+jsonUpdate str prevN newN ckMoves moveMay = 
     let parserMoves = fmap Ck.toParserMove ckMoves
         legals = LegalMoves {moves = fmap jsonFromParserMove parserMoves}
         latest = jsonFromParserMove . Ck.maybeToParserMove $ moveMay
-    in  FullUpdate {msg = str, board = boardToJson node, legalMoves = legals, latestMove = latest}
+    in  FullUpdate {msg = str, prevBoard = boardToJson prevN, board = boardToJson newN, 
+                    legalMoves = legals, latestMove = latest}
 
 jsonMessage :: String -> Message
 jsonMessage s = Message {message = s}
@@ -142,12 +144,4 @@ jsonToParserMove jMv = P.Move (fmap toParserLoc (locs jMv))
 ----------------------------------------------------------------------------------------------------
 -- Example messages
 ----------------------------------------------------------------------------------------------------
-{-
-FullUpdate - 
-{"msg": "New Game, player moves first",
- "board":[{"loc":{"row":"A","col":1},"pieceType":1,"color":1},
-                            {"loc":{"col":"H","row":8},"pieceType":1,"color":-1}],
- "legalMoves": {"moves":   [{"locs":[{"col":"C","row":7},{"col":"D","row":6}]},
-                            {"locs":[{"col":"C","row":1},{"col":"D","row":2}]}]}
-}
--}
+--TBD update...
