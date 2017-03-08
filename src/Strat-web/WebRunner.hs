@@ -92,7 +92,7 @@ computerMove node turn = do
             moveM <- resolveRandom (result^.moveScores)
             case moveM of
                 Nothing -> return $ Left "Invalid result from resolveRandom"
-                Just mv -> return $ Right ((processMove newTree mv), mv)
+                Just mv -> return $ Right (processMove newTree mv, mv)
                                                    
 compMoveNext :: Tree Ck.CkNode -> Int -> Bool
 compMoveNext _ turn = evalState (runReaderT (unRST (isCompTurn turn)) gameEnv) (GameState 0)                

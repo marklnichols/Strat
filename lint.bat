@@ -3,7 +3,6 @@ hlint src\StratTree\StratTree.hs
 hlint src\StratTree\TreeNode.hs
 hlint src\StratTree\Trees.hs
 hlint src\StratIO\StratIO.hs
-hlint src\Strat-web\WebMain.hs
 hlint src\Strat-web\WebRunner.hs
 hlint src\Strat-web\YesodMain.hs
 hlint src\Strat-web\GlobalState.hs

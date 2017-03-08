@@ -228,7 +228,7 @@ boardAsPieceList node =
             --f x r = case intToLoc $ fst x of
             --            Nothing  -> r
             --            Just l -> PieceLoc {pieceLoc = l, pieceLocValue = snd x} : r
-            f x r = PieceLoc {pieceLoc = (intToLoc $ fst x), pieceLocValue = snd x} : r
+            f x r = PieceLoc {pieceLoc = intToLoc $ fst x, pieceLocValue = snd x} : r
         in PieceList {pieceLocs = pLocs}
 
 ---------------------------------------------------------------------------------------------------

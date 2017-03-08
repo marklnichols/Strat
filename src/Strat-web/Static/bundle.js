@@ -10395,7 +10395,7 @@ function submitMove(id) {
                 setTimeout(function () {
                     rmCSSClasses(result.latestMove.locs);
                     updateGameBoard(result.board);
-                }, 1500);
+                }, 2000);
             } });
     }
     else {
