@@ -15,7 +15,7 @@ import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
     
--- 12345678901234567890123456
+-- 123456789012345678901234567
 staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js"] -- , "image.png"]
 
 data GameApp = GameApp { getStatic :: Static, 
@@ -144,9 +144,8 @@ postPlayerMoveR = do
     case jAble of 
         Jsonable j -> do
             case getLastMove wrapper of
-                Just m -> liftIO $ putStrLn $ "Computer's move: " ++ 
-                                              (jsonFromCkMove $ m)
-                Nothing -> liftIO $ putStrLn $ "(No computer move)"
+                Just m -> liftIO $ putStrLn $ "Computer's move: " ++ jsonFromCkMove m
+                Nothing -> liftIO $ putStrLn "(No computer move)"
             returnJson j
         
 webInit :: IO ()
