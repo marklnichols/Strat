@@ -1,63 +1,77 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ExistentialQuantification #-} 
 
 module Chess where
-import Data.Tree
+import Data.Tree 
 import StratTree.TreeNode
 import Control.Lens
 import qualified Data.Vector.Unboxed as V
-import qualified ChessParser as Parser
+import qualified ChessParser as P
+import Data.Maybe
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
----------------------------------------------------------------------------------------------------
-data PieceType = KingType | QueenType | RookType | BishopType | 
-                 KnightType | PawnType deriving (Show, Eq)
-
+---------------------------------------------------------------------------------------------------               
 data ChessPos = ChessPos {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''ChessPos
 
 data ChessMv = ChessMv {isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 makeLenses ''ChessMv
 
 data ChessEval = ChessEval {_total :: Int, _details :: String}
     deriving (Eq, Ord)
 makeLenses ''ChessEval
 
-data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval, _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
+data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval, 
+                            _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
 
-data MoveType = Glide | Hop | Single | Pawny deriving (Eq, Show)
+--------------------------
+data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Int}
 
-class ChessPiece a where
-    pieceType :: a -> PieceType
-    moveType :: a -> MoveType
-    legalMoves :: a -> ChessPos -> Int -> [ChessMv]
-    pVal :: a -> Int
-    dirs :: a -> [Int -> Int]
-    
-data King = King deriving (Show, Eq)
-instance ChessPiece King where
-    pieceType _ = KingType
-    moveType _ = Single
-    pVal _ = 1000
-    dirs _ = queenDirs
-    legalMoves = legalKingMoves 
+class PieceType t where
+    value :: t -> Int
 
-data Queen = Queen deriving (Show, Eq)
-instance ChessPiece Queen where
-    pieceType _ = QueenType
-    moveType _ = Glide
-    pVal _ = 9
-    dirs _ = queenDirs
-    legalMoves = legalQueenMoves
+data KingType = KingType
 
--- TODO: Rook | Bishop | Knight | Pawn
+instance PieceType KingType where
+    value _ = 1000
+
+data QueenType = QueenType
+
+instance PieceType QueenType where
+    value _ = 9
+
+data PieceTypeBox = forall z. PieceType z => PieceTypeBox z
+
+intToBox :: Int -> PieceTypeBox
+intToBox 1 = PieceTypeBox KingType
+intToBox _ = PieceTypeBox QueenType
+
+usePieceType :: Int -> Int
+usePieceType idx = 
+    let box = intToBox idx
+        val = case box of
+            PieceTypeBox t -> value t 
+    in val
+ 
+data MoveType = Glide | Hop | Single | Pawny | NoMoveType deriving (Eq, Show)
+
+--indexToPiece :: ChessPiece p => V.Vector Int -> Int -> p
+indexToPiece :: V.Vector Int -> Int -> ChessPiece
+indexToPiece g idx = 
+    let gridVal =  fromMaybe 0 (g ^? ix idx) 
+        box = intToBox gridVal
+        _color = signum gridVal
+    in  ChessPiece {pieceType = box, color = _color}  
 
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
-    possibleMoves = getLegalMoves
+    possibleMoves = legalMoves
     color = view (chessPos . clr)
     final = view (chessPos . fin)
     parseMove = parseChessMv
@@ -67,11 +81,12 @@ instance TreeNode ChessNode ChessMv ChessEval where
     getValue = _chessVal
     getErrorValue = _chessErrorVal
 
+{-
 instance Show ChessMv where
     show mv = case toParserMove mv of
                     Just m -> show m
                     Nothing -> show mv
-
+-}    
 instance Show ChessNode where
     show n = "move: " ++ show (n ^. chessMv) ++ " value: " ++ show (n ^. chessVal) ++ " errorValue: "
              ++ show (n ^. chessErrorVal) ++ " position: " ++ show (n ^. chessPos)
@@ -131,6 +146,16 @@ getStartNode = undefined
     Diag D/R    -9                  Knight DR   -19
     Diag U/R    +11                 Knight UR   +21
     Diag D/L    -11                 Knight DL   -21
+    
+    
+Piece representation as integers:
+1 = White King      -1 = Black King
+2 = White Queen     -2 = Black Queen
+3 = White Rook      -3 = Black Rook
+4 = White Bishop    -4 = Black Bishop
+5 = White Knight    -5 = Black Knight
+6 = White Pawn      -6 = Black Pawn
+    
 ---------------------------------------------------------------------------------------------------}
 
 right :: Int -> Int
@@ -196,10 +221,13 @@ knightDirs = [knightLU, knightRD, knightLD, knightRU, knightUL, knightDR, knight
 pawnDirs :: [Int -> Int]
 pawnDirs = [up, diagUL, diagUR]
 
+noDirs :: [Int -> Int]
+noDirs = []
+
 ---------------------------------------------------------------------------------------------------
 -- Convert ChessMv to Parser Move (for display)
 ---------------------------------------------------------------------------------------------------
-toParserMove :: ChessMv -> Maybe Parser.Move
+toParserMove :: ChessMv -> Maybe P.Move
 toParserMove _ = undefined
 
 ---------------------------------------------------------------------------------------------------
@@ -223,11 +251,22 @@ calcNewNode _ _ = undefined
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 --------------------------------------------------------------------------------------------------
-getLegalMoves :: ChessNode -> [ChessMv]
-getLegalMoves = undefined
+legalMoves :: ChessNode -> [ChessMv]
+legalMoves = undefined
 
 getPieceLocs :: ChessNode -> [Int]
-getPieceLocs _ = undefined
+getPieceLocs node =
+    let pos = node ^. chessPos
+        c = pos ^. clr
+        range = V.fromList [0..100] :: V.Vector Int
+        pairs = V.zip range (pos ^. grid) :: V.Vector (Int, Int)
+        filtrd = V.filter (pMatch c) pairs :: V.Vector (Int, Int)
+        first = V.map fst filtrd :: V.Vector Int
+    in V.toList first
+        where pMatch colr pair =
+                let val = snd pair
+                    av = abs val
+                in (av > 0 && av <7 && (val * colr) > 0)
 
 pieceMoves :: ChessNode -> Int -> [ChessMv]
 pieceMoves _ _ = undefined
@@ -244,6 +283,7 @@ legalKingMoves king pos idx =
         else true
 -}          
 
+
 --possible destination squares for a king, disregarding other pieces, check status, etc.
 getSingleLocs :: Int -> [Int]
 getSingleLocs idx = filter onBoard (fmap ($ idx) queenDirs)
@@ -256,8 +296,11 @@ onBoard x
     | x `mod` 10 == 9 = False
     | otherwise       = True
 
-legalKingMoves :: King -> ChessPos -> Int -> [ChessMv]
-legalKingMoves _ _ _ = undefined
+legalKingMoves :: ChessPos -> Int -> [ChessMv]
+legalKingMoves _ _ = undefined
 
-legalQueenMoves :: Queen -> ChessPos -> Int -> [ChessMv]
-legalQueenMoves _ _ _ = undefined
+legalQueenMoves :: ChessPos -> Int -> [ChessMv]
+legalQueenMoves _ _ = undefined
+
+noMoves :: ChessPos -> Int -> [ChessMv]
+noMoves _ _ = undefined

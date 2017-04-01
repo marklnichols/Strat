@@ -14,7 +14,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:    src
+  hs-source-dirs:    src, test
                      , src/Examples/Checkers
                      , src/Examples/Chess
                      , src/Examples/TicTac
@@ -32,6 +32,7 @@ library
                      , CheckersText
                      , Chess
                      , ChessParser
+                     , ChessTest
   build-depends:     base >= 4.7 && < 5
                      , containers ==0.5.*
                      , rosezipper ==0.2.*
