@@ -1,14 +1,13 @@
-Current: Web GUI
-Move player piece before submitting move
+Checkers Web GUI:
 Display messages from server
-Clearly show computer move for a few seconds
-Fix char highlight after computer move
+Game over message, start new game
+Replace unicode characters with images
 
-Chess basics
-Proper command line parsing
+Chess:
 Add readMe explaining state of the project
 Move chess to WIP section
 Get basic piece moves, etc. - human vs human game
+Get web version working
 
 Project organization:
 Set the proper exports (comment out for debugging)
@@ -20,11 +19,12 @@ Reader monad for move eval (for depth, difficulty level, etc.)
 Turn debugging display on/off
 remove the blunder code?
 try RTS Monad instead of transformer
+Proper command line parsing
 
 TicTac:
 Prefer win on next move (after reader monad)
 
-Checkers:
+Checkers AI:
 Add score for "pinned" pieces
 Add some specific blunder evaluation?
 Impove end game logic for checkers
