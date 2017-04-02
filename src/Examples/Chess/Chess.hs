@@ -157,6 +157,7 @@ Piece representation as integers:
 6 = White Pawn      -6 = Black Pawn
     
 ---------------------------------------------------------------------------------------------------}
+type Dir = Int -> Int
 
 right :: Int -> Int
 right = (1+)
@@ -271,6 +272,10 @@ getPieceLocs node =
 pieceMoves :: ChessNode -> Int -> [ChessMv]
 pieceMoves _ _ = undefined
 
+movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
+--movesFromDir dir idx moveType = undefined
+movesFromDir _ _ _ = undefined
+
 {-
 legalKingMoves :: King -> ChessPos -> Int -> [ChessMv]
 legalKingMoves king pos idx = 
@@ -281,6 +286,8 @@ legalKingMoves king pos idx =
         if Sq is attackable
             False
         else true
+
+        --here map KingMoves over movesFromDir
 -}          
 
 
