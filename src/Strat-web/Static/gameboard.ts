@@ -39,6 +39,10 @@ class Result {
                 public legalMoves: Move[], public latestMove: Move) {}
 }
 
+// $("#imageBox").html("<img src=' + this.href + '>");
+// $("#div").html("<img src='RookWhiteOnBlue.png' + '>'");
+
+
 var game = new Game([], [], new Moves([]), new Move([]));
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col: number, row: number) { 
@@ -154,18 +158,18 @@ function submitMove(id: string) {
         var json = JSON.stringify(new_move);
         //flashSelections()
         addCSSClass(new_move.locs, "playermove")
-        $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
-            setValidMoves(result.legalMoves);
-            setLatestMove(result.latestMove)
-            rmCSSClasses(new_move.locs)
-            game.selections = new Array();
-            updateGameBoard(result.prevBoard)
-            addCSSClass(result.latestMove.locs, "computermove")
-            setTimeout( function(){
-                rmCSSClasses(result.latestMove.locs)
-                updateGameBoard(result.board)
-              }, 2000); 
-        }})
+        //$.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
+        //    setValidMoves(result.legalMoves);
+        //    setLatestMove(result.latestMove)
+        //    rmCSSClasses(new_move.locs)
+        //    game.selections = new Array();
+        //    updateGameBoard(result.prevBoard)
+        //    addCSSClass(result.latestMove.locs, "computermove")
+        //    setTimeout( function(){
+        //        rmCSSClasses(result.latestMove.locs)
+        //        updateGameBoard(result.board)
+        //      }, 2000); 
+        //}})
     } else {
         alert ("Invalid move: " + moveToStr(new_move));
         resetSelections()
@@ -240,15 +244,16 @@ $(document).ready(function() {
             var id = rowCol2Id(i, j); 
             $('#'+id).click(onClick);
             $('#'+id).dblclick(onDblClick);
+            $('#'+id).html("<img src='RookWhiteOnBlueSm.png' + '>'");
         }
     }
     game.selections = new Array();
     //get pieces...
-    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
-        setValidMoves(result.legalMoves)
-        setLatestMove(result.latestMove)
-        updateGameBoard(result.board);
-    }})
+    //$.ajax ({url: "http://localhost:3000/new", success: function(result) {
+    //    setValidMoves(result.legalMoves)
+    //    setLatestMove(result.latestMove)
+    //    updateGameBoard(result.board);
+    //}})
 });
 
 function setValidMoves(moves: Moves) {

@@ -16,7 +16,7 @@ import qualified Data.Map.Strict as M
 import Data.Tree
     
 -- 123456789012345678901234567
-staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js"] -- , "image.png"]
+staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js", "RookWhiteOnBlue.png"]
 
 data GameApp = GameApp { getStatic :: Static, 
                          getCounter :: IORef Integer, 
@@ -105,10 +105,8 @@ getComputerMoveR = do
             liftIO $ putStrLn "getComputerMoveR - no tree found in the map"
             processError "Something is wrong with this game" getStartNode
         Just t -> processComputerMove t 
-    let node = getNode wrapper
-    liftIO $ updateMap (getMap yesod) uniqueId node
-    let jAble = getJsonable wrapper
-    case jAble of
+    liftIO $ updateMap (getMap yesod) uniqueId (getNode wrapper)
+    case getJsonable wrapper of
         Jsonable j -> returnJson j
 
 --TODO: factor out some common code        
@@ -138,10 +136,8 @@ postPlayerMoveR = do
                             processError "Something is wrong with this game" getStartNode
                         Just move -> 
                             processPlayerMove tree move True  --true, computer always responds -- for now     
-    let node = getNode wrapper 
-    liftIO $ updateMap (getMap yesod) uniqueId node
-    let jAble = getJsonable wrapper
-    case jAble of 
+    liftIO $ updateMap (getMap yesod) uniqueId $ getNode wrapper
+    case getJsonable wrapper of 
         Jsonable j -> do
             case getLastMove wrapper of
                 Just m -> liftIO $ putStrLn $ "Computer's move: " ++ jsonFromCkMove m
