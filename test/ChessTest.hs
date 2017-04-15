@@ -13,7 +13,7 @@ import StratTree.TreeNode
 chessTest :: SpecWith ()
 chessTest = 
     describe "getPieceLocs" $
-        it "Gets the list of indexes of all pieces of a given color from the board" $ do
+        it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
             getPieceLocs (nodeFromGridW board01) `shouldMatchList` [12, 21, 22, 26, 33, 46]
             getPieceLocs (nodeFromGridB board01) `shouldMatchList` [62, 67, 76, 78, 86, 87]
 
