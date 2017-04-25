@@ -195,7 +195,10 @@ $(document).keydown(function(e: KeyboardEvent) {
 
 var whitePiece: string = "checker_1_plain_48.png"; 
 var blackPiece: string = "checker_2_plain_48.png";
+var whiteKing: string = "checker_1_king_48.png"; 
+var blackKing: string = "checker_2_king_48.png";
 var noPiece: string = "no_image_48.png";
+var blackSquare: string = "black_image_48.png";
 
 function imageTag(isWhite: Boolean, row: number , col: number) {
     var imgName: string;
@@ -322,9 +325,9 @@ function updateGameBoard(squares: Square[]) {
                 imgName = blackPiece;
         } else { //king
              if (squares[i].color == 1) 
-                imgName = whitePiece;
+                imgName = whiteKing;
             else 
-                imgName = blackPiece;
+                imgName = blackKing;
         }
         $('#'+imgId).attr("src", imgName);
     }
