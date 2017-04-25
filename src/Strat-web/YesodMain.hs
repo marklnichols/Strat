@@ -15,9 +15,10 @@ import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
     
--- 12345678901234567890123
+-- 1234567890123456789012345678
 staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js", "checker_1_king_48.png",
-    "checker_1_plain_48.png", "checker_2_king_48.png", "checker_2_plain_48.png", "favicon.ico"]
+    "checker_1_plain_48.png", "checker_2_king_48.png", "checker_2_plain_48.png", 
+    "black_image_48.png", "no_image_48.png", "favicon.ico"]
 
 data GameApp = GameApp { getStatic :: Static, 
                          getCounter :: IORef Integer, 

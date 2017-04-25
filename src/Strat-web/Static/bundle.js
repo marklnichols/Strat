@@ -10418,7 +10418,10 @@ $(document).keydown(function (e) {
 });
 var whitePiece = "checker_1_plain_48.png";
 var blackPiece = "checker_2_plain_48.png";
+var whiteKing = "checker_1_king_48.png";
+var blackKing = "checker_2_king_48.png";
 var noPiece = "no_image_48.png";
+var blackSquare = "black_image_48.png";
 function imageTag(isWhite, row, col) {
     var imgName;
     var imgId = imageId(col, row);
@@ -10530,9 +10533,9 @@ function updateGameBoard(squares) {
         }
         else {
             if (squares[i].color == 1)
-                imgName = whitePiece;
+                imgName = whiteKing;
             else
-                imgName = blackPiece;
+                imgName = blackKing;
         }
         $('#' + imgId).attr("src", imgName);
     }
