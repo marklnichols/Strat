@@ -95,18 +95,18 @@ executable Strat
                      , vector >= 0.11
                      , aeson >= 0.11
                      , text >= 1.2
-                     , bytestring >= 0.10.8
-                     , wai-extra >=3.0.0
+                     , bytestring
+                     , wai-extra
                      , wai-middleware-static
                      , scotty
                      , fast-logger >= 2.4
                      , data-default >= 0.7
                      , data-default-class >= 0.1.2
                      , stm >= 2.4
-                     , scotty-cookie >= 0.1
-                     , yesod-static >= 1.5
-                     , yesod >= 1.4
-                     , yesod-core >= 1.4
+                     , scotty-cookie
+                     , yesod-static
+                     , yesod
+                     , yesod-core
   ghc-options:       -Wall
   default-language:  Haskell2010
   

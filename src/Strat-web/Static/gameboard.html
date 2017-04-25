@@ -3,31 +3,38 @@
 <meta charset="UTF-8"> 
 <title>Gameboard</title>
 <style type="text/css">
-.gameboard { 
-    width: 640px; 
-    height: 640px; 
-    margin: 20px; 
-    border: 25px solid #333; 
+
+body {
+  margin: 40px;
 }
+
+.gameboard {
+  display: grid;
+  /*grid-template-columns: 10% 10% 10% 10% 10% 10% 10% 10%;*/
+  /*grid-template-columns: repeat(8, 56px);*/
+  /*grid-template-columns: repeat(8, 5%);*/
+  grid-template-columns: repeat(8, 1fr);
+  /*grid-template-rows: repeat(8, 1fr);*/
+  grid-gap: 2px;
+  background-color: #ffffff;
+  color: #444;
+}
+
 .black { 
-    float: left; 
-    width: 80px;
-    height: 80px; 
-    background-color: #3b937a; 
-    font-size: 50px; 
-    text-align:center; 
-    display: table-cell; 
-    vertical-align:middle;
+    background-color: #101010;   
+    border-radius: 2px;
+    padding: 2px;
+    min-width: 5px;
+    width: 100%;
+    height: auto;
 }
 .white { 
-    float: left; 
-    width: 80px;
-    height: 80px; 
-    background-color: #fff; 
-    font-size: 50px; 
-    text-align: center; 
-    display: table-cell; 
-    vertical-align:middle;
+    background-color: #a0332b;   
+    border-radius: 2px;
+    padding: 2px;
+    min-width: 5px;
+    width: 100%;
+    height: auto;
 }
 
 .selected { 
@@ -46,17 +53,10 @@
     background-color: #42f4d7;
 }
 
-
-.flash {
-
-  -moz-animation: flash 1s ease-out;
-  -moz-animation-iteration-count: 1;
-
-  -webkit-animation: flash 1s ease-out;
-  -webkit-animation-iteration-count: 1;
-
-  -ms-animation: flash 1s ease-out;
-  -ms-animation-iteration-count: 1;
+img.resize {
+    max-width: 48; 
+    width: 100%;
+    height: auto;
 }
 
 </style>
@@ -67,8 +67,7 @@
 <script src="jquery-3.1.1.min.js"></script>
 <script src="bundle.js"></script>
 
-<div class="gameboard" >
-
+<div class="gameboard">
 <!-- 1st -->
 <div id="a8" class="white"></div> 
 <div id="b8" class="black"></div> 
