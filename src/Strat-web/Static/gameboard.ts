@@ -1,13 +1,5 @@
 import * as $ from "jquery";
 
-//function flash (anId){
-//    $('#'+anId).addClass("playermove");
-//    
-//    setTimeout( function(){
-//        $('#'+anId).removeClass("playermove");
-//    }, 1000);	// Timeout must be the same length as the CSS3 transition or longer (or you'll mess up the transition)
-//}
-
 class Game {
     constructor (public selections: Loc[], public flashing: Loc[], public validMoves: Moves, 
                  public latestMove: Move) {
@@ -39,11 +31,8 @@ class Result {
                 public legalMoves: Move[], public latestMove: Move) {}
 }
 
-// $("#imageBox").html("<img src=' + this.href + '>");
-// $("#div").html("<img src='RookWhiteOnBlue.png' + '>'");
-
-
 var game = new Game([], [], new Moves([]), new Move([]));
+
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col: number, row: number) { 
     return String.fromCharCode(97 + col) + row.toString();
@@ -81,34 +70,6 @@ function rmCSSClasses(locs: Loc[]) {
         $('#'+anId).removeClass("playermove"); 
     } 
 }
-/*
-function flashSelections (){
-    flashLocs(game.selections)
-}
-
-function flashLocs (locs: Loc[]) {
-    for (var i = 0; i < locs.length; i++) { 
-        var aLoc = locs[i]
-        var anId = locToId(aLoc)
-        $('#'+anId).addClass("playermove");
-        game.flashing = locs
-    }
-    setTimeout( function(){
-        resetFlashing()
-    }, 1000);   
-}
-
-
-function resetFlashing() {
-    for (var i = 0; i < game.flashing.length; i++) { 
-        var aLoc = game.flashing[i]
-        var anId = locToId(aLoc)
-        $('#'+anId).removeClass("selected"); 
-        $('#'+anId).removeClass("playermove"); 
-    }
-    game.selections = new Array();
-}
-*/
 
 function resetSelections() {
     for (var i = 0; i < game.selections.length; i++) { 
@@ -156,20 +117,19 @@ function submitMove(id: string) {
     var new_move = new Move(game.selections)
     if (checkValidMove(new_move)) {
         var json = JSON.stringify(new_move);
-        //flashSelections()
         addCSSClass(new_move.locs, "playermove")
-        //$.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
-        //    setValidMoves(result.legalMoves);
-        //    setLatestMove(result.latestMove)
-        //    rmCSSClasses(new_move.locs)
-        //    game.selections = new Array();
-        //    updateGameBoard(result.prevBoard)
-        //    addCSSClass(result.latestMove.locs, "computermove")
-        //    setTimeout( function(){
-        //        rmCSSClasses(result.latestMove.locs)
-        //        updateGameBoard(result.board)
-        //      }, 2000); 
-        //}})
+        $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
+            setValidMoves(result.legalMoves);
+            setLatestMove(result.latestMove)
+            rmCSSClasses(new_move.locs)
+            game.selections = new Array();
+            updateGameBoard(result.prevBoard)
+            addCSSClass(result.latestMove.locs, "computermove")
+            setTimeout( function(){
+                rmCSSClasses(result.latestMove.locs)
+                updateGameBoard(result.board)
+              }, 2000); 
+        }})
     } else {
         alert ("Invalid move: " + moveToStr(new_move));
         resetSelections()
@@ -200,24 +160,21 @@ function checkValidMove(new_move: Move) {
 function compareMoves(m1: Move, m2: Move) {
     var l1 = m1.locs
     var l2 = m2.locs
-    
-    if (l1.length != l2.length) {
+    if (l1.length != l2.length)
         return false
-    }
+
     for (var j = 0; j < l1.length; j++) {
-        if (compareLocs(l1[j], l2[j]) == false) {
+        if (compareLocs(l1[j], l2[j]) == false)
             return false
-        }
     }
     return true
  }
  
  function compareLocs(loc1: Loc, loc2: Loc) {
-    if (loc1.col.toLowerCase() == loc2.col.toLowerCase() && loc1.row == loc2.row) {
+    if (loc1.col.toLowerCase() == loc2.col.toLowerCase() && loc1.row == loc2.row) 
         return true
-    } else {
+     else 
         return false
-    }
  }    
 
 function onClick(event: Event) {
@@ -236,25 +193,94 @@ $(document).keydown(function(e: KeyboardEvent) {
   }
 });
 
+var whitePiece: string = "checker_1_plain_48.png"; 
+var blackPiece: string = "checker_2_plain_48.png";
+var noPiece: string = "no_image_48.png";
+
+function imageTag(isWhite: Boolean, row: number , col: number) {
+    var imgName: string;
+    var imgId = imageId(col, row);
+    if (isWhite) 
+        imgName = whitePiece;
+    else 
+        imgName = blackPiece;
+}
+
+function buildTag(imgId: string, imgName: string) {
+    return "<p style='text-align:center'><img id=" + imgId + " src=" + 
+            imgName + " style='img.resize'" +  " display: block margin-left: auto margin-right: auto></p>"
+            //imgName + " style='img.resize'" +  " display: block margin-left: 2px margin-right: 2px></p>"
+}
+
+var imgPrefix: string = "img-";
+
+function imageId(col: number, row: number) {
+    var _id = rowCol2Id(col, row)
+    return imgPrefix + _id;
+}
+
+function locToImgId(loc: Loc) {
+    var _id = locToId(loc);
+    return imgPrefix + _id;
+}
+
+function showRowColImage(col: number, row: number,) {
+    var id: string;
+    id = imageId(col, row);
+    showImage(id);
+}
+
+function showImage(imageId: string) {
+     $('#'+imageId).fadeIn( "slow", function() {
+        // Animation complete.
+  });
+}
+
+function hideRowColImage(col: number, row: number) {
+    var id: string;
+    id = imageId(col, row);
+    hideImage(id);
+}
+
+function hideImage(imageId: string) {
+  $('#'+imageId).fadeOut( "slow", function() {
+        // Animation complete.
+  });
+}
+
 $(document).ready(function() { 
-    // attach mouse click handler to each div sqare 
-    for (var i = 0; i < 8; i++) { 
-        for (var j = 1; j < 9; j++) { 
+    // attach mouse click handler to each div sqare
+    // also, add html tag holding each piece image 
+    for (var j=1; j<9; j++) {
+        for (var i=0; i<8; i+=2) {
+            var iIndex = i + ((j+1) % 2)
             //build strings #a1 - #h8
-            var id = rowCol2Id(i, j); 
+            var id = rowCol2Id(iIndex, j);
+            var imgId = imageId(iIndex, j) 
             $('#'+id).click(onClick);
             $('#'+id).dblclick(onDblClick);
-            $('#'+id).html("<img src='RookWhiteOnBlueSm.png' + '>'");
+            var tag = buildTag(imgId, noPiece);
+            $('#'+id).html(tag);   
         }
     }
     game.selections = new Array();
     //get pieces...
-    //$.ajax ({url: "http://localhost:3000/new", success: function(result) {
-    //    setValidMoves(result.legalMoves)
-    //    setLatestMove(result.latestMove)
-    //    updateGameBoard(result.board);
-    //}})
+    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
+        setValidMoves(result.legalMoves)
+        setLatestMove(result.latestMove)
+        updateGameBoard(result.board);
+    }})
 });
+
+function clearPieces() {
+    for (var j=1; j<9; j++) {
+        for (var i=0; i<8; i+=2) {
+            var iIndex = i + ((j+1) % 2)
+            var imgId = imageId(iIndex, j) 
+            $('#'+imgId).attr("src", noPiece);
+        }
+    }
+}
 
 function setValidMoves(moves: Moves) {
     game.validMoves = moves;
@@ -264,27 +290,43 @@ function setLatestMove(move: Move) {
     game.latestMove = move;
 }
 
+/*
+<div id="clickme">
+  Click here
+</div>
+<img id="book" src="book.png" alt="" width="100" height="123">
+ 
+With the element initially shown, we can hide it slowly:
+
+$( "#clickme" ).click(function() {
+  $( "#book" ).fadeOut( "slow", function() {
+    // Animation complete.
+  });
+});
+*/
+
 function updateGameBoard(squares: Square[]) {
-    var whitePieceChar = '\u26c0'
-    var blackPieceChar = '\u26c2'
-    var whitePieceKing = '\u26c1'
-    var blackPieceKing = '\u26c3'
-    
     // clear the board
-    for (var i = 0; i < 8; i++) {
-        for (var j = 1; j < 9; j++) {
-            var id = rowCol2Id(i, j);
-            $('#'+id).text("");
-        }
-    }   
+    clearPieces()
+
     // set the pieces
     for (var i = 0; i < squares.length; i++) {
-        var e = $('#'+squares[i].loc.col.toLowerCase()+squares[i].loc.row);
+        var loc = squares[i].loc;
+        var id = locToId(loc);
+        var imgId: string = locToImgId(loc);
+        var imgName: string;
         if (squares[i].pieceType == 1) { //if regular piece
-            $(e).text(squares[i].color === 1 ? whitePieceChar : blackPieceChar);
-        } else { //else piece is a king
-            $(e).text(squares[i].color === 1 ? whitePieceKing : blackPieceKing);
+            if (squares[i].color == 1) 
+                imgName = whitePiece;
+            else 
+                imgName = blackPiece;
+        } else { //king
+             if (squares[i].color == 1) 
+                imgName = whitePiece;
+            else 
+                imgName = blackPiece;
         }
+        $('#'+imgId).attr("src", imgName);
     }
     //autoPlay()
 }

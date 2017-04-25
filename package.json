@@ -9,7 +9,9 @@
   "dependencies": {
     "@types/jquery": "^2.0.40"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "typescript": "^2.2.2"
+  },
   "scripts": {
     "test": "test"
   },
