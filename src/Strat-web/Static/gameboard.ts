@@ -210,9 +210,7 @@ function imageTag(isWhite: Boolean, row: number , col: number) {
 }
 
 function buildTag(imgId: string, imgName: string) {
-    return "<p style='text-align:center'><img id=" + imgId + " src=" + 
-            imgName + " style='img.resize'" +  " display: block margin-left: auto margin-right: auto></p>"
-            //imgName + " style='img.resize'" +  " display: block margin-left: 2px margin-right: 2px></p>"
+    return "<div class='img-wrapper'><img class='piece' id=" + imgId + " src=" +  imgName + "></div>"
 }
 
 var imgPrefix: string = "img-";
