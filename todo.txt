@@ -1,7 +1,7 @@
 Checkers Web GUI:
 Display messages from server
 Game over message, start new game
-Replace unicode characters with images
+Get rid of upper circular image residue
 
 Chess:
 Add readMe explaining state of the project
