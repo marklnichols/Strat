@@ -287,13 +287,27 @@ legalKingMoves king pos idx =
             False
         else true
 
-        --here map KingMoves over movesFromDir
+        --here map KingMoves over movesFromDir ??
 -}          
 
 
---possible destination squares for a king, disregarding other pieces, check status, etc.
+--TODO: have this check for other pieces, etc.
+--possible destination squares for a king
 getSingleLocs :: Int -> [Int]
 getSingleLocs idx = filter onBoard (fmap ($ idx) queenDirs)
+
+-- find the possible destination locs for pieces with the 'glide' move type
+getGlideLocs :: [Dir] -> Int -> [Int] 
+getGlideLocs _ _ = undefined
+--getGlideLocs dirs idx = undefined
+
+glideDirLocs :: Dir -> Int -> [Int]
+glideDirLocs _ _ = undefined
+--glideDirLocs dir idx = 
+--    case dir idx of 
+
+    --stop if blocked by friendly piece
+    --include captured piece and stop
 
 onBoard :: Int -> Bool
 onBoard x 
@@ -302,6 +316,9 @@ onBoard x
     | x `mod` 10 == 0 = False
     | x `mod` 10 == 9 = False
     | otherwise       = True
+
+offBoard :: Int -> Bool
+offBoard x = not $ onBoard x
 
 legalKingMoves :: ChessPos -> Int -> [ChessMv]
 legalKingMoves _ _ = undefined
