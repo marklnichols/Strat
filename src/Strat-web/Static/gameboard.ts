@@ -178,12 +178,21 @@ function compareMoves(m1: Move, m2: Move) {
  }    
 
 function onClick(event: Event) {
+    clearSelection();
     pushLocation(this.id)
     selectSquare(this.id);
 }
 
 function onDblClick(event: Event) { 
+    clearSelection();
     submitMove(this.id)
+}
+
+function clearSelection() {
+    if (document.getSelection) {
+        document.getSelection().empty();
+    } else if (window.getSelection)
+    window.getSelection().removeAllRanges();
 }
 
 $(document).keydown(function(e: KeyboardEvent) {

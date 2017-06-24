@@ -11,11 +11,15 @@ import qualified Data.Vector.Unboxed as V
 import StratTree.TreeNode
 
 chessTest :: SpecWith ()
-chessTest = 
+chessTest = do
     describe "getPieceLocs" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
             getPieceLocs (nodeFromGridW board01) `shouldMatchList` [12, 21, 22, 26, 33, 46]
             getPieceLocs (nodeFromGridB board01) `shouldMatchList` [62, 67, 76, 78, 86, 87]
+    describe "getSingleLocs" $
+        it "Gets the possible moves for a king" $ do
+            getSingleLocs 22 `shouldMatchList` [23,21,32,12,31,13,33,11] 
+            getSingleLocs 81 `shouldMatchList` [71, 72, 82]
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -71,7 +75,7 @@ board01 = V.fromList       [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
                              99,  00,  00,  00,  00,  00, -03, -01,  00,  99, 
                              99,  99,  99,  99,  99,  99,  99,  99,  99,  99 ]
 
-{-                                                (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 -   -   -   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
 -   -   -   -   -   p   -   p          7| (50)  71   72   73   74   75   76   77   78  (79)
@@ -82,9 +86,9 @@ board01 = V.fromList       [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
 P   P   -   -   -   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
 -   K   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
 
-                                                  (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
-                                                  -------------------------------------------------
-                                                         A    B    C    D    E    F    G    H   
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H   
 -}
 
 

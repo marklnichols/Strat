@@ -1,6 +1,9 @@
 Checkers Web GUI:
+King now not displaing
 Display messages from server
 Game over message, start new game
+State bug - multiple games simult.
+Occasional highlighted square after click
 Get rid of upper circular image residue
 
 Chess:
@@ -22,6 +25,7 @@ try RTS Monad instead of transformer
 Proper command line parsing
 
 TicTac:
+Move tic tac from examples to test section
 Prefer win on next move (after reader monad)
 
 Checkers AI:

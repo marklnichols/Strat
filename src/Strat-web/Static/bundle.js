@@ -10404,11 +10404,20 @@ function compareLocs(loc1, loc2) {
         return false;
 }
 function onClick(event) {
+    clearSelection();
     pushLocation(this.id);
     selectSquare(this.id);
 }
 function onDblClick(event) {
+    clearSelection();
     submitMove(this.id);
+}
+function clearSelection() {
+    if (document.getSelection) {
+        document.getSelection().empty();
+    }
+    else if (window.getSelection)
+        window.getSelection().removeAllRanges();
 }
 $(document).keydown(function (e) {
     if (e.which == 27) {
@@ -10431,9 +10440,7 @@ function imageTag(isWhite, row, col) {
         imgName = blackPiece;
 }
 function buildTag(imgId, imgName) {
-    return "<p style='text-align:center'><img id=" + imgId + " src=" +
-        imgName + " style='img.resize'" + " display: block margin-left: auto margin-right: auto></p>";
-    //imgName + " style='img.resize'" +  " display: block margin-left: 2px margin-right: 2px></p>"
+    return "<div class='img-wrapper'><img class='piece' id=" + imgId + " src=" + imgName + "></div>";
 }
 var imgPrefix = "img-";
 function imageId(col, row) {
