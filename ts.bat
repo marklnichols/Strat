@@ -5,6 +5,7 @@ rem npm install -g browserify
 rem npm install tsify
 rem npm install jquery
 
-browserify src\Strat-web\Static\gameboard.ts -p [ tsify --noImplicitAny ] > src\Strat-Web\Static\bundle.js
+rem browserify src\Strat-web\Static\gameboard.ts -p [ tsify --noImplicitAny ] > src\Strat-Web\Static\bundle.js
+browserify src\Strat-web\Static\gameboard.ts -p [ tsify --strict ] > src\Strat-Web\Static\bundle.js
 
 rem in html file: <script src="bundle.js"></script>
