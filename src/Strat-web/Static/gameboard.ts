@@ -183,12 +183,16 @@ function submitMove(id: string) {
                 updateGameBoard(result.board)
                 rmClassesFromLocs(result.latestMove.locs);
                 var inits = findInitials(result.legalMoves)
-                updateHighlights(inits);
+                clearHighlights();
+                addHighlights(inits);
               }, 2000); 
         }})
     } else {
         alert ("Invalid move: " + moveToStr(new_move));
         clearSelected();
+        var inits = findInitials(game.legalMoves)
+        clearHighlights();
+        addHighlights(inits);
    }
 }
 
@@ -230,31 +234,97 @@ function compareMoves(m1: Move, m2: Move) {
         return false
  }    
 
+/* todo: add these for clicking on any pre-selected square
+ function findLocInLocs(loc: Loc, locs: Loc[]): number {
+
+ }
+
+ function popAfter(loc: Loc, locs: Loc[]): Loc[] {
+
+ }
+ */
+
+ function findLocInLCs(loc: Loc, lcs: LocationClick[]): number {
+    var len = lcs.length;
+    //check: is this loc highlighted as a "clickable" square?
+    for (var i=0; i < len; i++) {
+        if (compareLocs(loc, lcs[i].loc)) 
+            return lcs[i].locType;
+    }
+    return LocEnum.NONE;
+ }
+/*
+todo: always show initials and continues highlighted, and all selected as selected -- 
+if one of the initials is selected, it should show as selected not highlighted.
+
+Things clickable are the initials and continues plus the already selected.
+
+Clicking on a selected removes any selected further in the list
+
+*/
+
 function onClick(event: Event) {
-   var loc = idToLoc(this.id);
-   var highs = game.highlights;
-   var len = highs.length;
-   
-   //check: is this loc highlighted as a "clickable" square?
-   for (var i=0; i < len; i++) {
+    var loc = idToLoc(this.id);
+    var highs = game.highlights;
+    var theType = findLocInLCs(loc, highs);
+    if (theType == LocEnum.INITIAL) { 
+        clearSelected();
+        clearHighlights();
+        addSelected(loc);
+        var inits = findInitials(game.legalMoves);
+        addHighlights(inits);
+    } else if (theType == LocEnum.MULTI) {
+        clearHighlights();
+        addSelected(loc);
+        var conts = findContinues(game.legalMoves, loc);
+        addHighlights(conts);
+
+    } else if (theType == LocEnum.FINAL) {
+        //rmClassesFromLCs(highs);
+        clearHighlights();
+        addSelected(loc);
+        submitMove(this.id);
+
+    } else { //LocEnum.None
+    //not a "clickable" square
+        clearSelected();
+        clearHighlights();
+        var inits = findInitials(game.legalMoves);
+        addHighlights(inits);
+
+    }
+}
+
+    /*
+    //check: is this loc highlighted as a "clickable" square?
+    for (var i=0; i < len; i++) {
         if (compareLocs(loc, highs[i].loc)) {
-           var theType = highs[i].locType;
-           addSelected(loc);
-           removeFromHighlights(loc);
-           if (theType == LocEnum.FINAL) {
-                rmClassesFromLCs(highs);
+            var theType = highs[i].locType;
+            if (theType == LocEnum.INITIAL) 
+                clearSelected();
+            addSelected(loc);
+            removeFromHighlights(loc);
+            clearHighlights();
+            if (theType == LocEnum.FINAL) {
+               //rmClassesFromLCs(highs);
                 submitMove(this.id);
                 return;
-           }
-           break;
+            } else { //INITIAL or MULTI
+                var conts = findContinues(game.legalMoves, loc);
+                addHighlights(conts);
+                return;
+            }
         }
     }
-    var conts = findContinues(game.legalMoves, loc);
-    updateHighlights(conts);
-}
-   
-function updateHighlights(lcs: LocationClick[]) {
+    //not a "clickable" square
+    clearSelected();
     clearHighlights();
+    var inits = findInitials(game.legalMoves);
+    addHighlights(inits);
+    */
+
+   
+function addHighlights(lcs: LocationClick[]) {
     for (var i=0; i<lcs.length; i++) {
         game.highlights.push(lcs[i])
     }
@@ -318,6 +388,9 @@ $(document).keydown(function(e: KeyboardEvent) {
   if(e.which == 27) {
     //alert ("You pressed the Escape key!");
     clearSelected();
+    var inits = findInitials(game.legalMoves)
+    clearHighlights();
+    addHighlights(inits);
   }
 });
 
@@ -399,7 +472,8 @@ $(document).ready(function() {
         setLatestMove(result.latestMove)
         updateGameBoard(result.board);
         var inits = findInitials(result.legalMoves)
-        updateHighlights(inits);
+        clearHighlights();
+        addHighlights(inits);
     }})
 });
 
