@@ -10224,19 +10224,6 @@ return jQuery;
 "use strict";
 exports.__esModule = true;
 var $ = require("jquery");
-var Game = (function () {
-    function Game(selections, flashing, validMoves, latestMove) {
-        this.selections = selections;
-        this.flashing = flashing;
-        this.validMoves = validMoves;
-        this.latestMove = latestMove;
-        this.selections = selections;
-        this.flashing = flashing;
-        this.validMoves = validMoves;
-        this.latestMove = latestMove;
-    }
-    return Game;
-}());
 var Loc = (function () {
     function Loc(col, row) {
         this.col = col;
@@ -10244,18 +10231,32 @@ var Loc = (function () {
     }
     return Loc;
 }());
-var Moves = (function () {
-    function Moves(moves) {
-        this.moves = moves;
-    }
-    return Moves;
-}());
 var Move = (function () {
     function Move(locs) {
         this.locs = locs;
     }
     return Move;
 }());
+var Moves = (function () {
+    function Moves(moves) {
+        this.moves = moves;
+    }
+    return Moves;
+}());
+var Game = (function () {
+    function Game(selections, highlights, legalMoves, latestMove) {
+        this.selections = selections;
+        this.highlights = highlights;
+        this.legalMoves = legalMoves;
+        this.latestMove = latestMove;
+        this.selections = selections;
+        this.highlights = highlights;
+        this.legalMoves = legalMoves;
+        this.latestMove = latestMove;
+    }
+    return Game;
+}());
+var game = new Game([], [], new Moves([]), []);
 var Square = (function () {
     function Square(loc, pieceType, color) {
         this.loc = loc;
@@ -10274,7 +10275,31 @@ var Result = (function () {
     }
     return Result;
 }());
-var game = new Game([], [], new Moves([]), new Move([]));
+var LocEnum = {
+    INITIAL: 0,
+    MULTI: 1,
+    FINAL: 2,
+    NONE: 3
+};
+var LocationClick = (function () {
+    function LocationClick(loc, locType) {
+        this.loc = loc;
+        this.locType = locType;
+    }
+    return LocationClick;
+}());
+function initialClick(loc) {
+    return new LocationClick(loc, LocEnum.INITIAL);
+}
+function multiClick(loc) {
+    return new LocationClick(loc, LocEnum.MULTI);
+}
+function finalClick(loc) {
+    return new LocationClick(loc, LocEnum.FINAL);
+}
+function noneClick(loc) {
+    return new LocationClick(loc, LocEnum.NONE);
+}
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col, row) {
     return String.fromCharCode(97 + col) + row.toString();
@@ -10285,39 +10310,60 @@ function locToId(aLoc) {
     var anId = aCol.toLowerCase() + aRow.toString();
     return anId;
 }
+function idToLoc(id) {
+    var row = idToRow(id);
+    var col = idToCol(id);
+    return new Loc(col, row);
+}
 function idToRow(id) {
     return parseInt(id.charAt(1));
 }
 function idToCol(id) {
     return id.charAt(0);
 }
-function addCSSClass(locs, cssClass) {
+function addCSSClassToLoc(locs, cssClass) {
     for (var i = 0; i < locs.length; i++) {
         var aLoc = locs[i];
         var anId = locToId(aLoc);
         $('#' + anId).addClass(cssClass);
     }
 }
-function rmCSSClasses(locs) {
+function rmClassesFromLocs(locs) {
     for (var i = 0; i < locs.length; i++) {
-        var aLoc = locs[i];
-        var anId = locToId(aLoc);
-        $('#' + anId).removeClass("selected");
-        $('#' + anId).removeClass("computermove");
-        $('#' + anId).removeClass("playermove");
+        rmCSSClasses(locs[i]);
     }
 }
-function resetSelections() {
-    for (var i = 0; i < game.selections.length; i++) {
-        var aLoc = game.selections[i];
-        var anId = locToId(aLoc);
-        $('#' + anId).removeClass("selected");
-        $('#' + anId).removeClass("playermove");
+function rmClassesFromLCs(lcs) {
+    for (var i = 0; i < lcs.length; i++) {
+        rmCSSClasses(lcs[i].loc);
     }
-    game.selections = new Array();
 }
-function selectSquare(id) {
+function rmCSSClasses(loc) {
+    var anId = locToId(loc);
+    $('#' + anId).removeClass("selected");
+    $('#' + anId).removeClass("computermove");
+    $('#' + anId).removeClass("playermove");
+    $('#' + anId).removeClass("initial");
+    $('#' + anId).removeClass("multi");
+    $('#' + anId).removeClass("final");
+}
+function addSelectedCss(id) {
     $('#' + id).addClass("selected");
+}
+function addInitialCss(id) {
+    $('#' + id).addClass("initial");
+}
+function addMultiCss(id) {
+    $('#' + id).addClass("multi");
+}
+function addFinalCss(id) {
+    $('#' + id).addClass("final");
+}
+function addValidCss(id) {
+    $('#' + id).addClass("valid");
+}
+function addValidPathCss(id) {
+    $('#' + id).addClass("valid-path");
 }
 function pushLocation(id) {
     var c = idToCol(id);
@@ -10340,46 +10386,48 @@ function isDuplicate(new_loc) {
         return false;
     }
 }
-function selectSquareDbl(id) {
-    $('#' + id).addClass("dblclicked");
-    pushLocation(id);
-}
 function submitMove(id) {
-    var new_move = new Move(game.selections);
-    if (checkValidMove(new_move)) {
+    var locs = game.selections;
+    var new_move = new Move(locs);
+    if (checkLegalMove(new_move)) {
+        clearHighlights();
         var json = JSON.stringify(new_move);
-        addCSSClass(new_move.locs, "playermove");
+        addCSSClassToLoc(locs, "playermove");
         $.ajax({ url: "http://localhost:3000/playerMove", method: "post", data: json, success: function (result) {
-                setValidMoves(result.legalMoves);
+                setLegalMoves(result.legalMoves);
                 setLatestMove(result.latestMove);
-                rmCSSClasses(new_move.locs);
-                game.selections = new Array();
+                clearSelected();
                 updateGameBoard(result.prevBoard);
-                addCSSClass(result.latestMove.locs, "computermove");
+                addCSSClassToLoc(result.latestMove.locs, "computermove");
                 setTimeout(function () {
-                    rmCSSClasses(result.latestMove.locs);
                     updateGameBoard(result.board);
+                    rmClassesFromLocs(result.latestMove.locs);
+                    var inits = findInitials(result.legalMoves);
+                    clearHighlights();
+                    addHighlights(inits);
                 }, 2000);
             } });
     }
     else {
         alert("Invalid move: " + moveToStr(new_move));
-        resetSelections();
+        clearSelected();
+        var inits = findInitials(game.legalMoves);
+        clearHighlights();
+        addHighlights(inits);
     }
 }
 function moveToStr(move) {
-    var locs = move.locs;
     var moveStr = "";
-    for (var i = 0; i < locs.length; i++) {
-        var loc = locs[i];
+    for (var i = 0; i < move.locs.length; i++) {
+        var loc = move.locs[i];
         moveStr = moveStr + locToId(loc) + " ";
     }
     return moveStr;
 }
-function checkValidMove(new_move) {
-    var valid = game.validMoves.moves;
-    for (var i = 0; i < valid.length; i++) {
-        var move = valid[i];
+function checkLegalMove(new_move) {
+    var legal = game.legalMoves.moves;
+    for (var i = 0; i < legal.length; i++) {
+        var move = legal[i];
         if (compareMoves(move, new_move) == true) {
             return true;
         }
@@ -10387,12 +10435,10 @@ function checkValidMove(new_move) {
     return false;
 }
 function compareMoves(m1, m2) {
-    var l1 = m1.locs;
-    var l2 = m2.locs;
-    if (l1.length != l2.length)
+    if (m1.locs.length != m2.locs.length)
         return false;
-    for (var j = 0; j < l1.length; j++) {
-        if (compareLocs(l1[j], l2[j]) == false)
+    for (var j = 0; j < m1.locs.length; j++) {
+        if (compareLocs(m1.locs[j], m2.locs[j]) == false)
             return false;
     }
     return true;
@@ -10403,14 +10449,92 @@ function compareLocs(loc1, loc2) {
     else
         return false;
 }
-function onClick(event) {
-    clearSelection();
-    pushLocation(this.id);
-    selectSquare(this.id);
+/* todo: add these for clicking on any pre-selected square
+ function findLocInLocs(loc: Loc, locs: Loc[]): number {
+ }
+
+ function popAfter(loc: Loc, locs: Loc[]): Loc[] {
+ }
+ */
+function findLocInLCs(loc, lcs) {
+    var len = lcs.length;
+    //check: is this loc highlighted as a "clickable" square?
+    for (var i = 0; i < len; i++) {
+        if (compareLocs(loc, lcs[i].loc))
+            return lcs[i].locType;
+    }
+    return LocEnum.NONE;
 }
-function onDblClick(event) {
-    clearSelection();
-    submitMove(this.id);
+function onClick(event) {
+    var loc = idToLoc(this.id);
+    var highs = game.highlights;
+    var theType = findLocInLCs(loc, highs);
+    if (theType == LocEnum.INITIAL) {
+        clearSelected();
+        clearHighlights();
+        addSelected(loc);
+        var inits = findInitials(game.legalMoves);
+        addHighlights(inits);
+    }
+    else if (theType == LocEnum.MULTI) {
+        clearHighlights();
+        addSelected(loc);
+        var conts = findContinues(game.legalMoves, loc);
+        addHighlights(conts);
+    }
+    else if (theType == LocEnum.FINAL) {
+        clearHighlights();
+        addSelected(loc);
+        submitMove(this.id);
+    }
+    else {
+        clearSelected();
+        clearHighlights();
+        var inits = findInitials(game.legalMoves);
+        addHighlights(inits);
+    }
+}
+function addHighlights(lcs) {
+    for (var i = 0; i < lcs.length; i++) {
+        game.highlights.push(lcs[i]);
+    }
+    highlightLocations(lcs);
+}
+function clearHighlights() {
+    var oldHs = game.highlights;
+    rmClassesFromLCs(oldHs);
+    game.highlights = [];
+}
+function addSelected(loc) {
+    game.selections.push(loc);
+    rmCSSClasses(loc);
+    addSelectedCss(locToId(loc));
+}
+function removeFromHighlights(loc) {
+    var highs = game.highlights;
+    var len = highs.length;
+    for (var i = 0; i < len; i++) {
+        if (compareLocs(highs[i].loc, loc)) {
+            highs.splice(i, 1);
+            return;
+        }
+    }
+}
+function pushUniqueLC(theLc, lcs) {
+    var len = lcs.length;
+    for (var i = 0; i < len; i++) {
+        var lc = lcs[i];
+        if (compareLocs(lc.loc, theLc.loc))
+            if (lc.locType == theLc.locType)
+                return lcs;
+    }
+    lcs.push(theLc);
+    return lcs;
+}
+function clearSelected() {
+    var oldSel = game.selections;
+    rmClassesFromLocs(oldSel);
+    game.selections = [];
 }
 function clearSelection() {
     if (document.getSelection) {
@@ -10422,7 +10546,10 @@ function clearSelection() {
 $(document).keydown(function (e) {
     if (e.which == 27) {
         //alert ("You pressed the Escape key!");
-        resetSelections();
+        clearSelected();
+        var inits = findInitials(game.legalMoves);
+        clearHighlights();
+        addHighlights(inits);
     }
 });
 var whitePiece = "checker_1_plain_48.png";
@@ -10481,7 +10608,6 @@ $(document).ready(function () {
             var id = rowCol2Id(iIndex, j);
             var imgId = imageId(iIndex, j);
             $('#' + id).click(onClick);
-            $('#' + id).dblclick(onDblClick);
             var tag = buildTag(imgId, noPiece);
             $('#' + id).html(tag);
         }
@@ -10489,9 +10615,12 @@ $(document).ready(function () {
     game.selections = new Array();
     //get pieces...
     $.ajax({ url: "http://localhost:3000/new", success: function (result) {
-            setValidMoves(result.legalMoves);
+            setLegalMoves(result.legalMoves);
             setLatestMove(result.latestMove);
             updateGameBoard(result.board);
+            var inits = findInitials(result.legalMoves);
+            clearHighlights();
+            addHighlights(inits);
         } });
 });
 function clearPieces() {
@@ -10503,26 +10632,68 @@ function clearPieces() {
         }
     }
 }
-function setValidMoves(moves) {
-    game.validMoves = moves;
+function setLegalMoves(moves) {
+    game.legalMoves = moves;
+}
+function highlightLocations(lcs) {
+    for (var i = 0; i < lcs.length; i++) {
+        var theLC = lcs[i];
+        var theId = locToId(theLC.loc);
+        var theType = theLC.locType;
+        if (theType == LocEnum.INITIAL)
+            addInitialCss(theId);
+        else if (theType == LocEnum.MULTI)
+            addMultiCss(theId);
+        else if (theType == LocEnum.FINAL)
+            addFinalCss(theId);
+    }
+}
+//find all locations where a new move can be initiated
+function findInitials(ms) {
+    var legalMoves = ms.moves;
+    var theLocs = [];
+    for (var i = 0; i < legalMoves.length; i++) {
+        var locs = legalMoves[i].locs;
+        var theLocClick = new LocationClick(locs[0], LocEnum.INITIAL);
+        theLocs = pushUniqueLC(theLocClick, theLocs);
+    }
+    return theLocs;
+}
+//find all locations that are legal move continuations from the given clicked loc
+function findContinues(ms, loc) {
+    var legalMoves = ms.moves;
+    var theLCs = [];
+    var nLocs = legalMoves.length;
+    var str = "nLocs is: " + nLocs.toString();
+    $("#para1").html(str);
+    //alert (str);
+    for (var i = 0; i < nLocs; i++) {
+        var move = legalMoves[i];
+        var index = findLocInMove(loc, move);
+        if (index != -1) {
+            var len = move.locs.length;
+            if (index < len - 2) {
+                var multi = new LocationClick(move.locs[index + 1], LocEnum.MULTI);
+                theLCs = pushUniqueLC(multi, theLCs);
+            }
+            else if (index == len - 2) {
+                var final = new LocationClick(move.locs[index + 1], LocEnum.FINAL);
+                theLCs = pushUniqueLC(final, theLCs);
+            }
+        }
+    }
+    return theLCs;
+}
+function findLocInMove(theLoc, theMove) {
+    for (var i = 0; i < theMove.locs.length; i++) {
+        if (compareLocs(theLoc, theMove.locs[i]))
+            return i;
+    }
+    return -1;
 }
 function setLatestMove(move) {
     game.latestMove = move;
 }
-/*
-<div id="clickme">
-  Click here
-</div>
-<img id="book" src="book.png" alt="" width="100" height="123">
- 
-With the element initially shown, we can hide it slowly:
-
-$( "#clickme" ).click(function() {
-  $( "#book" ).fadeOut( "slow", function() {
-    // Animation complete.
-  });
-});
-*/
 function updateGameBoard(squares) {
     // clear the board
     clearPieces();
