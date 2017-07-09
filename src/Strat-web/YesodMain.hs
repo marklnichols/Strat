@@ -15,7 +15,7 @@ import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
     
--- 12345678901234567890123456789012345678901234567890123456789012345678901234
+-- 123456789012345678901234567890123456789012345678901234567890123456789012345
 staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js", "checker_1_king_48.png",
     "checker_1_plain_48.png", "checker_2_king_48.png", "checker_2_plain_48.png", 
     "black_image_48.png", "no_image_48.png", "favicon.ico"]

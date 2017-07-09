@@ -10396,13 +10396,10 @@ function submitMove(id) {
         $.ajax({ url: "http://localhost:3000/playerMove", method: "post", data: json, success: function (result) {
                 setLegalMoves(result.legalMoves);
                 setLatestMove(result.latestMove);
-                //rmCSSClasses(new_move.locs)
                 clearSelected();
-                //game.selections = new Array();
                 updateGameBoard(result.prevBoard);
                 addCSSClassToLoc(result.latestMove.locs, "computermove");
                 setTimeout(function () {
-                    //rmCSSClasses(result.latestMove.locs)
                     updateGameBoard(result.board);
                     rmClassesFromLocs(result.latestMove.locs);
                     var inits = findInitials(result.legalMoves);
@@ -10454,11 +10451,9 @@ function compareLocs(loc1, loc2) {
 }
 /* todo: add these for clicking on any pre-selected square
  function findLocInLocs(loc: Loc, locs: Loc[]): number {
-
  }
 
  function popAfter(loc: Loc, locs: Loc[]): Loc[] {
-
  }
  */
 function findLocInLCs(loc, lcs) {
@@ -10470,15 +10465,6 @@ function findLocInLCs(loc, lcs) {
     }
     return LocEnum.NONE;
 }
-/*
-todo: always show initials and continues highlighted, and all selected as selected --
-if one of the initials is selected, it should show as selected not highlighted.
-
-Things clickable are the initials and continues plus the already selected.
-
-Clicking on a selected removes any selected further in the list
-
-*/
 function onClick(event) {
     var loc = idToLoc(this.id);
     var highs = game.highlights;
@@ -10497,46 +10483,17 @@ function onClick(event) {
         addHighlights(conts);
     }
     else if (theType == LocEnum.FINAL) {
-        //rmClassesFromLCs(highs);
         clearHighlights();
         addSelected(loc);
         submitMove(this.id);
     }
     else {
-        //not a "clickable" square
         clearSelected();
         clearHighlights();
         var inits = findInitials(game.legalMoves);
         addHighlights(inits);
     }
 }
-/*
-//check: is this loc highlighted as a "clickable" square?
-for (var i=0; i < len; i++) {
-    if (compareLocs(loc, highs[i].loc)) {
-        var theType = highs[i].locType;
-        if (theType == LocEnum.INITIAL)
-            clearSelected();
-        addSelected(loc);
-        removeFromHighlights(loc);
-        clearHighlights();
-        if (theType == LocEnum.FINAL) {
-           //rmClassesFromLCs(highs);
-            submitMove(this.id);
-            return;
-        } else { //INITIAL or MULTI
-            var conts = findContinues(game.legalMoves, loc);
-            addHighlights(conts);
-            return;
-        }
-    }
-}
-//not a "clickable" square
-clearSelected();
-clearHighlights();
-var inits = findInitials(game.legalMoves);
-addHighlights(inits);
-*/
 function addHighlights(lcs) {
     for (var i = 0; i < lcs.length; i++) {
         game.highlights.push(lcs[i]);
@@ -10578,10 +10535,6 @@ function clearSelected() {
     var oldSel = game.selections;
     rmClassesFromLocs(oldSel);
     game.selections = [];
-}
-function onDblClick(event) {
-    clearSelection();
-    submitMove(this.id);
 }
 function clearSelection() {
     if (document.getSelection) {
@@ -10655,7 +10608,6 @@ $(document).ready(function () {
             var id = rowCol2Id(iIndex, j);
             var imgId = imageId(iIndex, j);
             $('#' + id).click(onClick);
-            $('#' + id).dblclick(onDblClick);
             var tag = buildTag(imgId, noPiece);
             $('#' + id).html(tag);
         }
