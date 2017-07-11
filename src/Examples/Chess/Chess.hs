@@ -273,25 +273,37 @@ pieceMoves :: ChessNode -> Int -> [ChessMv]
 pieceMoves _ _ = undefined
 
 movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
---movesFromDir dir idx moveType = undefined
-movesFromDir _ _ _ = undefined
+movesFromDir _ _ _ = undefined  -- dir idx moveType
 
+legalKingMoves :: ChessPos -> Int -> [ChessMv]
+legalKingMoves pos idx = 
+    let locs = getSingleLocs idx
+        indexes = filter (kingFilter (pos^.clr)) locs
+    in  destinationsToMoves idx indexes
+
+kingFilter :: Int -> Int -> Bool
+kingFilter _ _ = undefined -- color index
 {-
-legalKingMoves :: King -> ChessPos -> Int -> [ChessMv]
-legalKingMoves king pos idx = 
-    let locs = getSingleLocs pos
-    
     if isFriendly -> false
-    if isFriendly or isEmpty
-        if Sq is attackable
+    if isEnemy or isEmpty
+        if Sq is defended
             False
         else true
+        
+-}
 
-        --here map KingMoves over movesFromDir ??
--}          
+hasFriendly :: Int -> Int -> Bool
+hasFriendly _ = undefined   --color index
 
+hasEnemy :: Int -> Int -> Bool
+hasEnemy _ = undefined  --color index
 
---TODO: have this check for other pieces, etc.
+isEmpty :: Int -> Bool
+isEmpty _ = undefined   --index
+
+isDefended :: Int -> Int -> Bool
+isDefended _ =  undefined   --color index
+
 --possible destination squares for a king
 getSingleLocs :: Int -> [Int]
 getSingleLocs idx = filter onBoard (fmap ($ idx) queenDirs)
@@ -320,11 +332,26 @@ onBoard x
 offBoard :: Int -> Bool
 offBoard x = not $ onBoard x
 
-legalKingMoves :: ChessPos -> Int -> [ChessMv]
-legalKingMoves _ _ = undefined
-
 legalQueenMoves :: ChessPos -> Int -> [ChessMv]
 legalQueenMoves _ _ = undefined
 
 noMoves :: ChessPos -> Int -> [ChessMv]
 noMoves _ _ = undefined
+
+destinationsToMoves :: Int -> [Int] -> [ChessMv]
+destinationsToMoves _ _ = undefined     -- idx dests
+    --pair up idx with each index in dests to form moves
+
+indexesToMove :: [Int] -> ChessMv
+indexesToMove _ = undefined
+
+{-
+jmpsToCkMoves :: [[Int]] -> [CkMove]
+jmpsToCkMoves = foldr f [] where
+    f []  r = r
+    f [_] r = r
+    f xs  r = CkMove { _isJump = True, _startIdx = head xs, _endIdx = last xs,
+                       _middleIdxs = init $ tail xs,
+                       _removedIdxs = fmap (\(m, n) -> (n-m) `div` 2 + m) (zip xs (tail xs))
+                     } : r
+-}
