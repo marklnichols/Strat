@@ -339,7 +339,7 @@ $(document).keydown(function(e: KeyboardEvent) {
     clearSelected();
     var inits = findInitials(game.legalMoves)
     clearHighlights();
-    addHighlights(inits);
+    addHighlights(inits); 
   }
 });
 
@@ -348,7 +348,6 @@ var blackPiece: string = "checker_2_plain_48.png";
 var whiteKing: string = "checker_1_king_48.png"; 
 var blackKing: string = "checker_2_king_48.png";
 var noPiece: string = "no_image_48.png";
-var blackSquare: string = "black_image_48.png";
 
 function imageTag(isWhite: Boolean, row: number , col: number) {
     var imgName: string;
