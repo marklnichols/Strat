@@ -26,3 +26,4 @@ out
 .profiling
 *.iml
 node_modules
+client_session_key.aes

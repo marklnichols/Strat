@@ -10473,8 +10473,8 @@ function onClick(event) {
         clearSelected();
         clearHighlights();
         addSelected(loc);
-        var inits = findInitials(game.legalMoves);
-        addHighlights(inits);
+        var conts = findContinues(game.legalMoves, loc);
+        addHighlights(conts);
     }
     else if (theType == LocEnum.MULTI) {
         clearHighlights();
