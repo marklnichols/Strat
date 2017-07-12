@@ -10473,8 +10473,8 @@ function onClick(event) {
         clearSelected();
         clearHighlights();
         addSelected(loc);
-        var inits = findInitials(game.legalMoves);
-        addHighlights(inits);
+        var conts = findContinues(game.legalMoves, loc);
+        addHighlights(conts);
     }
     else if (theType == LocEnum.MULTI) {
         clearHighlights();
@@ -10557,7 +10557,6 @@ var blackPiece = "checker_2_plain_48.png";
 var whiteKing = "checker_1_king_48.png";
 var blackKing = "checker_2_king_48.png";
 var noPiece = "no_image_48.png";
-var blackSquare = "black_image_48.png";
 function imageTag(isWhite, row, col) {
     var imgName;
     var imgId = imageId(col, row);
