@@ -10355,6 +10355,7 @@ function submitMove(id) {
         var json = JSON.stringify(new_move);
         addCSSClassToLoc(locs, "playermove");
         $.ajax({ url: "http://localhost:3000/playerMove", method: "post", data: json, success: function (result) {
+                $("#para1").html(result.msg);
                 setLegalMoves(result.legalMoves);
                 setLatestMove(result.latestMove);
                 clearSelected();
@@ -10418,6 +10419,36 @@ function findLocInLCs(loc, lcs) {
             return lcs[i].locType;
     }
     return LocEnum.NONE;
+}
+$(document).ready(function () {
+    $("#restart").click(function () {
+        newGame();
+    });
+    // attach mouse click handler to each div sqare
+    // also, add html tag holding each piece image 
+    for (var j = 1; j < 9; j++) {
+        for (var i = 0; i < 8; i += 2) {
+            var iIndex = i + ((j + 1) % 2);
+            //build strings #a1 - #h8
+            var id = rowCol2Id(iIndex, j);
+            var imgId = imageId(iIndex, j);
+            $('#' + id).click(onClick);
+            var tag = buildTag(imgId, noPiece);
+            $('#' + id).html(tag);
+        }
+    }
+    newGame();
+});
+function newGame() {
+    $.ajax({ url: "http://localhost:3000/new", success: function (result) {
+            setLegalMoves(result.legalMoves);
+            setLatestMove(result.latestMove);
+            updateGameBoard(result.board);
+            clearSelected();
+            var inits = findInitials(result.legalMoves);
+            clearHighlights();
+            addHighlights(inits);
+        } });
 }
 function onClick(event) {
     var loc = idToLoc(this.id);
@@ -10506,36 +10537,6 @@ function locToImgId(loc) {
     var _id = locToId(loc);
     return imgPrefix + _id;
 }
-$(document).ready(function () {
-    $("#restart").click(function () {
-        newGame();
-    });
-    // attach mouse click handler to each div sqare
-    // also, add html tag holding each piece image 
-    for (var j = 1; j < 9; j++) {
-        for (var i = 0; i < 8; i += 2) {
-            var iIndex = i + ((j + 1) % 2);
-            //build strings #a1 - #h8
-            var id = rowCol2Id(iIndex, j);
-            var imgId = imageId(iIndex, j);
-            $('#' + id).click(onClick);
-            var tag = buildTag(imgId, noPiece);
-            $('#' + id).html(tag);
-        }
-    }
-    newGame();
-});
-function newGame() {
-    $.ajax({ url: "http://localhost:3000/new", success: function (result) {
-            setLegalMoves(result.legalMoves);
-            setLatestMove(result.latestMove);
-            updateGameBoard(result.board);
-            clearSelected();
-            var inits = findInitials(result.legalMoves);
-            clearHighlights();
-            addHighlights(inits);
-        } });
-}
 function clearPieces() {
     for (var j = 1; j < 9; j++) {
         for (var i = 0; i < 8; i += 2) {
@@ -10577,9 +10578,6 @@ function findContinues(ms, loc) {
     var legalMoves = ms.moves;
     var theLCs = [];
     var nLocs = legalMoves.length;
-    var str = "nLocs is: " + nLocs.toString();
-    $("#para1").html(str);
-    //alert (str);
     for (var i = 0; i < nLocs; i++) {
         var move = legalMoves[i];
         var index = findLocInMove(loc, move);

@@ -124,6 +124,7 @@ function submitMove(id: string) {
         var json = JSON.stringify(new_move);
         addCSSClassToLoc(locs, "playermove")
         $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
+            $("#para1").html(result.msg);
             setLegalMoves(result.legalMoves);
             setLatestMove(result.latestMove)
             clearSelected();
@@ -194,6 +195,38 @@ function compareMoves(m1: Move, m2: Move) {
     return LocEnum.NONE;
  }
 
+$(document).ready(function() { 
+    $("#restart").click(function(){
+        newGame();
+    }); 
+    // attach mouse click handler to each div sqare
+    // also, add html tag holding each piece image 
+    for (var j=1; j<9; j++) {
+        for (var i=0; i<8; i+=2) {
+            var iIndex = i + ((j+1) % 2)
+            //build strings #a1 - #h8
+            var id = rowCol2Id(iIndex, j);
+            var imgId = imageId(iIndex, j) 
+            $('#'+id).click(onClick);
+            var tag = buildTag(imgId, noPiece);
+            $('#'+id).html(tag);   
+        }
+    }
+    newGame();
+});
+
+function newGame() {
+    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
+        setLegalMoves(result.legalMoves)
+        setLatestMove(result.latestMove)
+        updateGameBoard(result.board);
+        clearSelected();
+        var inits = findInitials(result.legalMoves)
+        clearHighlights();
+        addHighlights(inits);
+    }}) 
+}
+
 function onClick(event: Event) {
     var loc = idToLoc(this.id);
     var highs = game.highlights;
@@ -214,13 +247,11 @@ function onClick(event: Event) {
         clearHighlights();
         addSelected(loc);
         submitMove(this.id);
-
     } else {    //LocEnum.None -- not a "clickable" square
         clearSelected();
         clearHighlights();
         var inits = findInitials(game.legalMoves);
         addHighlights(inits);
-
     }
 }
 
@@ -293,38 +324,6 @@ function locToImgId(loc: Loc) {
     return imgPrefix + _id;
 }
 
-$(document).ready(function() { 
-    $("#restart").click(function(){
-        newGame();
-    }); 
-    // attach mouse click handler to each div sqare
-    // also, add html tag holding each piece image 
-    for (var j=1; j<9; j++) {
-        for (var i=0; i<8; i+=2) {
-            var iIndex = i + ((j+1) % 2)
-            //build strings #a1 - #h8
-            var id = rowCol2Id(iIndex, j);
-            var imgId = imageId(iIndex, j) 
-            $('#'+id).click(onClick);
-            var tag = buildTag(imgId, noPiece);
-            $('#'+id).html(tag);   
-        }
-    }
-    newGame();
-});
-
-function newGame() {
-    $.ajax ({url: "http://localhost:3000/new", success: function(result) {
-        setLegalMoves(result.legalMoves)
-        setLatestMove(result.latestMove)
-        updateGameBoard(result.board);
-        clearSelected();
-        var inits = findInitials(result.legalMoves)
-        clearHighlights();
-        addHighlights(inits);
-    }}) 
-}
-
 function clearPieces() {
     for (var j=1; j<9; j++) {
         for (var i=0; i<8; i+=2) {
@@ -370,9 +369,6 @@ function findContinues(ms: Moves, loc: Loc): LocationClick[] {
     var legalMoves = ms.moves;
     var theLCs: LocationClick[] = [];
     var nLocs: number = legalMoves.length;
-    var str: string = "nLocs is: " + nLocs.toString();
-    $("#para1").html(str);
-    //alert (str);
     for (var i=0; i < nLocs; i++) {
         var move = legalMoves[i];
         var index = findLocInMove(loc, move);
