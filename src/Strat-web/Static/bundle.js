@@ -10288,18 +10288,6 @@ var LocationClick = (function () {
     }
     return LocationClick;
 }());
-function initialClick(loc) {
-    return new LocationClick(loc, LocEnum.INITIAL);
-}
-function multiClick(loc) {
-    return new LocationClick(loc, LocEnum.MULTI);
-}
-function finalClick(loc) {
-    return new LocationClick(loc, LocEnum.FINAL);
-}
-function noneClick(loc) {
-    return new LocationClick(loc, LocEnum.NONE);
-}
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col, row) {
     return String.fromCharCode(97 + col) + row.toString();
@@ -10358,33 +10346,6 @@ function addMultiCss(id) {
 }
 function addFinalCss(id) {
     $('#' + id).addClass("final");
-}
-function addValidCss(id) {
-    $('#' + id).addClass("valid");
-}
-function addValidPathCss(id) {
-    $('#' + id).addClass("valid-path");
-}
-function pushLocation(id) {
-    var c = idToCol(id);
-    var r = idToRow(id);
-    var new_loc = new Loc(c, r);
-    if (!(isDuplicate(new_loc))) {
-        game.selections.push(new_loc);
-    }
-}
-function isDuplicate(new_loc) {
-    var len = game.selections.length;
-    if (len == 0) {
-        return false;
-    }
-    var top = game.selections[len - 1];
-    if (JSON.stringify(top) === JSON.stringify(new_loc)) {
-        return true;
-    }
-    else {
-        return false;
-    }
 }
 function submitMove(id) {
     var locs = game.selections;
@@ -10449,13 +10410,6 @@ function compareLocs(loc1, loc2) {
     else
         return false;
 }
-/* todo: add these for clicking on any pre-selected square
- function findLocInLocs(loc: Loc, locs: Loc[]): number {
- }
-
- function popAfter(loc: Loc, locs: Loc[]): Loc[] {
- }
- */
 function findLocInLCs(loc, lcs) {
     var len = lcs.length;
     //check: is this loc highlighted as a "clickable" square?
@@ -10510,16 +10464,6 @@ function addSelected(loc) {
     rmCSSClasses(loc);
     addSelectedCss(locToId(loc));
 }
-function removeFromHighlights(loc) {
-    var highs = game.highlights;
-    var len = highs.length;
-    for (var i = 0; i < len; i++) {
-        if (compareLocs(highs[i].loc, loc)) {
-            highs.splice(i, 1);
-            return;
-        }
-    }
-}
 function pushUniqueLC(theLc, lcs) {
     var len = lcs.length;
     for (var i = 0; i < len; i++) {
@@ -10536,13 +10480,6 @@ function clearSelected() {
     rmClassesFromLocs(oldSel);
     game.selections = [];
 }
-function clearSelection() {
-    if (document.getSelection) {
-        document.getSelection().empty();
-    }
-    else if (window.getSelection)
-        window.getSelection().removeAllRanges();
-}
 $(document).keydown(function (e) {
     if (e.which == 27) {
         //alert ("You pressed the Escape key!");
@@ -10557,14 +10494,6 @@ var blackPiece = "checker_2_plain_48.png";
 var whiteKing = "checker_1_king_48.png";
 var blackKing = "checker_2_king_48.png";
 var noPiece = "no_image_48.png";
-function imageTag(isWhite, row, col) {
-    var imgName;
-    var imgId = imageId(col, row);
-    if (isWhite)
-        imgName = whitePiece;
-    else
-        imgName = blackPiece;
-}
 function buildTag(imgId, imgName) {
     return "<div class='img-wrapper'><img class='piece' id=" + imgId + " src=" + imgName + "></div>";
 }
@@ -10576,26 +10505,6 @@ function imageId(col, row) {
 function locToImgId(loc) {
     var _id = locToId(loc);
     return imgPrefix + _id;
-}
-function showRowColImage(col, row) {
-    var id;
-    id = imageId(col, row);
-    showImage(id);
-}
-function showImage(imageId) {
-    $('#' + imageId).fadeIn("slow", function () {
-        // Animation complete.
-    });
-}
-function hideRowColImage(col, row) {
-    var id;
-    id = imageId(col, row);
-    hideImage(id);
-}
-function hideImage(imageId) {
-    $('#' + imageId).fadeOut("slow", function () {
-        // Animation complete.
-    });
 }
 $(document).ready(function () {
     // attach mouse click handler to each div sqare

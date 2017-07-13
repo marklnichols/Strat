@@ -44,21 +44,6 @@ class LocationClick {
     constructor(public loc: Loc, public locType : number) {}
 }
 
-function initialClick (loc: Loc): LocationClick {
-    return new LocationClick(loc, LocEnum.INITIAL); 
-}
-
-function multiClick (loc: Loc): LocationClick {
-    return new LocationClick(loc, LocEnum.MULTI); 
-}
-function finalClick (loc: Loc): LocationClick {
-    return new LocationClick(loc, LocEnum.FINAL); 
-}
-
-function noneClick (loc: Loc): LocationClick {
-    return new LocationClick(loc, LocEnum.NONE); 
-}
-
 //column indexes 0-7 -> A-H, row indexes 1-8
 function rowCol2Id(col: number, row: number) { 
     return String.fromCharCode(97 + col) + row.toString();
@@ -131,37 +116,6 @@ function addFinalCss(id: string) {
     $('#'+id).addClass("final"); 
 }
 
-function addValidCss(id: string) {
-    $('#'+id).addClass("valid")
-}
-
-function addValidPathCss(id: string) {
-     $('#'+id).addClass("valid-path")
-}
-
-function pushLocation(id: string) {
-    var c = idToCol(id)
-    var r = idToRow(id)
-    var new_loc = new Loc(c, r)
-    
-    if ( !(isDuplicate(new_loc)) ) {
-        game.selections.push(new_loc)
-    }
-}
-
-function isDuplicate(new_loc: Loc) {
-    var len = game.selections.length
-    if (len == 0) {
-        return false
-    }
-    var top = game.selections[len-1]
-    if (JSON.stringify(top) === JSON.stringify(new_loc)) {
-        return true
-    } else {
-        return false
-    }
-}
-
 function submitMove(id: string) {
     var locs = game.selections;
     var new_move = new Move(locs);
@@ -230,14 +184,6 @@ function compareMoves(m1: Move, m2: Move) {
         return false
  }    
 
-/* todo: add these for clicking on any pre-selected square
- function findLocInLocs(loc: Loc, locs: Loc[]): number {
- }
-
- function popAfter(loc: Loc, locs: Loc[]): Loc[] {
- }
- */
-
  function findLocInLCs(loc: Loc, lcs: LocationClick[]): number {
     var len = lcs.length;
     //check: is this loc highlighted as a "clickable" square?
@@ -297,17 +243,6 @@ function addSelected(loc: Loc) {
     addSelectedCss(locToId(loc));
 }
 
-function removeFromHighlights(loc: Loc) {
-   var highs = game.highlights;
-    var len = highs.length;
-    for (var i=0; i < len; i++) {
-        if (compareLocs (highs[i].loc, loc)) {
-            highs.splice(i, 1);
-            return;
-        }
-    }
-}
-
 function pushUniqueLC(theLc: LocationClick, lcs: LocationClick[]): LocationClick[] {
     var len = lcs.length;
     for (var i=0; i < len; i++) {
@@ -326,13 +261,6 @@ function clearSelected() {
     game.selections = [];
 }
 
-function clearSelection() {
-    if (document.getSelection) {
-        document.getSelection().empty();
-    } else if (window.getSelection)
-    window.getSelection().removeAllRanges();
-}
-
 $(document).keydown(function(e: KeyboardEvent) {
   if(e.which == 27) {
     //alert ("You pressed the Escape key!");
@@ -349,15 +277,6 @@ var whiteKing: string = "checker_1_king_48.png";
 var blackKing: string = "checker_2_king_48.png";
 var noPiece: string = "no_image_48.png";
 
-function imageTag(isWhite: Boolean, row: number , col: number) {
-    var imgName: string;
-    var imgId = imageId(col, row);
-    if (isWhite) 
-        imgName = whitePiece;
-    else 
-        imgName = blackPiece;
-}
-
 function buildTag(imgId: string, imgName: string) {
     return "<div class='img-wrapper'><img class='piece' id=" + imgId + " src=" +  imgName + "></div>"
 }
@@ -372,30 +291,6 @@ function imageId(col: number, row: number) {
 function locToImgId(loc: Loc) {
     var _id = locToId(loc);
     return imgPrefix + _id;
-}
-
-function showRowColImage(col: number, row: number,) {
-    var id: string;
-    id = imageId(col, row);
-    showImage(id);
-}
-
-function showImage(imageId: string) {
-     $('#'+imageId).fadeIn( "slow", function() {
-        // Animation complete.
-  });
-}
-
-function hideRowColImage(col: number, row: number) {
-    var id: string;
-    id = imageId(col, row);
-    hideImage(id);
-}
-
-function hideImage(imageId: string) {
-  $('#'+imageId).fadeOut( "slow", function() {
-        // Animation complete.
-  });
 }
 
 $(document).ready(function() { 
