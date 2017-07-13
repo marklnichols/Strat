@@ -10507,6 +10507,9 @@ function locToImgId(loc) {
     return imgPrefix + _id;
 }
 $(document).ready(function () {
+    $("#restart").click(function () {
+        newGame();
+    });
     // attach mouse click handler to each div sqare
     // also, add html tag holding each piece image 
     for (var j = 1; j < 9; j++) {
@@ -10520,17 +10523,19 @@ $(document).ready(function () {
             $('#' + id).html(tag);
         }
     }
-    game.selections = new Array();
-    //get pieces...
+    newGame();
+});
+function newGame() {
     $.ajax({ url: "http://localhost:3000/new", success: function (result) {
             setLegalMoves(result.legalMoves);
             setLatestMove(result.latestMove);
             updateGameBoard(result.board);
+            clearSelected();
             var inits = findInitials(result.legalMoves);
             clearHighlights();
             addHighlights(inits);
         } });
-});
+}
 function clearPieces() {
     for (var j = 1; j < 9; j++) {
         for (var i = 0; i < 8; i += 2) {
