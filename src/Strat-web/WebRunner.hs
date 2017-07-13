@@ -7,9 +7,9 @@ import StratTree.TreeNode
 import StratTree.StratTree
 import StratIO.StratIO
 import Data.Tree
+import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Control.Lens
 import Data.Aeson
 import qualified CheckersJson as J
 import qualified Checkers as Ck
@@ -103,7 +103,9 @@ checkGameOver node =
         WWins -> (True, "White wins.")
         BWins -> (True, "Black wins.")
         Draw  -> (True, "Draw.")
-        _     -> (False, "Message TBD")
+        _     -> 
+            let evalScore = (rootLabel node) ^. Ck.ckValue
+            in (False, "Score for Player's position: " ++ show evalScore)
                                                                                                       
 isCompTurn :: Int -> RST Bool
 isCompTurn turn = do
