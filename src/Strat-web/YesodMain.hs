@@ -151,7 +151,7 @@ webInit :: IO ()
 webInit = do
     counter <- newIORef 0
     newMap <- newIORef emptyMap
-    s <- static "src/Strat-web/Static"
+    s <- staticDevel "src/Strat-web/Static"
     warp 3000 GameApp {getStatic = s, getCounter = counter, getMap = newMap}
     
 typeHole :: a -> a -> a
