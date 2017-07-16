@@ -59,7 +59,7 @@ instance Show CkNode where
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
 
 instance Show CkEval where
-    show e = "Total: " ++ show (e ^. total) ++ " (made up of " ++ (e ^. details) ++ ")"
+    show e = "Total = " ++ show (e ^. total) ++ "<br>" ++ (e ^. details)
 
 instance Move CkMove
 
@@ -319,17 +319,18 @@ evalNode n = let g =   n ^. ckPosition ^. grid
              in case finl of
                     NotFinal ->
                         (CkEval {_total = mat + mob + home + prog,
-                                 _details = "material<" ++ show mat ++ ">, mobility<" ++ show mob 
-                                            ++ ">, home row occupation<"
-                                            ++ show home ++ ">, forward progress<" ++ show prog 
-                                            ++ ">, kings' proximity to enemy pieces<"
-                                            ++ show kProximity ++ "> "}, finl)
-                    WWins    -> (CkEval {_total = finalValW,
-                                        _details="white wins<" ++ show finalValW ++ ">"}, finl)
-                    BWins    -> (CkEval {_total = finalValB,
-                                         _details="black wins<" ++ show finalValB ++ ">"}, finl)
-                    Draw     -> (CkEval {_total = drawVal,
-                                         _details="draw<" ++ show drawVal ++ ">"}, finl)
+                                 _details =  "material = " ++ show mat ++ 
+                                   "<br>" ++ "mobility = " ++ show mob ++ 
+                                   "<br>" ++ "home row occupation = " ++ show home ++
+                                   "<br>" ++ "forward progress = " ++ show prog ++
+                                   "<br>" ++ "kings' proximity to enemy pieces = " ++ show kProximity}
+                        , finl)
+                    WWins -> (CkEval {_total = finalValW,
+                                      _details="white wins <" ++ show finalValW ++ ">"}, finl)
+                    BWins -> (CkEval {_total = finalValB,
+                                      _details="black wins <" ++ show finalValB ++ ">"}, finl)
+                    Draw  -> (CkEval {_total = drawVal,
+                                      _details="draw <" ++ show drawVal ++ ">"}, finl)
 
 checkFinal :: CkNode -> FinalState
 checkFinal n

@@ -15,7 +15,7 @@ import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
     
--- 12345678901234567890123456789012345678901234567890123456789012345678901234567890123456
+-- 123456789
 
 staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js", "checker_1_king_48.png",
     "checker_1_plain_48.png", "checker_2_king_48.png", "checker_2_plain_48.png", 
@@ -152,6 +152,9 @@ webInit = do
     counter <- newIORef 0
     newMap <- newIORef emptyMap
     s <- staticDevel "src/Strat-web/Static"
+    putStrLn "--------------------------------------------------------"
+    putStrLn "To play, point your web browser to http://localhost:3000"
+    putStrLn "--------------------------------------------------------\n"
     warp 3000 GameApp {getStatic = s, getCounter = counter, getMap = newMap}
     
 typeHole :: a -> a -> a

@@ -37,7 +37,7 @@ processStartGame :: Tree Ck.CkNode -> Bool -> IO NodeWrapper
 processStartGame node bComputerResponse = 
     if bComputerResponse
         then computerResponse node 1 
-        else return $ createUpdate "New Game, player moves first" node node Nothing    
+        else return $ createUpdate "Score for Player's position: 0"  node node Nothing    
 
 processComputerMove :: Tree Ck.CkNode -> IO NodeWrapper
 processComputerMove tree = do
