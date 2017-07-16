@@ -124,7 +124,7 @@ function submitMove(id: string) {
         var json = JSON.stringify(new_move);
         addCSSClassToLoc(locs, "playermove")
         $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
-            $("#para1").html(result.msg);
+            $("#posPara").html(result.msg);
             setLegalMoves(result.legalMoves);
             setLatestMove(result.latestMove)
             clearSelected();
@@ -196,8 +196,12 @@ function compareMoves(m1: Move, m2: Move) {
  }
 
 $(document).ready(function() { 
-    $("#restart").click(function(){
+    $("#restart").click(function() {
         newGame();
+    }); 
+    $('#posPara').hide();
+    $("#eval").click(function(){
+        $('#posPara').toggle('show');
     }); 
     // attach mouse click handler to each div sqare
     // also, add html tag holding each piece image 
@@ -220,6 +224,7 @@ function newGame() {
         setLegalMoves(result.legalMoves)
         setLatestMove(result.latestMove)
         updateGameBoard(result.board);
+        $("#posPara").html(result.msg);
         clearSelected();
         var inits = findInitials(result.legalMoves)
         clearHighlights();
