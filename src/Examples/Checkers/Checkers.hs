@@ -335,7 +335,7 @@ evalNode n = let g =   n ^. ckPosition ^. grid
 checkFinal :: CkNode -> FinalState
 checkFinal n
     | numPieces == 0    = colorToWinState $ negate colr
-    | moveCount n == 0  = Draw
+    | moveCount n == 0  = colorToWinState $ negate colr
     | otherwise         = NotFinal
         where
             g = n^.ckPosition^.grid
