@@ -152,7 +152,7 @@ webInit = do
     counter <- newIORef 0
     newMap <- newIORef emptyMap
     s <- staticDevel "src/Strat-web/Static"
-    putStrLn "--------------------------------------------------------"
+    putStrLn "\n--------------------------------------------------------"
     putStrLn "To play, point your web browser to http://localhost:3000"
     putStrLn "--------------------------------------------------------\n"
     warp 3000 GameApp {getStatic = s, getCounter = counter, getMap = newMap}
