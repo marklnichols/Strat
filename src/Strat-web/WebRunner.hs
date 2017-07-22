@@ -14,9 +14,7 @@ import Data.Aeson
 import qualified CheckersJson as J
 import qualified Checkers as Ck
 
---TODO: fix -- to get things working, for the moment this web piece is checkers specific
 
---TODO: move to common...
 gameEnv :: Env
 gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
      _p1Comp = False, _p2Comp = True}
@@ -25,9 +23,6 @@ data Jsonable = forall j. ToJSON j => Jsonable j
 
 data NodeWrapper = NodeWrapper {getNode :: Tree Ck.CkNode, getLastMove :: Maybe Ck.CkMove
                               , getJsonable :: Jsonable}
-
---Note: The node here already incorporates the move -- the move is included for debugging, etc.
--- data ComputerMove = ComputerMove{getNode :: Tree Ck.CkNode, getMove Ck.CkMove}
 
 ----------------------------------------------------------------------------------------------------
 -- Exported functions

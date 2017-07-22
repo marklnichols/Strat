@@ -1,6 +1,6 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, TypeFamilies, 
     MultiParamTypeClasses, ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wall -fno-warn-missing-signatures -fno-warn-unused-binds #-}
+{-# OPTIONS_GHC -Wall -fno-warn-unused-binds #-}
 module YesodMain (webInit) where
 
 import Yesod hiding (insert)
@@ -10,7 +10,6 @@ import CheckersJson
 import WebRunner
 import Data.Text (Text)
 import Data.Aeson
-import Data.Maybe
 import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
@@ -65,17 +64,27 @@ getRootR = do
       
 getGameSession :: HandlerT GameApp IO Text
 getGameSession = do 
-    idMay <- readSession uniqueIdKey  -- :: Maybe Text
-    if isNothing idMay  -- u1 :: HandlerT GameApp IO Text
+    idMay <- readSession uniqueIdKey 
+    case idMay of 
+        Nothing -> do
+            liftIO $ putStrLn "Adding new unique id to session: "
+            newId <- addUniqueId 
+            liftIO $ putStrLn $ "uniqueId: " ++ show newId
+            return newId
+        Just theId -> do
+            liftIO $ putStrLn $ "Retrieved id from session: " ++ show theId
+            return theId 
+    {-
+    if isNothing idMay 
         then do
             liftIO $ putStrLn "Adding new unique id to session: "
             newId <- addUniqueId 
             liftIO $ putStrLn $ "uniqueId: " ++ show newId
             return newId
         else do
-            liftIO $ putStrLn "Retrieved id from session... "
+            liftIO $ putStrLn "Retrieved id from session: " ++ (fromJust idMay)
             return (fromJust idMay) 
-    
+    -}
 addUniqueId :: Handler Text
 addUniqueId = do
     newUnique <- newIdent
@@ -100,7 +109,7 @@ getNewGameR = do
 getComputerMoveR :: Handler Value                
 getComputerMoveR = do
     liftIO $ putStrLn "incoming computer move request"
-    uniqueId <- getGameSession  
+    uniqueId <- getGameSession
     yesod <- getYesod
     theMap <- liftIO $ readIORef $ getMap yesod
     wrapper <- liftIO $ case M.lookup uniqueId theMap of
