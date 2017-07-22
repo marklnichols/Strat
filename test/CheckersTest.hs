@@ -56,10 +56,10 @@ checkersTest = do
             checkPromote (nodeFromGridW board05) 01 25 `shouldBe` 1
     describe "checkFinal" $
         it "checks to see if the game is over" $ do
-            checkFinal (nodeFromGridW board09) `shouldBe` Draw
+            checkFinal (nodeFromGridW board09) `shouldBe` BWins
             checkFinal (nodeFromGridB board09) `shouldBe` NotFinal
             checkFinal (nodeFromGridW board09b) `shouldBe` NotFinal
-            checkFinal (nodeFromGridB board09b) `shouldBe` Draw
+            checkFinal (nodeFromGridB board09b) `shouldBe` WWins
             checkFinal (nodeFromGridB board11) `shouldBe` WWins
             checkFinal (nodeFromGridW board12) `shouldBe` BWins
     describe "mobility" $
