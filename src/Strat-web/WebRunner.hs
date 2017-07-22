@@ -99,7 +99,7 @@ checkGameOver node =
         BWins -> (True, "Black wins.")
         Draw  -> (True, "Draw.")
         _     -> 
-            let evalScore = (rootLabel node) ^. Ck.ckValue
+            let evalScore = rootLabel node ^. Ck.ckValue
             in (False, "Score for Player's position: " ++ show evalScore)
                                                                                                       
 isCompTurn :: Int -> RST Bool
