@@ -10,11 +10,11 @@ The following instructions assume you already have Stack installed.  If not, you
 Once you have Stack, compiling the library and executable follows the standard pattern:
 
 * Clone this repository
-* Type `cd strat`
+* Type `cd Strat`
 * Type `stack build` 
 
 To run the checkers example, which uses a simple web client:
-* Type `stack exec strat`
+* Type `stack exec strat-exe`
 * Access the game via a web browser at `http://localhost:3000`
 
 I have tested the program on a few browsers: Chrome, Firefox, IE, and Edge.
@@ -22,11 +22,11 @@ I have tested the program on a few browsers: Chrome, Firefox, IE, and Edge.
 ## Project organization
 At a high level, the project directories are organized this way:
 
-* `src/StratTree` - tree traversal algorithms
+* `src/strat/StratTree` - tree traversal algorithms
+* `src/strat/StartIO`   - misc non-web code requiring IO
 * `src/StratWeb`  - general code for implementing examples via. the web browser.  (Note: some checkers-specific code has temporarily crept into these modules, but this will eventually be game agnostic)
-* `src/StartIO`   - misc non-web code requiring IO
 * `src/GameRunner` - a driver for running a text-only version of the game in a command window.  
-* `src/Strat-commandline` - entry point for running the games - the defaul is to run the checkers game via. the web interface
+* `main/Strat-commandline` - entry point for running the games - the defaul is to run the checkers game via. the web interface
 * `src/Examples/Checkers` - the checkers implementation.  It plays a pretty good game, though it could use a bit more work in some end game situation where its play can become a bit aimless.
 * `src/Examples/WIP/Chess` - the very initial stages of a chess example.  So far I have only begun to implement how the pieces move, etc.
 * `test`   - various tests that exercise both the library functions and game specific behavior
