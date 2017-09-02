@@ -1,4 +1,4 @@
-module TTParser (run) where
+module TicTac.TTParser (run) where
 
 import Text.Parsec
 import Text.Parsec.String

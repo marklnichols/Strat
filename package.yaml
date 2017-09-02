@@ -1,0 +1,80 @@
+name: strat
+version: '0.1.0.0'
+synopsis: Haskell Strategy Game Library WIP
+description: Please see README.md
+category: Strategy game library
+author: Mark Nichols
+maintainer: marklnichols@gmail.org
+copyright: GPL
+license: BSD3
+github: marklnichols/Haskell-Strategy-Game-AI-WiP
+homepage: http://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP#readme
+source-dirs:
+- src/strat
+dependencies:
+- containers ==0.5.*
+- rosezipper ==0.2.*
+- lens >=4.0
+- tuple >=0.3
+- hspec >=2.0
+- random >=1.0
+- safe >=0.3
+- mtl >=2.2
+- split >=0.1
+- hashtables >=1.0
+- parsec >=3.1
+- parsec-numbers >=0.1
+- vector >=0.11
+- aeson >=0.11
+- text >=1.2
+library:
+  ghc-options: -Wall
+  exposed-modules:
+  - StratTree.StratTree
+  - StratTree.TreeNode
+  - StratIO.StratIO
+  - StratTree.Trees
+  dependencies:
+  - base >=4.7 && <5
+  - bytestring >=0.10.8
+executables:
+  strat-exe:
+    main: Main.hs
+    source-dirs:
+    - main/Strat-commandline
+    - src/GameRunner
+    - src/Strat-web
+    - src/Examples/Checkers
+    - src/Examples/WIP/Chess
+    ghc-options: -Wall
+    dependencies:
+    - base >=4 && <=5
+    - bytestring
+    - wai-extra
+    - wai-middleware-static
+    - scotty
+    - fast-logger >=2.4
+    - data-default >=0.7
+    - data-default-class >=0.1.2
+    - stm >=2.4
+    - strat
+    - scotty-cookie
+    - yesod-static
+    - yesod
+    - yesod-core
+tests:
+  StratTreeTest:
+    main: TestSuite.hs
+    source-dirs:
+    - test
+    - src/Examples/Checkers
+    - src/Examples/WIP/Chess
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    dependencies:
+    - base
+    - bytestring >=0.10.8
+    - strat
