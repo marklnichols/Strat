@@ -2,7 +2,44 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Checkers where
+module Checkers
+    ( 
+      boardAsPieceList
+    , calcNewNode
+    , checkFinal
+    , checkPromote
+    , closestToKing
+    , clr   
+    , CkEval(..)
+    , CkMove(..)
+    , CkNode(..)
+    , ckPosition
+    , CkPosition(..)
+    , ckValue
+    , getAllowedMoves
+    , getStartNode
+    , grid
+    , homeRow'
+    , homeRowFull
+    , homeRowNone
+    , homeRowPartial
+    , kingProximity
+    , maybeToParserMove
+    , mobility
+    , parseCkMove
+    , parserToCkMove
+    , PieceList(..)
+    , PieceLoc(..)
+    , pieceProgress
+    , progress
+    , toParserMove
+    , totalKingCount
+    , totalPieceCount
+
+
+
+
+    ) where
 import qualified CkParser as Parser
 import Prelude hiding (lookup)
 import Control.Monad
@@ -109,9 +146,6 @@ getStartNode = Node
      A B C D E F G H
 --}
 
-offBoard :: [Int]
-offBoard = [0, 1, 2, 3, 4, 9, 18, 27, 36, 41, 42, 43, 44, 45]
-
 --------------------------------------------------------------------
 
 ---------------------------------------------------------------------------------------------------
@@ -209,9 +243,6 @@ colPlus n = (((n-5) `mod` 9) `mod` 5) * 2
 
 rowNum :: Int -> Int
 rowNum n = ((n-5) `div` 9) * 2 + ((n-5) `mod` 9) `div` 5 + 1
-
-rowLabels :: String     
-rowLabels = ['A'..'H']
 
 ---------------------------------------------------------------------------------------------------
 -- Convert Board to a PieceList (for conversion to JSon, etc.)
@@ -400,9 +431,6 @@ pieceProgress xs colr =
                     _ -> [4, 3, 2, 1,  0,  0,  0,  0] :: [Int]
         f x r   = r +  fromMaybe 0 (vals ^? ix (rowNum x - 1))
     in foldr f 0 xs
-
-swapColor :: CkNode -> CkNode
-swapColor node = setColor node $ negate (node ^. ckPosition.clr)
 
 setColor :: CkNode -> Int -> CkNode
 setColor node colr = node & ckPosition.clr .~ colr

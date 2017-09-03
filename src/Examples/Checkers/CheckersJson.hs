@@ -1,6 +1,16 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-module CheckersJson where
+module CheckersJson 
+    ( 
+      jsonError  
+    , jsonMessage
+    , JsonMove(..)
+    , jsonFromCkMove
+    , jsonMoveToCkMove
+    , jsonToCkMove
+    , jsonUpdate
+
+    ) where
 
 import Data.Aeson
 import Data.Char

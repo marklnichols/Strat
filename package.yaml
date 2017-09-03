@@ -9,34 +9,25 @@ copyright: GPL
 license: BSD3
 github: marklnichols/Haskell-Strategy-Game-AI-WiP
 homepage: http://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP#readme
-source-dirs:
-- src/strat
-dependencies:
-- containers ==0.5.*
-- rosezipper ==0.2.*
-- lens >=4.0
-- tuple >=0.3
-- hspec >=2.0
-- random >=1.0
-- safe >=0.3
-- mtl >=2.2
-- split >=0.1
-- hashtables >=1.0
-- parsec >=3.1
-- parsec-numbers >=0.1
-- vector >=0.11
-- aeson >=0.11
-- text >=1.2
 library:
+  source-dirs:
+  - src/strat
   ghc-options: -Wall
   exposed-modules:
   - StratTree.StratTree
   - StratTree.TreeNode
   - StratIO.StratIO
   - StratTree.Trees
+  other-modules:
+  - Paths_strat
   dependencies:
-  - base >=4.7 && <5
-  - bytestring >=0.10.8
+  - base
+  - containers
+  - lens
+  - random
+  - rosezipper
+  - safe
+  - mtl
 executables:
   strat-exe:
     main: Main.hs
@@ -47,20 +38,35 @@ executables:
     - src/Examples/Checkers
     - src/Examples/WIP/Chess
     ghc-options: -Wall
+    other-modules:
+      Checkers
+      CheckersJson
+      CheckersText
+      Chess
+      ChessParser
+      CkParser
+      GameRunner
+      GlobalState
+      Session
+      WebRunner
+      YesodMain
     dependencies:
-    - base >=4 && <=5
+    - aeson
+    - base
     - bytestring
-    - wai-extra
-    - wai-middleware-static
-    - scotty
-    - fast-logger >=2.4
-    - data-default >=0.7
-    - data-default-class >=0.1.2
-    - stm >=2.4
+    - containers
+    - data-default-class
+    - hashtables
+    - lens
+    - mtl
+    - parsec
+    - safe
+    - stm
     - strat
-    - scotty-cookie
+    - text
+    - vector
     - yesod-static
-    - yesod
+    - yesod 
     - yesod-core
 tests:
   StratTreeTest:
@@ -74,7 +80,30 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     - -Wall
+    other-modules:
+      Checkers
+      CheckersJson
+      CheckersTest
+      Chess
+      ChessParser
+      ChessTest
+      CkParser
+      StratTreeTest
+      TicTac.TTGame
+      TicTac.TTParser
+      TicTacTest
     dependencies:
+    - aeson
     - base
-    - bytestring >=0.10.8
+    - bytestring
+    - containers
+    - hspec 
+    - lens
+    - mtl
+    - parsec
+    - rosezipper
+    - safe
     - strat
+    - vector
+  
+ 

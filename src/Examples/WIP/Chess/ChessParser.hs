@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module ChessParser where
+module ChessParser 
+    ( Move(..)    
+    ) where
 import GHC.Generics
 
 --the following is just a temp placeholder-----

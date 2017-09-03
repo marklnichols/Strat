@@ -1,5 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module CheckersText where
+module CheckersText 
+    ( 
+      CheckersText(..)
+    ) where
 
 import StratTree.TreeNode
 import StratTree.StratTree

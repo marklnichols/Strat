@@ -1,9 +1,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
--- {-# OPTIONS_GHC -F -pgmF autoexporter #-}
---TODO reorganize the exports list -- move those only needed for testing elsewhere
-module TicTac.TTGame (calcNewNode, getPossibleMoves, eval, evalGrid, checkWins, checkTwoWayWin, scorePos, format,
-       TTPosition (..), TTNode (..), getStartNode, sums, masks, applyMask, wins, strToMove) where
+module TicTac.TTGame 
+    ( calcNewNode
+    , getPossibleMoves
+    , eval
+    , checkWins
+    , checkTwoWayWin
+    , format
+    , TTPosition (..)
+    , TTNode (..)
+    , strToMove
+    ) where
 
 import StratTree.TreeNode hiding (Result, MoveScore)
 import qualified TicTac.TTParser as Parser
@@ -36,8 +43,8 @@ instance TreeNode TTNode IntMove IntEval where
 ---------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------
-getStartNode :: Tree TTNode
-getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = IntEval 0, _ttErrorValue = IntEval 0, _ttPosition = TTPosition
+_getStartNode :: Tree TTNode
+_getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = IntEval 0, _ttErrorValue = IntEval 0, _ttPosition = TTPosition
     {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
 
 ---------------------------------------------------------

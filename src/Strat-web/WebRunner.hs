@@ -1,7 +1,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
-module WebRunner where
+module WebRunner 
+    ( processStartGame
+    , processComputerMove
+    , processPlayerMove
+    , processError 
+    , Jsonable(..)
+    , NodeWrapper(..)
+    ) where
 
 import StratTree.TreeNode
 import StratTree.StratTree
@@ -13,7 +20,6 @@ import Control.Monad.State.Strict
 import Data.Aeson
 import qualified CheckersJson as J
 import qualified Checkers as Ck
-
 
 gameEnv :: Env
 gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
@@ -55,9 +61,6 @@ processPlayerMove tree mv bComputerResponse = do
                 computerResponse processed (colorToTurn posColor) 
             else return $ createUpdate "No computer move" processed processed Nothing
  
-processMessage :: String -> Tree Ck.CkNode -> IO NodeWrapper
-processMessage str tree = return $ createMessage str tree
-
 processError :: String -> Tree Ck.CkNode -> IO NodeWrapper
 processError str tree = return $ createError str tree
  
@@ -89,9 +92,6 @@ computerMove node turn = do
                 Nothing -> return $ Left "Invalid result from resolveRandom"
                 Just mv -> return $ Right (processMove newTree mv, mv)
                                                    
-compMoveNext :: Tree Ck.CkNode -> Int -> Bool
-compMoveNext _ turn = evalState (runReaderT (unRST (isCompTurn turn)) gameEnv) (GameState 0)                
-
 checkGameOver :: Tree Ck.CkNode -> (Bool, String)
 checkGameOver node =              
     case final $ rootLabel node of
@@ -101,19 +101,6 @@ checkGameOver node =
         _     -> 
             let evalScore = rootLabel node ^. Ck.ckValue
             in (False, "Score for Player's position: " ++ show evalScore)
-                                                                                                      
-isCompTurn :: Int -> RST Bool
-isCompTurn turn = do
-    p1 <- asks _p1Comp
-    p2 <- asks _p2Comp
-    return $ if turn == 1 then p1 else p2
-
---toBool :: "C" or "c" for computer -> True, "H" or "h" (or anything else for that matter) for Human -> False
-toBool :: String -> Bool
-toBool s = s == "c" || s == "C"
-
-swapTurns :: Int -> Int
-swapTurns t = 3-t   -- alternate between 1 and 2
 
 -- convert 1, 2 to +1, -1
 turnToColor :: Int -> Int

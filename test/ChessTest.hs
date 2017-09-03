@@ -1,13 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module ChessTest where
-
+module ChessTest (chessTest) where
 
 import Chess
---import ChessParser
 import Test.Hspec
 import Data.Tree
 import qualified Data.Vector.Unboxed as V
---import Control.Lens
 import StratTree.TreeNode
 
 chessTest :: SpecWith ()
@@ -44,11 +41,6 @@ nodeFromGridB g = rootLabel $ treeFromGridB g
 
 noMove :: ChessMv
 noMove = ChessMv {isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
-
---mkSimpleChessMv :: Int -> CkMove
---mkSimpleChessMv i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, 
---_middleIdxs = [], _removedIdxs = []}
-
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
@@ -97,8 +89,8 @@ P   P   -   -   -   R   -   -          2| (20)  21   22   23   24   25   26   27
 
 
 ----------------------------------------------------------------------------------------------------
-boardTemplate :: V.Vector Int
-boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99, 
+_boardTemplate :: V.Vector Int
+_boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99, 
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
