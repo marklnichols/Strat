@@ -1,6 +1,11 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Session where
+module Session 
+    ( get
+    , HT
+    , newHT
+    , set
+    ) where
 
 import Prelude hiding (lookup)
 import Control.Monad.ST

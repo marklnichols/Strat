@@ -3,8 +3,17 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ExistentialQuantification #-} 
+{-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
-module Chess where
+module Chess 
+    ( ChessEval(..) 
+    , ChessMv(..)   
+    , ChessNode(..)
+    , ChessPos(..)
+    , getPieceLocs
+    , getSingleLocs
+    ) where
+        
 import Data.Tree 
 import StratTree.TreeNode
 import Control.Lens

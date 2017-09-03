@@ -1,13 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-module StratTreeTest (stratTreeTest, aTree, aTree2, modTree, miniTree, blunderTree,
-       validPathCheck, testEnv1, testEnv2, testEnv3, testEnvMax) where
+module StratTreeTest (stratTreeTest) where
 
 import StratTree.StratTree
 import StratTree.Trees
 import StratTree.TreeNode
-
 import Data.Tree
 import Data.Tree.Zipper
 import Data.Maybe
@@ -191,14 +189,11 @@ addBranch :: Tree PosTreeItem -> Tree PosTreeItem
 addBranch t = Node (rootLabel t) [newBranch]
 
 ------------------------------------------------------------------------
-
 data TreeItem  = TreeItem {
     _tiMove :: IntMove,
     _tiValue :: IntEval,
     _tiErrorValue :: IntEval
 } deriving (Show, Eq)
---isExchanging :: Bool
---pieces :: [Piece] } deriving (Show)
 
 data PosTreeItem  = PosTreeItem {
     ptMove :: IntMove,
@@ -269,9 +264,6 @@ testEnv3 :: Env
 testEnv3 = Env {_depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
 
---testEnv4 = Env {_depth = 5, _errorDepth = 5, _equivThreshold = 0, --_errorEquivThreshold = 10,
---     _p1Comp = True, _p2Comp = True}
-
 testEnvMax :: Env
 testEnvMax = Env {_depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 10,
      _p1Comp = True, _p2Comp = False}
@@ -339,13 +331,6 @@ expandedFinalTree =
             Node PosTreeItem {ptMove=IntMove 7, ptValue=IntEval 7, ptColor = -1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 1, 0, 0, 0, 0, 1, 1, 0]}} []],
         Node PosTreeItem {ptMove=IntMove 3, ptValue=IntEval 3, ptColor = 1, ptFinal=WWins, ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 0, 0, 0, 0]}} []]
 
-miniTree :: Tree TreeItem        
-miniTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} [
-    Node TreeItem {_tiMove = IntMove 1, _tiValue = IntEval 10, _tiErrorValue = IntEval 10} [
-        Node TreeItem {_tiMove = IntMove 3, _tiValue = IntEval 30, _tiErrorValue = IntEval 30} [] ],
-    Node TreeItem {_tiMove = IntMove 2, _tiValue = IntEval 0, _tiErrorValue = IntEval 20} [
-        Node TreeItem {_tiMove = IntMove 4, _tiValue = IntEval 40, _tiErrorValue = IntEval 40} [] ]]
-
 prunedTree :: Tree TreeItem        
 prunedTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} [
     Node TreeItem {_tiMove = IntMove 2, _tiValue = IntEval 2, _tiErrorValue = IntEval 2} []]
@@ -396,20 +381,6 @@ blunderTree = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiError
         Node TreeItem {_tiMove = IntMove 22, _tiValue = IntEval (-40), _tiErrorValue = IntEval (-40)} [
             Node TreeItem {_tiMove = IntMove 25, _tiValue = IntEval 5, _tiErrorValue = IntEval 5} [],
             Node TreeItem {_tiMove = IntMove 26, _tiValue = IntEval 80, _tiErrorValue = IntEval 80} []]]]
-
-{--
-prunedToChild = Node TreeItem {_tiMove = IntMove 2, _tiValue = IntEval 70, _tiErrorValue = IntEval 70} [
-        Node TreeItem {_tiMove = IntMove 5, _tiValue = IntEval   45, _tiErrorValue = IntEval 45} [
-            Node TreeItem {_tiMove = IntMove 11, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} [],
-            Node TreeItem {_tiMove = IntMove 12, _tiValue = IntEval -10, _tiErrorValue = IntEval -10} []],
-        Node TreeItem {_tiMove = IntMove 6, _tiValue = IntEval -60, _tiErrorValue = IntEval -60} [
-            Node TreeItem {_tiMove = IntMove 13, _tiValue = IntEval -20, _tiErrorValue = IntEval -20} [],
-            Node TreeItem {_tiMove = IntMove 14, _tiValue = IntEval 0, _tiErrorValue = IntEval 0} []],
-        Node TreeItem {_tiMove = IntMove 7, _tiValue = IntEval 30, _tiErrorValue = IntEval 30} [
-            Node TreeItem {_tiMove = IntMove 15, _tiValue= 80, _tiErrorValue = IntEval 80} [],
-            Node TreeItem {_tiMove = IntMove 16, _tiValue= -90, _tiErrorValue = IntEval -90} [],
-            Node TreeItem {_tiMove = IntMove 17, _tiValue = IntEval 10, _tiErrorValue = IntEval 10} []]]
---}
 
 aTree2 :: Tree TreeItem
 aTree2 = Node TreeItem {_tiMove = IntMove 0, _tiValue = IntEval 0, _tiErrorValue = IntEval 0 } [

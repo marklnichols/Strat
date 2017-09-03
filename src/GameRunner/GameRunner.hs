@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module GameRunner where
+module GameRunner (startGame) where 
 
 import StratTree.TreeNode
 import StratTree.StratTree
@@ -79,10 +79,6 @@ isCompTurn turn = do
     p1 <- asks _p1Comp
     p2 <- asks _p2Comp
     return $ if turn == 1 then p1 else p2
-
---toBool :: "C" or "c" for computer -> True, "H" or "h" (or anything else for that matter) for Human -> False
-toBool :: String -> Bool
-toBool s = s == "c" || s == "C"
 
 swapTurns :: Int -> Int
 swapTurns t = 3-t   --alternate between 1 and 2
