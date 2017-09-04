@@ -13,8 +13,6 @@ import Data.Aeson
 import Data.IORef
 import qualified Data.Map.Strict as M
 import Data.Tree
-    
--- 123456789
 
 staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js", "checker_1_king_48.png",
     "checker_1_plain_48.png", "checker_2_king_48.png", "checker_2_plain_48.png", 
@@ -64,7 +62,7 @@ getRootR = do
       
 getGameSession :: HandlerT GameApp IO Text
 getGameSession = do 
-    idMay <- readSession uniqueIdKey 
+    idMay <- lookupSession uniqueIdKey 
     case idMay of 
         Nothing -> do
             liftIO $ putStrLn "Adding new unique id to session: "
@@ -74,25 +72,12 @@ getGameSession = do
         Just theId -> do
             liftIO $ putStrLn $ "Retrieved id from session: " ++ show theId
             return theId 
-    {-
-    if isNothing idMay 
-        then do
-            liftIO $ putStrLn "Adding new unique id to session: "
-            newId <- addUniqueId 
-            liftIO $ putStrLn $ "uniqueId: " ++ show newId
-            return newId
-        else do
-            liftIO $ putStrLn "Retrieved id from session: " ++ (fromJust idMay)
-            return (fromJust idMay) 
-    -}
+
 addUniqueId :: Handler Text
 addUniqueId = do
     newUnique <- newIdent
     setSession uniqueIdKey newUnique
     return newUnique
-
-readSession :: Text -> Handler (Maybe Text)
-readSession = lookupSession
 
 getNewGameR :: Handler Value
 getNewGameR = do
@@ -165,9 +150,3 @@ webInit = do
     putStrLn "To play, point your web browser to http://localhost:3000"
     putStrLn "--------------------------------------------------------\n"
     warp 3000 GameApp {getStatic = s, getCounter = counter, getMap = newMap}
-    
-typeHole :: a -> a -> a
-typeHole _ y = y 
-  
-  
-  
