@@ -4,18 +4,6 @@
 Excessive other-modules entry
 * Chess
 * ChessParser
-* GlobalState
-* Session
-Weeds exported
-* GlobalState
-  - AppState
-  - WebM
-  - gets
-  - modify
-  - webM
-* Session
-  - get
-  - set
 
 == Section exe:strat-exe test:StratTreeTest ==
 Module reused between components
