@@ -56,13 +56,10 @@ executable strat-exe
     , base
     , bytestring
     , containers
-    , data-default-class
-    , hashtables
     , lens
     , mtl
     , parsec
     , safe
-    , stm
     , strat
     , text
     , vector
@@ -70,7 +67,7 @@ executable strat-exe
     , yesod
     , yesod-core
   other-modules:
-      Checkers CheckersJson CheckersText Chess ChessParser CkParser GameRunner GlobalState Session WebRunner YesodMain
+      Checkers CheckersJson CheckersText Chess ChessParser CkParser GameRunner WebRunner YesodMain
   default-language: Haskell2010
 
 test-suite StratTreeTest

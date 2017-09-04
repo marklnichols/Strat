@@ -46,8 +46,6 @@ executables:
       ChessParser
       CkParser
       GameRunner
-      GlobalState
-      Session
       WebRunner
       YesodMain
     dependencies:
@@ -55,13 +53,10 @@ executables:
     - base
     - bytestring
     - containers
-    - data-default-class
-    - hashtables
     - lens
     - mtl
     - parsec
     - safe
-    - stm
     - strat
     - text
     - vector
