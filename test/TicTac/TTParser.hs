@@ -1,10 +1,9 @@
 module TicTac.TTParser (run) where
 
+import Data.Char
 import Text.Parsec
 import Text.Parsec.String
---import Text.ParserCombinators.Parsec.Number
 import Text.ParserCombinators.Parsec.Error
-import Data.Char
 
 move :: Parser Int
 move = do
@@ -13,5 +12,5 @@ move = do
 
 run :: String -> Either String Int
 run s = case runParser move () "" s of
-    Left err    -> Left $ concatMap messageString (errorMessages err)
-    Right x    -> Right x
+    Left err -> Left $ concatMap messageString (errorMessages err)
+    Right x  -> Right x

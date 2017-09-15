@@ -2,10 +2,9 @@
 module TicTacTest (ticTacTest) where
 
 import StratTree.TreeNode
-import TicTac.TTGame
 import Test.Hspec
+import TicTac.TTGame
 
--- main = hspec $ do
 ticTacTest :: SpecWith ()
 ticTacTest = do
     describe "checkWins" $
@@ -21,18 +20,12 @@ ticTacTest = do
             eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` 100
             eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos2 1 NotFinal)) `shouldBe` (-100)
             eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos3 1 NotFinal)) `shouldBe` 0
-            --eval (TTNode IntMove 0 0 (TTPosition aPos4 1 NotFinal)) `shouldBe` 20
-            --eval (TTNode IntMove 0 0 (TTPosition aPos5 1 NotFinal)) `shouldBe` (-20)
-            --eval (TTNode IntMove 0 0 (TTPosition aPos6 1 NotFinal)) `shouldBe` 10
-            --eval (TTNode IntMove 0 0 (TTPosition aPos7 1 NotFinal)) `shouldBe` (-10)
     describe "checkTwoWayWin" $
         it "Checks whether a position contains two in a row in two different places." $ do
             checkTwoWayWin aPos3 1 `shouldBe` False
             checkTwoWayWin aPos3 (-1) `shouldBe` False
             checkTwoWayWin aPos8 1 `shouldBe` True
-
             checkTwoWayWin aPos8 (-1) `shouldBe` False
-
             checkTwoWayWin aPos9 (-1) `shouldBe` True
             checkTwoWayWin aPos9 1 `shouldBe` False
             checkTwoWayWin aPos10 1 `shouldBe` True

@@ -1,15 +1,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module CkParser (Move (..), Loc (..), run) where
-
+module CkParser 
+    ( Move (..)
+    , Loc (..)
+    , run
+    ) where
+       
+import Data.Aeson
+import Data.Char
+import GHC.Generics
 import Text.Parsec
 import Text.Parsec.String
-import Data.Char
-import Data.Aeson
-import GHC.Generics
  
-data Loc 
-    = Loc Char Int
+data Loc = Loc Char Int
     deriving (Eq, Generic)
     
 instance Show Loc where
@@ -30,7 +33,6 @@ instance ToJSON Move where
     toEncoding = genericToEncoding defaultOptions
 
 instance FromJSON Move 
- 
  
 loc :: Parser Loc
 loc = do

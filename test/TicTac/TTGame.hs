@@ -2,20 +2,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 module TicTac.TTGame 
     ( calcNewNode
-    , getPossibleMoves
-    , eval
-    , checkWins
     , checkTwoWayWin
+    , checkWins
+    , eval
     , format
+    , getPossibleMoves
+    , strToMove
     , TTPosition (..)
     , TTNode (..)
-    , strToMove
     ) where
 
-import StratTree.TreeNode hiding (Result, MoveScore)
-import qualified TicTac.TTParser as Parser
 import Control.Lens
 import Data.Tree
+import StratTree.TreeNode hiding (Result, MoveScore)
+import qualified TicTac.TTParser as Parser
 
 ------------------------------------------------------------------
 -- Data Types
@@ -29,9 +29,7 @@ makeLenses ''TTNode
 instance PositionNode TTNode IntMove IntEval where
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
-    --color = _clr . _ttPosition
     color n = n ^. (ttPosition . clr)
-    --final = _fin . _ttPosition
     final n = n ^. (ttPosition . fin)
     parseMove n s = strToMove s (color n)
 
@@ -44,8 +42,9 @@ instance TreeNode TTNode IntMove IntEval where
 -- starting position,
 ---------------------------------------------------------
 _getStartNode :: Tree TTNode
-_getStartNode = Node TTNode {_ttMove = IntMove (-1), _ttValue = IntEval 0, _ttErrorValue = IntEval 0, _ttPosition = TTPosition
-    {_grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal}} []
+_getStartNode = Node TTNode { _ttMove = IntMove (-1), _ttValue = IntEval 0
+                            , _ttErrorValue = IntEval 0, _ttPosition = TTPosition
+                            { _grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal } } []
 
 ---------------------------------------------------------
 -- parse string input to move
@@ -56,7 +55,6 @@ strToMove str colr =
     in case x of
         Left err -> Left err
         Right n -> Right $ IntMove (colr * n)
-
 
 --------------------------------------------------------
 -- format position as a string
@@ -87,7 +85,6 @@ calcNewNode node mv =
         errorScr = errorEvalGrid $ colorFlipped ^. grid
         allSet = set fin finalSt colorFlipped
     in  TTNode mv (IntEval scr) (IntEval errorScr) allSet
-
 
 ----------------------------------------------------------
 -- convert from move value to grid index
@@ -124,7 +121,6 @@ evalGrid pos
 colorToFinalState :: Int -> FinalState
 colorToFinalState 1 = WWins
 colorToFinalState _ = BWins
-
 
 errorEvalGrid :: [Int] -> Int
 errorEvalGrid grd
@@ -229,24 +225,4 @@ sumCorners xs = head xs + (xs !! 2) + (xs !! 6) + (xs !! 8)
 
  filter (\n -> n `mod` 4 == 0) offsets  -- 0, 4, 8
  filter (\n -> (n `mod` 2 == 0) && (n `mod` 8 /= 0)) offsets  -- 2, 4, 6
---}
-
-
-{-- TODO: try -
-    x `mod` 3 == 2 :: Int -> Bool
-
-    filterFunct :: Int -> Int -> Int -> Bool
-    \n y x -> x `mod` n == y is a filterFunct
-    \n y x -> x `div` n == y is a filterFunct
-    \n y x -> (x `mod` 2 ==0) && (x `mod` 8 /= 0)) is a filterFunct
-
-
-    (x `mod` 2 == 0) && (x `mod` 8 /= 0)) :: Int -> Bool
-
-    modNs :: n -> [zeroToTwoValues] -> funct to pass 0-8 to
-    modNs :: Int -> [Int] -> [Int -> Bool]
-    instead of:
-    modNs n values = map (\y x -> x `mod` n == y) values
-    how about:
-    modNs n values = map (\y x -> filterFunct) values
 --}

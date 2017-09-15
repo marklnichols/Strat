@@ -14,12 +14,12 @@ module Chess
     , getSingleLocs
     ) where
         
+import Control.Lens
+import Data.Maybe
 import Data.Tree 
 import StratTree.TreeNode
-import Control.Lens
-import qualified Data.Vector.Unboxed as V
 import qualified ChessParser as P
-import Data.Maybe
+import qualified Data.Vector.Unboxed as V
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -31,8 +31,7 @@ data ChessMv = ChessMv {isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _r
     deriving (Eq, Ord, Show)
 makeLenses ''ChessMv
 
-data ChessEval = ChessEval {_total :: Int, _details :: String}
-    deriving (Eq, Ord)
+data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
 makeLenses ''ChessEval
 
 data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval, 
@@ -70,7 +69,6 @@ usePieceType idx =
  
 data MoveType = Glide | Hop | Single | Pawny | NoMoveType deriving (Eq, Show)
 
---indexToPiece :: ChessPiece p => V.Vector Int -> Int -> p
 indexToPiece :: V.Vector Int -> Int -> ChessPiece
 indexToPiece g idx = 
     let gridVal =  fromMaybe 0 (g ^? ix idx) 
@@ -90,12 +88,6 @@ instance TreeNode ChessNode ChessMv ChessEval where
     getValue = _chessVal
     getErrorValue = _chessErrorVal
 
-{-
-instance Show ChessMv where
-    show mv = case toParserMove mv of
-                    Just m -> show m
-                    Nothing -> show mv
--}    
 instance Show ChessNode where
     show n = "move: " ++ show (n ^. chessMv) ++ " value: " ++ show (n ^. chessVal) ++ " errorValue: "
              ++ show (n ^. chessErrorVal) ++ " position: " ++ show (n ^. chessPos)
@@ -121,7 +113,6 @@ getStartNode = undefined
 ---------------------------------------------------------------------------------------------------
 {-- how indexes relate to board position (indexes in parens are off the edge of the board):
    
-
    (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 8| (80)  81   82   83   84   85   86   87   88  (89)
@@ -136,7 +127,6 @@ getStartNode = undefined
    (00) (01) (02) (03) (04) (05) (06) (07) (08) (09)
    -------------------------------------------------
          A    B    C    D    E    F    G    H
-
 
     An index x is off the board if:
         x < 10 or
@@ -156,7 +146,6 @@ getStartNode = undefined
     Diag U/R    +11                 Knight UR   +21
     Diag D/L    -11                 Knight DL   -21
     
-    
 Piece representation as integers:
 1 = White King      -1 = Black King
 2 = White Queen     -2 = Black Queen
@@ -168,70 +157,42 @@ Piece representation as integers:
 ---------------------------------------------------------------------------------------------------}
 type Dir = Int -> Int
 
-right :: Int -> Int
+right, left, up, down, diagUL, diagDR, diagUR, diagDL, knightLU, knightRD, knightLD  :: Dir
 right = (1+)
-
-left :: Int -> Int
 left x = x - 1
-
-up :: Int -> Int
 up = (10+)
-
-down :: Int -> Int
 down x = x - 10
-
-diagUL  :: Int -> Int
 diagUL = (9+)
-
-diagDR :: Int -> Int
 diagDR x = x - 9
-
-diagUR :: Int -> Int
 diagUR = (11+)
-
-diagDL :: Int -> Int
 diagDL x = x - 11
-
-knightLU :: Int -> Int
 knightLU = (8+)
-
-knightRD :: Int -> Int
 knightRD x = x - 8
-
-knightLD :: Int -> Int
 knightLD x = x - 12
 
-knightRU :: Int -> Int
+knightRU, knightUL, knightDR, knightUR, knightDL :: Dir
 knightRU = (12+)
-
-knightUL :: Int -> Int
 knightUL = (19+)
-
-knightDR :: Int -> Int
 knightDR x = x - 19
-
-knightUR :: Int -> Int
 knightUR = (21+)
-
-knightDL :: Int -> Int
 knightDL x = x - 21
 
-queenDirs :: [Int -> Int]
+queenDirs :: [Dir]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
 
-rookDirs :: [Int -> Int]
+rookDirs :: [Dir]
 rookDirs = [up, down, left, right]
 
-bishopDirs :: [Int -> Int]
+bishopDirs :: [Dir]
 bishopDirs = [diagUL, diagDR, diagUR, diagDL]
 
-knightDirs :: [Int -> Int]
+knightDirs :: [Dir]
 knightDirs = [knightLU, knightRD, knightLD, knightRU, knightUL, knightDR, knightUR, knightDL]
 
-pawnDirs :: [Int -> Int]
+pawnDirs :: [Dir]
 pawnDirs = [up, diagUL, diagUR]
 
-noDirs :: [Int -> Int]
+noDirs :: [Dir]
 noDirs = []
 
 ---------------------------------------------------------------------------------------------------
@@ -297,8 +258,7 @@ kingFilter _ _ = undefined -- color index
     if isEnemy or isEmpty
         if Sq is defended
             False
-        else true
-        
+        else true      
 -}
 
 hasFriendly :: Int -> Int -> Bool
@@ -326,9 +286,8 @@ glideDirLocs :: Dir -> Int -> [Int]
 glideDirLocs _ _ = undefined
 --glideDirLocs dir idx = 
 --    case dir idx of 
-
-    --stop if blocked by friendly piece
-    --include captured piece and stop
+--(stop if blocked by friendly piece)
+--(include captured piece and stop)
 
 onBoard :: Int -> Bool
 onBoard x 
@@ -353,14 +312,3 @@ destinationsToMoves _ _ = undefined     -- idx dests
 
 indexesToMove :: [Int] -> ChessMv
 indexesToMove _ = undefined
-
-{-
-jmpsToCkMoves :: [[Int]] -> [CkMove]
-jmpsToCkMoves = foldr f [] where
-    f []  r = r
-    f [_] r = r
-    f xs  r = CkMove { _isJump = True, _startIdx = head xs, _endIdx = last xs,
-                       _middleIdxs = init $ tail xs,
-                       _removedIdxs = fmap (\(m, n) -> (n-m) `div` 2 + m) (zip xs (tail xs))
-                     } : r
--}

@@ -2,30 +2,25 @@
 
 module GameRunner (startGame) where 
 
-import StratTree.TreeNode
-import StratTree.StratTree
-import StratIO.StratIO
-import Data.Tree
-import Data.Maybe
+import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Control.Lens
+import Data.Maybe
+import Data.Tree
+import StratIO.StratIO
+import StratTree.StratTree
+import StratTree.TreeNode
 
 gameEnv :: Env
-gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
-     _p1Comp = False, _p2Comp = True}
+gameEnv = Env { _depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0
+              , _p1Comp = False, _p2Comp = True }
 
 startGame :: (Output o n m e, PositionNode n m e) => o -> Tree n -> IO ()
 startGame o node = loop o node 1
 
 loop :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO ()
 loop o node turn = do
-
-    --putStrLn showPosition $ rootLabel node
     updateBoard o $ rootLabel node
-    --putStrLn ("Current position score: " ++ show (getValue (rootLabel node)))
-    --putStrLn ""
-
     theNext <- case final $ rootLabel node of
         WWins -> do
             out o "White wins."
@@ -45,12 +40,10 @@ loop o node turn = do
         Nothing -> return ()
         Just next -> loop o next (swapTurns turn)
 
-
 playerMove :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO (Tree n)
 playerMove o tree turn = do
     mv <- getPlayerMove o tree turn
     return (processMove tree mv)
-
 
 computerMove :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO (Tree n)
 computerMove o node turn = do

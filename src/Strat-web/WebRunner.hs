@@ -2,33 +2,33 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
 module WebRunner 
-    ( processStartGame
+    ( Jsonable(..)
+    , NodeWrapper(..)    
     , processComputerMove
-    , processPlayerMove
     , processError 
-    , Jsonable(..)
-    , NodeWrapper(..)
+    , processPlayerMove
+    , processStartGame
     ) where
 
-import StratTree.TreeNode
-import StratTree.StratTree
-import StratIO.StratIO
-import Data.Tree
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Aeson
-import qualified CheckersJson as J
+import Data.Tree
+import StratTree.TreeNode
+import StratIO.StratIO
+import StratTree.StratTree
 import qualified Checkers as Ck
+import qualified CheckersJson as J
 
 gameEnv :: Env
-gameEnv = Env {_depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0,
-     _p1Comp = False, _p2Comp = True}
+gameEnv = Env { _depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0
+              , _p1Comp = False, _p2Comp = True }
 
 data Jsonable = forall j. ToJSON j => Jsonable j 
 
-data NodeWrapper = NodeWrapper {getNode :: Tree Ck.CkNode, getLastMove :: Maybe Ck.CkMove
-                              , getJsonable :: Jsonable}
+data NodeWrapper = NodeWrapper { getNode :: Tree Ck.CkNode, getLastMove :: Maybe Ck.CkMove
+                               , getJsonable :: Jsonable }
 
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
@@ -46,7 +46,6 @@ processComputerMove tree = do
     liftIO $ putStrLn $ "Computer move (In processComputerMove), turn = " ++ show (colorToTurn posColor)
     computerResponse tree (colorToTurn posColor)
       
- 
 --player move (web request) received
 processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> Bool -> IO NodeWrapper
 processPlayerMove tree mv bComputerResponse = do
@@ -67,7 +66,6 @@ processError str tree = return $ createError str tree
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
 ----------------------------------------------------------------------------------------------------  11
-   
 computerResponse :: Tree Ck.CkNode -> Int -> IO NodeWrapper
 computerResponse prevNode turn = do
     eitherNode <- computerMove prevNode turn
@@ -82,11 +80,6 @@ computerMove node turn = do
     case resultM of
         Nothing -> return $ Left "Invalid result returned from best"
         Just result -> do
-            --let badMovesM = checkBlunders newTree (turnToColor turn) (result^.moveScores)
-            --let badMoves = evalState (runReaderT (unRST badMovesM) gameEnv) (GameState 0)
-            --let finalChoices = fromMaybe (result ^. moveScores) badMoves
-            
-            --moveM <- resolveRandom finalChoices
             moveM <- resolveRandom (result^.moveScores)
             case moveM of
                 Nothing -> return $ Left "Invalid result from resolveRandom"
@@ -121,8 +114,7 @@ createUpdate msg prevN newN mv =
     NodeWrapper {getNode = newN, 
                  getLastMove =  mv, 
                  getJsonable = Jsonable $ J.jsonUpdate msg (rootLabel prevN) (rootLabel newN)
-                                         (Ck.getAllowedMoves (rootLabel newN)) mv
-                }
+                                         (Ck.getAllowedMoves (rootLabel newN)) mv}
                  
 createError :: String -> Tree Ck.CkNode -> NodeWrapper
 createError s node = NodeWrapper {getNode = node, getLastMove = Nothing, 

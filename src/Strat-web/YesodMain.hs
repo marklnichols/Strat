@@ -1,6 +1,11 @@
-{-# LANGUAGE QuasiQuotes, TemplateHaskell, OverloadedStrings, TypeFamilies, 
-    MultiParamTypeClasses, ScopedTypeVariables #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall -fno-warn-unused-binds #-}
+
 module YesodMain (webInit) where
 
 import Yesod hiding (insert)
@@ -119,7 +124,7 @@ postPlayerMoveR = do
             liftIO $ putStrLn "getPlayerMoveR - no tree found in the map"
             processError "Something is wrong with this game" getStartNode
         Just tree -> 
-            --TODO: clean up these nested cases after this is working...      
+            --TODO: clean up these nested cases    
             case resultM of
                 Error e -> do
                     liftIO $ putStrLn "getPlayerMoveR - could not parse the json from the client"

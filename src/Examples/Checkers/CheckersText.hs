@@ -1,20 +1,18 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module CheckersText 
-    ( 
-      CheckersText(..)
+    ( CheckersText(..)
     ) where
 
-import StratTree.TreeNode
-import StratTree.StratTree
-import StratTree.Trees
-import Data.Tree
-import Data.List
-import System.Exit
-import Control.Lens
-import qualified Data.Vector.Unboxed as V
-import qualified Data.Map as Map
 import Checkers
-
+import Control.Lens
+import Data.List
+import Data.Tree
+import StratTree.StratTree
+import StratTree.TreeNode
+import StratTree.Trees
+import System.Exit
+import qualified Data.Map as Map
+import qualified Data.Vector.Unboxed as V
 
 data CheckersText = CheckersText
 
@@ -25,9 +23,6 @@ instance Output CheckersText CkNode CkMove CkEval where
     getPlayerMove _ = playerMove
     gameError = exitFail
 
--- class Output o n m | o -> n, n -> m where 
--- showCompMove :: o -> Tree n -> Result m e -> m -> IO ()    
-    
 printString :: String -> IO ()
 printString = putStrLn
     
@@ -48,7 +43,6 @@ printMoveChoiceInfo tree finalChoices result mv = do
                   ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
     putStrLn ""
 
- 
 exitFail :: CheckersText -> String -> IO ()
 exitFail _ s = do
     putStrLn s
@@ -66,11 +60,12 @@ playerMove tree turn = do
         Left err -> do
             putStrLn err
             playerMove tree turn
-        Right mv -> if not (isLegal tree mv)
-                        then do
-                            putStrLn "Not a legal move."
-                            playerMove tree turn
-                        else return mv                         
+        Right mv -> 
+            if not (isLegal tree mv)
+                then do
+                    putStrLn "Not a legal move."
+                    playerMove tree turn
+                else return mv                         
    
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
@@ -83,7 +78,6 @@ formatBoard node = loop (node^.ckPosition^.grid) 40 "" where
             0 -> (n-1, "")
             4 -> (n, "   ")
             _ -> (n, "   ") --should never happen
-
 
 rowToStr :: V.Vector Int -> Int -> String -> String
 rowToStr xs i spaces =  Map.findWithDefault "??" i labelMap ++ "  " ++ spaces ++
