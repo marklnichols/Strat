@@ -3,13 +3,13 @@ module CheckersTest (checkersTest) where
 
 import Checkers
 import CkParser
-import Test.Hspec
-import Data.Tree
-import Data.Either
-import qualified Data.Vector.Unboxed as V
-import qualified CheckersJson as J
 import Control.Lens
+import Data.Either
+import Data.Tree
 import StratTree.TreeNode
+import Test.Hspec
+import qualified CheckersJson as J
+import qualified Data.Vector.Unboxed as V
 
 checkersTest :: SpecWith ()
 checkersTest = do
@@ -109,16 +109,18 @@ blackFirstStartNode :: CkNode
 blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
-treeFromGridW g = Node CkNode {_ckMove = mkSimpleCkMove (-1),
-    _ckValue = CkEval {_total = 0, _details = ""},
-    _ckErrorValue = CkEval {_total = 0, _details = ""},
-    _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
+treeFromGridW g = Node CkNode 
+    { _ckMove = mkSimpleCkMove (-1)
+    , _ckValue = CkEval {_total = 0, _details = ""}
+    , _ckErrorValue = CkEval {_total = 0, _details = ""}
+    , _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
-treeFromGridB g = Node CkNode {_ckMove = mkSimpleCkMove (-1),
-    _ckValue = CkEval {_total = 0, _details = ""},
-    _ckErrorValue = CkEval {_total = 0, _details = ""},
-    _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
+treeFromGridB g = Node CkNode 
+    { _ckMove = mkSimpleCkMove (-1)
+    , _ckValue = CkEval {_total = 0, _details = ""}
+    , _ckErrorValue = CkEval {_total = 0, _details = ""}
+    , _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
 
 nodeFromGridW :: V.Vector Int -> CkNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
@@ -148,15 +150,15 @@ mkMultiJsonJump (mv, middle, removed) = J.jsonFromCkMove (mkMultiCkJump (mv, mid
 -- Test Reader environments
 ---------------------------------------------------------------------------------------------------
 _envDepth6 :: Env
-_envDepth6 = Env {_depth =6, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0,
-     _p1Comp = False, _p2Comp = True}
+_envDepth6 = Env { _depth =6, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0
+                 , _p1Comp = False, _p2Comp = True }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
 ---------------------------------------------------------------------------------------------------
 board01 :: V.Vector Int
-board01 = V.fromList [99, 99, 99, 99, 99, 01, 00, -02, 00, 99, 00, 00, 00, 00, 00, 00, 00, 01, 99, 00, -02, 00, 00,
-                      00, 00, 00, 00, 99, 02, 00, -1, 00, 00, 00, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
+board01 = V.fromList [ 99, 99, 99, 99, 99, 01, 00, -02, 00, 99, 00, 00, 00, 00, 00, 00, 00, 01, 99, 00, -02, 00, 00
+                     , 00, 00, 00, 00, 99, 02, 00, -1, 00, 00, 00, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
 
 {-                                   --  (41) (42) (43) (44) (45)
                 -1   00   02   00    --     37   38   39   40
@@ -224,7 +226,6 @@ board02_m2 = V.fromList [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 00, 00, -1, 00,
                                      --  (00) (01) (02) (03) (04)
 --}
 
-
 board03 :: V.Vector Int
 board03 = V.fromList [99, 99, 99, 99, 99, 01, 00, 00, 01, 99, 00, 00, -1, 00, 00, 00, 01, 00, 99, 00, -02, -1, 00,
                       00, 00, 02, 00, 99, 02, 00, -1, 00, 01, 02, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
@@ -277,7 +278,6 @@ board05 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, -1, 00, 00, 00
                                      --  (00) (01) (02) (03) (04)
 --}
 
-
 board06 :: V.Vector Int
 board06 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, -1, 00, 00, 99, 00, 00, 00, 00,
                       00, 00, 01, 00, 99, 00, 01, -1, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
@@ -293,7 +293,6 @@ board06 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00
               00   00   00   00      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)
 -}
-
 
 board07 :: V.Vector Int
 board07 = V.fromList [99, 99, 99, 99, 99, 00, 01, 00, 00, 99, -1, -1, 00, 00, 00, 00, 00, 00, 99, -1, -1, -1, 00,
@@ -469,7 +468,6 @@ A  x     x     x     x
    1  2  3  4  5  6  7  8
 Current position score: Total 1 made up of mat<0> mob<-1> home<0> prog<2>
 --}
-
 
 {--
 board0n :: V.Vector Int

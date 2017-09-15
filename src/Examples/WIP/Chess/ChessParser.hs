@@ -18,4 +18,3 @@ data Move =  Move [Loc]
  
 instance Show Move where
     show (Move xs) = init $ concatMap (\x -> show x ++ "-") xs
------------------------------------------------

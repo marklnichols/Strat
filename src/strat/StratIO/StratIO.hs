@@ -9,5 +9,4 @@ resolveRandom xs = do
     let ms = fmap _move xs
     r <- getStdRandom $ randomR (1, length ms)
     let n = ms !! (r-1)
-    --putStrLn ("selecting: " ++ show n ++ " from: " ++ show xs)
     return (Just n)

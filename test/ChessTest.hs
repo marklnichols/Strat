@@ -2,10 +2,10 @@
 module ChessTest (chessTest) where
 
 import Chess
-import Test.Hspec
 import Data.Tree
-import qualified Data.Vector.Unboxed as V
 import StratTree.TreeNode
+import Test.Hspec
+import qualified Data.Vector.Unboxed as V
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -22,16 +22,18 @@ chessTest = do
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
 treeFromGridW :: V.Vector Int -> Tree ChessNode
-treeFromGridW g = Node ChessNode {_chessMv = noMove,
-    _chessVal = ChessEval {_total = 0, _details = ""},
-    _chessErrorVal = ChessEval {_total = 0, _details = ""},
-    _chessPos = ChessPos {_grid = g, _clr = 1, _fin = NotFinal}} []
+treeFromGridW g = Node ChessNode 
+    { _chessMv = noMove
+    , _chessVal = ChessEval {_total = 0, _details = ""}
+    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
+    , _chessPos = ChessPos {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree ChessNode
-treeFromGridB g = Node ChessNode {_chessMv = noMove,
-    _chessVal = ChessEval {_total = 0, _details = ""},
-    _chessErrorVal = ChessEval {_total = 0, _details = ""},
-    _chessPos = ChessPos {_grid = g, _clr = -1, _fin = NotFinal}} []
+treeFromGridB g = Node ChessNode 
+    { _chessMv = noMove
+    , _chessVal = ChessEval {_total = 0, _details = ""}
+    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
+    , _chessPos = ChessPos {_grid = g, _clr = -1, _fin = NotFinal } } []
 
 nodeFromGridW :: V.Vector Int -> ChessNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
@@ -83,11 +85,6 @@ P   P   -   -   -   R   -   -          2| (20)  21   22   23   24   25   26   27
                                                 A    B    C    D    E    F    G    H   
 -}
 
-
-
-
-
-
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: V.Vector Int
 _boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99, 
@@ -101,7 +98,7 @@ _boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99, 
                              99,  99,  99,  99,  99,  99,  99,  99,  99,  99 ]
 
-{-                                                (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 -   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
 -   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
@@ -112,17 +109,7 @@ _boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
 -   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
 -   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
 
-                                                  (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
-                                                  -------------------------------------------------
-                                                         A    B    C    D    E    F    G    H   
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H   
 -}
-
-
-
-
-
-
-
-
-
---}

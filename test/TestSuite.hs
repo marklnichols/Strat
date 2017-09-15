@@ -1,11 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Main where
 
-import StratTreeTest
-import TicTacTest
 import CheckersTest
 import ChessTest
+import StratTreeTest
 import Test.Hspec
+import TicTacTest
 
 main :: IO ()
 main = hspec $ do

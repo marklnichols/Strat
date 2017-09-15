@@ -1,36 +1,41 @@
-module StratTree.StratTree ( best, worstReply, checkBlunders, expandTree, processMove, addEquiv, 
-                             isWorse, isLegal, possibleBlunders, worst, best') where
+module StratTree.StratTree 
+    ( addEquiv
+    , best
+    , best'
+    , checkBlunders
+    , expandTree
+    , isLegal
+    , isWorse 
+    , possibleBlunders
+    , processMove
+    , worst
+    , worstReply
+    ) where
 
-import StratTree.Trees
-import StratTree.TreeNode
-
-import Data.Tree
-import Data.Maybe
-import Safe
 import Control.Monad
 import Control.Monad.Reader
---import Control.Monad.State
 import Control.Lens
---import Debug.Trace
+import Data.Maybe
+import Data.Tree
 import Data.Tree.Zipper
+import Safe
+import StratTree.TreeNode
+import StratTree.Trees
 
-----------------------------------------------------------------------------------------------------
--- Exported functions
--------------------------------------------------------------
 best :: (TreeNode t m e) => Tree t -> Int -> RST (Maybe (Result m e))
 best t colr = do
     depth <- asks _depth
     return (best' t depth colr flipColor getValue)
 
---TODO: move to lens getters
+--TODO: Convert to lens getters
 checkBlunders :: TreeNode t m e => Tree t -> Int -> [MoveScore m e] -> RST (Maybe [MoveScore m e])
 checkBlunders _ _ [] = return Nothing
 checkBlunders _ _ [ms] = return $ Just [ms]
 checkBlunders t colr equivMS = do
     depth <- asks _errorDepth
     threshold <- asks _errorEquivThreshold
-    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along with the score of
-    --the worst opponent's reply to that move
+    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along 
+    -- with the score of the worst opponent's reply to that move
     let equivScore = _score $ head equivMS
     let possibles = possibleBlunders t depth colr equivMS -- :: [MoveScore m]
     return $ worstMS possibles colr >>= (\wrst -> if isWorse (wrst ^. score) equivScore threshold colr
@@ -52,22 +57,20 @@ processMove t mv = case subForest t of
 isLegal :: PositionNode n m e => Tree n -> m -> Bool
 isLegal t mv = mv `elem` possibleMoves (rootLabel t)
 
----------------------------------------------------------------------------------------------------
--- non-exported functions
----------------------------------------------------------------------------------------------------
 --"worse" here is better wrt color used, since color is from tree level above
 isWorse :: Eval e => e -> e -> Int -> Int -> Bool
 isWorse  scoreToCheck compareTo margin colr
-    | abs (getInt scoreToCheck - getInt compareTo) < margin      = False
+    | abs (getInt scoreToCheck - getInt compareTo) < margin    = False
     | (colr * getInt scoreToCheck) > (colr * getInt compareTo) = True
     | otherwise = False
 
 possibleBlunders :: TreeNode t m e => Tree t -> Int -> Int -> [MoveScore m e] -> [MoveScore m e]
 possibleBlunders t depth colr equivMS = catMaybes $ fmap convert equivMS where
-    convert ms = let result = worstReply t depth colr (_move ms) -- :: Maybe Result
-                 in result >>= (\r -> case _moveScores r of
-                                          [] -> Nothing
-                                          (x:_) ->  Just (mkMoveScore (_move ms) (_score x)))
+    convert ms = 
+        let result = worstReply t depth colr (_move ms) -- :: Maybe Result
+        in result >>= (\r -> case _moveScores r of
+            [] -> Nothing
+            (x:_) ->  Just (mkMoveScore (_move ms) (_score x)))
 
 worstMS :: Eval e => [MoveScore m e] -> Int -> Maybe (MoveScore m e)
 worstMS [] _ = Nothing
@@ -127,7 +130,7 @@ across depth colr colorFlip getVal (rMvs, randChoices, rVal) t =
 visitor :: PositionNode n m e => TreePos Full n -> Int -> Int -> TreePos Full n
 visitor tPos depth maxi
     | final (label tPos) /= NotFinal = tPos
-    | depth == maxi                   = tPos
+    | depth == maxi                  = tPos
     | not (hasChildren tPos)         = modifyTree addBranches tPos
     | otherwise                      = tPos
 

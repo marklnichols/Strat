@@ -3,10 +3,30 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module StratTree.TreeNode (TreeNode (..), PositionNode (..), FinalState (..), flipColor, keepColor,
-       mkMoveScore, MoveScore (_move, _score) , move, score, Result (..), moveChoices,
-       followingMoves, moveScores, Env (..), Move, Eval (..), IntMove (..), IntEval (..),
-       RST (..), RSTransformer, GameState(..), Output(..)) where
+module StratTree.TreeNode 
+    ( Env (..)
+    , Eval (..)
+    , FinalState (..)
+    , flipColor
+    , followingMoves
+    , GameState(..)
+    , IntEval (..)
+    , IntMove (..)
+    , keepColor
+    , mkMoveScore
+    , move
+    , Move
+    , moveChoices
+    , MoveScore (_move, _score) 
+    , moveScores
+    , Output(..)
+    , PositionNode (..)
+    , Result (..) 
+    , RST (..)
+    , RSTransformer
+    , score
+    , TreeNode (..)
+    ) where
 
 import Control.Lens
 import Control.Monad.Reader
@@ -23,18 +43,16 @@ data Env = Env
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
  
 data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Eq)
+$(makeLenses ''MoveScore)
 
 mkMoveScore :: m -> e -> MoveScore m e
 mkMoveScore = MoveScore
-
-$(makeLenses ''MoveScore)
 
 instance (Show m, Show e) => Show (MoveScore m e) where
     show ms = "(m:" ++ show (ms^.move) ++ " s:" ++ show (ms^.score) ++ ")"
 
 data Result m e = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScores ::[MoveScore m e]}
-                deriving(Show, Eq)
-
+    deriving(Show, Eq)
 makeLenses ''Result 
 
 data GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)

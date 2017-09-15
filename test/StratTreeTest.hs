@@ -3,17 +3,17 @@
 {-# LANGUAGE FlexibleInstances #-}
 module StratTreeTest (stratTreeTest) where
 
-import StratTree.StratTree
-import StratTree.Trees
-import StratTree.TreeNode
-import Data.Tree
-import Data.Tree.Zipper
-import Data.Maybe
-import Data.Map
-import Test.Hspec
-import qualified Data.Map as Map
 import Control.Monad.Reader
 import Control.Monad.State.Strict
+import Data.Map
+import Data.Maybe
+import Data.Tree
+import Data.Tree.Zipper
+import StratTree.StratTree
+import StratTree.TreeNode
+import StratTree.Trees
+import Test.Hspec
+import qualified Data.Map as Map
 
 ------------------------------------------------------------------------------------------------
 -- hspec tests
@@ -222,7 +222,6 @@ instance PositionNode PosTreeItem IntMove IntEval where
     color = ptColor
     possibleMoves = calcPossibleMoves
     final = ptFinal
-    --showPosition = show
     parseMove _ _ = Left "Should not be called."
 
 calcPossibleMoves :: PosTreeItem -> [IntMove]
@@ -250,23 +249,22 @@ mvToNode  = Map.fromList [
     (IntMove 8, PosTreeItem {ptMove=IntMove 8, ptValue=IntEval 8, ptColor = -1, ptFinal=NotFinal,
         ptPosition=TreePosition {tts = [0, 0, 1, 0, 0, 1, 0, 0, 0]}})]
 
-
 -----------------------------------------------
 testEnv1 :: Env
-testEnv1 = Env {_depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = False}
+testEnv1 = Env { _depth =1, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 10
+               , _p1Comp = True, _p2Comp = False }
 
 testEnv2 :: Env
-testEnv2 = Env {_depth = 2, _errorDepth = 2, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = False}
+testEnv2 = Env { _depth = 2, _errorDepth = 2, _equivThreshold = 0, _errorEquivThreshold = 10
+               , _p1Comp = True, _p2Comp = False }
 
 testEnv3 :: Env
-testEnv3 = Env {_depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = False}
+testEnv3 = Env { _depth = 3, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 10
+               , _p1Comp = True, _p2Comp = False }
 
 testEnvMax :: Env
-testEnvMax = Env {_depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 10,
-     _p1Comp = True, _p2Comp = False}
+testEnvMax = Env { _depth = -1, _errorDepth = -1, _equivThreshold = 0, _errorEquivThreshold = 10
+                 , _p1Comp = True, _p2Comp = False }
 
 rootOnly :: Tree PosTreeItem
 rootOnly = Node PosTreeItem {ptMove=IntMove 0, ptValue = IntEval 0, ptColor=1, ptFinal=NotFinal, ptPosition=TreePosition {tts = [0, 0, 0, 0, 0, 0, 0, 0, 0]}} []

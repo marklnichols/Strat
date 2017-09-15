@@ -1,24 +1,22 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 module CheckersJson 
-    ( 
-      jsonError  
+    ( jsonError  
+    , jsonFromCkMove
     , jsonMessage
     , JsonMove(..)
-    , jsonFromCkMove
     , jsonMoveToCkMove
     , jsonToCkMove
     , jsonUpdate
-
     ) where
 
 import Data.Aeson
 import Data.Char
 import GHC.Generics
+import qualified Checkers as Ck
 import qualified CkParser as P
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Lazy.Char8 as B8
-import qualified Checkers as Ck
 
 ----------------------------------------------------------------------------------------------------
 -- Data types and instances
@@ -96,10 +94,9 @@ instance FromJSON JsonError
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 ----------------------------------------------------------------------------------------------------
---todo: do I now not need this since Yesod does the decode?
 jsonToCkMove :: String -> Maybe Ck.CkMove
 jsonToCkMove s = (jsonToParserMove <$> decode (strToBs s)) >>= Ck.parserToCkMove
---instead:
+
 jsonMoveToCkMove :: JsonMove -> Maybe Ck.CkMove
 jsonMoveToCkMove jMove = Ck.parserToCkMove $ jsonToParserMove jMove
   
@@ -154,4 +151,4 @@ jsonToParserMove jMv = P.Move (fmap toParserLoc (locs jMv))
 ----------------------------------------------------------------------------------------------------
 -- Example messages
 ----------------------------------------------------------------------------------------------------
---TBD update...
+--TBD
