@@ -42,14 +42,11 @@ data Env = Env
     {_depth :: Int, _errorDepth :: Int, _equivThreshold :: Int, _errorEquivThreshold :: Int,
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
  
-data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Eq)
+data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Show, Eq)
 $(makeLenses ''MoveScore)
 
 mkMoveScore :: m -> e -> MoveScore m e
 mkMoveScore = MoveScore
-
-instance (Show m, Show e) => Show (MoveScore m e) where
-    show ms = "(m:" ++ show (ms^.move) ++ " s:" ++ show (ms^.score) ++ ")"
 
 data Result m e = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScores ::[MoveScore m e]}
     deriving(Show, Eq)

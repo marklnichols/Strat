@@ -27,7 +27,8 @@ gameEnv = Env { _depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThr
 
 data Jsonable = forall j. ToJSON j => Jsonable j 
 
-data NodeWrapper = NodeWrapper { getNode :: Tree Ck.CkNode, getLastMove :: Maybe Ck.CkMove
+data NodeWrapper = NodeWrapper { getNode :: Tree Ck.CkNode
+                               , getLastMove :: Maybe (MoveScore Ck.CkMove Ck.CkEval)
                                , getJsonable :: Jsonable }
 
 ----------------------------------------------------------------------------------------------------
@@ -71,19 +72,25 @@ computerResponse prevNode turn = do
     eitherNode <- computerMove prevNode turn
     case eitherNode of
         Left s -> return $ createError s prevNode
-        Right (n, m) -> return $ createUpdate (snd (checkGameOver n)) prevNode n (Just m)      
+        Right (n, ms) -> 
+            let (b, currentPosStr) = checkGameOver n
+                bestScoreStr = if not b -- if the game is not over...
+                    then "Player's score, computer's best move found:<br/>" ++ show (_score ms)
+                    else ""    
+            in return $createUpdate (currentPosStr ++ "<br/><br/>" ++ bestScoreStr) prevNode n (Just ms)
         
-computerMove :: Tree Ck.CkNode -> Int -> IO (Either String (Tree Ck.CkNode, Ck.CkMove))
+computerMove :: Tree Ck.CkNode -> Int ->  
+                IO (Either String (Tree Ck.CkNode, MoveScore Ck.CkMove Ck.CkEval))
 computerMove node turn = do
     let newTree = evalState (runReaderT (unRST (expandTree node)) gameEnv) (GameState 0)
     let resultM = evalState (runReaderT (unRST (best newTree (turnToColor turn))) gameEnv) (GameState 0)
     case resultM of
         Nothing -> return $ Left "Invalid result returned from best"
         Just result -> do
-            moveM <- resolveRandom (result^.moveScores)
-            case moveM of
+            moveScoreM <- resolveRandom (result^.moveScores)
+            case moveScoreM of
                 Nothing -> return $ Left "Invalid result from resolveRandom"
-                Just mv -> return $ Right (processMove newTree mv, mv)
+                Just ms -> return $ Right (processMove newTree (ms^.move), ms)
                                                    
 checkGameOver :: Tree Ck.CkNode -> (Bool, String)
 checkGameOver node =              
@@ -93,7 +100,7 @@ checkGameOver node =
         Draw  -> (True, "Draw.")
         _     -> 
             let evalScore = rootLabel node ^. Ck.ckValue
-            in (False, "Score for Player's position: " ++ show evalScore)
+            in (False, "Player's score, current position:<br/>" ++ show evalScore)
 
 -- convert 1, 2 to +1, -1
 turnToColor :: Int -> Int
@@ -109,12 +116,12 @@ createMessage :: String -> Tree Ck.CkNode -> NodeWrapper
 createMessage s node = NodeWrapper {getNode = node, getLastMove = Nothing, 
                                     getJsonable = Jsonable (J.jsonMessage s)}
 
-createUpdate :: String -> Tree Ck.CkNode -> Tree Ck.CkNode -> Maybe Ck.CkMove -> NodeWrapper
-createUpdate msg prevN newN mv = 
+createUpdate :: String -> Tree Ck.CkNode -> Tree Ck.CkNode -> Maybe (MoveScore Ck.CkMove Ck.CkEval) -> NodeWrapper
+createUpdate msg prevN newN ms = 
     NodeWrapper {getNode = newN, 
-                 getLastMove =  mv, 
+                 getLastMove =  ms, 
                  getJsonable = Jsonable $ J.jsonUpdate msg (rootLabel prevN) (rootLabel newN)
-                                         (Ck.getAllowedMoves (rootLabel newN)) mv}
+                                          (Ck.getAllowedMoves (rootLabel newN)) ms}
                  
 createError :: String -> Tree Ck.CkNode -> NodeWrapper
 createError s node = NodeWrapper {getNode = node, getLastMove = Nothing, 
