@@ -8,17 +8,20 @@
 
 module YesodMain (webInit) where
 
-import Yesod hiding (insert)
-import Yesod.Static
+import Control.Lens
 import Checkers
 import CheckersJson
-import WebRunner
-import Data.Text (Text)
 import Data.Aeson
 import Data.IORef
-import qualified Data.Map.Strict as M
+import Data.Text (Text)
 import Data.Tree
+import qualified StratTree.TreeNode as TN
+import WebRunner
+import Yesod hiding (insert)
+import Yesod.Static
+import qualified Data.Map.Strict as M
 
+--1234567
 staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js", "checker_1_king_48.png",
     "checker_1_plain_48.png", "checker_2_king_48.png", "checker_2_plain_48.png", 
     "black_image_48.png", "no_image_48.png", "favicon.ico"]
@@ -28,7 +31,7 @@ data GameApp = GameApp { getStatic :: Static,
                          getMap :: IORef (M.Map Text (Tree CkNode)) }
 
 emptyMap :: M.Map Text (Tree CkNode)
-emptyMap = M.empty                                     
+emptyMap = M.empty                                      
                                      
 mkYesod "GameApp" [parseRoutes|
 / RootR GET
@@ -142,7 +145,7 @@ postPlayerMoveR = do
     case getJsonable wrapper of 
         Jsonable j -> do
             case getLastMove wrapper of
-                Just m -> liftIO $ putStrLn $ "Computer's move: " ++ jsonFromCkMove m
+                Just ms -> liftIO $ putStrLn $ "Computer's move: " ++ jsonFromCkMove (ms^.TN.move)
                 Nothing -> liftIO $ putStrLn "(No computer move)"
             returnJson j
         

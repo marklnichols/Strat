@@ -58,14 +58,14 @@ computerMove o node turn = do
             let badMovesM = checkBlunders newTree (turnToColor turn) (result^.moveScores)
             let badMoves = evalState (runReaderT (unRST badMovesM) gameEnv) (GameState 0)
             let finalChoices = fromMaybe (result ^. moveScores) badMoves
-            moveM <- resolveRandom finalChoices
-            case moveM of
+            moveScoreM <- resolveRandom finalChoices
+            case moveScoreM of
                 Nothing -> do
                     gameError o "Invalid result from resolveRandom"
                     return newTree
-                Just mv -> do
-                    showCompMove o newTree finalChoices result mv
-                    return (processMove newTree mv)
+                Just ms -> do
+                    showCompMove o newTree finalChoices result $ ms^.move
+                    return (processMove newTree (ms^.move))
 
 isCompTurn :: Int -> RST Bool
 isCompTurn turn = do

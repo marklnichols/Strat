@@ -10237,6 +10237,19 @@ var Move = (function () {
     }
     return Move;
 }());
+var MoveScore = (function () {
+    function MoveScore(move, score) {
+        this.move = move;
+        this.score = score;
+    }
+    return MoveScore;
+}());
+var Score = (function () {
+    function Score(total, details) {
+        this.total = total;
+    }
+    return Score;
+}());
 var Moves = (function () {
     function Moves(moves) {
         this.moves = moves;
@@ -10357,13 +10370,13 @@ function submitMove(id) {
         $.ajax({ url: "http://localhost:3000/playerMove", method: "post", data: json, success: function (result) {
                 $("#posPara").html(result.msg);
                 setLegalMoves(result.legalMoves);
-                setLatestMove(result.latestMove);
+                setLatestMove(result.latestMove.move);
                 clearSelected();
                 updateGameBoard(result.prevBoard);
-                addCSSClassToLoc(result.latestMove.locs, "computermove");
+                addCSSClassToLoc(result.latestMove.move.locs, "computermove");
                 setTimeout(function () {
                     updateGameBoard(result.board);
-                    rmClassesFromLocs(result.latestMove.locs);
+                    rmClassesFromLocs(result.latestMove.move.locs);
                     var inits = findInitials(result.legalMoves);
                     clearHighlights();
                     addHighlights(inits);
@@ -10446,7 +10459,7 @@ $(document).ready(function () {
 function newGame() {
     $.ajax({ url: "http://localhost:3000/new", success: function (result) {
             setLegalMoves(result.legalMoves);
-            setLatestMove(result.latestMove);
+            setLatestMove(result.latestMove.move);
             updateGameBoard(result.board);
             $("#posPara").html(result.msg);
             clearSelected();

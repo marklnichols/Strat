@@ -8,6 +8,14 @@ class Move {
     constructor(public locs: Loc[]) {}
 }
 
+class MoveScore {
+    constructor(public move: Move, public score: Score) {}
+}
+
+class Score {
+    constructor(public total: number, details: string) {}
+}
+
 class Moves {
     constructor(public moves: Move[]) {}
 }
@@ -30,7 +38,7 @@ class Square {
 
 class Result {
     constructor(public msg: string, public prevBoard: Square[], public board: Square[], 
-                public legalMoves: Moves, public latestMove: Loc[]) {}
+                public legalMoves: Moves, public latestMove: MoveScore) {}
 }
 
 var LocEnum = {
@@ -126,13 +134,13 @@ function submitMove(id: string) {
         $.ajax ({url: "http://localhost:3000/playerMove", method: "post", data: json, success: function(result) {
             $("#posPara").html(result.msg);
             setLegalMoves(result.legalMoves);
-            setLatestMove(result.latestMove)
+            setLatestMove(result.latestMove.move)
             clearSelected();
             updateGameBoard(result.prevBoard)
-            addCSSClassToLoc(result.latestMove.locs, "computermove")
+            addCSSClassToLoc(result.latestMove.move.locs, "computermove")
             setTimeout( function(){
                 updateGameBoard(result.board)
-                rmClassesFromLocs(result.latestMove.locs);
+                rmClassesFromLocs(result.latestMove.move.locs);
                 var inits = findInitials(result.legalMoves)
                 clearHighlights();
                 addHighlights(inits);
@@ -222,7 +230,7 @@ $(document).ready(function() {
 function newGame() {
     $.ajax ({url: "http://localhost:3000/new", success: function(result) {
         setLegalMoves(result.legalMoves)
-        setLatestMove(result.latestMove)
+        setLatestMove(result.latestMove.move)
         updateGameBoard(result.board);
         $("#posPara").html(result.msg);
         clearSelected();
