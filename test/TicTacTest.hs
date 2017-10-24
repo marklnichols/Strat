@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module TicTacTest (ticTacTest) where
 
-import StratTree.TreeNode
+import Strat.StratTree.TreeNode
 import Test.Hspec
 import TicTac.TTGame
 

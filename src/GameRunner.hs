@@ -1,15 +1,16 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module GameRunner (startGame) where 
+module GameRunner
+ (startGame) where 
 
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Maybe
 import Data.Tree
-import StratIO.StratIO
-import StratTree.StratTree
-import StratTree.TreeNode
+import Strat.StratIO
+import Strat.StratTree
+import Strat.StratTree.TreeNode
 
 gameEnv :: Env
 gameEnv = Env { _depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0

@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module StratTree.TreeNode 
+module Strat.StratTree.TreeNode 
     ( Env (..)
     , Eval (..)
     , FinalState (..)

@@ -9,9 +9,9 @@ import Data.Map
 import Data.Maybe
 import Data.Tree
 import Data.Tree.Zipper
-import StratTree.StratTree
-import StratTree.TreeNode
-import StratTree.Trees
+import Strat.StratTree
+import Strat.StratTree.TreeNode
+import Strat.StratTree.Trees
 import Test.Hspec
 import qualified Data.Map as Map
 

@@ -1,4 +1,4 @@
-module StratTree.StratTree 
+module Strat.StratTree 
     ( addEquiv
     , best
     , best'
@@ -19,8 +19,8 @@ import Data.Maybe
 import Data.Tree
 import Data.Tree.Zipper
 import Safe
-import StratTree.TreeNode
-import StratTree.Trees
+import Strat.StratTree.TreeNode
+import Strat.StratTree.Trees
 
 best :: (TreeNode t m e) => Tree t -> Int -> RST (Maybe (Result m e))
 best t colr = do

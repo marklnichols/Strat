@@ -13,7 +13,7 @@ module CheckersJson
 import Data.Aeson
 import Data.Char
 import GHC.Generics
-import StratTree.TreeNode (MoveScore(..))
+import Strat.StratTree.TreeNode (MoveScore(..))
 import qualified Checkers as Ck
 import qualified CkParser as P
 import qualified Data.ByteString.Lazy as B

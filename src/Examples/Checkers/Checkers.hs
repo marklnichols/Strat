@@ -41,7 +41,7 @@ import Data.Char
 import Data.Maybe
 import Data.Tree
 import Prelude hiding (lookup)
-import StratTree.TreeNode hiding (MoveScore, Result)
+import Strat.StratTree.TreeNode hiding (MoveScore, Result)
 import Safe
 import qualified CkParser as Parser
 import qualified Data.Vector.Unboxed as V

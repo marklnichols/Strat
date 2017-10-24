@@ -4,7 +4,7 @@ import Checkers
 import GameRunner
 import CheckersText
 import System.Environment
-import YesodMain
+import StratWeb.YesodMain
 
 -- :set args "tictac"
 -- :set args "checkers"
@@ -20,8 +20,8 @@ main = do
 --TODO add real parser here, make web vs text an option, etc. 
 parse :: [String] -> IO ()
 parse ["checkers"]    = GameRunner.startGame CheckersText Checkers.getStartNode
-parse ["checkersWeb"] = YesodMain.webInit 
-parse _               = YesodMain.webInit -- default to checkers via web   
+parse ["checkersWeb"] = webInit 
+parse _               = webInit -- default to checkers via web   
     
 
 
