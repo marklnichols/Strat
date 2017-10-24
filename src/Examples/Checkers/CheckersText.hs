@@ -7,9 +7,9 @@ import Checkers
 import Control.Lens
 import Data.List
 import Data.Tree
-import StratTree.StratTree
-import StratTree.TreeNode
-import StratTree.Trees
+import Strat.StratTree
+import Strat.StratTree.TreeNode
+import Strat.StratTree.Trees
 import System.Exit
 import qualified Data.Map as Map
 import qualified Data.Vector.Unboxed as V

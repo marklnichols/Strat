@@ -1,6 +1,6 @@
-module StratIO.StratIO (resolveRandom) where
+module Strat.StratIO (resolveRandom) where
 
-import StratTree.TreeNode
+import Strat.StratTree.TreeNode
 import System.Random
 
 resolveRandom :: [MoveScore m e] -> IO (Maybe (MoveScore m e))

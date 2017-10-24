@@ -17,7 +17,7 @@ module Chess
 import Control.Lens
 import Data.Maybe
 import Data.Tree 
-import StratTree.TreeNode
+import Strat.StratTree.TreeNode
 import qualified ChessParser as P
 import qualified Data.Vector.Unboxed as V
 

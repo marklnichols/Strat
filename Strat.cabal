@@ -23,7 +23,7 @@ source-repository head
 
 library
   hs-source-dirs:
-      src/strat
+      src
   ghc-options: -Wall
   build-depends:
       base
@@ -34,10 +34,10 @@ library
     , safe
     , mtl
   exposed-modules:
-      StratTree.StratTree
-      StratTree.TreeNode
-      StratIO.StratIO
-      StratTree.Trees
+      Strat.StratTree
+      Strat.StratTree.TreeNode
+      Strat.StratIO
+      Strat.StratTree.Trees
   other-modules:
       Paths_strat
   default-language: Haskell2010
@@ -46,8 +46,7 @@ executable strat-exe
   main-is: Main.hs
   hs-source-dirs:
       main/Strat-commandline
-      src/GameRunner
-      src/Strat-web
+      src
       src/Examples/Checkers
       src/Examples/WIP/Chess
   ghc-options: -Wall
@@ -59,15 +58,16 @@ executable strat-exe
     , lens
     , mtl
     , parsec
+    , random
+    , rosezipper
     , safe
-    , strat
     , text
     , vector
     , yesod-static
     , yesod
     , yesod-core
   other-modules:
-      Checkers CheckersJson CheckersText Chess ChessParser CkParser GameRunner WebRunner YesodMain
+      Checkers CheckersJson CheckersText Chess ChessParser CkParser GameRunner Strat.StratIO Strat.StratTree Strat.StratTree.TreeNode Strat.StratTree.Trees StratWeb.WebRunner StratWeb.YesodMain
   default-language: Haskell2010
 
 test-suite StratTreeTest

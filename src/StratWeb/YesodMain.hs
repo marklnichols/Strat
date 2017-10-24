@@ -6,7 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall -fno-warn-unused-binds #-}
 
-module YesodMain (webInit) where
+module StratWeb.YesodMain (webInit) where
 
 import Control.Lens
 import Checkers
@@ -15,14 +15,14 @@ import Data.Aeson
 import Data.IORef
 import Data.Text (Text)
 import Data.Tree
-import qualified StratTree.TreeNode as TN
-import WebRunner
+import qualified Strat.StratTree.TreeNode as TN
+import StratWeb.WebRunner
 import Yesod hiding (insert)
 import Yesod.Static
 import qualified Data.Map.Strict as M
 
 --1234567
-staticFilesList "src/Strat-web/Static" ["gameboard.html", "bundle.js", "checker_1_king_48.png",
+staticFilesList "src/StratWeb/Static" ["gameboard.html", "bundle.js", "checker_1_king_48.png",
     "checker_1_plain_48.png", "checker_2_king_48.png", "checker_2_plain_48.png", 
     "black_image_48.png", "no_image_48.png", "favicon.ico"]
 
@@ -153,7 +153,7 @@ webInit :: IO ()
 webInit = do
     counter <- newIORef 0
     newMap <- newIORef emptyMap
-    s <- staticDevel "src/Strat-web/Static"
+    s <- staticDevel "src/StratWeb/Static"
     putStrLn "\n--------------------------------------------------------"
     putStrLn "To play, point your web browser to http://localhost:3000"
     putStrLn "--------------------------------------------------------\n"

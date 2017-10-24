@@ -14,7 +14,7 @@ module TicTac.TTGame
 
 import Control.Lens
 import Data.Tree
-import StratTree.TreeNode hiding (Result, MoveScore)
+import Strat.StratTree.TreeNode hiding (Result, MoveScore)
 import qualified TicTac.TTParser as Parser
 
 ------------------------------------------------------------------

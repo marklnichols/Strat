@@ -6,7 +6,7 @@ import CkParser
 import Control.Lens
 import Data.Either
 import Data.Tree
-import StratTree.TreeNode
+import Strat.StratTree.TreeNode
 import Test.Hspec
 import qualified CheckersJson as J
 import qualified Data.Vector.Unboxed as V

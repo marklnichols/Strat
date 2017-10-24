@@ -3,7 +3,7 @@ module ChessTest (chessTest) where
 
 import Chess
 import Data.Tree
-import StratTree.TreeNode
+import Strat.StratTree.TreeNode
 import Test.Hspec
 import qualified Data.Vector.Unboxed as V
 

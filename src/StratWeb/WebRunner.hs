@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
-module WebRunner 
+module StratWeb.WebRunner 
     ( Jsonable(..)
     , NodeWrapper(..)    
     , processComputerMove
@@ -15,9 +15,9 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Aeson
 import Data.Tree
-import StratTree.TreeNode
-import StratIO.StratIO
-import StratTree.StratTree
+import Strat.StratTree.TreeNode
+import Strat.StratIO
+import Strat.StratTree
 import qualified Checkers as Ck
 import qualified CheckersJson as J
 

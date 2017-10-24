@@ -11,13 +11,13 @@ github: marklnichols/Haskell-Strategy-Game-AI-WiP
 homepage: http://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP#readme
 library:
   source-dirs:
-  - src/strat
+  - src
   ghc-options: -Wall
   exposed-modules:
-  - StratTree.StratTree
-  - StratTree.TreeNode
-  - StratIO.StratIO
-  - StratTree.Trees
+  - Strat.StratTree
+  - Strat.StratTree.TreeNode
+  - Strat.StratIO
+  - Strat.StratTree.Trees
   other-modules:
   - Paths_strat
   dependencies:
@@ -33,8 +33,7 @@ executables:
     main: Main.hs
     source-dirs:
     - main/Strat-commandline
-    - src/GameRunner
-    - src/Strat-web
+    - src
     - src/Examples/Checkers
     - src/Examples/WIP/Chess
     ghc-options: -Wall
@@ -46,8 +45,12 @@ executables:
       ChessParser
       CkParser
       GameRunner
-      WebRunner
-      YesodMain
+      Strat.StratIO
+      Strat.StratTree
+      Strat.StratTree.TreeNode
+      Strat.StratTree.Trees
+      StratWeb.WebRunner
+      StratWeb.YesodMain
     dependencies:
     - aeson
     - base
@@ -56,8 +59,9 @@ executables:
     - lens
     - mtl
     - parsec
+    - random
+    - rosezipper
     - safe
-    - strat
     - text
     - vector
     - yesod-static

@@ -1,5 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-module StratTree.Trees 
+module Strat.StratTree.Trees 
     ( childByMove
     , descendPath
     , getChildren
@@ -14,7 +14,7 @@ import Data.Tree
 import Data.Tree.Zipper
 import Data.List hiding (delete)
 import Data.Maybe
-import StratTree.TreeNode
+import Strat.StratTree.TreeNode
 
 --get a list of child nodes
 getChildren :: TreePos Full a  -> [TreePos Full a]
