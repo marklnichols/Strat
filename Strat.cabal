@@ -1,21 +1,23 @@
--- This file has been generated from package.yaml by hpack version 0.17.1.
+-- This file has been generated from package.yaml by hpack version 0.20.0.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: 2cf00f65fea87cd1112ba99085c0cecb236d9851428b29287e1767133843a6e5
 
-name:                strat
-version:             0.1.0.0
-synopsis:            Haskell Strategy Game Library WIP
-description:         Please see README.md
-homepage:            http://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP#readme
-bug-reports:         https://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP/issues
-license:             BSD3
-license-file:        LICENSE
-author:              Mark Nichols
-maintainer:          marklnichols@gmail.org
-copyright:           GPL
-category:            Strategy game library
-build-type:          Simple
-cabal-version:       >= 1.10
+name:           strat
+version:        0.1.0.0
+synopsis:       Haskell Strategy Game Library WIP
+description:    Please see README.md
+category:       Strategy game library
+homepage:       http://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP#readme
+bug-reports:    https://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP/issues
+author:         Mark Nichols
+maintainer:     marklnichols@gmail.org
+copyright:      GPL
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
 
 source-repository head
   type: git
@@ -29,10 +31,10 @@ library
       base
     , containers
     , lens
+    , mtl
     , random
     , rosezipper
     , safe
-    , mtl
   exposed-modules:
       Strat.StratTree
       Strat.StratTree.TreeNode
@@ -63,9 +65,9 @@ executable strat-exe
     , safe
     , text
     , vector
-    , yesod-static
     , yesod
     , yesod-core
+    , yesod-static
   other-modules:
       Checkers CheckersJson CheckersText Chess ChessParser CkParser GameRunner Strat.StratIO Strat.StratTree Strat.StratTree.TreeNode Strat.StratTree.Trees StratWeb.WebRunner StratWeb.YesodMain
   default-language: Haskell2010
