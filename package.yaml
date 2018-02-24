@@ -65,7 +65,7 @@ executables:
     - text
     - vector
     - yesod-static
-    - yesod 
+    - yesod
     - yesod-core
 tests:
   StratTreeTest:
@@ -96,7 +96,7 @@ tests:
     - base
     - bytestring
     - containers
-    - hspec 
+    - hspec
     - lens
     - mtl
     - parsec
@@ -104,5 +104,3 @@ tests:
     - safe
     - strat
     - vector
-  
- 
