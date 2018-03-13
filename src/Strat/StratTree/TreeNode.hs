@@ -33,9 +33,6 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict 
 import Data.Tree
 
---add a warning for travis testing
-data Whatever = Whatever
-
 ----------------------------------------------------------------------------------------------------
 -- Data types 
 ----------------------------------------------------------------------------------------------------
