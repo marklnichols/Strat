@@ -15,6 +15,7 @@ cabal.sandbox.config
 *.prof
 *.aux
 *.hp
+*.svg
 .stack-work
 sessions.sqlite3
 github

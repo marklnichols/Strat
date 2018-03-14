@@ -67,6 +67,43 @@ executables:
     - yesod-static
     - yesod
     - yesod-core
+  test-as-exe:
+    main: TestSuite.hs
+    source-dirs:
+    - test
+    - src/Examples/Checkers
+    - src/Examples/WIP/Chess
+    ghc-options: 
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    other-modules:
+      Checkers
+      CheckersJson
+      CheckersTest
+      Chess
+      ChessParser
+      ChessTest
+      CkParser
+      StratTreeTest
+      TicTac.TTGame
+      TicTac.TTParser
+      TicTacTest
+    dependencies:
+    - aeson
+    - base
+    - bytestring
+    - containers
+    - hspec
+    - lens
+    - mtl
+    - parsec
+    - rosezipper
+    - safe
+    - strat
+    - vector
+    
 tests:
   StratTreeTest:
     main: TestSuite.hs

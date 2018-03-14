@@ -37,4 +37,6 @@ install:
 
 script:
 # Build the package, its tests, and its docs and run the tests
-- stack --no-terminal test --haddock --no-haddock-deps
+- stack build --no-terminal --test --haddock --no-haddock-deps --ghc-options="-Werror"
+- stack exec -- test-as-exe +RTS -K1k
+- stack exec -- test-as-exe +RTS -M2m
