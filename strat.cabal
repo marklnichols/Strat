@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2cf00f65fea87cd1112ba99085c0cecb236d9851428b29287e1767133843a6e5
+-- hash: 83d78ac2b674b9cd5267bd3b312751c704371f832189a61724589a8518773b81
 
 name:           strat
 version:        0.1.0.0
@@ -70,6 +70,30 @@ executable strat-exe
     , yesod-static
   other-modules:
       Checkers CheckersJson CheckersText Chess ChessParser CkParser GameRunner Strat.StratIO Strat.StratTree Strat.StratTree.TreeNode Strat.StratTree.Trees StratWeb.WebRunner StratWeb.YesodMain
+  default-language: Haskell2010
+
+executable test-as-exe
+  main-is: TestSuite.hs
+  hs-source-dirs:
+      test
+      src/Examples/Checkers
+      src/Examples/WIP/Chess
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , containers
+    , hspec
+    , lens
+    , mtl
+    , parsec
+    , rosezipper
+    , safe
+    , strat
+    , vector
+  other-modules:
+      Checkers CheckersJson CheckersTest Chess ChessParser ChessTest CkParser StratTreeTest TicTac.TTGame TicTac.TTParser TicTacTest
   default-language: Haskell2010
 
 test-suite StratTreeTest
