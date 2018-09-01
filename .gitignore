@@ -15,6 +15,7 @@ cabal.sandbox.config
 *.prof
 *.aux
 *.hp
+*.svg
 .stack-work
 sessions.sqlite3
 github
@@ -26,3 +27,4 @@ out
 .profiling
 *.iml
 node_modules
+client_session_key.aes

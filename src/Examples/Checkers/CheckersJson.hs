@@ -1,14 +1,23 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-module CheckersJson where
+module CheckersJson 
+    ( jsonError  
+    , jsonFromCkMove
+    , jsonMessage
+    , JsonMove(..)
+    , jsonMoveToCkMove
+    , jsonToCkMove
+    , jsonUpdate
+    ) where
 
 import Data.Aeson
 import Data.Char
 import GHC.Generics
+import Strat.StratTree.TreeNode (MoveScore(..))
+import qualified Checkers as Ck
 import qualified CkParser as P
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Lazy.Char8 as B8
-import qualified Checkers as Ck
 
 ----------------------------------------------------------------------------------------------------
 -- Data types and instances
@@ -47,6 +56,37 @@ instance FromJSON JsonMove
 instance Show JsonMove where
     show jm = unwords $ show <$> locs jm  
 
+emptyJM :: JsonMove
+emptyJM = JsonMove {locs = []}    
+
+----------------------------------------------------------------------------
+data JsonEval = JsonEval {total :: Int, details :: String } deriving Generic    
+
+instance ToJSON JsonEval where
+    toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON JsonEval
+
+instance Show JsonEval where
+    show je = "total: " ++ show (total je) ++ "details: " ++ details je
+
+emptyJE :: JsonEval
+emptyJE = JsonEval {total = 0, details = ""} 
+
+----------------------------------------------------------------------------
+data JsonMoveScore = JsonMoveScore {move :: JsonMove, score :: JsonEval } deriving Generic
+
+instance ToJSON JsonMoveScore where
+    toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON JsonMoveScore
+
+instance Show JsonMoveScore where 
+    show jms = "move: " ++ show (move jms) ++ "score: " ++ show (score jms)
+
+emptyJMS :: JsonMoveScore
+emptyJMS = JsonMoveScore {move = emptyJM, score = emptyJE}
+
 ----------------------------------------------------------------------------
 data LegalMoves = LegalMoves {moves :: [JsonMove]} deriving (Generic, Show)
 
@@ -60,7 +100,7 @@ data FullUpdate = FullUpdate {msg :: String,
                               prevBoard :: [JsonSquare],
                               board :: [JsonSquare],
                               legalMoves :: LegalMoves,
-                              latestMove :: JsonMove} deriving (Generic, Show)
+                              latestMove :: JsonMoveScore} deriving (Generic, Show)
 
 instance ToJSON FullUpdate where
     toEncoding = genericToEncoding defaultOptions
@@ -86,21 +126,31 @@ instance FromJSON JsonError
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 ----------------------------------------------------------------------------------------------------
---todo: do I now not need this since Yesod does the decode?
 jsonToCkMove :: String -> Maybe Ck.CkMove
 jsonToCkMove s = (jsonToParserMove <$> decode (strToBs s)) >>= Ck.parserToCkMove
---instead:
+
 jsonMoveToCkMove :: JsonMove -> Maybe Ck.CkMove
 jsonMoveToCkMove jMove = Ck.parserToCkMove $ jsonToParserMove jMove
   
 jsonFromCkMove :: Ck.CkMove -> String
 jsonFromCkMove mv = (bsToStr . encode . jsonFromParserMove) (Ck.toParserMove mv)
-                
-jsonUpdate :: String -> Ck.CkNode -> Ck.CkNode -> [Ck.CkMove] -> Maybe Ck.CkMove -> FullUpdate    
-jsonUpdate str prevN newN ckMoves moveMay = 
+
+jsonFromMoveScore :: MoveScore Ck.CkMove Ck.CkEval -> JsonMoveScore
+jsonFromMoveScore ms =  
+    let jMove = jsonFromParserMove $ Ck.toParserMove $_move ms
+        eval = _score ms
+        jEval = JsonEval {total = Ck._total eval, details = Ck._details eval }
+    in  JsonMoveScore {move = jMove, score = jEval}
+  
+jsonFromMoveScore' :: Maybe (MoveScore Ck.CkMove Ck.CkEval) -> JsonMoveScore
+jsonFromMoveScore' (Just ms) = jsonFromMoveScore ms
+jsonFromMoveScore' Nothing = emptyJMS   
+
+jsonUpdate :: String -> Ck.CkNode -> Ck.CkNode -> [Ck.CkMove] -> Maybe (MoveScore Ck.CkMove Ck.CkEval) -> FullUpdate    
+jsonUpdate str prevN newN ckMoves moveScoreM = 
     let parserMoves = fmap Ck.toParserMove ckMoves
         legals = LegalMoves {moves = fmap jsonFromParserMove parserMoves}
-        latest = jsonFromParserMove . Ck.maybeToParserMove $ moveMay
+        latest = jsonFromMoveScore' moveScoreM
     in  FullUpdate {msg = str, prevBoard = boardToJson prevN, board = boardToJson newN, 
                     legalMoves = legals, latestMove = latest}
 
@@ -144,4 +194,4 @@ jsonToParserMove jMv = P.Move (fmap toParserLoc (locs jMv))
 ----------------------------------------------------------------------------------------------------
 -- Example messages
 ----------------------------------------------------------------------------------------------------
---TBD update...
+--TBD

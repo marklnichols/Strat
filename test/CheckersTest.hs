@@ -1,15 +1,15 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module CheckersTest where
+module CheckersTest (checkersTest) where
 
 import Checkers
 import CkParser
-import Test.Hspec
-import Data.Tree
-import Data.Either
-import qualified Data.Vector.Unboxed as V
-import qualified CheckersJson as J
 import Control.Lens
-import StratTree.TreeNode
+import Data.Either
+import Data.Tree
+import Strat.StratTree.TreeNode
+import Test.Hspec
+import qualified CheckersJson as J
+import qualified Data.Vector.Unboxed as V
 
 checkersTest :: SpecWith ()
 checkersTest = do
@@ -56,10 +56,10 @@ checkersTest = do
             checkPromote (nodeFromGridW board05) 01 25 `shouldBe` 1
     describe "checkFinal" $
         it "checks to see if the game is over" $ do
-            checkFinal (nodeFromGridW board09) `shouldBe` Draw
+            checkFinal (nodeFromGridW board09) `shouldBe` BWins
             checkFinal (nodeFromGridB board09) `shouldBe` NotFinal
             checkFinal (nodeFromGridW board09b) `shouldBe` NotFinal
-            checkFinal (nodeFromGridB board09b) `shouldBe` Draw
+            checkFinal (nodeFromGridB board09b) `shouldBe` WWins
             checkFinal (nodeFromGridB board11) `shouldBe` WWins
             checkFinal (nodeFromGridW board12) `shouldBe` BWins
     describe "mobility" $
@@ -109,28 +109,24 @@ blackFirstStartNode :: CkNode
 blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
-treeFromGridW g = Node CkNode {_ckMove = mkSimpleCkMove (-1),
-    _ckValue = CkEval {_total = 0, _details = ""},
-    _ckErrorValue = CkEval {_total = 0, _details = ""},
-    _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
+treeFromGridW g = Node CkNode 
+    { _ckMove = mkSimpleCkMove (-1)
+    , _ckValue = CkEval {_total = 0, _details = ""}
+    , _ckErrorValue = CkEval {_total = 0, _details = ""}
+    , _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
-treeFromGridB g = Node CkNode {_ckMove = mkSimpleCkMove (-1),
-    _ckValue = CkEval {_total = 0, _details = ""},
-    _ckErrorValue = CkEval {_total = 0, _details = ""},
-    _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
+treeFromGridB g = Node CkNode 
+    { _ckMove = mkSimpleCkMove (-1)
+    , _ckValue = CkEval {_total = 0, _details = ""}
+    , _ckErrorValue = CkEval {_total = 0, _details = ""}
+    , _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
 
 nodeFromGridW :: V.Vector Int -> CkNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
 
 nodeFromGridB :: V.Vector Int -> CkNode
 nodeFromGridB g = rootLabel $ treeFromGridB g
-
-positionFromGridW :: V.Vector Int -> CkPosition
-positionFromGridW g = nodeFromGridW g ^. ckPosition
-
-positionFromGridB :: V.Vector Int -> CkPosition
-positionFromGridB g = nodeFromGridB g ^. ckPosition
 
 mkSimpleCkMove :: Int -> CkMove
 mkSimpleCkMove i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = [], _removedIdxs = []}
@@ -153,16 +149,16 @@ mkMultiJsonJump (mv, middle, removed) = J.jsonFromCkMove (mkMultiCkJump (mv, mid
 ---------------------------------------------------------------------------------------------------
 -- Test Reader environments
 ---------------------------------------------------------------------------------------------------
-envDepth6 :: Env
-envDepth6 = Env {_depth =6, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0,
-     _p1Comp = False, _p2Comp = True}
+_envDepth6 :: Env
+_envDepth6 = Env { _depth =6, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0
+                 , _p1Comp = False, _p2Comp = True }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
 ---------------------------------------------------------------------------------------------------
 board01 :: V.Vector Int
-board01 = V.fromList [99, 99, 99, 99, 99, 01, 00, -02, 00, 99, 00, 00, 00, 00, 00, 00, 00, 01, 99, 00, -02, 00, 00,
-                      00, 00, 00, 00, 99, 02, 00, -1, 00, 00, 00, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
+board01 = V.fromList [ 99, 99, 99, 99, 99, 01, 00, -02, 00, 99, 00, 00, 00, 00, 00, 00, 00, 01, 99, 00, -02, 00, 00
+                     , 00, 00, 00, 00, 99, 02, 00, -1, 00, 00, 00, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
 
 {-                                   --  (41) (42) (43) (44) (45)
                 -1   00   02   00    --     37   38   39   40
@@ -230,7 +226,6 @@ board02_m2 = V.fromList [99, 99, 99, 99, 99, 01, 00, 01, 01, 99, 00, 00, -1, 00,
                                      --  (00) (01) (02) (03) (04)
 --}
 
-
 board03 :: V.Vector Int
 board03 = V.fromList [99, 99, 99, 99, 99, 01, 00, 00, 01, 99, 00, 00, -1, 00, 00, 00, 01, 00, 99, 00, -02, -1, 00,
                       00, 00, 02, 00, 99, 02, 00, -1, 00, 01, 02, 00, 00, 99, -1, 00, 02, 00, 99, 99, 99, 99, 99]
@@ -266,11 +261,6 @@ board03_m3 = V.fromList [99, 99, 99, 99, 99, 01, 00, 02, 01, 99, 00, 00, 00, 00,
 board04 :: V.Vector Int
 board04 = V.fromList [99, 99, 99, 99, 99, 00, 01, 00, 02, 99, 00, -1, 00, 00, -1, 00, 00, 00, 99, 02, 00, 00, 00,
                       00, 00, 00, 00, 99, 00, -2, 00, 00, 00, 02, 00, -1, 99, 02, 00, 00, 02, 99, 99, 99, 99, 99]
-board04_pc :: Int
-board04_pc = -2
-
-board04_kc :: Int
-board04_kc = 1
 
 board05 :: V.Vector Int
 board05 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, -1, 00, 00, 00, 00, 00, 00, 99, 00, 00, 01, 00,
@@ -288,7 +278,6 @@ board05 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, -1, 00, 00, 00
                                      --  (00) (01) (02) (03) (04)
 --}
 
-
 board06 :: V.Vector Int
 board06 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, -1, 00, 00, 99, 00, 00, 00, 00,
                       00, 00, 01, 00, 99, 00, 01, -1, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
@@ -304,7 +293,6 @@ board06 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00
               00   00   00   00      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)
 -}
-
 
 board07 :: V.Vector Int
 board07 = V.fromList [99, 99, 99, 99, 99, 00, 01, 00, 00, 99, -1, -1, 00, 00, 00, 00, 00, 00, 99, -1, -1, -1, 00,
@@ -338,23 +326,6 @@ board08 =  V.fromList [99, 99, 99, 99, 99, 01, 01, 01, 01, 99, 01, 01, 00, 01, -
               01   01   01   01      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)
 --}
-
-
-boardDebug2 :: V.Vector Int
-boardDebug2 = V.fromList [99, 99, 99, 99, 99, 00, -1, 00, 00, 99, 00, 00, 00, 00, 01, 00, 00, 00, 99, 00, 00, 00, 00,
-                          00, 00, 00, -1, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 01, 00, 00, 99, 99, 99, 99, 99]
-{--
-                                     --  (41) (42) (43) (44) (45)
-                00   01   00   00    --     37   38   39   40
-              00   00   00   00      --   32   33   34   35      (36)
-                00   00   00   00    --     28   29   30   31
-              00   00   00  -1      --   23   24   25   26      (27)
-                00   00   00   00    --     19   20   21   22
-              01   00   00   00      --   14   15   16   17      (18)
-                00   00   00   00    --     10   11   12   13
-              00   -1   00   00      --   05   06   07   08      (09)
-                                     --  (00) (01) (02) (03) (04)
--}
 
 board09 :: V.Vector Int
 board09 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
@@ -436,23 +407,6 @@ board12 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00
                                      --  (00) (01) (02) (03) (04)
 -}
 
-boardXtoWin :: V.Vector Int
-boardXtoWin = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, 00, 00,
-                          -2, 02, 02, 00, 99, 00, 00, 00, 00, 00, 00, -2, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
-{--
-                                     --  (41) (42) (43) (44) (45)
-                00   00   00   00    --     37   38   39   40
-              00   00   -2   00      --   32   33   34   35      (36)
-                00   00   00   00    --     28   29   30   31
-              -2   02   02   00      --   23   24   25   26      (27)
-                00   00   00   00    --     19   20   21   22
-              00   00   00   00      --   14   15   16   17      (18)
-                00   00   00   00    --     10   11   12   13
-              00   00   00   00      --   05   06   07   08      (09)
-                                     --  (00) (01) (02) (03) (04)
--}
-
-
 blunderBoard0 :: V.Vector Int
 blunderBoard0 = V.fromList [99, 99, 99, 99, 99, -2, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 00, 00, -2, 02,
                             00, 00, 00, 00, 99, 00, 00, 00, 00, 00, 00, 00, 00, 99, 02, 00, 00, 00, 99, 99, 99, 99, 99]
@@ -466,23 +420,6 @@ blunderBoard0 = V.fromList [99, 99, 99, 99, 99, -2, 00, 00, 00, 99, 00, 00, 00, 
               00   00   00   00      --   14   15   16   17      (18)
                 00   00   00   00    --     10   11   12   13
               -2   00   00   00      --   05   06   07   08      (09)
-                                     --  (00) (01) (02) (03) (04)
--}
-
-blunderBoard1 :: V.Vector Int
-blunderBoard1 = V.fromList [99, 99, 99, 99, 99, 00, 00, 00, 00, 99, 01, 00, 00, -2, 00, 00, 00, 00, 99, 00, 00, 00, 00,
-                            00, 00, 01, 01, 99, 00, 00, 00, 00, -1, 00, 00, 00, 99, 00, 00, 00, 00, 99, 99, 99, 99, 99]
--- black to move, if b8-c7 checking obvious mistake of white not moving one of e7, e5
-{--
-                                     --  (41) (42) (43) (44) (45)
-                00   00   00   00    --     37   38   39   40
-              -1   00   00   00      --   32   33   34   35      (36)
-                00   00   00   00    --     28   29   30   31
-              00   00   01   01      --   23   24   25   26      (27)
-                00   00   00   00    --     19   20   21   22
-              00   00   00   00      --   14   15   16   17      (18)
-                01   00   00  -2    --     10   11   12   13
-              00   00   00   00      --   05   06   07   08      (09)
                                      --  (00) (01) (02) (03) (04)
 -}
 
@@ -531,7 +468,6 @@ A  x     x     x     x
    1  2  3  4  5  6  7  8
 Current position score: Total 1 made up of mat<0> mob<-1> home<0> prog<2>
 --}
-
 
 {--
 board0n :: V.Vector Int

@@ -1,0 +1,122 @@
+-- This file has been generated from package.yaml by hpack version 0.20.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 83d78ac2b674b9cd5267bd3b312751c704371f832189a61724589a8518773b81
+
+name:           strat
+version:        0.1.0.0
+synopsis:       Haskell Strategy Game Library WIP
+description:    Please see README.md
+category:       Strategy game library
+homepage:       http://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP#readme
+bug-reports:    https://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP/issues
+author:         Mark Nichols
+maintainer:     marklnichols@gmail.org
+copyright:      GPL
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+source-repository head
+  type: git
+  location: https://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP
+
+library
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      base
+    , containers
+    , lens
+    , mtl
+    , random
+    , rosezipper
+    , safe
+  exposed-modules:
+      Strat.StratTree
+      Strat.StratTree.TreeNode
+      Strat.StratIO
+      Strat.StratTree.Trees
+  other-modules:
+      Paths_strat
+  default-language: Haskell2010
+
+executable strat-exe
+  main-is: Main.hs
+  hs-source-dirs:
+      main/Strat-commandline
+      src
+      src/Examples/Checkers
+      src/Examples/WIP/Chess
+  ghc-options: -Wall
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , containers
+    , lens
+    , mtl
+    , parsec
+    , random
+    , rosezipper
+    , safe
+    , text
+    , vector
+    , yesod
+    , yesod-core
+    , yesod-static
+  other-modules:
+      Checkers CheckersJson CheckersText Chess ChessParser CkParser GameRunner Strat.StratIO Strat.StratTree Strat.StratTree.TreeNode Strat.StratTree.Trees StratWeb.WebRunner StratWeb.YesodMain
+  default-language: Haskell2010
+
+executable test-as-exe
+  main-is: TestSuite.hs
+  hs-source-dirs:
+      test
+      src/Examples/Checkers
+      src/Examples/WIP/Chess
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , containers
+    , hspec
+    , lens
+    , mtl
+    , parsec
+    , rosezipper
+    , safe
+    , strat
+    , vector
+  other-modules:
+      Checkers CheckersJson CheckersTest Chess ChessParser ChessTest CkParser StratTreeTest TicTac.TTGame TicTac.TTParser TicTacTest
+  default-language: Haskell2010
+
+test-suite StratTreeTest
+  type: exitcode-stdio-1.0
+  main-is: TestSuite.hs
+  hs-source-dirs:
+      test
+      src/Examples/Checkers
+      src/Examples/WIP/Chess
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      aeson
+    , base
+    , bytestring
+    , containers
+    , hspec
+    , lens
+    , mtl
+    , parsec
+    , rosezipper
+    , safe
+    , strat
+    , vector
+  other-modules:
+      Checkers CheckersJson CheckersTest Chess ChessParser ChessTest CkParser StratTreeTest TicTac.TTGame TicTac.TTParser TicTacTest
+  default-language: Haskell2010

@@ -1,14 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module ChessTest where
-
+module ChessTest (chessTest) where
 
 import Chess
---import ChessParser
-import Test.Hspec
 import Data.Tree
+import Strat.StratTree.TreeNode
+import Test.Hspec
 import qualified Data.Vector.Unboxed as V
---import Control.Lens
-import StratTree.TreeNode
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -25,16 +22,18 @@ chessTest = do
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
 treeFromGridW :: V.Vector Int -> Tree ChessNode
-treeFromGridW g = Node ChessNode {_chessMv = noMove,
-    _chessVal = ChessEval {_total = 0, _details = ""},
-    _chessErrorVal = ChessEval {_total = 0, _details = ""},
-    _chessPos = ChessPos {_grid = g, _clr = 1, _fin = NotFinal}} []
+treeFromGridW g = Node ChessNode 
+    { _chessMv = noMove
+    , _chessVal = ChessEval {_total = 0, _details = ""}
+    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
+    , _chessPos = ChessPos {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree ChessNode
-treeFromGridB g = Node ChessNode {_chessMv = noMove,
-    _chessVal = ChessEval {_total = 0, _details = ""},
-    _chessErrorVal = ChessEval {_total = 0, _details = ""},
-    _chessPos = ChessPos {_grid = g, _clr = -1, _fin = NotFinal}} []
+treeFromGridB g = Node ChessNode 
+    { _chessMv = noMove
+    , _chessVal = ChessEval {_total = 0, _details = ""}
+    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
+    , _chessPos = ChessPos {_grid = g, _clr = -1, _fin = NotFinal } } []
 
 nodeFromGridW :: V.Vector Int -> ChessNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
@@ -44,11 +43,6 @@ nodeFromGridB g = rootLabel $ treeFromGridB g
 
 noMove :: ChessMv
 noMove = ChessMv {isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
-
---mkSimpleChessMv :: Int -> CkMove
---mkSimpleChessMv i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, 
---_middleIdxs = [], _removedIdxs = []}
-
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
@@ -91,14 +85,9 @@ P   P   -   -   -   R   -   -          2| (20)  21   22   23   24   25   26   27
                                                 A    B    C    D    E    F    G    H   
 -}
 
-
-
-
-
-
 ----------------------------------------------------------------------------------------------------
-boardTemplate :: V.Vector Int
-boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99, 
+_boardTemplate :: V.Vector Int
+_boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99, 
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
@@ -109,7 +98,7 @@ boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99, 
                              99,  99,  99,  99,  99,  99,  99,  99,  99,  99 ]
 
-{-                                                (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 -   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
 -   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
@@ -120,17 +109,7 @@ boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
 -   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
 -   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
 
-                                                  (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
-                                                  -------------------------------------------------
-                                                         A    B    C    D    E    F    G    H   
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H   
 -}
-
-
-
-
-
-
-
-
-
---}

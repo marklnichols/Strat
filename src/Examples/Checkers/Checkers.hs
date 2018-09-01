@@ -2,18 +2,50 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Checkers where
-import qualified CkParser as Parser
-import Prelude hiding (lookup)
-import Control.Monad
-import Data.Tree
-import StratTree.TreeNode hiding (MoveScore, Result)
+module Checkers
+    ( boardAsPieceList
+    , calcNewNode
+    , checkFinal
+    , checkPromote
+    , CkEval(..)
+    , CkMove(..)
+    , CkNode(..)
+    , ckPosition
+    , CkPosition(..)
+    , ckValue
+    , closestToKing
+    , clr   
+    , getAllowedMoves
+    , getStartNode
+    , grid
+    , homeRow'
+    , homeRowFull
+    , homeRowNone
+    , homeRowPartial
+    , kingProximity
+    , mobility
+    , parseCkMove
+    , parserToCkMove
+    , PieceList(..)
+    , PieceLoc(..)
+    , pieceProgress
+    , progress
+    , toParserMove
+    , totalKingCount
+    , totalPieceCount
+    ) where
+        
 import Control.Lens
+import Control.Monad
 import Data.Char
 import Data.Maybe
+import Data.Tree
+import Prelude hiding (lookup)
+import Strat.StratTree.TreeNode hiding (MoveScore, Result)
+import Safe
+import qualified CkParser as Parser
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
-import Safe
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -59,7 +91,7 @@ instance Show CkNode where
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
 
 instance Show CkEval where
-    show e = "Total " ++ show (e ^. total) ++ " made up of " ++ (e ^. details)
+    show e = "Total = " ++ show (e ^. total) ++ "<br>" ++ (e ^. details)
 
 instance Move CkMove
 
@@ -108,9 +140,6 @@ getStartNode = Node
      ---------------
      A B C D E F G H
 --}
-
-offBoard :: [Int]
-offBoard = [0, 1, 2, 3, 4, 9, 18, 27, 36, 41, 42, 43, 44, 45]
 
 --------------------------------------------------------------------
 
@@ -190,11 +219,7 @@ toParserMove :: CkMove -> Parser.Move
 toParserMove mv =
     let mAll = intToLoc (mv^.startIdx) : fmap intToLoc (mv^.middleIdxs) ++ [intToLoc (mv^.endIdx)]
     in Parser.Move mAll
-    
-maybeToParserMove :: Maybe CkMove -> Parser.Move
-maybeToParserMove (Just mv) = toParserMove mv    
-maybeToParserMove Nothing   = Parser.Move []          
-      
+       
 intToLoc :: Int -> Parser.Loc
 intToLoc n =
     let mchar = chr $ 65 + offset n + colPlus n
@@ -210,9 +235,6 @@ colPlus n = (((n-5) `mod` 9) `mod` 5) * 2
 rowNum :: Int -> Int
 rowNum n = ((n-5) `div` 9) * 2 + ((n-5) `mod` 9) `div` 5 + 1
 
-rowLabels :: String     
-rowLabels = ['A'..'H']
-
 ---------------------------------------------------------------------------------------------------
 -- Convert Board to a PieceList (for conversion to JSon, etc.)
 ---------------------------------------------------------------------------------------------------
@@ -225,9 +247,6 @@ boardAsPieceList node =
             pMatch pair = (abs (snd pair) > 0 && abs (snd pair) < 3)
         pLocs = V.foldr f z0 filtrd where
             z0 = [] :: [PieceLoc]
-            --f x r = case intToLoc $ fst x of
-            --            Nothing  -> r
-            --            Just l -> PieceLoc {pieceLoc = l, pieceLocValue = snd x} : r
             f x r = PieceLoc {pieceLoc = intToLoc $ fst x, pieceLocValue = snd x} : r
         in PieceList {pieceLocs = pLocs}
 
@@ -258,9 +277,9 @@ movePiece node pFrom pTo =
         valid = value >>= validPiece node
     in case valid of
         Nothing -> node
-        Just x ->  let z = checkPromote node x pTo
-                       p = set (ckPosition . grid . ix pTo) z node
-                   in removePiece p pFrom
+        Just x -> let z = checkPromote node x pTo
+                      p = set (ckPosition . grid . ix pTo) z node
+                  in removePiece p pFrom
 
 validPiece :: CkNode -> Int -> Maybe Int
 validPiece _ x = if x /= 0 && abs x < 3 then Just x else Nothing
@@ -275,37 +294,19 @@ checkPromote node value toLoc
 --------------------------------------------------------
 -- Position Evaluation
 --------------------------------------------------------
-homeRowFull :: Int
+homeRowFull, homeRowPartial, homeRowNone, kingVal, pieceVal, mobilityVal, progressVal :: Int
 homeRowFull    = 4      -- (home row values for non-kings only)
-
-homeRowPartial :: Int
 homeRowPartial = 2
-
-homeRowNone :: Int
 homeRowNone    = 0
-
-kingVal :: Int
 kingVal        = 15
-
-pieceVal :: Int
 pieceVal       = 5
-
-mobilityVal :: Int
 mobilityVal    = 1      -- range 0-2 for non-kings, 0-4 for kings
-
-progressVal :: Int
 progressVal    = 1      -- range: 0-4 (for non-kings only)
 
-kProximityVal :: Int
+kProximityVal, finalValW, finalValB, drawVal  :: Int
 kProximityVal  = 1      -- range 0-6, (for kings only)
-
-finalValW :: Int
 finalValW =  1000
-
-finalValB :: Int
 finalValB = -1000
-
-drawVal :: Int
 drawVal   =  0
 
 evalNode :: CkNode -> (CkEval, FinalState)
@@ -319,20 +320,23 @@ evalNode n = let g =   n ^. ckPosition ^. grid
              in case finl of
                     NotFinal ->
                         (CkEval {_total = mat + mob + home + prog,
-                                 _details = "mat<" ++ show mat ++ "> mob<" ++ show mob ++ "> home<"
-                                            ++ show home ++ "> prog<" ++ show prog ++ "> kProx<"
-                                            ++ show kProximity ++ "> "}, finl)
-                    WWins    -> (CkEval {_total = finalValW,
-                                        _details="wwins<" ++ show finalValW ++ ">"}, finl)
-                    BWins    -> (CkEval {_total = finalValB,
-                                         _details="bwins<" ++ show finalValB ++ ">"}, finl)
-                    Draw     -> (CkEval {_total = drawVal,
-                                         _details="draw<" ++ show drawVal ++ ">"}, finl)
+                                 _details =  "material = " ++ show mat ++ 
+                                   "<br>" ++ "mobility = " ++ show mob ++ 
+                                   "<br>" ++ "home row occupation = " ++ show home ++
+                                   "<br>" ++ "forward progress = " ++ show prog ++
+                                   "<br>" ++ "kings' proximity to enemy pieces = " ++ show kProximity}
+                        , finl)
+                    WWins -> (CkEval {_total = finalValW,
+                                      _details="white wins <" ++ show finalValW ++ ">"}, finl)
+                    BWins -> (CkEval {_total = finalValB,
+                                      _details="black wins <" ++ show finalValB ++ ">"}, finl)
+                    Draw  -> (CkEval {_total = drawVal,
+                                      _details="draw <" ++ show drawVal ++ ">"}, finl)
 
 checkFinal :: CkNode -> FinalState
 checkFinal n
     | numPieces == 0    = colorToWinState $ negate colr
-    | moveCount n == 0  = Draw
+    | moveCount n == 0  = colorToWinState $ negate colr
     | otherwise         = NotFinal
         where
             g = n^.ckPosition^.grid
@@ -343,7 +347,6 @@ colorToWinState :: Int -> FinalState
 colorToWinState 1 = WWins
 colorToWinState _ = BWins
 
--- TODO: implement
 errorEvalNode :: CkNode -> CkEval
 errorEvalNode n = fst $ evalNode n
 
@@ -397,9 +400,6 @@ pieceProgress xs colr =
                     _ -> [4, 3, 2, 1,  0,  0,  0,  0] :: [Int]
         f x r   = r +  fromMaybe 0 (vals ^? ix (rowNum x - 1))
     in foldr f 0 xs
-
-swapColor :: CkNode -> CkNode
-swapColor node = setColor node $ negate (node ^. ckPosition.clr)
 
 setColor :: CkNode -> Int -> CkNode
 setColor node colr = node & ckPosition.clr .~ colr
@@ -470,8 +470,8 @@ forwardMoves :: V.Vector Int -> Int -> Int -> [CkMove]
 forwardMoves g indx colr =
     let newIdxs = filter f [indx + (colr * 4), indx + (colr * 5)]
         f i = case g ^? ix i of
-                        Nothing -> False
-                        Just val -> val == 0
+            Nothing -> False
+            Just val -> val == 0
     in fmap h newIdxs where
         h newIdx = CkMove {_isJump = False, _startIdx = indx, _endIdx = newIdx, _middleIdxs = [], _removedIdxs = []}
         
@@ -487,11 +487,11 @@ pieceJumps node idx =
         grd = pos ^. grid
         colr = pos ^. clr
     in case grd ^? ix idx of
-            Nothing -> []
-            Just val -> multiJumps grd colr (offsets val) idx where
-                offsets x
-                    | isKing x = [JumpOff 4 8, JumpOff 5 10, JumpOff (-4) (-8), JumpOff (-5) (-10)]
-                    | otherwise  = [JumpOff (4 * colr) (8 * colr), JumpOff (5 * colr) (10 * colr)]
+        Nothing -> []
+        Just val -> multiJumps grd colr (offsets val) idx where
+            offsets x
+                | isKing x = [JumpOff 4 8, JumpOff 5 10, JumpOff (-4) (-8), JumpOff (-5) (-10)]
+                | otherwise  = [JumpOff (4 * colr) (8 * colr), JumpOff (5 * colr) (10 * colr)]
 
 multiJumps :: V.Vector Int -> Int -> [JumpOff] -> Int -> [CkMove]
 multiJumps grd colr offsets indx = jmpsToCkMoves $ fmap reverse (outer grd indx []) where
@@ -500,9 +500,10 @@ multiJumps grd colr offsets indx = jmpsToCkMoves $ fmap reverse (outer grd indx 
         in case nextIdxs of
             [] -> [x : xs]
             _  -> inner gNew x nextIdxs xs where
-                    inner gNew' y ys acc =  let acc'  = y : acc
-                                                f z r = outer gNew' z acc' ++ r
-                                            in foldr f [[]] ys
+                inner gNew' y ys acc =  
+                    let acc'  = y : acc
+                        f z r = outer gNew' z acc' ++ r
+                    in foldr f [[]] ys
 
 jmpIndexes :: V.Vector Int -> Int -> Int -> [JumpOff] -> ([Int], V.Vector Int)
 jmpIndexes grd colr start jos =
@@ -519,14 +520,14 @@ isValidJump :: V.Vector Int -> Int -> Int -> Int -> Bool
 isValidJump grd colr loc1 loc2 =
     let mOver = grd ^? ix loc1
         mLand = grd ^? ix loc2
-    in fromMaybe False (liftM2 check mOver mLand)
-        where
-            check jmpOvr landOn = landOn == 0 && jmpOvr /= 0 && jmpOvr /= 99 && jmpOvr * colr < 0
+    in fromMaybe False (liftM2 check mOver mLand) where
+        check jmpOvr landOn = landOn == 0 && jmpOvr /= 0 && jmpOvr /= 99 && jmpOvr * colr < 0
 
 removeCaptured :: V.Vector Int -> [Int] -> V.Vector Int
-removeCaptured = foldr f where
-                    f :: Int -> V.Vector Int -> V.Vector Int
-                    f idx grid' = grid' & ix idx .~ 0
+removeCaptured = 
+    foldr f where
+        f :: Int -> V.Vector Int -> V.Vector Int
+        f idx grid' = grid' & ix idx .~ 0
 
 jmpsToCkMoves :: [[Int]] -> [CkMove]
 jmpsToCkMoves = foldr f [] where

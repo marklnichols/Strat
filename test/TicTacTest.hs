@@ -1,11 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module TicTacTest where
+module TicTacTest (ticTacTest) where
 
-import StratTree.TreeNode
-import TicTac
+import Strat.StratTree.TreeNode
 import Test.Hspec
+import TicTac.TTGame
 
--- main = hspec $ do
 ticTacTest :: SpecWith ()
 ticTacTest = do
     describe "checkWins" $
@@ -21,18 +20,12 @@ ticTacTest = do
             eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` 100
             eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos2 1 NotFinal)) `shouldBe` (-100)
             eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos3 1 NotFinal)) `shouldBe` 0
-            --eval (TTNode IntMove 0 0 (TTPosition aPos4 1 NotFinal)) `shouldBe` 20
-            --eval (TTNode IntMove 0 0 (TTPosition aPos5 1 NotFinal)) `shouldBe` (-20)
-            --eval (TTNode IntMove 0 0 (TTPosition aPos6 1 NotFinal)) `shouldBe` 10
-            --eval (TTNode IntMove 0 0 (TTPosition aPos7 1 NotFinal)) `shouldBe` (-10)
     describe "checkTwoWayWin" $
         it "Checks whether a position contains two in a row in two different places." $ do
             checkTwoWayWin aPos3 1 `shouldBe` False
             checkTwoWayWin aPos3 (-1) `shouldBe` False
             checkTwoWayWin aPos8 1 `shouldBe` True
-
             checkTwoWayWin aPos8 (-1) `shouldBe` False
-
             checkTwoWayWin aPos9 (-1) `shouldBe` True
             checkTwoWayWin aPos9 1 `shouldBe` False
             checkTwoWayWin aPos10 1 `shouldBe` True
@@ -61,17 +54,6 @@ ticTacTest = do
 -- Sample test data
 -------------------------------------------------
 {--
-00 00 00    -- empty board
-00 00 00
-00 00 00
---}
-aPos0 :: [Int]
-aPos0 = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-ttNode0 :: TTNode
-ttNode0 = TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos0 1 NotFinal)
-
-{--
 01 01 -1    -- white wins
 01 -1 00
 01 00 -1
@@ -94,39 +76,6 @@ aPos2 = [1, 0, -1, 1, -1, 1, -1, 1, 1]
 --}
 aPos3 :: [Int]
 aPos3 = [1, -1, 1, 1, -1, -1, -1, 1, 1]
-
-{--
-00 00 01    -- +20
-00 00 00
-00 00 00
---}
-aPos4 :: [Int]
-aPos4 = [0, 0, 1, 0, 0, 0, 0, 0, 0]
-
-{--
-00 00 00    -- -20
-00 00 00
--1 00 00
---}
-aPos5 :: [Int]
-aPos5 = [0, 0, 0, 0, 0, 0, -1, 0, 0]
-
-{--
--1 00 00    -- +10
-00 01 00
-00 00 00
---}
-aPos6 :: [Int]
-aPos6 = [-1, 0, 0, 0, 1, 0, 0, 0, 0]
-
-{--
-00 00 00    -- -10
-00 -1 00
-00 00 01
---}
-aPos7 :: [Int]
-aPos7 = [0, 0, 0, 0, -1, 0, 0, 0, 1]
-
 
 {--
 01 01 00    -- two-way win for +1

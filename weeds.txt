@@ -1,0 +1,15 @@
+= Package strat =
+
+== Section exe:strat-exe ==
+Excessive other-modules entry
+* Chess
+* ChessParser
+
+== Section exe:strat-exe test:StratTreeTest ==
+Module reused between components
+* Checkers
+* CheckersJson
+* Chess
+* ChessParser
+* CkParser
+
