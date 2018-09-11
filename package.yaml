@@ -1,4 +1,4 @@
-name: strat
+name: Strat
 version: '0.1.0.0'
 synopsis: Haskell Strategy Game Library WIP
 description: Please see README.md
@@ -12,14 +12,15 @@ homepage: http://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP#readme
 library:
   source-dirs:
   - src
-  ghc-options: -Wall
+  ghc-options:
+  - -Wall
   exposed-modules:
   - Strat.StratTree
   - Strat.StratTree.TreeNode
   - Strat.StratIO
   - Strat.StratTree.Trees
   other-modules:
-  - Paths_strat
+  - Paths_Strat
   dependencies:
   - base
   - containers
@@ -36,7 +37,8 @@ executables:
     - src
     - src/Examples/Checkers
     - src/Examples/WIP/Chess
-    ghc-options: -Wall
+    ghc-options:
+      - -Wall
     other-modules:
       Checkers
       CheckersJson
@@ -101,7 +103,7 @@ executables:
     - parsec
     - rosezipper
     - safe
-    - strat
+    - Strat
     - vector
     
 tests:
@@ -139,5 +141,5 @@ tests:
     - parsec
     - rosezipper
     - safe
-    - strat
+    - Strat
     - vector
