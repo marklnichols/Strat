@@ -203,7 +203,7 @@ data PosTreeItem  = PosTreeItem {
     ptPosition :: TreePosition
 } deriving (Show, Eq)
 
-data TreePosition = TreePosition {
+newtype TreePosition = TreePosition {
     tts :: [Int]
 } deriving (Show, Eq)
 

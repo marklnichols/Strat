@@ -46,7 +46,7 @@ instance Show JsonSquare where
         show (pieceType sq) ++ "color: " ++ show (color sq)
 
 ----------------------------------------------------------------------------
-data JsonMove = JsonMove {locs :: [JsonLoc] } deriving Generic
+newtype JsonMove = JsonMove {locs :: [JsonLoc] } deriving Generic
 
 instance ToJSON JsonMove where
     toEncoding = genericToEncoding defaultOptions
@@ -88,7 +88,7 @@ emptyJMS :: JsonMoveScore
 emptyJMS = JsonMoveScore {move = emptyJM, score = emptyJE}
 
 ----------------------------------------------------------------------------
-data LegalMoves = LegalMoves {moves :: [JsonMove]} deriving (Generic, Show)
+newtype LegalMoves = LegalMoves {moves :: [JsonMove]} deriving (Generic, Show)
 
 instance ToJSON LegalMoves where
     toEncoding = genericToEncoding defaultOptions
@@ -108,7 +108,7 @@ instance ToJSON FullUpdate where
 instance FromJSON FullUpdate
 
 ----------------------------------------------------------------------------
-data Message = Message {message :: String} deriving (Generic, Show)
+newtype Message = Message {message :: String} deriving (Generic, Show)
 
 instance ToJSON Message where
     toEncoding = genericToEncoding defaultOptions
@@ -116,7 +116,7 @@ instance ToJSON Message where
 instance FromJSON Message
 
 ----------------------------------------------------------------------------
-data JsonError = JsonError {jsonErr :: String} deriving (Generic, Show)
+newtype JsonError = JsonError {jsonErr :: String} deriving (Generic, Show)
 
 instance ToJSON JsonError where
     toEncoding = genericToEncoding defaultOptions

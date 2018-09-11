@@ -29,9 +29,9 @@ checkersTest = do
                 (parseCkMove (nodeFromGridW board07)) ["C1-A3-C5", "C1-E3-C5", "C1-E3-G5-E7"]))
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
-            calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. ckPosition ^. grid `shouldBe` board01_m1
-            calcNewNode (nodeFromGridB board02) (mkSimpleCkJump m2) ^. ckPosition ^. grid `shouldBe` board02_m2
-            calcNewNode (nodeFromGridW board03) (mkMultiCkJump m3) ^. ckPosition ^. grid `shouldBe` board03_m3
+            calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. (ckPosition . grid) `shouldBe` board01_m1
+            calcNewNode (nodeFromGridB board02) (mkSimpleCkJump m2) ^. (ckPosition . grid) `shouldBe` board02_m2
+            calcNewNode (nodeFromGridW board03) (mkMultiCkJump m3) ^. (ckPosition . grid) `shouldBe` board03_m3
     describe "pieceCount" $
         it "Counts the number of white regular pieces minus the black regular pieces" $
             totalPieceCount board04 `shouldBe` -2
