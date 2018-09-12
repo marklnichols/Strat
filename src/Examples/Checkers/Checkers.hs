@@ -69,7 +69,7 @@ makeLenses ''JumpOff
 
 data PieceLoc = PieceLoc {pieceLoc :: Parser.Loc, pieceLocValue :: Int}
 
-data PieceList = PieceList {pieceLocs :: [PieceLoc]}
+newtype PieceList = PieceList {pieceLocs :: [PieceLoc]}
 
 instance PositionNode CkNode CkMove CkEval where
     newNode = calcNewNode
@@ -80,7 +80,7 @@ instance PositionNode CkNode CkMove CkEval where
 
 instance TreeNode CkNode CkMove CkEval where
     getMove = _ckMove
-    getValue = _ckValue
+    getValue = _ckValue 
     getErrorValue = _ckErrorValue
 
 instance Show CkMove where
@@ -257,7 +257,7 @@ calcNewNode :: CkNode -> CkMove -> CkNode
 calcNewNode node mv =
     let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
-        clrFlipped = set (ckPosition . clr) (negate (captured ^. ckPosition ^. clr)) captured
+        clrFlipped = set (ckPosition . clr) (negate (captured ^. (ckPosition . clr))) captured
         (eval, finalSt) = evalNode clrFlipped
         errEval = errorEvalNode clrFlipped
         finSet = set (ckPosition . fin) finalSt clrFlipped
@@ -289,7 +289,7 @@ checkPromote node value toLoc
     | colr > 0 && toLoc > 36  = 2 * colr
     | colr < 0 && toLoc < 9   = 2 * colr
     | otherwise                = value
-        where colr = node^.ckPosition^.clr
+        where colr = node ^. (ckPosition . clr)
 
 --------------------------------------------------------
 -- Position Evaluation
@@ -310,7 +310,7 @@ finalValB = -1000
 drawVal   =  0
 
 evalNode :: CkNode -> (CkEval, FinalState)
-evalNode n = let g =   n ^. ckPosition ^. grid
+evalNode n = let g =   n ^. (ckPosition . grid)
                  mat = totalKingCount g * kingVal + totalPieceCount g * pieceVal
                  mob = mobility n * mobilityVal
                  home = homeRow g
@@ -339,9 +339,9 @@ checkFinal n
     | moveCount n == 0  = colorToWinState $ negate colr
     | otherwise         = NotFinal
         where
-            g = n^.ckPosition^.grid
+            g = n ^. (ckPosition . grid)
             numPieces = pieceCount g colr + kingCount g colr
-            colr = n^.ckPosition^.clr
+            colr = n ^. (ckPosition . clr)
 
 colorToWinState :: Int -> FinalState
 colorToWinState 1 = WWins
@@ -507,7 +507,7 @@ multiJumps grd colr offsets indx = jmpsToCkMoves $ fmap reverse (outer grd indx 
 
 jmpIndexes :: V.Vector Int -> Int -> Int -> [JumpOff] -> ([Int], V.Vector Int)
 jmpIndexes grd colr start jos =
-    let pairs = catMaybes $ fmap f jos
+    let pairs = mapMaybe f jos
         validIdxs = fmap fst pairs
         removed = fmap snd pairs
         newG = removeCaptured grd removed

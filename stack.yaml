@@ -4,18 +4,8 @@
 # For advanced use and comprehensive documentation of the format, please see:
 # https://docs.haskellstack.org/en/stable/yaml_configuration/
 
-# Resolver to choose a 'specific' stackage snapshot or a compiler version.
-# A snapshot resolver dictates the compiler version and the set of packages
-# to be used for project dependencies. For example:
-#
-# resolver: lts-3.5
-# resolver: nightly-2015-09-21
-# resolver: ghc-7.10.2
-# resolver: ghcjs-0.1.0_ghc-7.10.2
-# resolver:
-#  name: custom-snapshot
-#  location: "./custom-snapshot.yaml"
-resolver: lts-10.7
+# Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
+resolver: lts-12.9
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -36,10 +26,10 @@ resolver: lts-10.7
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
 packages:
-- .
-# Dependency packages to be pulled from upstream that are not in the resolver
-# (e.g., acme-missiles-0.3)
-extra-deps: [rosezipper-0.2]
+- '.'
+
+# Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
+extra-deps: [parsec-numbers-0.1.0, scotty-cookie-0.1.0.3, rosezipper-0.2]
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

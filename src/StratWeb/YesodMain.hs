@@ -68,7 +68,8 @@ getRootR = do
     _ <- getGameSession
     redirect $ StaticR gameboard_html                         
       
-getGameSession :: HandlerT GameApp IO Text
+-- getGameSession :: HandlerT GameApp IO Text
+getGameSession :: HandlerFor GameApp Text
 getGameSession = do 
     idMay <- lookupSession uniqueIdKey 
     case idMay of 

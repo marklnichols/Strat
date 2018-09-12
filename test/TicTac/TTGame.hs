@@ -61,7 +61,7 @@ strToMove str colr =
 --------------------------------------------------------
 format :: TTNode -> String
 format n =
-    let gr = n ^. ttPosition ^. grid
+    let gr = n ^. (ttPosition . grid)
         rows = take 3 gr : take 3 (drop 3 gr) : [take 3 $ drop 6 gr]
     in  foldr f "" rows where
         f ns str = foldr h "" ns ++ "\n" ++ str where

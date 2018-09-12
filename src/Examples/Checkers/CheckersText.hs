@@ -71,7 +71,7 @@ playerMove tree turn = do
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
 formatBoard :: CkNode -> String
-formatBoard node = loop (node^.ckPosition^.grid) 40 "" where
+formatBoard node = loop (node ^. (ckPosition . grid)) 40 "" where
     loop _ 4 result = result ++ "\n" ++ colLabels 
     loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
         (newIdx, spaces) = case n `mod` 9 of
@@ -92,7 +92,7 @@ gap = "     "
 toXOs :: Int -> String
 toXOs 1 = "x"
 toXOs (-1) = "o"
-toXOs (2) = "X"
+toXOs 2 = "X"
 toXOs (-2) = "O"
 toXOs 0 = "-"
 toXOs _ = "?"

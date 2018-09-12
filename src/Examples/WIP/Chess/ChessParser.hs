@@ -13,7 +13,7 @@ data Loc
 instance Show Loc where
     show (Loc c i) = c : show i    
    
-data Move =  Move [Loc]
+newtype Move =  Move [Loc]
    deriving (Eq, Generic)
  
 instance Show Move where

@@ -65,7 +65,7 @@ isWorse  scoreToCheck compareTo margin colr
     | otherwise = False
 
 possibleBlunders :: TreeNode t m e => Tree t -> Int -> Int -> [MoveScore m e] -> [MoveScore m e]
-possibleBlunders t depth colr equivMS = catMaybes $ fmap convert equivMS where
+possibleBlunders t depth colr equivMS = mapMaybe convert equivMS where
     convert ms = 
         let result = worstReply t depth colr (_move ms) -- :: Maybe Result
         in result >>= (\r -> case _moveScores r of

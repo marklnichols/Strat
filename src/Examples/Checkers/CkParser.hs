@@ -23,7 +23,7 @@ instance ToJSON Loc where
     
 instance FromJSON Loc   
    
-data Move =  Move [Loc]
+newtype Move =  Move [Loc]
    deriving (Eq, Generic)
  
 instance Show Move where

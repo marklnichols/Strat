@@ -1,3 +1,0 @@
-C:\stack_root\Strat\src\Examples\Checkers\CheckersJson.hs:135:1: error:
-    parse error (possibly incorrect indentation or mismatched brackets)
-    |

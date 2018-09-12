@@ -52,7 +52,7 @@ data Result m e = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScor
     deriving(Show, Eq)
 makeLenses ''Result 
 
-data GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
+newtype GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
  
 ----------------------------------------------------------------------------------------------------
 -- Type classes 
@@ -88,7 +88,7 @@ class Output o n m e | o -> n, n -> m, n -> e where
 -------------------------------------------------
 -- Predefined instance of Move for Int
 -------------------------------------------------
-data IntMove = IntMove {theInt :: Int}
+newtype IntMove = IntMove {theInt :: Int}
 
 instance Show IntMove where
     show m = show $ theInt m
@@ -104,7 +104,7 @@ instance Move IntMove
 -------------------------------------------------
 -- Predefined instance of Eval for Int
 -------------------------------------------------
-data IntEval = IntEval {theVal :: Int}
+newtype IntEval = IntEval {theVal :: Int}
 
 instance Show IntEval where
     show m = show $ theVal m
