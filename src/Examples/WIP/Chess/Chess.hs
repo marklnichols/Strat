@@ -2,28 +2,32 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ExistentialQuantification #-} 
+{-# LANGUAGE ExistentialQuantification #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
-module Chess 
-    ( ChessEval(..) 
-    , ChessMv(..)   
+module Chess
+    ( ChessEval(..)
+    , ChessMv(..)
     , ChessNode(..)
     , ChessPos(..)
+    -- exported for testing only
     , getPieceLocs
-    , getSingleLocs
+    , possibleKingMvs
+    , possibleQueenMvs
+    , possibleRookMvs
     ) where
-        
+
 import Control.Lens
 import Data.Maybe
-import Data.Tree 
+import Data.Foldable
+import Data.Tree
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
 import qualified Data.Vector.Unboxed as V
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
----------------------------------------------------------------------------------------------------               
+---------------------------------------------------------------------------------------------------
 data ChessPos = ChessPos {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState} deriving (Show)
 makeLenses ''ChessPos
 
@@ -34,7 +38,7 @@ makeLenses ''ChessMv
 data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
 makeLenses ''ChessEval
 
-data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval, 
+data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval,
                             _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
 
@@ -61,20 +65,20 @@ intToBox 1 = PieceTypeBox KingType
 intToBox _ = PieceTypeBox QueenType
 
 usePieceType :: Int -> Int
-usePieceType idx = 
+usePieceType idx =
     let box = intToBox idx
         val = case box of
-            PieceTypeBox t -> value t 
+            PieceTypeBox t -> value t
     in val
- 
-data MoveType = Glide | Hop | Single | Pawny | NoMoveType deriving (Eq, Show)
+
+data MoveType = QueenMvType | KnightMvType | KingMvType | PawnMvType | NoMvType deriving (Eq, Show)
 
 indexToPiece :: V.Vector Int -> Int -> ChessPiece
-indexToPiece g idx = 
-    let gridVal =  fromMaybe 0 (g ^? ix idx) 
+indexToPiece g idx =
+    let gridVal =  fromMaybe 0 (g ^? ix idx)
         box = intToBox gridVal
         _color = signum gridVal
-    in  ChessPiece {pieceType = box, color = _color}  
+    in  ChessPiece {pieceType = box, color = _color}
 
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
@@ -112,14 +116,14 @@ getStartNode = undefined
 -- Grid layout - indexes 0-99
 ---------------------------------------------------------------------------------------------------
 {-- how indexes relate to board position (indexes in parens are off the edge of the board):
-   
+
    (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 8| (80)  81   82   83   84   85   86   87   88  (89)
 7| (50)  71   72   73   74   75   76   77   78  (79)
-6| (50)  61   62   63   64   65   66   67   68  (69) 
-5| (50)  51   52   53   54   55   56   57   58  (59) 
-4| (40)  41   42   43   44   45   46   47   48  (49) 
+6| (50)  61   62   63   64   65   66   67   68  (69)
+5| (50)  51   52   53   54   55   56   57   58  (59)
+4| (40)  41   42   43   44   45   46   47   48  (49)
 3| (30)  31   32   33   34   35   36   37   38  (39)
 2| (20)  21   22   23   24   25   26   27   28  (29)
 1| (10)  11   12   13   14   15   16   17   18  (19)
@@ -133,7 +137,7 @@ getStartNode = undefined
         x > 88 or
         x mod 10 = 0 or
         x mod 10 = 9
-         
+
     Direction   add/subtract        Direction   add/subtract
     Right       1                   Knight LU   +8    -- first listed direction is the longer side of
                                                       -- the 'L'-move, so UL is 2 up and one left,
@@ -145,7 +149,7 @@ getStartNode = undefined
     Diag D/R    -9                  Knight DR   -19
     Diag U/R    +11                 Knight UR   +21
     Diag D/L    -11                 Knight DL   -21
-    
+
 Piece representation as integers:
 1 = White King      -1 = Black King
 2 = White Queen     -2 = Black Queen
@@ -153,7 +157,7 @@ Piece representation as integers:
 4 = White Bishop    -4 = Black Bishop
 5 = White Knight    -5 = Black Knight
 6 = White Pawn      -6 = Black Pawn
-    
+
 ---------------------------------------------------------------------------------------------------}
 type Dir = Int -> Int
 
@@ -246,8 +250,8 @@ movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
 movesFromDir _ _ _ = undefined  -- dir idx moveType
 
 legalKingMoves :: ChessPos -> Int -> [ChessMv]
-legalKingMoves pos idx = 
-    let locs = getSingleLocs idx
+legalKingMoves pos idx =
+    let locs = possibleKingMvs idx
         indexes = filter (kingFilter (pos^.clr)) locs
     in  destinationsToMoves idx indexes
 
@@ -258,7 +262,7 @@ kingFilter _ _ = undefined -- color index
     if isEnemy or isEmpty
         if Sq is defended
             False
-        else true      
+        else true
 -}
 
 hasFriendly :: Int -> Int -> Bool
@@ -274,23 +278,46 @@ isDefended :: Int -> Int -> Bool
 isDefended _ =  undefined   --color index
 
 --possible destination squares for a king
-getSingleLocs :: Int -> [Int]
-getSingleLocs idx = filter onBoard (fmap ($ idx) queenDirs)
+possibleKingMvs :: Int -> [Int]
+possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
 
--- find the possible destination locs for pieces with the 'glide' move type
-getGlideLocs :: [Dir] -> Int -> [Int] 
-getGlideLocs _ _ = undefined
---getGlideLocs dirs idx = undefined
+-- find the possible destination locs for a queen
+possibleQueenMvs :: Int -> [Int]
+possibleQueenMvs idx = fold $ fmap (queenDirLocs idx) queenDirs
 
-glideDirLocs :: Dir -> Int -> [Int]
-glideDirLocs _ _ = undefined
---glideDirLocs dir idx = 
---    case dir idx of 
+-- find the possible destination locs for a rook
+possibleRookMvs :: Int -> [Int]
+possibleRookMvs idx = fold $ fmap (rookDirLocs idx) rookDirs
+
+-- find the possible destination locs for a queen.  The first list contains the empty squares that
+-- can be moved to. The second list contains squares with pieces that could be captured.
+allowableQueenMvs :: Int -> ([Int], [Int])
+allowableQueenMvs _idx = undefined
+  {-
+  foldr f ([], []) queenDirs
+    where
+      f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
+      f x (r, r') =
+        let (freeLocs, captureLocs) = queenDirLocs idx x
+        in (freeLocs ++ r, captureLocs ++ r')
+  -}
 --(stop if blocked by friendly piece)
 --(include captured piece and stop)
 
+-- find the possible destination locs for a queen, given a specified direction to move.
+queenDirLocs :: Int -> Dir ->[Int]
+queenDirLocs idx dir = loop (dir idx) []
+  where
+    loop x r
+        | onBoard x = loop (dir x) (x : r)
+        | otherwise = r
+
+-- find the possible destination locs for a rook, given a specified direction to move.
+rookDirLocs :: Int -> Dir ->[Int]
+rookDirLocs _idx _dir = undefined
+
 onBoard :: Int -> Bool
-onBoard x 
+onBoard x
     | x < 10          = False
     | x > 88          = False
     | x `mod` 10 == 0 = False
