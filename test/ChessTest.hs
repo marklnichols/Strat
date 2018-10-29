@@ -35,8 +35,10 @@ chessTest = do
         it "Gets the possible moves for a bishop" $ do
             possibleBishopMvs 77 `shouldMatchList` [66,55,44,33,22,11
                                                    ,88,86,68]
-
-
+    describe "possibleKnightMvs" $
+        it "Gets the possible moves for a knight" $ do
+            possibleKnightMvs 44 `shouldMatchList` [52,63,65,56,36,25,23,32]
+            possibleKnightMvs 12 `shouldMatchList` [24,31,33]
 
 
 ---------------------------------------------------------------------------------------------------

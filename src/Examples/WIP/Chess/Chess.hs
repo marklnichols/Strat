@@ -14,6 +14,7 @@ module Chess
     , getPieceLocs
     , possibleBishopMvs
     , possibleKingMvs
+    , possibleKnightMvs
     , possibleQueenMvs
     , possibleRookMvs
     ) where
@@ -293,6 +294,10 @@ possibleRookMvs idx = fold $ fmap (dirLocs idx) rookDirs
 -- find the possible destination locs for a bishop
 possibleBishopMvs :: Int -> [Int]
 possibleBishopMvs idx = fold $ fmap (dirLocs idx) bishopDirs
+
+-- find the possible destination locs for a knight
+possibleKnightMvs :: Int -> [Int]
+possibleKnightMvs idx = filter onBoard (fmap ($ idx) knightDirs)
 
 -- find the possible destination locs for a queen.  The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
