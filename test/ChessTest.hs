@@ -31,6 +31,11 @@ chessTest = do
             possibleRookMvs 22 `shouldMatchList` [32,42,52,62,72,82
                                                  ,23,24,25,26,27,28
                                                  ,12, 21]
+    describe "possibleBishopMvs" $
+        it "Gets the possible moves for a bishop" $ do
+            possibleBishopMvs 77 `shouldMatchList` [66,55,44,33,22,11
+                                                   ,88,86,68]
+
 
 
 

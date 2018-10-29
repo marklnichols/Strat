@@ -12,6 +12,7 @@ module Chess
     , ChessPos(..)
     -- exported for testing only
     , getPieceLocs
+    , possibleBishopMvs
     , possibleKingMvs
     , possibleQueenMvs
     , possibleRookMvs
@@ -288,6 +289,10 @@ possibleQueenMvs idx = fold $ fmap (dirLocs idx) queenDirs
 -- find the possible destination locs for a rook
 possibleRookMvs :: Int -> [Int]
 possibleRookMvs idx = fold $ fmap (dirLocs idx) rookDirs
+
+-- find the possible destination locs for a bishop
+possibleBishopMvs :: Int -> [Int]
+possibleBishopMvs idx = fold $ fmap (dirLocs idx) bishopDirs
 
 -- find the possible destination locs for a queen.  The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
