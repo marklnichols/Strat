@@ -283,11 +283,11 @@ possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
 
 -- find the possible destination locs for a queen
 possibleQueenMvs :: Int -> [Int]
-possibleQueenMvs idx = fold $ fmap (queenDirLocs idx) queenDirs
+possibleQueenMvs idx = fold $ fmap (dirLocs idx) queenDirs
 
 -- find the possible destination locs for a rook
 possibleRookMvs :: Int -> [Int]
-possibleRookMvs idx = fold $ fmap (rookDirLocs idx) rookDirs
+possibleRookMvs idx = fold $ fmap (dirLocs idx) rookDirs
 
 -- find the possible destination locs for a queen.  The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
@@ -298,15 +298,15 @@ allowableQueenMvs _idx = undefined
     where
       f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
       f x (r, r') =
-        let (freeLocs, captureLocs) = queenDirLocs idx x
+        let (freeLocs, captureLocs) = dirLocs idx x
         in (freeLocs ++ r, captureLocs ++ r')
   -}
 --(stop if blocked by friendly piece)
 --(include captured piece and stop)
 
 -- find the possible destination locs for a queen, given a specified direction to move.
-queenDirLocs :: Int -> Dir ->[Int]
-queenDirLocs idx dir = loop (dir idx) []
+dirLocs :: Int -> Dir ->[Int]
+dirLocs idx dir = loop (dir idx) []
   where
     loop x r
         | onBoard x = loop (dir x) (x : r)

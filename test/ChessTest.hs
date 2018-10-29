@@ -26,7 +26,7 @@ chessTest = do
             possibleQueenMvs 81 `shouldMatchList` [71,61,51,41,31,21,11
                                                   ,82,83,84,85,86,87,88
                                                   ,72,63,54,45,36,27,18]
-    xdescribe "possibleRookMvs" $
+    describe "possibleRookMvs" $
         it "Gets the possible moves for a rook" $ do
             possibleRookMvs 22 `shouldMatchList` [32,42,52,62,72,82
                                                  ,23,24,25,26,27,28
