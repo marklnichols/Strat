@@ -1,8 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f61480fb756843fc2133c8976a41be36adf1b8b9c8661bab4b626d68f597ab89
+-- hash: cbdb09e9e5a7ecca2aacfd4af66163303de0faddf3f24ca602e477a2aab24e20
 
 name:           Strat
 version:        0.1.0.0
@@ -17,7 +19,6 @@ copyright:      GPL
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
-cabal-version:  >= 1.10
 
 source-repository head
   type: git

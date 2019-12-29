@@ -1,9 +1,8 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Strat.StratTree.TreeNode 
+module Strat.StratTree.TreeNode
     ( Env (..)
     , Eval (..)
     , FinalState (..)
@@ -17,11 +16,11 @@ module Strat.StratTree.TreeNode
     , move
     , Move
     , moveChoices
-    , MoveScore (_move, _score) 
+    , MoveScore (_move, _score)
     , moveScores
     , Output(..)
     , PositionNode (..)
-    , Result (..) 
+    , Result (..)
     , RST (..)
     , RSTransformer
     , score
@@ -30,18 +29,18 @@ module Strat.StratTree.TreeNode
 
 import Control.Lens
 import Control.Monad.Reader
-import Control.Monad.State.Strict 
+import Control.Monad.State.Strict
 import Data.Tree
 
 ----------------------------------------------------------------------------------------------------
--- Data types 
+-- Data types
 ----------------------------------------------------------------------------------------------------
 data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 
 data Env = Env
     {_depth :: Int, _errorDepth :: Int, _equivThreshold :: Int, _errorEquivThreshold :: Int,
      _p1Comp :: Bool, _p2Comp :: Bool } deriving (Show)
- 
+
 data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Show, Eq)
 $(makeLenses ''MoveScore)
 
@@ -50,12 +49,12 @@ mkMoveScore = MoveScore
 
 data Result m e = Result {_moveChoices :: [m], _followingMoves :: [m], _moveScores ::[MoveScore m e]}
     deriving(Show, Eq)
-makeLenses ''Result 
+makeLenses ''Result
 
 newtype GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
- 
+
 ----------------------------------------------------------------------------------------------------
--- Type classes 
+-- Type classes
 ----------------------------------------------------------------------------------------------------
 class (Show m, Eq m, Ord m) => Move m
 
@@ -63,7 +62,7 @@ class (Show e, Eq e, Ord e) => Eval e where
     getInt :: e -> Int
     setInt :: e -> Int -> e
     fromInt :: Int -> e
-    
+
 --TODO: getValue, getErrorValue return a Reader monad so scores can depend on
 --depth, skill level settings, etc.
 class (Move m, Eval e) => TreeNode t m e | t -> m, t -> e where
@@ -78,11 +77,11 @@ class (TreeNode n m e, Show n, Move m, Eval e) => PositionNode n m e | n -> m, n
     final :: n -> FinalState
     parseMove :: n -> String -> Either String m
 
-class Output o n m e | o -> n, n -> m, n -> e where 
+class Output o n m e | o -> n, n -> m, n -> e where
     out :: o -> String -> IO ()
     updateBoard :: o -> n -> IO ()
     showCompMove :: o -> Tree n -> [MoveScore m e] -> Result m e -> m -> IO ()
-    getPlayerMove :: o -> Tree n -> Int -> IO m    
+    getPlayerMove :: o -> Tree n -> Int -> IO m
     gameError :: o -> String -> IO ()
 
 -------------------------------------------------

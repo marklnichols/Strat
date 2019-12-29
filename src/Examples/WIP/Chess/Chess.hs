@@ -1,8 +1,9 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
 module Chess
@@ -15,6 +16,7 @@ module Chess
     , possibleKingMvs
     , possibleQueenMvs
     , possibleRookMvs
+    , possibleBishopMvs
     ) where
 
 import Control.Lens
@@ -41,6 +43,61 @@ makeLenses ''ChessEval
 data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval,
                             _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
+
+----------------------------------------------------------------------------------------------------
+-- New Attempt with type families:
+----------------------------------------------------------------------------------------------------
+class ChessPiece' a where
+    data Piece' a :: *
+    value' :: Piece' a -> Int
+
+data King' = King' { kColor :: Int }
+
+instance ChessPiece' King' where
+    data Piece' King' = KingCon
+    value' KingCon = 1000
+
+data Queen' = Queen' { qColor :: Int }
+
+instance ChessPiece' Queen' where
+    data Piece' Queen' = QueenCon
+    value' QueenCon = 9
+
+-- data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Int}
+data BoxedPiece = BoxedPiece { bpBox :: PieceBox, bpColor :: Int}
+
+{-
+indexToPiece :: V.Vector Int -> Int -> ChessPiece
+indexToPiece g idx =
+    let gridVal =  fromMaybe 0 (g ^? ix idx)
+        box = intToBox gridVal
+        _color = signum gridVal
+    in  ChessPiece {pieceType = box, color = _color}
+-}
+indexToBoxed :: V.Vector Int -> Int -> BoxedPiece
+indexToBoxed g idx =
+    let gridVal = fromMaybe 0 (g ^? ix idx)
+        box = intToBox' gridVal
+        _color = signum gridVal
+    in BoxedPiece {bpBox = box, bpColor = _color}
+
+-- data PieceTypeBox = forall z. PieceType z => PieceTypeBox z
+data PieceBox = forall z. ChessPiece' z => PieceBox z
+
+{-
+intToBox :: Int -> PieceTypeBox
+intToBox 1 = PieceTypeBox KingType
+intToBox _ = PieceTypeBox QueenType
+-}
+intToBox' :: Int -> PieceBox
+intToBox' 1 = PieceBox (King' 1)
+intToBox' (-1) = PieceBox (King' (-1))
+intToBox' 2 = PieceBox (Queen' 2)
+intToBox' (-2) = PieceBox (Queen' (-2))
+intToBox' n = error $ "intToBox' not yet implemented for the value " ++ show n
+
+
+----------------------------------------------------------------------------------------------------
 
 --------------------------
 data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Int}
@@ -288,6 +345,10 @@ possibleQueenMvs idx = fold $ fmap (dirLocs idx) queenDirs
 -- find the possible destination locs for a rook
 possibleRookMvs :: Int -> [Int]
 possibleRookMvs idx = fold $ fmap (dirLocs idx) rookDirs
+
+-- find the possible destination locs for a bishop
+possibleBishopMvs :: Int -> [Int]
+possibleBishopMvs idx = fold $ fmap (dirLocs idx) bishopDirs
 
 -- find the possible destination locs for a queen.  The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
