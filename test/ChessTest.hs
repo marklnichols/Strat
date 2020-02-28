@@ -27,16 +27,31 @@ chessTest = do
                                                   ,82,83,84,85,86,87,88
                                                   ,72,63,54,45,36,27,18]
     describe "possibleRookMvs" $
-        it "Gets the possible moves for a rook" $ do
+        it "Gets the possible moves for a rook" $
             possibleRookMvs 22 `shouldMatchList` [32,42,52,62,72,82
                                                  ,23,24,25,26,27,28
                                                  ,12, 21]
     describe "possibleBishopMvs" $
-        it "Gets the possible moves for a bishop" $ do
+        it "Gets the possible moves for a bishop" $
             possibleBishopMvs 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
                                                    , 13, 31]
+    describe "possibleKnightMvs" $
+        it "Gets the possible moves for a knight" $ do
+            possibleKnightMvs 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
+            possibleKnightMvs 27 `shouldMatchList` [15, 35, 46, 48]
 
-
+    describe "possiblePawnMvs" $
+        it "Gets the possible (non capturing) moves for a pawn" $ do
+            possiblePawnMvs 22 White `shouldMatchList` [32, 42]
+            possiblePawnMvs 54 White `shouldMatchList` [64]
+            possiblePawnMvs 22 Black `shouldMatchList` [12]
+            possiblePawnMvs 72 Black `shouldMatchList` [52, 62]
+    describe "possiblePawnCaptures" $
+         it "Gets the possible capturing moves for a pawn" $ do
+             possiblePawnCaptures 43 White `shouldMatchList` [52, 54] -- regular captures
+             possiblePawnCaptures 22 White `shouldMatchList` [31, 33, 41, 43] -- en passant captures
+             possiblePawnCaptures 22 Black `shouldMatchList` [11, 13]
+             possiblePawnCaptures 77 Black `shouldMatchList` [56, 58, 66, 68]
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -118,6 +133,8 @@ _boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
                              99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
                              99,  99,  99,  99,  99,  99,  99,  99,  99,  99 ]
 
+                                          -- [71,47,55,51,87,75,82,25,44,84,21,42]
+                                          --  the extra elements are:   [47, 87, 25, 21]
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 -   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)

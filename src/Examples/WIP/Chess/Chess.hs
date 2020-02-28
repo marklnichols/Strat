@@ -11,12 +11,18 @@ module Chess
     , ChessMv(..)
     , ChessNode(..)
     , ChessPos(..)
+    , Color(..)
+    , colorFromInt
+    , colorToInt
     -- exported for testing only
     , getPieceLocs
+    , possibleBishopMvs
+    , possibleKnightMvs
     , possibleKingMvs
+    , possiblePawnMvs
+    , possiblePawnCaptures
     , possibleQueenMvs
     , possibleRookMvs
-    , possibleBishopMvs
     ) where
 
 import Control.Lens
@@ -26,6 +32,7 @@ import Data.Tree
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
 import qualified Data.Vector.Unboxed as V
+-- import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -44,6 +51,16 @@ data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval,
                             _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
 
+data Color = Black | White
+
+colorToInt :: Color -> Int
+colorToInt Black = -1
+colorToInt White = 1
+
+colorFromInt :: Int -> Color
+colorFromInt 1 = White
+colorFromInt _n = Black
+
 ----------------------------------------------------------------------------------------------------
 -- New Attempt with type families:
 ----------------------------------------------------------------------------------------------------
@@ -51,20 +68,20 @@ class ChessPiece' a where
     data Piece' a :: *
     value' :: Piece' a -> Int
 
-data King' = King' { kColor :: Int }
+data King' = King' { kColor :: Color }
 
 instance ChessPiece' King' where
     data Piece' King' = KingCon
     value' KingCon = 1000
 
-data Queen' = Queen' { qColor :: Int }
+data Queen' = Queen' { qColor :: Color }
 
 instance ChessPiece' Queen' where
     data Piece' Queen' = QueenCon
     value' QueenCon = 9
 
--- data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Int}
-data BoxedPiece = BoxedPiece { bpBox :: PieceBox, bpColor :: Int}
+-- data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Color}
+data BoxedPiece = BoxedPiece { bpBox :: PieceBox, bpColor :: Color}
 
 {-
 indexToPiece :: V.Vector Int -> Int -> ChessPiece
@@ -78,7 +95,7 @@ indexToBoxed :: V.Vector Int -> Int -> BoxedPiece
 indexToBoxed g idx =
     let gridVal = fromMaybe 0 (g ^? ix idx)
         box = intToBox' gridVal
-        _color = signum gridVal
+        _color = colorFromInt $ signum gridVal
     in BoxedPiece {bpBox = box, bpColor = _color}
 
 -- data PieceTypeBox = forall z. PieceType z => PieceTypeBox z
@@ -90,17 +107,15 @@ intToBox 1 = PieceTypeBox KingType
 intToBox _ = PieceTypeBox QueenType
 -}
 intToBox' :: Int -> PieceBox
-intToBox' 1 = PieceBox (King' 1)
-intToBox' (-1) = PieceBox (King' (-1))
-intToBox' 2 = PieceBox (Queen' 2)
-intToBox' (-2) = PieceBox (Queen' (-2))
+intToBox' 1 = PieceBox (King' White)
+intToBox' (-1) = PieceBox (King' Black)
+intToBox' 2 = PieceBox (Queen' White)
+intToBox' (-2) = PieceBox (Queen' Black)
 intToBox' n = error $ "intToBox' not yet implemented for the value " ++ show n
 
 
 ----------------------------------------------------------------------------------------------------
-
---------------------------
-data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Int}
+data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Color}
 
 class PieceType t where
     value :: t -> Int
@@ -134,7 +149,7 @@ indexToPiece :: V.Vector Int -> Int -> ChessPiece
 indexToPiece g idx =
     let gridVal =  fromMaybe 0 (g ^? ix idx)
         box = intToBox gridVal
-        _color = signum gridVal
+        _color = colorFromInt $ signum gridVal
     in  ChessPiece {pieceType = box, color = _color}
 
 instance PositionNode ChessNode ChessMv ChessEval where
@@ -250,8 +265,17 @@ bishopDirs = [diagUL, diagDR, diagUR, diagDL]
 knightDirs :: [Dir]
 knightDirs = [knightLU, knightRD, knightLD, knightRU, knightUL, knightDR, knightUR, knightDL]
 
-pawnDirs :: [Dir]
-pawnDirs = [up, diagUL, diagUR]
+whitePawnDir :: Dir -- non capturing moves...
+whitePawnDir = up
+
+whitePawnCaptureDirs :: [Dir]
+whitePawnCaptureDirs = [diagUL, diagUR]
+
+blackPawnDir :: Dir -- non capturing moves...
+blackPawnDir = down
+
+blackPawnCaptureDirs :: [Dir]
+blackPawnCaptureDirs = [diagDL, diagDR]
 
 noDirs :: [Dir]
 noDirs = []
@@ -350,6 +374,40 @@ possibleRookMvs idx = fold $ fmap (dirLocs idx) rookDirs
 possibleBishopMvs :: Int -> [Int]
 possibleBishopMvs idx = fold $ fmap (dirLocs idx) bishopDirs
 
+-- find the possible destination locs for a knight
+possibleKnightMvs :: Int -> [Int]
+possibleKnightMvs idx = filter onBoard (fmap ($ idx) knightDirs)
+
+-- find the possible destination locs for a pawn (non-capturing moves)
+possiblePawnMvs :: Int -> Color -> [Int]
+possiblePawnMvs idx White =
+  let oneSpace = whitePawnDir idx
+  in oneSpace : if hasPawnMoved White idx
+                  then []
+                  else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
+possiblePawnMvs idx Black =
+  let oneSpace = blackPawnDir idx
+  in oneSpace : if hasPawnMoved Black idx
+                  then []
+                  else [blackPawnDir oneSpace] -- hasn't moved, 2 space move avail.
+
+hasPawnMoved :: Color -> Int -> Bool
+hasPawnMoved White idx = idx > 28
+hasPawnMoved Black idx = idx < 71
+
+-- find the possible destination capture locs for a pawn
+possiblePawnCaptures :: Int -> Color -> [Int]
+possiblePawnCaptures idx White =
+  let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
+  in twoCaps ++ if hasPawnMoved White idx
+                  then []
+                  else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
+possiblePawnCaptures idx Black =
+  let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
+  in twoCaps ++ if hasPawnMoved Black idx
+                  then []
+                  else filter onBoard (fmap ($ blackPawnDir idx) blackPawnCaptureDirs) --en passant
+
 -- find the possible destination locs for a queen.  The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
 allowableQueenMvs :: Int -> ([Int], [Int])
@@ -365,6 +423,7 @@ allowableQueenMvs _idx = undefined
 --(stop if blocked by friendly piece)
 --(include captured piece and stop)
 
+-- for pieces that can move as many squares as desired in a given direction (i.e. queen, rook, bishop)
 -- find the possible destination locs for a queen, given a specified direction to move.
 dirLocs :: Int -> Dir ->[Int]
 dirLocs idx dir = loop (dir idx) []
@@ -372,10 +431,6 @@ dirLocs idx dir = loop (dir idx) []
     loop x r
         | onBoard x = loop (dir x) (x : r)
         | otherwise = r
-
--- find the possible destination locs for a rook, given a specified direction to move.
-rookDirLocs :: Int -> Dir ->[Int]
-rookDirLocs _idx _dir = undefined
 
 onBoard :: Int -> Bool
 onBoard x
