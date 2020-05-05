@@ -4,6 +4,18 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
 module Chess
@@ -26,13 +38,18 @@ module Chess
     ) where
 
 import Control.Lens
-import Data.Maybe
+
 import Data.Foldable
 import Data.HashMap (Map)
+import Data.Kind
+import Data.Maybe
+import Data.Singletons
+import Data.Singletons.TH
 import Data.Tree
+import qualified Data.Vector.Unboxed as V
+
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
-import qualified Data.Vector.Unboxed as V
 -- import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
@@ -61,36 +78,46 @@ colorToInt White = 1
 colorFromInt :: Int -> Color
 colorFromInt 1 = White
 colorFromInt _n = Black
+----------------------------------------------------------------------------------------------------
+-- New, new attempt with singletons
+----------------------------------------------------------------------------------------------------
+$(singletons [d|
+  data Piece = King | Queen | Rook | Knight | Bishop | Pawn
+    deriving (Show, Eq)
+  |])
+
+data ChessPiece :: Piece -> Type where
+  UnsafeMkChessPiece :: { color :: Color } -> ChessPiece p
 
 ----------------------------------------------------------------------------------------------------
 -- New Attempt with type families:
 ----------------------------------------------------------------------------------------------------
-class ChessPiece' a where
+class ChessPieceTF a where
     data Piece' a :: *
     value' :: Piece' a -> Int
 
 data King' = King' { kColor :: Color }
 
-instance ChessPiece' King' where
+instance ChessPieceTF King' where
     data Piece' King' = KingCon
     value' KingCon = 1000
 
 data Queen' = Queen' { qColor :: Color }
 
-instance ChessPiece' Queen' where
+instance ChessPieceTF Queen' where
     data Piece' Queen' = QueenCon
     value' QueenCon = 9
 
--- data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Color}
+-- data ChessPieceOrig= ChessPieceOrig{pieceType :: PieceTypeBox, color :: Color}
 data BoxedPiece = BoxedPiece { bpBox :: PieceBox, bpColor :: Color}
 
 {-
-indexToPiece :: V.Vector Int -> Int -> ChessPiece
+indexToPiece :: V.Vector Int -> Int -> ChessPieceOrig
 indexToPiece g idx =
     let gridVal =  fromMaybe 0 (g ^? ix idx)
         box = intToBox gridVal
         _color = signum gridVal
-    in  ChessPiece {pieceType = box, color = _color}
+    in  ChessPieceOrig{pieceType = box, color = _color}
 -}
 indexToBoxed :: V.Vector Int -> Int -> BoxedPiece
 indexToBoxed g idx =
@@ -100,7 +127,7 @@ indexToBoxed g idx =
     in BoxedPiece {bpBox = box, bpColor = _color}
 
 -- data PieceTypeBox = forall z. PieceType z => PieceTypeBox z
-data PieceBox = forall z. ChessPiece' z => PieceBox z
+data PieceBox = forall z. ChessPieceTF z => PieceBox z
 
 {-
 intToBox :: Int -> PieceTypeBox
@@ -116,7 +143,7 @@ intToBox' n = error $ "intToBox' not yet implemented for the value " ++ show n
 
 
 ----------------------------------------------------------------------------------------------------
-data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Color}
+data ChessPieceOrig= ChessPieceOrig{pieceType :: PieceTypeBox, color :: Color}
 
 class PieceType t where
     value :: t -> Int
@@ -146,12 +173,12 @@ usePieceType idx =
 
 data MoveType = QueenMvType | KnightMvType | KingMvType | PawnMvType | NoMvType deriving (Eq, Show)
 
-indexToPiece :: V.Vector Int -> Int -> ChessPiece
+indexToPiece :: V.Vector Int -> Int -> ChessPieceOrig
 indexToPiece g idx =
     let gridVal =  fromMaybe 0 (g ^? ix idx)
         box = intToBox gridVal
         _color = colorFromInt $ signum gridVal
-    in  ChessPiece {pieceType = box, color = _color}
+    in  ChessPieceOrig{pieceType = box, color = _color}
 
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
@@ -336,22 +363,23 @@ possibleKingMvs :: Int -> [Int]
 possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
 
 legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
-legalKingMoves defMap pos idx =
-    let locs = possibleKingMvs idx
-        indexes = filter (kingFilter defMap (pos^.clr)) locs
-    in  destinationsToMoves idx indexes
+legalKingMoves = undefined
+-- legalKingMoves defMap pos idx =
+--     let locs = possibleKingMvs idx
+--         indexes = filter (kingFilter defMap (pos^.clr)) locs
+--     in  destinationsToMoves idx indexes
 
 kingFilter :: (Map Int Bool) -> Color -> Int -> Bool
-kingFilter defMap clr idx =
-    if hasFriendly clr idx
-        then False
-        else not $ TBD: lookup defMap
-             
-    isDefended clr idx -- empty or contains enemy...
+kingFilter = undefined
+-- kingFilter defMap clr idx =
+--     if hasFriendly clr idx
+--         then False
+--         else not $ TBD: lookup defMap
+--     isDefended clr idx -- empty or contains enemy...
 
 hasFriendly :: ChessPos -> Int -> Int -> Bool
-hasFriendly pos clr idx =
-  if 
+hasFriendly _pos _clr _idx = undefined
+
 
 hasEnemy :: Int -> Int -> Bool
 hasEnemy _ = undefined  --color index

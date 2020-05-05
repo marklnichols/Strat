@@ -68,6 +68,7 @@ executable strat-exe
     , random
     , rosezipper
     , safe
+    , singletons
     , text
     , vector
     , yesod
@@ -97,6 +98,7 @@ executable test-as-exe
     , parsec
     , rosezipper
     , safe
+    , singletons
     , vector
   default-language: Haskell2010
 
@@ -123,5 +125,6 @@ test-suite StratTreeTest
     , parsec
     , rosezipper
     , safe
+    , singletons
     , vector
   default-language: Haskell2010
