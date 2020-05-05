@@ -38,6 +38,7 @@ library
   build-depends:
       base
     , containers
+    , hashmap
     , lens
     , mtl
     , random
@@ -60,6 +61,7 @@ executable strat-exe
     , base
     , bytestring
     , containers
+    , hashmap
     , lens
     , mtl
     , parsec
@@ -88,6 +90,7 @@ executable test-as-exe
     , base
     , bytestring
     , containers
+    , hashmap
     , hspec
     , lens
     , mtl
@@ -113,6 +116,7 @@ test-suite StratTreeTest
     , base
     , bytestring
     , containers
+    , hashmap
     , hspec
     , lens
     , mtl

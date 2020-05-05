@@ -28,6 +28,7 @@ module Chess
 import Control.Lens
 import Data.Maybe
 import Data.Foldable
+import Data.HashMap (Map)
 import Data.Tree
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
@@ -330,24 +331,27 @@ pieceMoves _ _ = undefined
 movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
 movesFromDir _ _ _ = undefined  -- dir idx moveType
 
-legalKingMoves :: ChessPos -> Int -> [ChessMv]
-legalKingMoves pos idx =
+--possible destination squares for a king
+possibleKingMvs :: Int -> [Int]
+possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
+
+legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
+legalKingMoves defMap pos idx =
     let locs = possibleKingMvs idx
-        indexes = filter (kingFilter (pos^.clr)) locs
+        indexes = filter (kingFilter defMap (pos^.clr)) locs
     in  destinationsToMoves idx indexes
 
-kingFilter :: Int -> Int -> Bool
-kingFilter _ _ = undefined -- color index
-{-
-    if isFriendly -> false
-    if isEnemy or isEmpty
-        if Sq is defended
-            False
-        else true
--}
+kingFilter :: (Map Int Bool) -> Color -> Int -> Bool
+kingFilter defMap clr idx =
+    if hasFriendly clr idx
+        then False
+        else not $ TBD: lookup defMap
+             
+    isDefended clr idx -- empty or contains enemy...
 
-hasFriendly :: Int -> Int -> Bool
-hasFriendly _ = undefined   --color index
+hasFriendly :: ChessPos -> Int -> Int -> Bool
+hasFriendly pos clr idx =
+  if 
 
 hasEnemy :: Int -> Int -> Bool
 hasEnemy _ = undefined  --color index
@@ -355,12 +359,26 @@ hasEnemy _ = undefined  --color index
 isEmpty :: Int -> Bool
 isEmpty _ = undefined   --index
 
-isDefended :: Int -> Int -> Bool
-isDefended _ =  undefined   --color index
+--this can be used to filter lists of possible moves in order to quickly resolve
+--captures to arbitrary depths
+calcDefended :: ChessPos -> Color -> Map Int Bool
+calcDefended _c = undefined
+  -- for each opposing piece,
+  -- add list of legal moves to a Set
+  -- build Map to True for each loc in Set
+  -- (for pawns this must be only the capturing moves)
 
---possible destination squares for a king
-possibleKingMvs :: Int -> [Int]
-possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
+isDefended :: Map Int Bool -> Int -> Int -> Bool
+isDefended _ =  undefined   --color index
+  -- this is just lookup of map built from calcDefended, with Nothing converted to False
+
+-- find the legal destination locs for a queen
+-- Note: 'legal' moves are a subset of 'possible' moves
+legalQueenMvs :: Int -> [Int]
+legalQueenMvs _idx = undefined
+  -- let poss = possibleQueenMvs idx
+  -- TODO: filter out moves w/Queen pinned to King
+  -- filter out squares w/friendly pieces
 
 -- find the possible destination locs for a queen
 possibleQueenMvs :: Int -> [Int]
