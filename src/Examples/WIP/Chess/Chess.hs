@@ -1,8 +1,21 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
 module Chess
@@ -10,22 +23,34 @@ module Chess
     , ChessMv(..)
     , ChessNode(..)
     , ChessPos(..)
+    , Color(..)
+    , colorFromInt
+    , colorToInt
     -- exported for testing only
     , getPieceLocs
     , possibleBishopMvs
-    , possibleKingMvs
     , possibleKnightMvs
+    , possibleKingMvs
+    , possiblePawnMvs
+    , possiblePawnCaptures
     , possibleQueenMvs
     , possibleRookMvs
     ) where
 
 import Control.Lens
-import Data.Maybe
+
 import Data.Foldable
+import Data.HashMap (Map)
+import Data.Kind
+import Data.Maybe
+import Data.Singletons
+import Data.Singletons.TH
 import Data.Tree
+import qualified Data.Vector.Unboxed as V
+
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
-import qualified Data.Vector.Unboxed as V
+-- import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -44,43 +69,52 @@ data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval,
                             _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
 
---------------------------
-data ChessPiece = ChessPiece {pieceType :: PieceTypeBox, color :: Int}
+data Color = Black | White
 
-class PieceType t where
-    value :: t -> Int
+colorToInt :: Color -> Int
+colorToInt Black = -1
+colorToInt White = 1
 
-data KingType = KingType
+colorFromInt :: Int -> Color
+colorFromInt 1 = White
+colorFromInt _n = Black
 
-instance PieceType KingType where
-    value _ = 1000
+----------------------------------------------------------------------------------------------------
+-- New, new attempt with singletons
+----------------------------------------------------------------------------------------------------
+$(singletons [d|
+  data Piece = King | Queen | Rook | Knight | Bishop | Pawn
+    deriving (Show, Eq)
+  |])
 
-data QueenType = QueenType
+data ChessPiece :: Piece -> Type where
+  UnsafeMkChessPiece :: { color :: Color } -> ChessPiece p
 
-instance PieceType QueenType where
-    value _ = 9
+intToPiece :: Int -> Piece
+intToPiece 1 = King
+intToPiece 2 = Queen
+intToPiece n = error $ "intToPiece not yet implemented for the value " ++ show n
 
-data PieceTypeBox = forall z. PieceType z => PieceTypeBox z
-
-intToBox :: Int -> PieceTypeBox
-intToBox 1 = PieceTypeBox KingType
-intToBox _ = PieceTypeBox QueenType
-
-usePieceType :: Int -> Int
-usePieceType idx =
-    let box = intToBox idx
-        val = case box of
-            PieceTypeBox t -> value t
-    in val
-
-data MoveType = QueenMvType | KnightMvType | KingMvType | PawnMvType | NoMvType deriving (Eq, Show)
-
-indexToPiece :: V.Vector Int -> Int -> ChessPiece
+----------------------------------------------------------------------------------------------------
+indexToPiece :: V.Vector Int -> Int -> SomeChessPiece
 indexToPiece g idx =
     let gridVal =  fromMaybe 0 (g ^? ix idx)
-        box = intToBox gridVal
-        _color = signum gridVal
-    in  ChessPiece {pieceType = box, color = _color}
+        piece = intToPiece gridVal
+        _color = colorFromInt $ signum gridVal
+    in  mkSomeChessPiece piece _color
+
+mkSomeChessPiece :: Piece -> Color -> SomeChessPiece
+mkSomeChessPiece piece c = case toSing piece of
+  SomeSing p -> fromChessPiece p $ mkChessPiece p c
+
+data SomeChessPiece :: Type where
+  MkSomeChessPiece :: Sing p -> ChessPiece p -> SomeChessPiece
+
+fromChessPiece :: Sing p -> ChessPiece p -> SomeChessPiece
+fromChessPiece = MkSomeChessPiece
+
+mkChessPiece :: Sing p -> Color -> ChessPiece p
+mkChessPiece _ = UnsafeMkChessPiece
 
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
@@ -195,8 +229,17 @@ bishopDirs = [diagUL, diagDR, diagUR, diagDL]
 knightDirs :: [Dir]
 knightDirs = [knightLU, knightRD, knightLD, knightRU, knightUL, knightDR, knightUR, knightDL]
 
-pawnDirs :: [Dir]
-pawnDirs = [up, diagUL, diagUR]
+whitePawnDir :: Dir -- non capturing moves...
+whitePawnDir = up
+
+whitePawnCaptureDirs :: [Dir]
+whitePawnCaptureDirs = [diagUL, diagUR]
+
+blackPawnDir :: Dir -- non capturing moves...
+blackPawnDir = down
+
+blackPawnCaptureDirs :: [Dir]
+blackPawnCaptureDirs = [diagDL, diagDR]
 
 noDirs :: [Dir]
 noDirs = []
@@ -251,24 +294,28 @@ pieceMoves _ _ = undefined
 movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
 movesFromDir _ _ _ = undefined  -- dir idx moveType
 
-legalKingMoves :: ChessPos -> Int -> [ChessMv]
-legalKingMoves pos idx =
-    let locs = possibleKingMvs idx
-        indexes = filter (kingFilter (pos^.clr)) locs
-    in  destinationsToMoves idx indexes
+--possible destination squares for a king
+possibleKingMvs :: Int -> [Int]
+possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
 
-kingFilter :: Int -> Int -> Bool
-kingFilter _ _ = undefined -- color index
-{-
-    if isFriendly -> false
-    if isEnemy or isEmpty
-        if Sq is defended
-            False
-        else true
--}
+legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
+legalKingMoves = undefined
+-- legalKingMoves defMap pos idx =
+--     let locs = possibleKingMvs idx
+--         indexes = filter (kingFilter defMap (pos^.clr)) locs
+--     in  destinationsToMoves idx indexes
 
-hasFriendly :: Int -> Int -> Bool
-hasFriendly _ = undefined   --color index
+kingFilter :: (Map Int Bool) -> Color -> Int -> Bool
+kingFilter = undefined
+-- kingFilter defMap clr idx =
+--     if hasFriendly clr idx
+--         then False
+--         else not $ TBD: lookup defMap
+--     isDefended clr idx -- empty or contains enemy...
+
+hasFriendly :: ChessPos -> Int -> Int -> Bool
+hasFriendly _pos _clr _idx = undefined
+
 
 hasEnemy :: Int -> Int -> Bool
 hasEnemy _ = undefined  --color index
@@ -276,12 +323,26 @@ hasEnemy _ = undefined  --color index
 isEmpty :: Int -> Bool
 isEmpty _ = undefined   --index
 
-isDefended :: Int -> Int -> Bool
-isDefended _ =  undefined   --color index
+--this can be used to filter lists of possible moves in order to quickly resolve
+--captures to arbitrary depths
+calcDefended :: ChessPos -> Color -> Map Int Bool
+calcDefended _c = undefined
+  -- for each opposing piece,
+  -- add list of legal moves to a Set
+  -- build Map to True for each loc in Set
+  -- (for pawns this must be only the capturing moves)
 
---possible destination squares for a king
-possibleKingMvs :: Int -> [Int]
-possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
+isDefended :: Map Int Bool -> Int -> Int -> Bool
+isDefended _ =  undefined   --color index
+  -- this is just lookup of map built from calcDefended, with Nothing converted to False
+
+-- find the legal destination locs for a queen
+-- Note: 'legal' moves are a subset of 'possible' moves
+legalQueenMvs :: Int -> [Int]
+legalQueenMvs _idx = undefined
+  -- let poss = possibleQueenMvs idx
+  -- TODO: filter out moves w/Queen pinned to King
+  -- filter out squares w/friendly pieces
 
 -- find the possible destination locs for a queen
 possibleQueenMvs :: Int -> [Int]
@@ -299,6 +360,36 @@ possibleBishopMvs idx = fold $ fmap (dirLocs idx) bishopDirs
 possibleKnightMvs :: Int -> [Int]
 possibleKnightMvs idx = filter onBoard (fmap ($ idx) knightDirs)
 
+-- find the possible destination locs for a pawn (non-capturing moves)
+possiblePawnMvs :: Int -> Color -> [Int]
+possiblePawnMvs idx White =
+  let oneSpace = whitePawnDir idx
+  in oneSpace : if hasPawnMoved White idx
+                  then []
+                  else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
+possiblePawnMvs idx Black =
+  let oneSpace = blackPawnDir idx
+  in oneSpace : if hasPawnMoved Black idx
+                  then []
+                  else [blackPawnDir oneSpace] -- hasn't moved, 2 space move avail.
+
+hasPawnMoved :: Color -> Int -> Bool
+hasPawnMoved White idx = idx > 28
+hasPawnMoved Black idx = idx < 71
+
+-- find the possible destination capture locs for a pawn
+possiblePawnCaptures :: Int -> Color -> [Int]
+possiblePawnCaptures idx White =
+  let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
+  in twoCaps ++ if hasPawnMoved White idx
+                  then []
+                  else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
+possiblePawnCaptures idx Black =
+  let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
+  in twoCaps ++ if hasPawnMoved Black idx
+                  then []
+                  else filter onBoard (fmap ($ blackPawnDir idx) blackPawnCaptureDirs) --en passant
+
 -- find the possible destination locs for a queen.  The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
 allowableQueenMvs :: Int -> ([Int], [Int])
@@ -314,6 +405,7 @@ allowableQueenMvs _idx = undefined
 --(stop if blocked by friendly piece)
 --(include captured piece and stop)
 
+-- for pieces that can move as many squares as desired in a given direction (i.e. queen, rook, bishop)
 -- find the possible destination locs for a queen, given a specified direction to move.
 dirLocs :: Int -> Dir ->[Int]
 dirLocs idx dir = loop (dir idx) []
@@ -321,10 +413,6 @@ dirLocs idx dir = loop (dir idx) []
     loop x r
         | onBoard x = loop (dir x) (x : r)
         | otherwise = r
-
--- find the possible destination locs for a rook, given a specified direction to move.
-rookDirLocs :: Int -> Dir ->[Int]
-rookDirLocs _idx _dir = undefined
 
 onBoard :: Int -> Bool
 onBoard x
