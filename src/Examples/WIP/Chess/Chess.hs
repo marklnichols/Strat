@@ -55,7 +55,13 @@ import qualified ChessParser as P
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
-data ChessPos = ChessPos {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState} deriving (Show)
+empty :: Int
+empty = 0
+
+data Color = Black | White
+    deriving (Show, Eq)
+
+data ChessPos = ChessPos {_grid :: V.Vector Int, _clr :: Color, _fin :: FinalState} deriving (Show)
 makeLenses ''ChessPos
 
 data ChessMv = ChessMv {isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
@@ -69,7 +75,6 @@ data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval,
                             _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
 
-data Color = Black | White
 
 colorToInt :: Color -> Int
 colorToInt Black = -1
@@ -119,9 +124,11 @@ mkChessPiece _ = UnsafeMkChessPiece
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
     possibleMoves = legalMoves
-    color = view (chessPos . clr)
+    color = colorToInt . view (chessPos . clr)
+    -- color = view (chessPos . clr) `asTypeOf` _  -- :: ChessNode -> Color
     final = view (chessPos . fin)
     parseMove = parseChessMv
+
 
 instance TreeNode ChessNode ChessMv ChessEval where
     getMove = _chessMv
@@ -277,7 +284,7 @@ legalMoves = undefined
 getPieceLocs :: ChessNode -> [Int]
 getPieceLocs node =
     let pos = node ^. chessPos
-        c = pos ^. clr
+        c = colorToInt $ pos ^. clr
         range = V.fromList [0..100] :: V.Vector Int
         pairs = V.zip range (pos ^. grid) :: V.Vector (Int, Int)
         filtrd = V.filter (pMatch c) pairs :: V.Vector (Int, Int)
@@ -291,37 +298,34 @@ getPieceLocs node =
 pieceMoves :: ChessNode -> Int -> [ChessMv]
 pieceMoves _ _ = undefined
 
-movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
-movesFromDir _ _ _ = undefined  -- dir idx moveType
+-- movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
+-- movesFromDir _ _ _ = undefined  -- dir idx moveType
 
 --possible destination squares for a king
 possibleKingMvs :: Int -> [Int]
 possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
 
 legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
-legalKingMoves = undefined
--- legalKingMoves defMap pos idx =
---     let locs = possibleKingMvs idx
---         indexes = filter (kingFilter defMap (pos^.clr)) locs
---     in  destinationsToMoves idx indexes
+legalKingMoves pos defendedMap idx =
+    let locs = possibleKingMvs idx
+        indexes = filter (kingFilter pos defendedMap (pos^.clr)) locs
+    in  destinationsToMoves idx indexes
 
-kingFilter :: (Map Int Bool) -> Color -> Int -> Bool
-kingFilter = undefined
--- kingFilter defMap clr idx =
---     if hasFriendly clr idx
---         then False
---         else not $ TBD: lookup defMap
---     isDefended clr idx -- empty or contains enemy...
+kingFilter :: ChessPos -> (Map Int Bool) -> Color -> Int -> Bool
+kingFilter pos defendedMap c idx =
+    if hasFriendly pos c idx
+        then False
+        else not $ isDefended defendedMap c idx
 
-hasFriendly :: ChessPos -> Int -> Int -> Bool
-hasFriendly _pos _clr _idx = undefined
+hasFriendly :: ChessPos -> Color -> Int -> Bool
+hasFriendly pos c idx = case indexToPiece (_grid pos) idx of
+    MkSomeChessPiece _theSing (UnsafeMkChessPiece aColor) -> aColor == c
 
+hasEnemy :: ChessPos -> Color -> Int -> Bool
+hasEnemy pos c idx = not $ hasFriendly pos c idx
 
-hasEnemy :: Int -> Int -> Bool
-hasEnemy _ = undefined  --color index
-
-isEmpty :: Int -> Bool
-isEmpty _ = undefined   --index
+isEmpty :: ChessPos -> Int -> Bool
+isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 
 --this can be used to filter lists of possible moves in order to quickly resolve
 --captures to arbitrary depths
@@ -332,7 +336,7 @@ calcDefended _c = undefined
   -- build Map to True for each loc in Set
   -- (for pawns this must be only the capturing moves)
 
-isDefended :: Map Int Bool -> Int -> Int -> Bool
+isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
   -- this is just lookup of map built from calcDefended, with Nothing converted to False
 

@@ -62,14 +62,14 @@ treeFromGridW g = Node ChessNode
     { _chessMv = noMove
     , _chessVal = ChessEval {_total = 0, _details = ""}
     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = ChessPos {_grid = g, _clr = 1, _fin = NotFinal}} []
+    , _chessPos = ChessPos {_grid = g, _clr = White, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree ChessNode
 treeFromGridB g = Node ChessNode
     { _chessMv = noMove
     , _chessVal = ChessEval {_total = 0, _details = ""}
     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = ChessPos {_grid = g, _clr = -1, _fin = NotFinal } } []
+    , _chessPos = ChessPos {_grid = g, _clr = Black, _fin = NotFinal } } []
 
 nodeFromGridW :: V.Vector Int -> ChessNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
