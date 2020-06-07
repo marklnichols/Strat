@@ -14,6 +14,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
@@ -41,11 +42,15 @@ import Control.Lens
 
 import Data.Foldable
 import Data.HashMap (Map)
+import qualified Data.HashMap as M
 import Data.Kind
 import Data.Maybe
 import Data.Singletons
 import Data.Singletons.TH
 import Data.Tree
+import Data.Set (Set)
+import qualified Data.Set as S
+import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
 import Strat.StratTree.TreeNode
@@ -61,7 +66,7 @@ empty = 0
 data Color = Black | White
     deriving (Show, Eq)
 
-data ChessPos = ChessPos {_grid :: V.Vector Int, _clr :: Color, _fin :: FinalState} deriving (Show)
+data ChessPos = ChessPos {_grid :: Vector Int, _clr :: Color, _fin :: FinalState} deriving (Show)
 makeLenses ''ChessPos
 
 data ChessMv = ChessMv {isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
@@ -84,6 +89,10 @@ colorFromInt :: Int -> Color
 colorFromInt 1 = White
 colorFromInt _n = Black
 
+-- flipColor :: Color -> Color
+-- flipColor Black = White
+-- flipColor _w = Black
+
 ----------------------------------------------------------------------------------------------------
 -- New, new attempt with singletons
 ----------------------------------------------------------------------------------------------------
@@ -101,7 +110,7 @@ intToPiece 2 = Queen
 intToPiece n = error $ "intToPiece not yet implemented for the value " ++ show n
 
 ----------------------------------------------------------------------------------------------------
-indexToPiece :: V.Vector Int -> Int -> SomeChessPiece
+indexToPiece :: Vector Int -> Int -> SomeChessPiece
 indexToPiece g idx =
     let gridVal =  fromMaybe 0 (g ^? ix idx)
         piece = intToPiece gridVal
@@ -285,10 +294,10 @@ getPieceLocs :: ChessNode -> [Int]
 getPieceLocs node =
     let pos = node ^. chessPos
         c = colorToInt $ pos ^. clr
-        range = V.fromList [0..100] :: V.Vector Int
-        pairs = V.zip range (pos ^. grid) :: V.Vector (Int, Int)
-        filtrd = V.filter (pMatch c) pairs :: V.Vector (Int, Int)
-        first = V.map fst filtrd :: V.Vector Int
+        range = V.fromList [0..100] :: Vector Int
+        pairs = V.zip range (pos ^. grid) :: Vector (Int, Int)
+        filtrd = V.filter (pMatch c) pairs :: Vector (Int, Int)
+        first = V.map fst filtrd :: Vector Int
     in V.toList first
         where pMatch colr pair =
                 let val = snd pair
@@ -330,11 +339,36 @@ isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 --this can be used to filter lists of possible moves in order to quickly resolve
 --captures to arbitrary depths
 calcDefended :: ChessPos -> Color -> Map Int Bool
-calcDefended _c = undefined
+calcDefended pos c =
+    let f :: Int -> Set ChessMv -> Set ChessMv
+        f loc moves = foldr (\mv mvs -> S.insert mv moves) moves
+
+        g :: ChessMv -> Map Int Bool -> Map Int Bool
+        g mv theMap = M.insert mv True theMap
+
+        oppLocs = getOpposingLocs pos c
+        legal = foldr f S.empty oppLocs
+
+        in foldr g M.empty legal
+
+        -- empty :: Map k a
+        -- insert :: (Hashable k, Ord k) => k -> a -> Map k a -> Map k a
+
   -- for each opposing piece,
   -- add list of legal moves to a Set
   -- build Map to True for each loc in Set
   -- (for pawns this must be only the capturing moves)
+
+getOpposingLocs :: ChessPos -> Color -> Vector Int
+getOpposingLocs pos c =
+    let oppColor = flipColor c
+    in V.filter (\x -> colorFromInt x == oppColor) (_grid pos)
+
+         -- filter :: (a -> Bool) -> Vector a -> Vector a
+
+
+
+
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
