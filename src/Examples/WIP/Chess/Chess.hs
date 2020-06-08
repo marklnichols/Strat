@@ -340,23 +340,30 @@ isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 --captures to arbitrary depths
 calcDefended :: ChessPos -> Color -> Map Int Bool
 calcDefended pos c =
-    let f :: Int -> Set ChessMv -> Set ChessMv
-        f loc moves = foldr (\mv mvs -> S.insert mv moves) moves
+    let oppLocs = getOpposingLocs pos c
+        oppMoves = movesFromLocs oppLocs
+        destLocs = gatherDestLocs oppMoves
+        defended = foldr f Map.empty destLocs where
+          f loc theMap = M.insert loc True theMap
 
-        g :: ChessMv -> Map Int Bool -> Map Int Bool
-        g mv theMap = M.insert mv True theMap
 
-        oppLocs = getOpposingLocs pos c
-        legal = foldr f S.empty oppLocs
+movesFromLocs :: Vector Int -> Set ChessMv
+movesFromLocs = undefined
 
-        in foldr g M.empty legal
+gatherDestLocs :: Set ChessMv -> Set Int
+gatherDestLocs moves = foldr f S.empty moves where
+  f :: ChessMv -> Set ChessMv -> Set ChessMv
+  f mv mvs = S.insert (_endIdx mv) moves
+
+
+
 
         -- empty :: Map k a
         -- insert :: (Hashable k, Ord k) => k -> a -> Map k a -> Map k a
 
   -- for each opposing piece,
   -- add list of legal moves to a Set
-  -- build Map to True for each loc in Set
+  -- build Map to True for each destination move loc in Set
   -- (for pawns this must be only the capturing moves)
 
 getOpposingLocs :: ChessPos -> Color -> Vector Int
