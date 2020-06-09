@@ -42,14 +42,14 @@ import Control.Lens
 
 import Data.Foldable
 import Data.HashMap (Map)
-import qualified Data.HashMap as M
+-- import qualified Data.HashMap as M
 import Data.Kind
 import Data.Maybe
 import Data.Singletons
 import Data.Singletons.TH
 import Data.Tree
 import Data.Set (Set)
-import qualified Data.Set as S
+-- import qualified Data.Set as S
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
@@ -339,27 +339,28 @@ isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 --this can be used to filter lists of possible moves in order to quickly resolve
 --captures to arbitrary depths
 calcDefended :: ChessPos -> Color -> Map Int Bool
-calcDefended pos c =
+calcDefended _pos _c = undefined
+{-
     let oppLocs = getOpposingLocs pos c
         oppMoves = movesFromLocs oppLocs
         destLocs = gatherDestLocs oppMoves
         defended = foldr f Map.empty destLocs where
           f loc theMap = M.insert loc True theMap
-
+-}
 
 movesFromLocs :: Vector Int -> Set ChessMv
 movesFromLocs = undefined
 
 gatherDestLocs :: Set ChessMv -> Set Int
-gatherDestLocs moves = foldr f S.empty moves where
-  f :: ChessMv -> Set ChessMv -> Set ChessMv
-  f mv mvs = S.insert (_endIdx mv) moves
+gatherDestLocs _moves = undefined
+{-
+  foldr f S.empty moves where
+    f :: ChessMv -> Set ChessMv -> Set ChessMv
+    f mv mvs = S.insert (_endIdx mv) moves
+-}
 
-
-
-
-        -- empty :: Map k a
-        -- insert :: (Hashable k, Ord k) => k -> a -> Map k a -> Map k a
+ -- empty :: Map k a
+ -- insert :: (Hashable k, Ord k) => k -> a -> Map k a -> Map k a
 
   -- for each opposing piece,
   -- add list of legal moves to a Set
@@ -367,15 +368,13 @@ gatherDestLocs moves = foldr f S.empty moves where
   -- (for pawns this must be only the capturing moves)
 
 getOpposingLocs :: ChessPos -> Color -> Vector Int
-getOpposingLocs pos c =
+getOpposingLocs _pos _c = undefined
+{-
     let oppColor = flipColor c
     in V.filter (\x -> colorFromInt x == oppColor) (_grid pos)
 
-         -- filter :: (a -> Bool) -> Vector a -> Vector a
-
-
-
-
+    -- filter :: (a -> Bool) -> Vector a -> Vector a
+-}
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
