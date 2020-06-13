@@ -336,45 +336,38 @@ hasEnemy pos c idx = not $ hasFriendly pos c idx
 isEmpty :: ChessPos -> Int -> Bool
 isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 
---this can be used to filter lists of possible moves in order to quickly resolve
---captures to arbitrary depths
-calcDefended :: ChessPos -> Color -> Map Int Bool
-calcDefended _pos _c = undefined
-{-
-    let oppLocs = getOpposingLocs pos c
-        oppMoves = movesFromLocs oppLocs
-        destLocs = gatherDestLocs oppMoves
-        defended = foldr f Map.empty destLocs where
-          f loc theMap = M.insert loc True theMap
--}
-
-movesFromLocs :: Vector Int -> Set ChessMv
-movesFromLocs = undefined
-
-gatherDestLocs :: Set ChessMv -> Set Int
-gatherDestLocs _moves = undefined
-{-
-  foldr f S.empty moves where
-    f :: ChessMv -> Set ChessMv -> Set ChessMv
-    f mv mvs = S.insert (_endIdx mv) moves
--}
-
- -- empty :: Map k a
- -- insert :: (Hashable k, Ord k) => k -> a -> Map k a -> Map k a
-
   -- for each opposing piece,
-  -- add list of legal moves to a Set
-  -- build Map to True for each destination move loc in Set
+  -- build list of legal moves
+  -- build Set consisting of each ending loc
   -- (for pawns this must be only the capturing moves)
 
-getOpposingLocs :: ChessPos -> Color -> Vector Int
-getOpposingLocs _pos _c = undefined
-{-
-    let oppColor = flipColor c
-    in V.filter (\x -> colorFromInt x == oppColor) (_grid pos)
+--this can be used to filter lists of possible moves in order to quickly resolve
+--captures to arbitrary depths
+calcDefended :: Vector Int -> Color -> Set Int
+calcDefended locs c =
+    TODO: change this to getLocsForColor -- probably exists already
+    let oppLocs = getOpposingLocs locs c
+        oppMoves = movesFromLocs oppLocs
+        destLocs = gatherDestLocs oppMoves
+        defended = S.fromList destLocs
 
-    -- filter :: (a -> Bool) -> Vector a -> Vector a
--}
+movesFromLocs :: Vector Int -> [ChessMv]
+movesFromLocs locs moves =
+  foldr f [] locs where
+    f :: Int -> [ChessMv] -> [ChessMv]
+    f loc = moves ++ movesFromLoc loc
+
+movesFromLoc :: Int -> [ChessMv]
+movesFromLoc _loc = undefined
+
+gatherDestLocs :: [ChessMv] -> [Int]
+gatherDestLocs moves =
+  fmap $ \mv -> (_endIdx mv)
+
+getOpposingLocs :: Vector Int -> Color -> Vector Int
+getOpposingLocs locs c =
+    let oppColor = flipColor (_clr pos)
+    in V.filter (\x -> colorFromInt x == oppColor) (_grid pos)
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index

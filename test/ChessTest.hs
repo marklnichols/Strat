@@ -53,6 +53,13 @@ chessTest = do
              possiblePawnCaptures 22 White `shouldMatchList` [31, 33, 41, 43] -- en passant captures
              possiblePawnCaptures 22 Black `shouldMatchList` [11, 13]
              possiblePawnCaptures 77 Black `shouldMatchList` [56, 58, 66, 68]
+    describe "calcDefended" $
+      it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
+       calcDefended (posFromGridW board01) `shouldEqual` S.fromList
+           [88, 87, 61, 63, 64, 65, 66 , 72, 82 , 52, 42, 32, 85, 84, 83, 82, 81, 56, 58, 78]
+       calcDefended (posFromGridB board01) `shouldEqual` S.fromList
+           [ 11, 13, 23, 56, 66, 36, 41, 42, 43, 44, 45, 47, 48, 55, 64, 74, 83, 37, 28, 57, 68, 35,
+             24, 13, 36, 16, 23, 24, 25, 27, 28, 32, 31, 42, 44 ]
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -62,20 +69,26 @@ treeFromGridW g = Node ChessNode
     { _chessMv = noMove
     , _chessVal = ChessEval {_total = 0, _details = ""}
     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = ChessPos {_grid = g, _clr = White, _fin = NotFinal}} []
+    , _chessPos = posFromGridW g } []
 
 treeFromGridB :: V.Vector Int -> Tree ChessNode
 treeFromGridB g = Node ChessNode
     { _chessMv = noMove
     , _chessVal = ChessEval {_total = 0, _details = ""}
     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = ChessPos {_grid = g, _clr = Black, _fin = NotFinal } } []
+    , _chessPos = posFromGridB g } []
 
 nodeFromGridW :: V.Vector Int -> ChessNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
 
 nodeFromGridB :: V.Vector Int -> ChessNode
 nodeFromGridB g = rootLabel $ treeFromGridB g
+
+posFromGridW :: V.Vector Int -> ChessPos
+posFromGridW g = ChessPos {_grid = g, _clr = White, _fin = NotFinal}
+
+posFromGridB :: V.Vector Int -> ChessPos
+posFromGridB g = ChessPos {_grid = g, _clr = Black, _fin = NotFinal}
 
 noMove :: ChessMv
 noMove = ChessMv {isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
