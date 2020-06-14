@@ -25,6 +25,7 @@ module Chess
     , ChessNode(..)
     , ChessPos(..)
     , Color(..)
+    , calcDefended
     , colorFromInt
     , colorToInt
     -- exported for testing only
@@ -40,6 +41,7 @@ module Chess
 
 import Control.Lens
 
+import Data.Char
 import Data.Foldable
 import Data.HashMap (Map)
 -- import qualified Data.HashMap as M
@@ -49,7 +51,7 @@ import Data.Singletons
 import Data.Singletons.TH
 import Data.Tree
 import Data.Set (Set)
--- import qualified Data.Set as S
+import qualified Data.Set as S
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
@@ -104,18 +106,48 @@ $(singletons [d|
 data ChessPiece :: Piece -> Type where
   UnsafeMkChessPiece :: { color :: Color } -> ChessPiece p
 
-intToPiece :: Int -> Piece
-intToPiece 1 = King
-intToPiece 2 = Queen
-intToPiece n = error $ "intToPiece not yet implemented for the value " ++ show n
+intToPiece :: Int -> (Piece, Color)
+intToPiece i = charToPiece (chr i)
+
+pieceToInt :: Piece -> Color -> Int
+pieceToInt p c = ord $ pieceToChar p c
+
+pieceToChar :: Piece -> Color -> Char
+pieceToChar King White = 'K'
+pieceToChar King Black = 'k'
+pieceToChar Queen White = 'Q'
+pieceToChar Queen Black = 'q'
+pieceToChar Rook White = 'R'
+pieceToChar Rook Black = 'r'
+pieceToChar Knight White = 'N'
+pieceToChar Knight Black = 'n'
+pieceToChar Bishop White = 'B'
+pieceToChar Bishop Black = 'b'
+pieceToChar Pawn White = 'P'
+pieceToChar Pawn Black = 'p'
+
+charToPiece :: Char -> (Piece, Color)
+charToPiece 'K' = (King, White)
+charToPiece 'Q' = (Queen, White)
+charToPiece 'R' = (Rook, White)
+charToPiece 'N' = (Knight, White)
+charToPiece 'B' = (Bishop, White)
+charToPiece 'P' = (Pawn, White)
+charToPiece 'k' = (King, Black)
+charToPiece 'q' = (Queen, Black)
+charToPiece 'r' = (Rook, Black)
+charToPiece 'n' = (Knight, Black)
+charToPiece 'b' = (Bishop, Black)
+charToPiece 'p' = (Pawn, Black)
+charToPiece ch = error $ "charToPiece not implemented for the value " ++ show ch
+
 
 ----------------------------------------------------------------------------------------------------
 indexToPiece :: Vector Int -> Int -> SomeChessPiece
 indexToPiece g idx =
     let gridVal =  fromMaybe 0 (g ^? ix idx)
-        piece = intToPiece gridVal
-        _color = colorFromInt $ signum gridVal
-    in  mkSomeChessPiece piece _color
+        (piece, c) = intToPiece gridVal
+    in  mkSomeChessPiece piece c
 
 mkSomeChessPiece :: Piece -> Color -> SomeChessPiece
 mkSomeChessPiece piece c = case toSing piece of
@@ -290,14 +322,24 @@ calcNewNode _ _ = undefined
 legalMoves :: ChessNode -> [ChessMv]
 legalMoves = undefined
 
+---------------------------------------------------------------------------------------------------
+-- get piece locations for the current color from a ChessNode
+--------------------------------------------------------------------------------------------------
 getPieceLocs :: ChessNode -> [Int]
 getPieceLocs node =
     let pos = node ^. chessPos
-        c = colorToInt $ pos ^. clr
+    in locsForColor (_grid pos) (_clr pos)
+
+---------------------------------------------------------------------------------------------------
+-- get piece locations for a given color from a board
+--------------------------------------------------------------------------------------------------
+locsForColor :: Vector Int -> Color -> [Int]
+locsForColor locs c =
+    let ci = colorToInt c
         range = V.fromList [0..100] :: Vector Int
-        pairs = V.zip range (pos ^. grid) :: Vector (Int, Int)
-        filtrd = V.filter (pMatch c) pairs :: Vector (Int, Int)
-        first = V.map fst filtrd :: Vector Int
+        pairs = V.zip range locs
+        filtrd = V.filter (pMatch ci) pairs
+        first = V.map fst filtrd
     in V.toList first
         where pMatch colr pair =
                 let val = snd pair
@@ -341,45 +383,57 @@ isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
   -- build Set consisting of each ending loc
   -- (for pawns this must be only the capturing moves)
 
---this can be used to filter lists of possible moves in order to quickly resolve
---captures to arbitrary depths
+----------------------------------------------------------------------------------------------------
+-- Calculate the set of all locations that are 'defended' by the given color
+-- The intendtion is to use this only once per position / color
+-- This can be used to filter lists of possible moves in order to quickly resolve
+-- captures to arbitrary depths
+----------------------------------------------------------------------------------------------------
 calcDefended :: Vector Int -> Color -> Set Int
 calcDefended locs c =
-    TODO: change this to getLocsForColor -- probably exists already
-    let oppLocs = getOpposingLocs locs c
-        oppMoves = movesFromLocs oppLocs
+    let theLocs = locsForColor locs c
+        oppMoves = movesFromLocs theLocs
         destLocs = gatherDestLocs oppMoves
-        defended = S.fromList destLocs
+    in S.fromList destLocs
 
-movesFromLocs :: Vector Int -> [ChessMv]
-movesFromLocs locs moves =
+movesFromLocs :: Vector Int -> [Int] -> [ChessMv]
+movesFromLocs grid xs =
   foldr f [] locs where
     f :: Int -> [ChessMv] -> [ChessMv]
-    f loc = moves ++ movesFromLoc loc
+    f loc moves = moves ++ movesFromLoc grid loc
 
-movesFromLoc :: Int -> [ChessMv]
-movesFromLoc _loc = undefined
+movesFromLoc :: Vector Int -> Int -> [ChessMv]
+movesFromLoc locs loc =
+  let MkSomeChessPiece (s, cp) = indexToPiece locs loc
+
+        = movesForPiece grid loc thePiece
+
+
+  TODO - continue
+-- legalQueenMoves :: ChessPos -> Int -> [ChessMv]
+-- legalQueenMoves _ _ = undefined
+
+-- find the legal destination locs for a queen
+-- Note: 'legal' moves are a subset of 'possible' moves
+-- legalQueenMvs :: Int -> [Int]
+-- legalQueenMvs idx = possibleQueenMoves idx
+  -- TODO: filter out moves w/Queen pinned to King
+  -- filter out squares w/friendly pieces
 
 gatherDestLocs :: [ChessMv] -> [Int]
 gatherDestLocs moves =
-  fmap $ \mv -> (_endIdx mv)
+  fmap (\mv -> (_endIdx mv)) moves
 
-getOpposingLocs :: Vector Int -> Color -> Vector Int
-getOpposingLocs locs c =
-    let oppColor = flipColor (_clr pos)
-    in V.filter (\x -> colorFromInt x == oppColor) (_grid pos)
+-- getOpposingLocs :: Vector Int -> Color -> Vector Int
+-- getOpposingLocs locs c =
+--     let oppColor = flipColor (_clr pos)
+--     in V.filter (\x -> colorFromInt x == oppColor) (_grid pos)
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
   -- this is just lookup of map built from calcDefended, with Nothing converted to False
 
--- find the legal destination locs for a queen
--- Note: 'legal' moves are a subset of 'possible' moves
-legalQueenMvs :: Int -> [Int]
-legalQueenMvs _idx = undefined
-  -- let poss = possibleQueenMvs idx
-  -- TODO: filter out moves w/Queen pinned to King
-  -- filter out squares w/friendly pieces
+
 
 -- find the possible destination locs for a queen
 possibleQueenMvs :: Int -> [Int]
@@ -461,9 +515,6 @@ onBoard x
 
 offBoard :: Int -> Bool
 offBoard x = not $ onBoard x
-
-legalQueenMoves :: ChessPos -> Int -> [ChessMv]
-legalQueenMoves _ _ = undefined
 
 noMoves :: ChessPos -> Int -> [ChessMv]
 noMoves _ _ = undefined

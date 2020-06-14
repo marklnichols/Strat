@@ -2,6 +2,7 @@
 module ChessTest (chessTest) where
 
 import Chess
+import qualified Data.Set as S
 import Data.Tree
 import Strat.StratTree.TreeNode
 import Test.Hspec
@@ -55,9 +56,9 @@ chessTest = do
              possiblePawnCaptures 77 Black `shouldMatchList` [56, 58, 66, 68]
     describe "calcDefended" $
       it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
-       calcDefended (posFromGridW board01) `shouldEqual` S.fromList
+       S.toList (calcDefended board01 White) `shouldMatchList`
            [88, 87, 61, 63, 64, 65, 66 , 72, 82 , 52, 42, 32, 85, 84, 83, 82, 81, 56, 58, 78]
-       calcDefended (posFromGridB board01) `shouldEqual` S.fromList
+       S.toList (calcDefended board01 Black) `shouldMatchList`
            [ 11, 13, 23, 56, 66, 36, 41, 42, 43, 44, 45, 47, 48, 55, 64, 74, 83, 37, 28, 57, 68, 35,
              24, 13, 36, 16, 23, 24, 25, 27, 28, 32, 31, 42, 44 ]
 
