@@ -30,13 +30,13 @@ module Chess
     , colorToInt
     -- exported for testing only
     , getPieceLocs
-    , possibleBishopMvs
-    , possibleKnightMvs
-    , possibleKingMvs
-    , possiblePawnMvs
+    , possibleBishopMoves
+    , possibleKnightMoves
+    , possibleKingMoves
+    , possiblePawnMoves
     , possiblePawnCaptures
-    , possibleQueenMvs
-    , possibleRookMvs
+    , possibleQueenMoves
+    , possibleRookMoves
     ) where
 
 import Control.Lens
@@ -353,12 +353,12 @@ pieceMoves _ _ = undefined
 -- movesFromDir _ _ _ = undefined  -- dir idx moveType
 
 --possible destination squares for a king
-possibleKingMvs :: Int -> [Int]
-possibleKingMvs idx = filter onBoard (fmap ($ idx) queenDirs)
+possibleKingMoves :: Int -> [Int]
+possibleKingMoves idx = filter onBoard (fmap ($ idx) queenDirs)
 
 legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
 legalKingMoves pos defendedMap idx =
-    let locs = possibleKingMvs idx
+    let locs = possibleKingMoves idx
         indexes = filter (kingFilter pos defendedMap (pos^.clr)) locs
     in  destinationsToMoves idx indexes
 
@@ -390,28 +390,42 @@ isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 -- captures to arbitrary depths
 ----------------------------------------------------------------------------------------------------
 calcDefended :: Vector Int -> Color -> Set Int
-calcDefended locs c =
-    let theLocs = locsForColor locs c
-        oppMoves = movesFromLocs theLocs
+calcDefended grid c =
+    let theLocs = locsForColor grid c
+        oppMoves = movesFromLocs grid theLocs
         destLocs = gatherDestLocs oppMoves
     in S.fromList destLocs
 
 movesFromLocs :: Vector Int -> [Int] -> [ChessMv]
 movesFromLocs grid xs =
-  foldr f [] locs where
+  foldr f [] xs where
     f :: Int -> [ChessMv] -> [ChessMv]
     f loc moves = moves ++ movesFromLoc grid loc
 
 movesFromLoc :: Vector Int -> Int -> [ChessMv]
 movesFromLoc locs loc =
-  let MkSomeChessPiece (s, cp) = indexToPiece locs loc
+  let (MkSomeChessPiece s cp) = indexToPiece locs loc
 
-        = movesForPiece grid loc thePiece
+  in movesForPiece s
 
 
-  TODO - continue
--- legalQueenMoves :: ChessPos -> Int -> [ChessMv]
--- legalQueenMoves _ _ = undefined
+
+movesForPiece :: forall s. SingI s => Sing s -> (Int -> [ChessMv])
+movesForPiece _x =
+  case sing @s of
+     SKing -> possibleKingMoves
+     SQueen -> possibleQueenMoves
+     SRook -> possibleRookMoves
+     SKnight -> possibleKnightMoves
+     SBishop -> possibleBishopMoves
+     sPawn -> possiblePawnCaptures
+
+gatherDestLocs :: [ChessMv] -> [Int]
+gatherDestLocs moves =
+  fmap (\mv -> (_endIdx mv)) moves
+
+-- legalQueenMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
+-- legalQueenMoves _ _ _ = undefined
 
 -- find the legal destination locs for a queen
 -- Note: 'legal' moves are a subset of 'possible' moves
@@ -419,10 +433,6 @@ movesFromLoc locs loc =
 -- legalQueenMvs idx = possibleQueenMoves idx
   -- TODO: filter out moves w/Queen pinned to King
   -- filter out squares w/friendly pieces
-
-gatherDestLocs :: [ChessMv] -> [Int]
-gatherDestLocs moves =
-  fmap (\mv -> (_endIdx mv)) moves
 
 -- getOpposingLocs :: Vector Int -> Color -> Vector Int
 -- getOpposingLocs locs c =
@@ -436,29 +446,29 @@ isDefended _ =  undefined   --color index
 
 
 -- find the possible destination locs for a queen
-possibleQueenMvs :: Int -> [Int]
-possibleQueenMvs idx = fold $ fmap (dirLocs idx) queenDirs
+possibleQueenMoves :: Int -> [Int]
+possibleQueenMoves idx = fold $ fmap (dirLocs idx) queenDirs
 
 -- find the possible destination locs for a rook
-possibleRookMvs :: Int -> [Int]
-possibleRookMvs idx = fold $ fmap (dirLocs idx) rookDirs
+possibleRookMoves :: Int -> [Int]
+possibleRookMoves idx = fold $ fmap (dirLocs idx) rookDirs
 
 -- find the possible destination locs for a bishop
-possibleBishopMvs :: Int -> [Int]
-possibleBishopMvs idx = fold $ fmap (dirLocs idx) bishopDirs
+possibleBishopMoves :: Int -> [Int]
+possibleBishopMoves idx = fold $ fmap (dirLocs idx) bishopDirs
 
 -- find the possible destination locs for a knight
-possibleKnightMvs :: Int -> [Int]
-possibleKnightMvs idx = filter onBoard (fmap ($ idx) knightDirs)
+possibleKnightMoves :: Int -> [Int]
+possibleKnightMoves idx = filter onBoard (fmap ($ idx) knightDirs)
 
 -- find the possible destination locs for a pawn (non-capturing moves)
-possiblePawnMvs :: Int -> Color -> [Int]
-possiblePawnMvs idx White =
+possiblePawnMoves :: Int -> Color -> [Int]
+possiblePawnMoves idx White =
   let oneSpace = whitePawnDir idx
   in oneSpace : if hasPawnMoved White idx
                   then []
                   else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
-possiblePawnMvs idx Black =
+possiblePawnMoves idx Black =
   let oneSpace = blackPawnDir idx
   in oneSpace : if hasPawnMoved Black idx
                   then []

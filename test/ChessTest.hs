@@ -14,39 +14,39 @@ chessTest = do
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
             getPieceLocs (nodeFromGridW board01) `shouldMatchList` [12, 21, 22, 26, 33, 46]
             getPieceLocs (nodeFromGridB board01) `shouldMatchList` [62, 67, 76, 78, 86, 87]
-    describe "possibleKingMvs" $
+    describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
-            possibleKingMvs 22 `shouldMatchList` [23,21,32,12,31,13,33,11]
-            possibleKingMvs 81 `shouldMatchList` [71, 72, 82]
-    describe "possibleQueenMvs" $
+            possibleKingMoves 22 `shouldMatchList` [23,21,32,12,31,13,33,11]
+            possibleKingMoves 81 `shouldMatchList` [71, 72, 82]
+    describe "possibleQueenMoves" $
         it "Gets the possible moves for a queen" $ do
-            possibleQueenMvs 22 `shouldMatchList` [23,24,25,26,27,28 -- right
+            possibleQueenMoves 22 `shouldMatchList` [23,24,25,26,27,28 -- right
                                                   ,32,42,52,62,72,82 -- up
                                                   ,33,44,55,66,77,88 -- UR
                                                   ,21,12,31,11,13] --L, D, UL, LL, LR
-            possibleQueenMvs 81 `shouldMatchList` [71,61,51,41,31,21,11
+            possibleQueenMoves 81 `shouldMatchList` [71,61,51,41,31,21,11
                                                   ,82,83,84,85,86,87,88
                                                   ,72,63,54,45,36,27,18]
-    describe "possibleRookMvs" $
+    describe "possibleRookMoves" $
         it "Gets the possible moves for a rook" $
-            possibleRookMvs 22 `shouldMatchList` [32,42,52,62,72,82
+            possibleRookMoves 22 `shouldMatchList` [32,42,52,62,72,82
                                                  ,23,24,25,26,27,28
                                                  ,12, 21]
-    describe "possibleBishopMvs" $
+    describe "possibleBishopMoves" $
         it "Gets the possible moves for a bishop" $
-            possibleBishopMvs 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
+            possibleBishopMoves 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
                                                    , 13, 31]
-    describe "possibleKnightMvs" $
+    describe "possibleKnightMoves" $
         it "Gets the possible moves for a knight" $ do
-            possibleKnightMvs 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
-            possibleKnightMvs 27 `shouldMatchList` [15, 35, 46, 48]
+            possibleKnightMoves 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
+            possibleKnightMoves 27 `shouldMatchList` [15, 35, 46, 48]
 
-    describe "possiblePawnMvs" $
+    describe "possiblePawnMoves" $
         it "Gets the possible (non capturing) moves for a pawn" $ do
-            possiblePawnMvs 22 White `shouldMatchList` [32, 42]
-            possiblePawnMvs 54 White `shouldMatchList` [64]
-            possiblePawnMvs 22 Black `shouldMatchList` [12]
-            possiblePawnMvs 72 Black `shouldMatchList` [52, 62]
+            possiblePawnMoves 22 White `shouldMatchList` [32, 42]
+            possiblePawnMoves 54 White `shouldMatchList` [64]
+            possiblePawnMoves 22 Black `shouldMatchList` [12]
+            possiblePawnMoves 72 Black `shouldMatchList` [52, 62]
 
     describe "possiblePawnCaptures" $
          it "Gets the possible capturing moves for a pawn" $ do
