@@ -50,10 +50,10 @@ chessTest = do
 
     describe "possiblePawnCaptures" $
          it "Gets the possible capturing moves for a pawn" $ do
-             possiblePawnCaptures 43 White `shouldMatchList` [52, 54] -- regular captures
-             possiblePawnCaptures 22 White `shouldMatchList` [31, 33, 41, 43] -- en passant captures
-             possiblePawnCaptures 22 Black `shouldMatchList` [11, 13]
-             possiblePawnCaptures 77 Black `shouldMatchList` [56, 58, 66, 68]
+             possiblePawnCaptures White 43 `shouldMatchList` [52, 54] -- regular captures
+             possiblePawnCaptures White 22 `shouldMatchList` [31, 33, 41, 43] -- en passant captures
+             possiblePawnCaptures Black 22 `shouldMatchList` [11, 13]
+             possiblePawnCaptures Black 77 `shouldMatchList` [56, 58, 66, 68]
     describe "calcDefended" $
       it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
        S.toList (calcDefended board01 White) `shouldMatchList`

@@ -104,13 +104,21 @@ $(singletons [d|
   |])
 
 data ChessPiece :: Piece -> Type where
-  UnsafeMkChessPiece :: { color :: Color } -> ChessPiece p
+  UnsafeMkChessPiece :: { _cpColor :: Color } -> ChessPiece p
 
 intToPiece :: Int -> (Piece, Color)
 intToPiece i = charToPiece (chr i)
 
+intToPiece' :: Int -> (Piece, Color)
+intToPiece' i = charToPiece' (chr i)
+
+pieceToInt :: Piece -> Color -> Int
+pieceToInt p c = ord $ pieceToChar' p c
+
 pieceToInt :: Piece -> Color -> Int
 pieceToInt p c = ord $ pieceToChar p c
+
+-- TODO: get rid of either the ' or the non-' version of these
 
 pieceToChar :: Piece -> Color -> Char
 pieceToChar King White = 'K'
@@ -125,6 +133,20 @@ pieceToChar Bishop White = 'B'
 pieceToChar Bishop Black = 'b'
 pieceToChar Pawn White = 'P'
 pieceToChar Pawn Black = 'p'
+
+pieceToChar' :: Piece -> Color -> Char
+pieceToChar' 'King White = 'K'
+pieceToChar' 'King Black = 'k'
+pieceToChar' 'Queen White = 'Q'
+pieceToChar' 'Queen Black = 'q'
+pieceToChar' 'Rook White = 'R'
+pieceToChar' 'Rook Black = 'r'
+pieceToChar' 'Knight White = 'N'
+pieceToChar' 'Knight Black = 'n'
+pieceToChar' 'Bishop White = 'B'
+pieceToChar' 'Bishop Black = 'b'
+pieceToChar' 'Pawn White = 'P'
+pieceToChar' 'Pawn Black = 'p'
 
 charToPiece :: Char -> (Piece, Color)
 charToPiece 'K' = (King, White)
@@ -141,14 +163,33 @@ charToPiece 'b' = (Bishop, Black)
 charToPiece 'p' = (Pawn, Black)
 charToPiece ch = error $ "charToPiece not implemented for the value " ++ show ch
 
+charToPiece' :: Char -> (Piece', Color)
+charToPiece' 'K' = ('King, White)
+charToPiece' 'Q' = ('Queen, White)
+charToPiece' 'R' = ('Rook, White)
+charToPiece' 'N' = ('Knight, White)
+charToPiece' 'B' = ('Bishop, White)
+charToPiece' 'P' = ('Pawn, White)
+charToPiece' 'k' = ('King, Black)
+charToPiece' 'q' = ('Queen, Black)
+charToPiece' 'r' = ('Rook, Black)
+charToPiece' 'n' = ('Knight, Black)
+charToPiece' 'b' = ('Bishop, Black)
+charToPiece' 'p' = ('Pawn, Black)
+charToPiece' ch = error $ "charToPiece' not implemented for the value " ++ show ch
 
 ----------------------------------------------------------------------------------------------------
-indexToPiece :: Vector Int -> Int -> SomeChessPiece
+-- indexToPiece :: Vector Int -> Int -> SomeChessPiece
+-- indexToPiece g idx =
+--     let gridVal =  fromMaybe 0 (g ^? ix idx)
+--         (piece, c) = intToPiece gridVal
+--     in  mkSomeChessPiece piece c
+indexToPiece :: Vector Int -> Int -> SomeSing Piece
 indexToPiece g idx =
     let gridVal =  fromMaybe 0 (g ^? ix idx)
         (piece, c) = intToPiece gridVal
-    in  mkSomeChessPiece piece c
-
+    in SomeSing (intToPiece' gridVal)
+{-
 mkSomeChessPiece :: Piece -> Color -> SomeChessPiece
 mkSomeChessPiece piece c = case toSing piece of
   SomeSing p -> fromChessPiece p $ mkChessPiece p c
@@ -158,6 +199,21 @@ data SomeChessPiece :: Type where
 
 fromChessPiece :: Sing p -> ChessPiece p -> SomeChessPiece
 fromChessPiece = MkSomeChessPiece
+-}
+
+{-
+-- instead of SomeChessPiece -- use TH generated:
+
+data SomeSing Piece :: Type where
+    SomeSing :: Sing s -> SomeSing DoorState
+
+-- to create:
+let z = SomeSing SKing -- z carries SKing in an extential
+
+-- to pattern match
+case z of
+    SomeSing SKing ->
+-}
 
 mkChessPiece :: Sing p -> Color -> ChessPiece p
 mkChessPiece _ = UnsafeMkChessPiece
@@ -392,37 +448,61 @@ isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 calcDefended :: Vector Int -> Color -> Set Int
 calcDefended grid c =
     let theLocs = locsForColor grid c
-        oppMoves = movesFromLocs grid theLocs
-        destLocs = gatherDestLocs oppMoves
+        destLocs = movesFromLocs grid theLocs
+        -- destLocs = gatherDestLocs oppMoves
     in S.fromList destLocs
 
-movesFromLocs :: Vector Int -> [Int] -> [ChessMv]
+movesFromLocs :: Vector Int -> [Int] -> [Int]
 movesFromLocs grid xs =
   foldr f [] xs where
-    f :: Int -> [ChessMv] -> [ChessMv]
+    f :: Int -> [Int] -> [Int]
     f loc moves = moves ++ movesFromLoc grid loc
 
-movesFromLoc :: Vector Int -> Int -> [ChessMv]
+movesFromLoc :: Vector Int -> Int -> [Int]
 movesFromLoc locs loc =
-  let (MkSomeChessPiece s cp) = indexToPiece locs loc
+  -- let scp = indexToPiece locs loc -- :: SomeChessPiece
+  let oh = SomeSing SKing
+      ohh = SomeSing SKing `asTypeOf` _ -- SomeSing Piece
+        -- contains existentially qualified SKing === Sing 'King
+  in case oh of
+        SomeSing SKing -> possibleKingMoves loc
+        SomeSing SQueen -> possibleQueenMoves loc
+        SomeSing SRook -> possibleRookMoves loc
+        SomeSing SKnight -> possibleKnightMoves loc
+        SomeSing SBishop -> possibleBishopMoves loc
+        SomeSing SPawn -> possiblePawnCaptures (_cpColor cp) loc
 
-  in movesForPiece s
+      -- (MkSomeChessPiece s cp) = scp
+      {- data SomeChessPiece :: Type where
+         MkSomeChessPiece :: Sing p -> ChessPiece p -> SomeChessPiece
+      -}
+      -- h_s = s `asTypeOf` _ -- :: SPiece a1 -- should be :: Sing p
+      -- h_cp = cp `asTypeOf` _ -- ChessPiece a1
+
+  -- in case s of
+  --     SKing -> possibleKingMoves loc
+  --     SQueen -> possibleQueenMoves loc
+  --     SRook -> possibleRookMoves loc
+  --     SKnight -> possibleKnightMoves loc
+  --     SBishop -> possibleBishopMoves loc
+  --     SPawn -> possiblePawnCaptures (_cpColor cp) loc
 
 
+-- movesForPiece :: forall s. SingI s => ChessPiece s -> (Int -> [Int])
+-- movesForPiece p =
+--   let h_p = p `asTypeOf` _  -- :: ChessPiece s
+--       h_sings = (sing @s) `asTypeOf` _ -- :: SPiece s
+--   in case sing @s of
+--      SKing -> possibleKingMoves
+--      SQueen -> possibleQueenMoves
+--      SRook -> possibleRookMoves
+--      SKnight -> possibleKnightMoves
+--      SBishop -> possibleBishopMoves
+--      SPawn -> possiblePawnCaptures (_cpColor p)
 
-movesForPiece :: forall s. SingI s => Sing s -> (Int -> [ChessMv])
-movesForPiece _x =
-  case sing @s of
-     SKing -> possibleKingMoves
-     SQueen -> possibleQueenMoves
-     SRook -> possibleRookMoves
-     SKnight -> possibleKnightMoves
-     SBishop -> possibleBishopMoves
-     sPawn -> possiblePawnCaptures
-
-gatherDestLocs :: [ChessMv] -> [Int]
-gatherDestLocs moves =
-  fmap (\mv -> (_endIdx mv)) moves
+-- gatherDestLocs :: [ChessMv] -> [Int]
+-- gatherDestLocs moves =
+--   fmap (\mv -> (_endIdx mv)) moves
 
 -- legalQueenMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
 -- legalQueenMoves _ _ _ = undefined
@@ -479,13 +559,13 @@ hasPawnMoved White idx = idx > 28
 hasPawnMoved Black idx = idx < 71
 
 -- find the possible destination capture locs for a pawn
-possiblePawnCaptures :: Int -> Color -> [Int]
-possiblePawnCaptures idx White =
+possiblePawnCaptures :: Color -> Int -> [Int]
+possiblePawnCaptures White idx =
   let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
   in twoCaps ++ if hasPawnMoved White idx
                   then []
                   else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
-possiblePawnCaptures idx Black =
+possiblePawnCaptures Black idx =
   let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
   in twoCaps ++ if hasPawnMoved Black idx
                   then []
