@@ -16,80 +16,89 @@ chessTest = do
             getPieceLocs (nodeFromGridB board01) `shouldMatchList` [62, 67, 76, 78, 86, 87]
     describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
-            possibleKingMoves 22 `shouldMatchList` [23,21,32,12,31,13,33,11]
-            possibleKingMoves 81 `shouldMatchList` [71, 72, 82]
+            possibleKingMoves board01 22 `shouldMatchList` [23,21,32,12,31,13,33,11]
+            possibleKingMoves board01 81 `shouldMatchList` [71, 72, 82]
     describe "possibleQueenMoves" $
         it "Gets the possible moves for a queen" $ do
-            possibleQueenMoves 22 `shouldMatchList` [23,24,25,26,27,28 -- right
+            possibleQueenMoves board01 22 `shouldMatchList` [23,24,25,26,27,28 -- right
                                                   ,32,42,52,62,72,82 -- up
                                                   ,33,44,55,66,77,88 -- UR
                                                   ,21,12,31,11,13] --L, D, UL, LL, LR
-            possibleQueenMoves 81 `shouldMatchList` [71,61,51,41,31,21,11
+            possibleQueenMoves board01 81 `shouldMatchList` [71,61,51,41,31,21,11
                                                   ,82,83,84,85,86,87,88
                                                   ,72,63,54,45,36,27,18]
     describe "possibleRookMoves" $
         it "Gets the possible moves for a rook" $
-            possibleRookMoves 22 `shouldMatchList` [32,42,52,62,72,82
+            possibleRookMoves board01 22 `shouldMatchList` [32,42,52,62,72,82
                                                  ,23,24,25,26,27,28
                                                  ,12, 21]
     describe "possibleBishopMoves" $
         it "Gets the possible moves for a bishop" $
-            possibleBishopMoves 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
+            possibleBishopMoves board01 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
                                                    , 13, 31]
     describe "possibleKnightMoves" $
         it "Gets the possible moves for a knight" $ do
-            possibleKnightMoves 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
-            possibleKnightMoves 27 `shouldMatchList` [15, 35, 46, 48]
+            possibleKnightMoves board01 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
+            possibleKnightMoves board01 27 `shouldMatchList` [15, 35, 46, 48]
 
     describe "possiblePawnMoves" $
         it "Gets the possible (non capturing) moves for a pawn" $ do
-            possiblePawnMoves 22 White `shouldMatchList` [32, 42]
-            possiblePawnMoves 54 White `shouldMatchList` [64]
-            possiblePawnMoves 22 Black `shouldMatchList` [12]
-            possiblePawnMoves 72 Black `shouldMatchList` [52, 62]
+            possiblePawnMoves board01 22 White `shouldMatchList` [32, 42]
+            possiblePawnMoves board01 54 White `shouldMatchList` [64]
+            possiblePawnMoves board01 22 Black `shouldMatchList` [12]
+            possiblePawnMoves board01 72 Black `shouldMatchList` [52, 62]
 
     describe "possiblePawnCaptures" $
          it "Gets the possible capturing moves for a pawn" $ do
-             possiblePawnCaptures White 43 `shouldMatchList` [52, 54] -- regular captures
-             possiblePawnCaptures White 22 `shouldMatchList` [31, 33, 41, 43] -- en passant captures
-             possiblePawnCaptures Black 22 `shouldMatchList` [11, 13]
-             possiblePawnCaptures Black 77 `shouldMatchList` [56, 58, 66, 68]
+             possiblePawnCaptures board01 White 43 `shouldMatchList` [52, 54] -- regular captures
+             possiblePawnCaptures board01 White 22 `shouldMatchList` [31, 33, 41, 43] -- en passant captures
+             possiblePawnCaptures board01 Black 22 `shouldMatchList` [11, 13]
+             possiblePawnCaptures board01 Black 77 `shouldMatchList` [56, 58, 66, 68]
     describe "calcDefended" $
       it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
-       S.toList (calcDefended board01 White) `shouldMatchList`
-           [88, 87, 61, 63, 64, 65, 66 , 72, 82 , 52, 42, 32, 85, 84, 83, 82, 81, 56, 58, 78]
-       S.toList (calcDefended board01 Black) `shouldMatchList`
-           [ 11, 13, 23, 56, 66, 36, 41, 42, 43, 44, 45, 47, 48, 55, 64, 74, 83, 37, 28, 57, 68, 35,
-             24, 13, 36, 16, 23, 24, 25, 27, 28, 32, 31, 42, 44 ]
+       S.toList (calcDefended board01 White) `shouldMatchList` (S.toList $ S.fromList
+
+           [ 11, 13, 23                 -- K
+           , 41, 42, 43, 44, 45, 47, 48 -- Q (horizontal)
+           , 36, 56, 66                 -- Q (vertical)
+           , 28, 37, 55, 64, 73, 82     -- Q (diagonal 1)
+           , 13, 24, 35, 57, 68         -- Q (diagonal 2)
+           , 23, 24, 25, 27, 28         -- R (horizontal)
+           , 16, 36                     -- R (vertical)
+           , 31, 32, 42, 44 ])          -- P
+
+       -- S.toList (calcDefended board01 Black) `shouldMatchList`
+       --     [ 11, 13, 23, 56, 66, 36, 41, 42, 43, 44, 45, 47, 48, 55, 64, 74, 83, 37, 28, 57, 68, 35,
+       --       24, 13, 36, 16, 23, 24, 25, 27, 28, 32, 31, 42, 44 ]
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
-treeFromGridW :: V.Vector Int -> Tree ChessNode
+treeFromGridW :: V.Vector Char -> Tree ChessNode
 treeFromGridW g = Node ChessNode
     { _chessMv = noMove
     , _chessVal = ChessEval {_total = 0, _details = ""}
     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
     , _chessPos = posFromGridW g } []
 
-treeFromGridB :: V.Vector Int -> Tree ChessNode
+treeFromGridB :: V.Vector Char -> Tree ChessNode
 treeFromGridB g = Node ChessNode
     { _chessMv = noMove
     , _chessVal = ChessEval {_total = 0, _details = ""}
     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
     , _chessPos = posFromGridB g } []
 
-nodeFromGridW :: V.Vector Int -> ChessNode
+nodeFromGridW :: V.Vector Char -> ChessNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
 
-nodeFromGridB :: V.Vector Int -> ChessNode
+nodeFromGridB :: V.Vector Char -> ChessNode
 nodeFromGridB g = rootLabel $ treeFromGridB g
 
-posFromGridW :: V.Vector Int -> ChessPos
-posFromGridW g = ChessPos {_grid = g, _clr = White, _fin = NotFinal}
+posFromGridW :: V.Vector Char -> ChessPos
+posFromGridW g = ChessPos {_cpGrid = g, _cpColor = White, _cpFin = NotFinal}
 
-posFromGridB :: V.Vector Int -> ChessPos
-posFromGridB g = ChessPos {_grid = g, _clr = Black, _fin = NotFinal}
+posFromGridB :: V.Vector Char -> ChessPos
+posFromGridB g = ChessPos {_cpGrid = g, _cpColor = Black, _cpFin = NotFinal}
 
 noMove :: ChessMv
 noMove = ChessMv {isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
@@ -105,19 +114,17 @@ noMove = ChessMv {isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx 
     5 = White Knight    -5 = Black Knight
     6 = White Pawn      -6 = Black Pawn
 
-    4b = White King     6b = White King
-    51 = White Queen    71 = White Queen
-    52 = White Rook     72 = White Rook
-    4e = White Knight   6e = White Knight
-    42 = White Bishop   62 = White Bishop
-    50 = White Pawn     70 = White Pawn
-
-
+    75 = 0x4b = White King     107 = 0x6b = White King
+    81 = 0x51 = White Queen    113 = 0x71 = White Queen
+    82 = 0x52 = White Rook     114 = 0x72 = White Rook
+    78 = 0x4e = White Knight   110 = 0x6e = White Knight
+    66 = 0x42 = White Bishop   098 = 0x62 = White Bishop
+    80 = 0x50 = White Pawn     112 = 0x70 = White Pawn
 -}
 
 ---------------------------------------------------------------------------------------------------
-board01 :: V.Vector Int
-board01 = fmap ord V.fromList
+board01 :: V.Vector Char
+board01 = V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  'P',  'P',  ' ',  ' ',  ' ',  'R',  ' ',  ' ',  '+',

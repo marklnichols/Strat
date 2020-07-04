@@ -62,13 +62,13 @@ import qualified ChessParser as P
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
-empty :: Int
-empty = 0
+empty :: Char
+empty = ' '
 
-data Color = Black | White
+data Color = Black | White | Unknown
     deriving (Show, Eq)
 
-data ChessPos = ChessPos {_grid :: Vector Int, _clr :: Color, _fin :: FinalState} deriving (Show)
+data ChessPos = ChessPos {_cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState} deriving (Show)
 makeLenses ''ChessPos
 
 data ChessMv = ChessMv {isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
@@ -85,10 +85,12 @@ makeLenses ''ChessNode
 colorToInt :: Color -> Int
 colorToInt Black = -1
 colorToInt White = 1
+colorToInt Unknown = 0
 
 colorFromInt :: Int -> Color
 colorFromInt 1 = White
-colorFromInt _n = Black
+colorFromInt (-1) = Black
+colorFromInt _n = Unknown
 
 ----------------------------------------------------------------------------------------------------
 -- New, new attempt with singletons
@@ -108,6 +110,7 @@ pieceToInt :: Piece -> Color -> Int
 pieceToInt p c = ord $ pieceToChar p c
 
 pieceToChar :: Piece -> Color -> Char
+pieceToChar _ Unknown = ' '
 pieceToChar King White = 'K'
 pieceToChar King Black = 'k'
 pieceToChar Queen White = 'Q'
@@ -136,16 +139,21 @@ charToPiece 'b' = MkChessPiece Black (SomeSing SBishop)
 charToPiece 'p' = MkChessPiece Black (SomeSing SPawn)
 charToPiece ch = error $ "charToPiece not implemented for the value " ++ show ch
 
-indexToPiece :: Vector Int -> Int -> ChessPiece (k :: SomeSing Piece)
+indexToColor :: Vector Char -> Int -> Color
+indexToColor g idx =
+    let gridVal = fromMaybe ' ' (g ^? ix idx)
+    in charToColor gridVal
+
+indexToPiece :: Vector Char -> Int -> ChessPiece (k :: SomeSing Piece)
 indexToPiece g idx =
-    let gridVal =  fromMaybe 0 (g ^? ix idx)
-    in intToPiece gridVal
+    let gridVal =  fromMaybe ' ' (g ^? ix idx)
+    in charToPiece gridVal
 
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
     possibleMoves = legalMoves
-    color = colorToInt . view (chessPos . clr)
-    final = view (chessPos . fin)
+    color = colorToInt . view (chessPos . cpColor)
+    final = view (chessPos . cpFin)
     parseMove = parseChessMv
 
 instance TreeNode ChessNode ChessMv ChessEval where
@@ -218,6 +226,13 @@ Piece representation as integers:
 4 = White Bishop    -4 = Black Bishop
 5 = White Knight    -5 = Black Knight
 6 = White Pawn      -6 = Black Pawn
+
+75 = 0x4b = White King     107 = 0x6b = White King
+81 = 0x51 = White Queen    113 = 0x71 = White Queen
+82 = 0x52 = White Rook     114 = 0x72 = White Rook
+78 = 0x4e = White Knight   110 = 0x6e = White Knight
+66 = 0x42 = White Bishop   098 = 0x62 = White Bishop
+80 = 0x50 = White Pawn     112 = 0x70 = White Pawn
 
 ---------------------------------------------------------------------------------------------------}
 type Dir = Int -> Int
@@ -305,23 +320,26 @@ legalMoves = undefined
 getPieceLocs :: ChessNode -> [Int]
 getPieceLocs node =
     let pos = node ^. chessPos
-    in locsForColor (_grid pos) (_clr pos)
+    in locsForColor (_cpGrid pos) (_cpColor pos)
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for a given color from a board
 --------------------------------------------------------------------------------------------------
-locsForColor :: Vector Int -> Color -> [Int]
-locsForColor locs c =
-    let ci = colorToInt c
-        range = V.fromList [0..100] :: Vector Int
+locsForColor :: Vector Char -> Color -> [Int]
+locsForColor locs theColor =
+    let range = V.fromList [0..100] :: Vector Int
         pairs = V.zip range locs
-        filtrd = V.filter (pMatch ci) pairs
+        filtrd = V.filter ((pMatch theColor) . snd) pairs
         first = V.map fst filtrd
     in V.toList first
-        where pMatch colr pair =
-                let val = snd pair
-                    av = abs val
-                in (av > 0 && av <7 && (val * colr) > 0)
+        where
+          pMatch clr ch  = charToColor ch == clr
+
+charToColor :: Char -> Color
+charToColor c
+  | ord c > 64 && ord c < 91 = White  -- A - Z : 65 - 90
+  | ord c > 86 && ord c < 123 = Black -- a - z : 97 - 122
+  | otherwise = Unknown
 
 pieceMoves :: ChessNode -> Int -> [ChessMv]
 pieceMoves _ _ = undefined
@@ -330,31 +348,35 @@ pieceMoves _ _ = undefined
 -- movesFromDir _ _ _ = undefined  -- dir idx moveType
 
 --possible destination squares for a king
-possibleKingMoves :: Int -> [Int]
-possibleKingMoves idx = filter onBoard (fmap ($ idx) queenDirs)
+possibleKingMoves :: Vector Char -> Int -> [Int]
+possibleKingMoves g idx =
+  let theColor = indexToColor g idx
+      onTheBoard = filter onBoard (fmap ($ idx) queenDirs)
+  in filter (not . hasFriendly g theColor) onTheBoard
 
 legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
 legalKingMoves pos defendedMap idx =
-    let locs = possibleKingMoves idx
-        indexes = filter (kingFilter pos defendedMap (pos^.clr)) locs
+    let locs = possibleKingMoves (pos^.cpGrid) idx
+        indexes = filter (kingFilter (pos ^.cpGrid) defendedMap (pos^.cpColor)) locs
     in  destinationsToMoves idx indexes
 
-kingFilter :: ChessPos -> (Map Int Bool) -> Color -> Int -> Bool
-kingFilter pos defendedMap c idx =
-    if hasFriendly pos c idx
+kingFilter :: Vector Char -> (Map Int Bool) -> Color -> Int -> Bool
+kingFilter g defendedMap c idx =
+    if hasFriendly g c idx
         then False
         else not $ isDefended defendedMap c idx
 
-hasFriendly :: ChessPos -> Color -> Int -> Bool
-hasFriendly _pos _c _idx = undefined
--- hasFriendly pos c idx = case indexToPiece (_grid pos) idx of
+hasFriendly :: Vector Char -> Color -> Int -> Bool
+hasFriendly g c idx = indexToColor g idx == c
+
+-- hasFriendly pos c idx = case indexToPiece (_cpGrid pos) idx of
 --     MkSomeChessPiece _theSing (UnsafeMkChessPiece aColor) -> aColor == c
 
-hasEnemy :: ChessPos -> Color -> Int -> Bool
-hasEnemy pos c idx = not $ hasFriendly pos c idx
+hasEnemy :: Vector Char -> Color -> Int -> Bool
+hasEnemy g c idx = not $ hasFriendly g c idx
 
 isEmpty :: ChessPos -> Int -> Bool
-isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
+isEmpty pos idx = fromMaybe empty ((_cpGrid pos) ^? ix idx) == empty
 
   -- for each opposing piece,
   -- build list of legal moves
@@ -367,75 +389,78 @@ isEmpty pos idx = fromMaybe empty ((_grid pos) ^? ix idx) == empty
 -- This can be used to filter lists of possible moves in order to quickly resolve
 -- captures to arbitrary depths
 ----------------------------------------------------------------------------------------------------
-calcDefended :: Vector Int -> Color -> Set Int
+calcDefended :: Vector Char -> Color -> Set Int
 calcDefended g c =
     let theLocs = locsForColor g c
         destLocs = movesFromLocs g theLocs
-        -- destLocs = gatherDestLocs oppMoves
     in S.fromList destLocs
 
-movesFromLocs :: Vector Int -> [Int] -> [Int]
+movesFromLocs :: Vector Char -> [Int] -> [Int]
 movesFromLocs g xs =
   foldr f [] xs where
     f :: Int -> [Int] -> [Int]
     f loc moves = moves ++ movesFromLoc g loc
 
-movesFromLoc :: Vector Int -> Int -> [Int]
+movesFromLoc :: Vector Char -> Int -> [Int]
 movesFromLoc locs loc =
   let cp = indexToPiece locs loc -- ChessPiece (k :: SomeSing Piece)
   in case cp of
-      MkChessPiece _c (SomeSing SKing) -> possibleKingMoves loc
-      MkChessPiece _c (SomeSing SQueen) -> possibleQueenMoves loc
-      MkChessPiece _c (SomeSing SRook) -> possibleRookMoves loc
-      MkChessPiece _c (SomeSing SKnight) -> possibleKnightMoves loc
-      MkChessPiece _c (SomeSing SBishop) -> possibleBishopMoves loc
-      MkChessPiece c (SomeSing SPawn) -> possiblePawnCaptures c loc
+      MkChessPiece _c (SomeSing SKing) -> possibleKingMoves locs loc
+      MkChessPiece _c (SomeSing SQueen) -> possibleQueenMoves locs loc
+      MkChessPiece _c (SomeSing SRook) -> possibleRookMoves locs loc
+      MkChessPiece _c (SomeSing SKnight) -> possibleKnightMoves locs loc
+      MkChessPiece _c (SomeSing SBishop) -> possibleBishopMoves locs loc
+      MkChessPiece c (SomeSing SPawn) -> possiblePawnCaptures locs c loc
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
   -- this is just lookup of map built from calcDefended, with Nothing converted to False
 
 -- find the possible destination locs for a queen
-possibleQueenMoves :: Int -> [Int]
-possibleQueenMoves idx = fold $ fmap (dirLocs idx) queenDirs
+-- TODO: change all these 'possible' functions to filter out moves blocked by friendly pieces
+possibleQueenMoves :: Vector Char -> Int -> [Int]
+possibleQueenMoves _g idx = fold $ fmap (dirLocs idx) queenDirs
 
 -- find the possible destination locs for a rook
-possibleRookMoves :: Int -> [Int]
-possibleRookMoves idx = fold $ fmap (dirLocs idx) rookDirs
+possibleRookMoves :: Vector Char -> Int -> [Int]
+possibleRookMoves _g idx = fold $ fmap (dirLocs idx) rookDirs
 
 -- find the possible destination locs for a bishop
-possibleBishopMoves :: Int -> [Int]
-possibleBishopMoves idx = fold $ fmap (dirLocs idx) bishopDirs
+possibleBishopMoves :: Vector Char -> Int -> [Int]
+possibleBishopMoves _g idx = fold $ fmap (dirLocs idx) bishopDirs
 
 -- find the possible destination locs for a knight
-possibleKnightMoves :: Int -> [Int]
-possibleKnightMoves idx = filter onBoard (fmap ($ idx) knightDirs)
+possibleKnightMoves :: Vector Char -> Int -> [Int]
+possibleKnightMoves _g idx = filter onBoard (fmap ($ idx) knightDirs)
 
 -- find the possible destination locs for a pawn (non-capturing moves)
-possiblePawnMoves :: Int -> Color -> [Int]
-possiblePawnMoves idx White =
+possiblePawnMoves :: Vector Char -> Int -> Color -> [Int]
+possiblePawnMoves _g _idx Unknown = []
+possiblePawnMoves _g idx White =
   let oneSpace = whitePawnDir idx
   in oneSpace : if hasPawnMoved White idx
                   then []
                   else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
-possiblePawnMoves idx Black =
+possiblePawnMoves _g idx Black =
   let oneSpace = blackPawnDir idx
   in oneSpace : if hasPawnMoved Black idx
                   then []
                   else [blackPawnDir oneSpace] -- hasn't moved, 2 space move avail.
 
 hasPawnMoved :: Color -> Int -> Bool
+hasPawnMoved Unknown _ = False
 hasPawnMoved White idx = idx > 28
 hasPawnMoved Black idx = idx < 71
 
 -- find the possible destination capture locs for a pawn
-possiblePawnCaptures :: Color -> Int -> [Int]
-possiblePawnCaptures White idx =
+possiblePawnCaptures :: Vector Char -> Color -> Int -> [Int]
+possiblePawnCaptures _g Unknown _idx = []
+possiblePawnCaptures _g White idx =
   let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
   in twoCaps ++ if hasPawnMoved White idx
                   then []
                   else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
-possiblePawnCaptures Black idx =
+possiblePawnCaptures _g Black idx =
   let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
   in twoCaps ++ if hasPawnMoved Black idx
                   then []
