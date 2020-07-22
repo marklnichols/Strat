@@ -30,13 +30,13 @@ module Chess
     , colorToInt
     -- exported for testing only
     , getPieceLocs
-    , possibleBishopMoves
-    , possibleKnightMoves
+    , allowableBishopMoves
+    , allowableKnightMoves
     , possibleKingMoves
-    , possiblePawnMoves
-    , possiblePawnCaptures
-    , possibleQueenMoves
-    , possibleRookMoves
+    , allowablePawnMoves
+    , allowablePawnCaptures
+    , allowableQueenMoves
+    , allowableRookMoves
     ) where
 
 import Control.Lens
@@ -260,6 +260,9 @@ knightDL x = x - 21
 queenDirs :: [Dir]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
 
+kingDirs :: [Dir]
+kingDirs = queenDirs
+
 rookDirs :: [Dir]
 rookDirs = [up, down, left, right]
 
@@ -347,18 +350,28 @@ pieceMoves _ _ = undefined
 -- movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
 -- movesFromDir _ _ _ = undefined  -- dir idx moveType
 
---possible destination squares for a king
-possibleKingMoves :: Vector Char -> Int -> [Int]
-possibleKingMoves g idx =
-  let theColor = indexToColor g idx
-      onTheBoard = filter onBoard (fmap ($ idx) queenDirs)
-  in filter (not . hasFriendly g theColor) onTheBoard
 
+
+-- TODO: eliminate repetitive code with allowableQueenMoves
+-- find the possible destination locs for a king.  The first list contains the empty squares that
+-- can be moved to. The second list contains squares with pieces that could be captured.
+-- The function 'allowableKingMoves' later filters out the moves that would allow the enemy to
+-- capture the king
+possibleKingMoves :: Vector Char -> Int -> ([Int], [Int])
+possibleKingMoves g idx =
+  foldr f ([], []) kingDirs
+    where
+      f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
+      f x (r, r') =
+        let (freeLocs, captureLocs) = dirLocs g idx x
+        in (freeLocs ++ r, captureLocs ++ r')
+
+-- TODO: this will probably become 'allowableKingMoves'
 legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
-legalKingMoves pos defendedMap idx =
-    let locs = possibleKingMoves (pos^.cpGrid) idx
-        indexes = filter (kingFilter (pos ^.cpGrid) defendedMap (pos^.cpColor)) locs
-    in  destinationsToMoves idx indexes
+legalKingMoves _pos _defendedMap _idx = undefined
+    -- let locs = possibleKingMoves (pos^.cpGrid) idx
+    --     indexes = filter (kingFilter (pos ^.cpGrid) defendedMap (pos^.cpColor)) locs
+    -- in  destinationsToMoves idx indexes
 
 kingFilter :: Vector Char -> (Map Int Bool) -> Color -> Int -> Bool
 kingFilter g defendedMap c idx =
@@ -386,109 +399,122 @@ isEmpty pos idx = fromMaybe empty ((_cpGrid pos) ^? ix idx) == empty
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all locations that are 'defended' by the given color
 -- The intendtion is to use this only once per position / color
--- This can be used to filter lists of possible moves in order to quickly resolve
+-- This can be used to filter lists of allowable moves in order to quickly resolve
 -- captures to arbitrary depths
 ----------------------------------------------------------------------------------------------------
 calcDefended :: Vector Char -> Color -> Set Int
 calcDefended g c =
     let theLocs = locsForColor g c
-        destLocs = movesFromLocs g theLocs
-    in S.fromList destLocs
+        (destEmpty, destEnemy) = movesFromLocs g theLocs
+    in S.fromList (destEmpty ++ destEnemy)
 
-movesFromLocs :: Vector Char -> [Int] -> [Int]
+movesFromLocs :: Vector Char -> [Int] -> ([Int], [Int])
 movesFromLocs g xs =
-  foldr f [] xs where
-    f :: Int -> [Int] -> [Int]
-    f loc moves = moves ++ movesFromLoc g loc
+  foldr f ([], []) xs where
+    f :: Int -> ([Int], [Int]) -> ([Int], [Int])
+    f loc (r1, r2) =
+      let (xs, ys) = movesFromLoc g loc
+      in (xs ++ r1, ys ++ r2)
 
-movesFromLoc :: Vector Char -> Int -> [Int]
-movesFromLoc locs loc =
-  let cp = indexToPiece locs loc -- ChessPiece (k :: SomeSing Piece)
+movesFromLoc :: Vector Char -> Int -> ([Int], [Int])
+movesFromLoc g loc =
+  let cp = indexToPiece g loc -- ChessPiece (k :: SomeSing Piece)
   in case cp of
-      MkChessPiece _c (SomeSing SKing) -> possibleKingMoves locs loc
-      MkChessPiece _c (SomeSing SQueen) -> possibleQueenMoves locs loc
-      MkChessPiece _c (SomeSing SRook) -> possibleRookMoves locs loc
-      MkChessPiece _c (SomeSing SKnight) -> possibleKnightMoves locs loc
-      MkChessPiece _c (SomeSing SBishop) -> possibleBishopMoves locs loc
-      MkChessPiece c (SomeSing SPawn) -> possiblePawnCaptures locs c loc
+      -- charToPiece :: Char -> ChessPiece (k :: SomeSing Piece)
+
+      -- data ChessPiece :: SomeSing Piece -> Type where
+      --   MkChessPiece :: Color -> SomeSing Piece -> ChessPiece k
+
+      MkChessPiece _c (SomeSing SKing) -> possibleKingMoves g loc
+      MkChessPiece _c (SomeSing SQueen) -> allowableQueenMoves g loc
+      MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
+      MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
+      MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
+      MkChessPiece c (SomeSing SPawn) -> allowablePawnCaptures g (indexToColor g loc) loc
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
   -- this is just lookup of map built from calcDefended, with Nothing converted to False
 
--- find the possible destination locs for a queen
--- TODO: change all these 'possible' functions to filter out moves blocked by friendly pieces
-possibleQueenMoves :: Vector Char -> Int -> [Int]
-possibleQueenMoves _g idx = fold $ fmap (dirLocs idx) queenDirs
+-- TODO: eliminate repetitive code with possibleKingMvs, allowable[whatever]Mvs
+-- find the allowable destination locs for a queen.  The first list contains the empty squares that
+-- can be moved to. The second list contains squares with pieces that could be captured.
+allowableQueenMoves :: Vector Char -> Int -> ([Int], [Int])
+allowableQueenMoves g idx =
+  foldr f ([], []) queenDirs
+    where
+      f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
+      f x (r, r') =
+        let (freeLocs, captureLocs) = dirLocs g idx x
+        in (freeLocs ++ r, captureLocs ++ r')
 
--- find the possible destination locs for a rook
-possibleRookMoves :: Vector Char -> Int -> [Int]
-possibleRookMoves _g idx = fold $ fmap (dirLocs idx) rookDirs
+-- find the allowable destination locs for a rook
+-- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
+allowableRookMoves :: Vector Char -> Int -> ([Int], [Int])
+allowableRookMoves g idx = undefined -- fold $ fmap (dirLocs g idx) rookDirs
 
--- find the possible destination locs for a bishop
-possibleBishopMoves :: Vector Char -> Int -> [Int]
-possibleBishopMoves _g idx = fold $ fmap (dirLocs idx) bishopDirs
+-- find the allowable destination locs for a bishop
+-- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
+allowableBishopMoves :: Vector Char -> Int -> ([Int], [Int])
+allowableBishopMoves _g idx = undefined -- fold $ fmap (dirLocs g idx) bishopDirs
 
--- find the possible destination locs for a knight
-possibleKnightMoves :: Vector Char -> Int -> [Int]
-possibleKnightMoves _g idx = filter onBoard (fmap ($ idx) knightDirs)
+-- find the allowable destination locs for a knight
+-- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
+allowableKnightMoves :: Vector Char -> Int -> ([Int], [Int])
+allowableKnightMoves _g idx = undefined -- filter onBoard (fmap ($ idx) knightDirs)
 
--- find the possible destination locs for a pawn (non-capturing moves)
-possiblePawnMoves :: Vector Char -> Int -> Color -> [Int]
-possiblePawnMoves _g _idx Unknown = []
-possiblePawnMoves _g idx White =
-  let oneSpace = whitePawnDir idx
-  in oneSpace : if hasPawnMoved White idx
-                  then []
-                  else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
-possiblePawnMoves _g idx Black =
-  let oneSpace = blackPawnDir idx
-  in oneSpace : if hasPawnMoved Black idx
-                  then []
-                  else [blackPawnDir oneSpace] -- hasn't moved, 2 space move avail.
+-- find the allowable destination locs for a pawn (non-capturing moves)
+-- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
+allowablePawnMoves :: Vector Char -> Int -> Color -> ([Int], [Int])
+allowablePawnMoves _g _idx Unknown = undefined
+allowablePawnMoves _g idx White = undefined
+  -- let oneSpace = whitePawnDir idx
+  -- in oneSpace : if hasPawnMoved White idx
+  --                 then []
+  --                 else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
+allowablePawnMoves _g idx Black = undefined
+  -- let oneSpace = blackPawnDir idx
+  -- in oneSpace : if hasPawnMoved Black idx
+  --                 then []
+  --                 else [blackPawnDir oneSpace] -- hasn't moved, 2 space move avail.
 
 hasPawnMoved :: Color -> Int -> Bool
 hasPawnMoved Unknown _ = False
 hasPawnMoved White idx = idx > 28
 hasPawnMoved Black idx = idx < 71
 
--- find the possible destination capture locs for a pawn
-possiblePawnCaptures :: Vector Char -> Color -> Int -> [Int]
-possiblePawnCaptures _g Unknown _idx = []
-possiblePawnCaptures _g White idx =
-  let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
-  in twoCaps ++ if hasPawnMoved White idx
-                  then []
-                  else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
-possiblePawnCaptures _g Black idx =
-  let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
-  in twoCaps ++ if hasPawnMoved Black idx
-                  then []
-                  else filter onBoard (fmap ($ blackPawnDir idx) blackPawnCaptureDirs) --en passant
+-- find the allowable destination capture locs for a pawn
+allowablePawnCaptures :: Vector Char -> Color -> Int -> ([Int], [Int])
+allowablePawnCaptures _g Unknown _idx = undefined -- []
+allowablePawnCaptures _g White idx = undefined
+  -- let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
+  -- in twoCaps ++ if hasPawnMoved White idx
+  --                 then []
+  --                 else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
+allowablePawnCaptures _g Black idx = undefined
+  -- let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
+  -- in twoCaps ++ if hasPawnMoved Black idx
+  --                 then []
+  --                 else filter onBoard (fmap ($ blackPawnDir idx) blackPawnCaptureDirs) --en passant
 
--- find the possible destination locs for a queen.  The first list contains the empty squares that
--- can be moved to. The second list contains squares with pieces that could be captured.
-allowableQueenMvs :: Int -> ([Int], [Int])
-allowableQueenMvs _idx = undefined
-  {-
-  foldr f ([], []) queenDirs
-    where
-      f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
-      f x (r, r') =
-        let (freeLocs, captureLocs) = dirLocs idx x
-        in (freeLocs ++ r, captureLocs ++ r')
-  -}
---(stop if blocked by friendly piece)
---(include captured piece and stop)
-
--- for pieces that can move as many squares as desired in a given direction (i.e. queen, rook, bishop)
--- find the possible destination locs for a queen, given a specified direction to move.
-dirLocs :: Int -> Dir ->[Int]
-dirLocs idx dir = loop (dir idx) []
+-- find the allowable destination locs for a piece, given a specified direction to move.
+-- this function is appropriate for queens, rooks, and bishops
+-- the search short-circuits when hitting a friendly or enemy pieces
+-- the first list in the tuple are the empty that could be moved to
+-- the second tuple contains squares where enemy pieces could be captured
+dirLocs :: Vector Char -> Int -> Dir ->([Int], [Int])
+dirLocs g idx dir =
+  loop idx ([], [])
   where
-    loop x r
-        | onBoard x = loop (dir x) (x : r)
-        | otherwise = r
+    color = indexToColor g idx
+    loop x (empties, enemies) =
+      let friendly = hasFriendly g color x
+          enemy = hasEnemy g color x
+      in
+        if not (onBoard x) then (empties, enemies) -- off the edge of the board - done
+        else if friendly then (empties, enemies) -- short circuit - hitting friendly piece
+        else if enemy then (empties, (x : enemies)) -- short circuit - hitting enemy piece
+        else loop (dir x) (x : empties, enemies) -- empty square
 
 onBoard :: Int -> Bool
 onBoard x

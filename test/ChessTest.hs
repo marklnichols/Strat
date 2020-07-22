@@ -16,44 +16,53 @@ chessTest = do
             getPieceLocs (nodeFromGridB board01) `shouldMatchList` [62, 67, 76, 78, 86, 87]
     describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
-            possibleKingMoves board01 22 `shouldMatchList` [23,21,32,12,31,13,33,11]
-            possibleKingMoves board01 81 `shouldMatchList` [71, 72, 82]
-    describe "possibleQueenMoves" $
-        it "Gets the possible moves for a queen" $ do
-            possibleQueenMoves board01 22 `shouldMatchList` [23,24,25,26,27,28 -- right
-                                                  ,32,42,52,62,72,82 -- up
-                                                  ,33,44,55,66,77,88 -- UR
-                                                  ,21,12,31,11,13] --L, D, UL, LL, LR
-            possibleQueenMoves board01 81 `shouldMatchList` [71,61,51,41,31,21,11
-                                                  ,82,83,84,85,86,87,88
-                                                  ,72,63,54,45,36,27,18]
-    describe "possibleRookMoves" $
-        it "Gets the possible moves for a rook" $
-            possibleRookMoves board01 22 `shouldMatchList` [32,42,52,62,72,82
+            possibleKingMoves board01 12 `shouldMatchList` [11, 13, 23]
+            possibleKingMoves board01 87 `shouldMatchList` [77, 88]
+    describe "allowableQueenMoves" $
+        it "Gets the allowable moves for a queen" $ do
+            let (empties, enemies) = allowableQueenMoves board01 46
+            empties `shouldMatchList`
+                [41,42,43,44,45,47,48 -- left/right
+                ,36,56,66 -- up/down
+                ,13,24,35,57,68 -- LL/UR
+                ,28,37,55,64,73,82] -- LR, UL
+            enemies `shouldMatchList` [76]
+
+            let (empties2, enemies2) = allowableQueenMoves board01 62
+            empties `shouldMatchList`
+                [61, 63, 64, 65, 66 -- L/R
+                ,32,42,52,72,82 -- U/D
+                ,51,73,84 -- LL/UR
+                ,35,44,53,71 ] -- LR/UL
+            enemies `shouldMatchList` [22, 26]
+
+    describe "allowableRookMoves" $
+        it "Gets the allowable moves for a rook" $
+            allowableRookMoves board01 22 `shouldMatchList` [32,42,52,62,72,82
                                                  ,23,24,25,26,27,28
                                                  ,12, 21]
-    describe "possibleBishopMoves" $
-        it "Gets the possible moves for a bishop" $
-            possibleBishopMoves board01 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
+    describe "allowableBishopMoves" $
+        it "Gets the allowable moves for a bishop" $
+            allowableBishopMoves board01 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
                                                    , 13, 31]
-    describe "possibleKnightMoves" $
-        it "Gets the possible moves for a knight" $ do
-            possibleKnightMoves board01 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
-            possibleKnightMoves board01 27 `shouldMatchList` [15, 35, 46, 48]
+    describe "allowableKnightMoves" $
+        it "Gets the allowable moves for a knight" $ do
+            allowableKnightMoves board01 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
+            allowableKnightMoves board01 27 `shouldMatchList` [15, 35, 46, 48]
 
-    describe "possiblePawnMoves" $
-        it "Gets the possible (non capturing) moves for a pawn" $ do
-            possiblePawnMoves board01 22 White `shouldMatchList` [32, 42]
-            possiblePawnMoves board01 54 White `shouldMatchList` [64]
-            possiblePawnMoves board01 22 Black `shouldMatchList` [12]
-            possiblePawnMoves board01 72 Black `shouldMatchList` [52, 62]
+    describe "allowablePawnMoves" $
+        it "Gets the allowable (non capturing) moves for a pawn" $ do
+            allowablePawnMoves board01 22 White `shouldMatchList` [32, 42]
+            allowablePawnMoves board01 54 White `shouldMatchList` [64]
+            allowablePawnMoves board01 22 Black `shouldMatchList` [12]
+            allowablePawnMoves board01 72 Black `shouldMatchList` [52, 62]
 
-    describe "possiblePawnCaptures" $
-         it "Gets the possible capturing moves for a pawn" $ do
-             possiblePawnCaptures board01 White 43 `shouldMatchList` [52, 54] -- regular captures
-             possiblePawnCaptures board01 White 22 `shouldMatchList` [31, 33, 41, 43] -- en passant captures
-             possiblePawnCaptures board01 Black 22 `shouldMatchList` [11, 13]
-             possiblePawnCaptures board01 Black 77 `shouldMatchList` [56, 58, 66, 68]
+    describe "allowablePawnCaptures" $
+         it "Gets the allowable capturing moves for a pawn" $ do
+             allowablePawnCaptures board01 White 43 `shouldMatchList` [52, 54] -- regular captures
+             allowablePawnCaptures board01 White 22 `shouldMatchList` [31, 33, 41, 43] -- en passant captures
+             allowablePawnCaptures board01 Black 22 `shouldMatchList` [11, 13]
+             allowablePawnCaptures board01 Black 77 `shouldMatchList` [56, 58, 66, 68]
     describe "calcDefended" $
       it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
        S.toList (calcDefended board01 White) `shouldMatchList` (S.toList $ S.fromList
