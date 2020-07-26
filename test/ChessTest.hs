@@ -22,8 +22,6 @@ chessTest = do
             let (empties2, enemies2) = possibleKingMoves board01 87
             empties2 `shouldMatchList` [77, 88]
             enemies2 `shouldMatchList` []
-
-
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
             let (empties, enemies) = allowableQueenMoves board01 46
@@ -41,11 +39,13 @@ chessTest = do
                 ,35,44,53,71 ] -- LR/UL
             enemies2 `shouldMatchList` [22, 26]
 
-    -- describe "allowableRookMoves" $
-    --     it "Gets the allowable moves for a rook" $
-    --         allowableRookMoves board01 22 `shouldMatchList` [32,42,52,62,72,82
-    --                                              ,23,24,25,26,27,28
-    --                                              ,12, 21]
+    describe "allowableRookMoves" $
+        it "Gets the allowable moves for a rook" $ do
+            let (empties, enemies) = allowableRookMoves board01 26
+            empties `shouldMatchList` [23,24,25,27,28
+                                      ,16,36]
+            enemies `shouldMatchList` []
+
     -- describe "allowableBishopMoves" $
     --     it "Gets the allowable moves for a bishop" $
     --         allowableBishopMoves board01 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88

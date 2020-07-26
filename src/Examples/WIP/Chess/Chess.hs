@@ -452,22 +452,27 @@ isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
   -- this is just lookup of map built from calcDefended, with Nothing converted to False
 
--- TODO: eliminate repetitive code with possibleKingMvs, allowable[whatever]Mvs
--- find the allowable destination locs for a queen.  The first list contains the empty squares that
+
+-- find the allowable destination locs for a pieces that move multiple squares in a given
+-- direction(s) (i.e., Queen, Rook, Bishop). The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
-allowableQueenMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableQueenMoves g idx =
-  foldr f ([], []) queenDirs
+allowableMultiMoves :: [Dir] -> Vector Char -> Int -> ([Int], [Int])
+allowableMultiMoves pieceDirs g idx =
+  foldr f ([], []) pieceDirs
     where
       f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
       f x (r, r') =
         let (freeLocs, captureLocs) = dirLocs g idx x
         in (freeLocs ++ r, captureLocs ++ r')
 
+-- find the allowable destination locs for a queen.  The first list contains the empty squares that
+-- can be moved to. The second list contains squares with pieces that could be captured.
+allowableQueenMoves :: Vector Char -> Int -> ([Int], [Int])
+allowableQueenMoves g idx = allowableMultiMoves queenDirs g idx
+
 -- find the allowable destination locs for a rook
--- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
 allowableRookMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableRookMoves _g _idx = undefined -- fold $ fmap (dirLocs g idx) rookDirs
+allowableRookMoves g idx = allowableMultiMoves rookDirs g idx
 
 -- find the allowable destination locs for a bishop
 -- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
