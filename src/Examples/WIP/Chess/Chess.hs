@@ -475,9 +475,8 @@ allowableRookMoves :: Vector Char -> Int -> ([Int], [Int])
 allowableRookMoves g idx = allowableMultiMoves rookDirs g idx
 
 -- find the allowable destination locs for a bishop
--- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
 allowableBishopMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableBishopMoves _g _idx = undefined -- fold $ fmap (dirLocs g idx) bishopDirs
+allowableBishopMoves g idx = allowableMultiMoves bishopDirs g idx
 
 -- find the allowable destination locs for a knight
 -- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces

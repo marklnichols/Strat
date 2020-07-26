@@ -38,7 +38,6 @@ chessTest = do
                 ,51,73,84 -- LL/UR
                 ,35,44,53,71 ] -- LR/UL
             enemies2 `shouldMatchList` [22, 26]
-
     describe "allowableRookMoves" $
         it "Gets the allowable moves for a rook" $ do
             let (empties, enemies) = allowableRookMoves board01 26
