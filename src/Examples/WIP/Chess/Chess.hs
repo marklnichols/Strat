@@ -39,10 +39,10 @@ module Chess
     , allowableRookMoves
     ) where
 
-import Control.Lens
+import Control.Lens hiding (Empty)
 
 import Data.Char
-import Data.Foldable
+-- import Data.Foldable
 import Data.HashMap (Map)
 -- import qualified Data.HashMap as M
 import Data.Kind
@@ -57,7 +57,7 @@ import qualified Data.Vector.Unboxed as V
 
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
--- import Debug.Trace
+import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -91,6 +91,11 @@ colorFromInt :: Int -> Color
 colorFromInt 1 = White
 colorFromInt (-1) = Black
 colorFromInt _n = Unknown
+
+enemyColor :: Color -> Color
+enemyColor White = Black
+enemyColor Black = White
+enemyColor Unknown = Unknown
 
 ----------------------------------------------------------------------------------------------------
 -- New, new attempt with singletons
@@ -235,27 +240,38 @@ Piece representation as integers:
 80 = 0x50 = White Pawn     112 = 0x70 = White Pawn
 
 ---------------------------------------------------------------------------------------------------}
-type Dir = Int -> Int
+-- TODO: revert this eventually...
+-- type Dir = Int -> Int
+data Dir = Dir { apply :: Int -> Int, _dirName :: String }
 
-right, left, up, down, diagUL, diagDR, diagUR, diagDL, knightLU, knightRD, knightLD  :: Dir
-right = (1+)
-left x = x - 1
-up = (10+)
-down x = x - 10
-diagUL = (9+)
-diagDR x = x - 9
-diagUR = (11+)
-diagDL x = x - 11
-knightLU = (8+)
-knightRD x = x - 8
-knightLD x = x - 12
+right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
+right = Dir (1+) "right"
+left = Dir (\x -> x - 1) "left"
+up = Dir (10+) "up"
+down = Dir (\x -> x - 10) "down"
+diagUL = Dir (9+) "diagUL"
+diagDR = Dir (\x -> x - 9) "diagDR"
+diagUR = Dir (11+) "diagUR"
+diagDL = Dir (\x -> x - 11) "diagDL"
 
-knightRU, knightUL, knightDR, knightUR, knightDL :: Dir
-knightRU = (12+)
-knightUL = (19+)
-knightDR x = x - 19
-knightUR = (21+)
-knightDL x = x - 21
+knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL :: Dir
+knightLU = Dir (8+) "knightLU"
+knightRD = Dir (\x -> x - 8) "knightRD"
+knightRU = Dir (12+) "knightRU"
+knightLD = Dir (\x -> x - 12) "knightLD"
+knightUL = Dir (19+) "knightUL"
+knightDR = Dir (\x -> x - 19) "knightDR"
+knightUR = Dir (21+) "knightUR"
+knightDL = Dir (\x -> x - 21) "knightDL"
+
+instance Show Dir where
+  show d = _dirName d
+{-
+newtype IntMove = IntMove {theInt :: Int}
+
+instance Show IntMove where
+    show m = show $ theInt m
+-}
 
 queenDirs :: [Dir]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
@@ -341,7 +357,7 @@ locsForColor locs theColor =
 charToColor :: Char -> Color
 charToColor c
   | ord c > 64 && ord c < 91 = White  -- A - Z : 65 - 90
-  | ord c > 86 && ord c < 123 = Black -- a - z : 97 - 122
+  | ord c > 96 && ord c < 123 = Black -- a - z : 97 - 122
   | otherwise = Unknown
 
 pieceMoves :: ChessNode -> Int -> [ChessMv]
@@ -362,8 +378,8 @@ possibleKingMoves g idx =
   foldr f ([], []) kingDirs
     where
       f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
-      f x (r, r') =
-        let (freeLocs, captureLocs) = dirLocs g idx x
+      f dir (r, r') =
+        let (freeLocs, captureLocs) = dirLocsKing g idx dir
         in (freeLocs ++ r, captureLocs ++ r')
 
 -- TODO: this will probably become 'allowableKingMoves'
@@ -386,7 +402,7 @@ hasFriendly g c idx = indexToColor g idx == c
 --     MkSomeChessPiece _theSing (UnsafeMkChessPiece aColor) -> aColor == c
 
 hasEnemy :: Vector Char -> Color -> Int -> Bool
-hasEnemy g c idx = not $ hasFriendly g c idx
+hasEnemy g c idx = indexToColor g idx == enemyColor c
 
 isEmpty :: ChessPos -> Int -> Bool
 isEmpty pos idx = fromMaybe empty ((_cpGrid pos) ^? ix idx) == empty
@@ -409,8 +425,8 @@ calcDefended g c =
     in S.fromList (destEmpty ++ destEnemy)
 
 movesFromLocs :: Vector Char -> [Int] -> ([Int], [Int])
-movesFromLocs g xs =
-  foldr f ([], []) xs where
+movesFromLocs g locs =
+  foldr f ([], []) locs where
     f :: Int -> ([Int], [Int]) -> ([Int], [Int])
     f loc (r1, r2) =
       let (xs, ys) = movesFromLoc g loc
@@ -430,7 +446,7 @@ movesFromLoc g loc =
       MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
       MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
       MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
-      MkChessPiece c (SomeSing SPawn) -> allowablePawnCaptures g (indexToColor g loc) loc
+      MkChessPiece c (SomeSing SPawn) -> allowablePawnCaptures g c loc
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
@@ -451,28 +467,28 @@ allowableQueenMoves g idx =
 -- find the allowable destination locs for a rook
 -- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
 allowableRookMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableRookMoves g idx = undefined -- fold $ fmap (dirLocs g idx) rookDirs
+allowableRookMoves _g _idx = undefined -- fold $ fmap (dirLocs g idx) rookDirs
 
 -- find the allowable destination locs for a bishop
 -- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
 allowableBishopMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableBishopMoves _g idx = undefined -- fold $ fmap (dirLocs g idx) bishopDirs
+allowableBishopMoves _g _idx = undefined -- fold $ fmap (dirLocs g idx) bishopDirs
 
 -- find the allowable destination locs for a knight
 -- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
 allowableKnightMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableKnightMoves _g idx = undefined -- filter onBoard (fmap ($ idx) knightDirs)
+allowableKnightMoves _g _idx = undefined -- filter onBoard (fmap ($ idx) knightDirs)
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
 -- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
 allowablePawnMoves :: Vector Char -> Int -> Color -> ([Int], [Int])
 allowablePawnMoves _g _idx Unknown = undefined
-allowablePawnMoves _g idx White = undefined
+allowablePawnMoves _g _idx White = undefined
   -- let oneSpace = whitePawnDir idx
   -- in oneSpace : if hasPawnMoved White idx
   --                 then []
   --                 else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
-allowablePawnMoves _g idx Black = undefined
+allowablePawnMoves _g _idx Black = undefined
   -- let oneSpace = blackPawnDir idx
   -- in oneSpace : if hasPawnMoved Black idx
   --                 then []
@@ -486,16 +502,19 @@ hasPawnMoved Black idx = idx < 71
 -- find the allowable destination capture locs for a pawn
 allowablePawnCaptures :: Vector Char -> Color -> Int -> ([Int], [Int])
 allowablePawnCaptures _g Unknown _idx = undefined -- []
-allowablePawnCaptures _g White idx = undefined
+allowablePawnCaptures _g White _idx = undefined
   -- let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
   -- in twoCaps ++ if hasPawnMoved White idx
   --                 then []
   --                 else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
-allowablePawnCaptures _g Black idx = undefined
+allowablePawnCaptures _g Black _idx = undefined
   -- let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
   -- in twoCaps ++ if hasPawnMoved Black idx
   --                 then []
   --                 else filter onBoard (fmap ($ blackPawnDir idx) blackPawnCaptureDirs) --en passant
+
+data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
+   deriving Show
 
 -- find the allowable destination locs for a piece, given a specified direction to move.
 -- this function is appropriate for queens, rooks, and bishops
@@ -504,17 +523,56 @@ allowablePawnCaptures _g Black idx = undefined
 -- the second tuple contains squares where enemy pieces could be captured
 dirLocs :: Vector Char -> Int -> Dir ->([Int], [Int])
 dirLocs g idx dir =
-  loop idx ([], [])
-  where
-    color = indexToColor g idx
-    loop x (empties, enemies) =
-      let friendly = hasFriendly g color x
-          enemy = hasEnemy g color x
-      in
-        if not (onBoard x) then (empties, enemies) -- off the edge of the board - done
-        else if friendly then (empties, enemies) -- short circuit - hitting friendly piece
-        else if enemy then (empties, (x : enemies)) -- short circuit - hitting enemy piece
-        else loop (dir x) (x : empties, enemies) -- empty square
+  let str = "dirLocs called with idx: " ++ show idx
+        ++ ", color: " ++ show c ++ ", dir: " ++ show dir
+  in trace str (loop (apply dir idx) ([], []))
+      where
+        c = indexToColor g idx
+        loop x (empties, enemies) =
+            let friendly = hasFriendly g c x
+                enemy = hasEnemy g c x
+                (sqState, (newEmpties, newEnemies)) =
+                    if not (onBoard x) then (OffBoard ,(empties, enemies))
+                    else if enemy then (HasEnemy, (empties, x : enemies))
+                    else if friendly then (HasFriendly, (empties, enemies))
+                    else (Empty, (x : empties, enemies))
+            -- in case sqState of
+            --     Empty -> loop (apply dir x) (newEmpties, newEnemies)
+            --     _ -> (newEmpties, newEnemies)
+            in trace ("'LOOOOOP' in dirLocs call with index: " ++ show x
+                      ++ " value at index: " ++ show ((V.!) g x)
+                      ++ " dir: " ++ show dir
+                    ++ " returning - sqState: " ++ show sqState ++ " empties: " ++ show empties
+                    ++ ", enemies: " ++ show enemies)
+                    (case sqState of
+                        Empty -> loop (apply dir x) (newEmpties, newEnemies)
+                        _ -> (newEmpties, newEnemies))
+
+-- Same as dirLocs, but for a King -- some code intentionally duplicated
+dirLocsKing :: Vector Char -> Int -> Dir ->([Int], [Int])
+dirLocsKing g idx dir =
+  let str = "dirLocsKing called with idx: " ++ show idx
+        ++ ", color: " ++ show c ++ ", dir: " ++ show dir
+  in trace str (loop (apply dir idx) ([], []))
+      where
+        c = indexToColor g idx
+        loop x (empties, enemies) =
+            let friendly = hasFriendly g c x
+                enemy = hasEnemy g c x
+                (sqState, (newEmpties, newEnemies)) =
+                    if not (onBoard x) then (OffBoard ,(empties, enemies))
+                    else if enemy then (HasEnemy, (empties, x : enemies))
+                    else if friendly then (HasFriendly, (empties, enemies))
+                    else (Empty, (x : empties, enemies))
+            -- in case sqState of
+            --     Empty -> loop (apply dir x) (newEmpties, newEnemies)
+            --     _ -> (newEmpties, newEnemies)
+            in trace ("'LOOOOOP' in dirLocsKing call with index: " ++ show x
+                      ++ " value at index: " ++ show ((V.!) g x)
+                      ++ " dir: " ++ show dir
+                    ++ " returning - sqState: " ++ show sqState ++ " empties: " ++ show empties
+                    ++ ", enemies: " ++ show enemies)
+                    (newEmpties, newEnemies)
 
 onBoard :: Int -> Bool
 onBoard x
