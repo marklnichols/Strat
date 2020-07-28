@@ -368,19 +368,11 @@ pieceMoves _ _ = undefined
 
 
 
--- TODO: eliminate repetitive code with allowableQueenMoves
--- find the possible destination locs for a king.  The first list contains the empty squares that
--- can be moved to. The second list contains squares with pieces that could be captured.
+-- find the possible destination locs for a king
 -- The function 'allowableKingMoves' later filters out the moves that would allow the enemy to
 -- capture the king
 possibleKingMoves :: Vector Char -> Int -> ([Int], [Int])
-possibleKingMoves g idx =
-  foldr f ([], []) kingDirs
-    where
-      f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
-      f dir (r, r') =
-        let (freeLocs, captureLocs) = dirLocsKing g idx dir
-        in (freeLocs ++ r, captureLocs ++ r')
+possibleKingMoves g idx = allowableSingleMoves kingDirs g idx
 
 -- TODO: this will probably become 'allowableKingMoves'
 legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
@@ -465,6 +457,18 @@ allowableMultiMoves pieceDirs g idx =
         let (freeLocs, captureLocs) = dirLocs g idx x
         in (freeLocs ++ r, captureLocs ++ r')
 
+-- find the allowable destination locs for a pieces that move one square in a given
+-- direction (i.e., King and Knight). The first list contains the empty squares that
+-- can be moved to. The second list contains squares with pieces that could be captured.
+allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([Int], [Int])
+allowableSingleMoves pieceDirs g idx =
+  foldr f ([], []) pieceDirs
+    where
+      f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
+      f x (r, r') =
+        let (freeLocs, captureLocs) = dirLocsSingle g idx x
+        in (freeLocs ++ r, captureLocs ++ r')
+
 -- find the allowable destination locs for a queen.  The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
 allowableQueenMoves :: Vector Char -> Int -> ([Int], [Int])
@@ -478,10 +482,10 @@ allowableRookMoves g idx = allowableMultiMoves rookDirs g idx
 allowableBishopMoves :: Vector Char -> Int -> ([Int], [Int])
 allowableBishopMoves g idx = allowableMultiMoves bishopDirs g idx
 
--- find the allowable destination locs for a knight
--- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
+
+-- find the possible destination locs for a knight
 allowableKnightMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableKnightMoves _g _idx = undefined -- filter onBoard (fmap ($ idx) knightDirs)
+allowableKnightMoves g idx = allowableSingleMoves knightDirs g idx
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
 -- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
@@ -552,10 +556,11 @@ dirLocs g idx dir =
                         Empty -> loop (apply dir x) (newEmpties, newEnemies)
                         _ -> (newEmpties, newEnemies))
 
--- Same as dirLocs, but for a King -- some code intentionally duplicated
-dirLocsKing :: Vector Char -> Int -> Dir ->([Int], [Int])
-dirLocsKing g idx dir =
-  let str = "dirLocsKing called with idx: " ++ show idx
+-- Same as dirLocs, but for pieces that move only one square in a given direction
+-- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
+dirLocsSingle :: Vector Char -> Int -> Dir ->([Int], [Int])
+dirLocsSingle g idx dir =
+  let str = "dirLocsSingle called with idx: " ++ show idx
         ++ ", color: " ++ show c ++ ", dir: " ++ show dir
   in trace str (loop (apply dir idx) ([], []))
       where
@@ -571,7 +576,7 @@ dirLocsKing g idx dir =
             -- in case sqState of
             --     Empty -> loop (apply dir x) (newEmpties, newEnemies)
             --     _ -> (newEmpties, newEnemies)
-            in trace ("'LOOOOOP' in dirLocsKing call with index: " ++ show x
+            in trace ("'LOOOOOP' in dirLocsSingle call with index: " ++ show x
                       ++ " value at index: " ++ show ((V.!) g x)
                       ++ " dir: " ++ show dir
                     ++ " returning - sqState: " ++ show sqState ++ " empties: " ++ show empties
