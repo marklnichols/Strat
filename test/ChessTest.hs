@@ -13,9 +13,9 @@ chessTest = do
     describe "getPieceLocs" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
             getPieceLocs (nodeFromGridW board01) `shouldMatchList`
-              [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53]
+              [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
             getPieceLocs (nodeFromGridB board01) `shouldMatchList`
-              [62, 65, 67, 76, 77, 78, 83, 86, 87]
+              [61, 62, 65, 67, 76, 77, 78, 83, 86, 87]
     describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = possibleKingMoves board01 12
@@ -30,12 +30,12 @@ chessTest = do
             empties `shouldMatchList`
                 [47,48 -- left/right
                 ,36,56,66 -- up/down
-                ,24,35,57,68 -- LL/UR
+                ,24,35 -- LL/UR
                 ,28,37,55,64,73,82] -- LR, UL
             enemies `shouldMatchList` [76]
             let (empties2, enemies2) = allowableQueenMoves board01 62
             empties2 `shouldMatchList`
-                [61, 63, 64 -- L/R
+                [63, 64 -- L/R
                 ,32,42,52,72,82 -- U/D
                 ,51,73,84 -- LL/UR
                 ,71 ] -- LR/UL
@@ -54,8 +54,8 @@ chessTest = do
         it "Gets the allowable moves for a bishop" $ do
             let (empties, enemies) = allowableBishopMoves board01 43
             empties `shouldMatchList` [32,54 -- LL/UR
-                                      ,34,52,61] -- LR/UL
-            enemies `shouldMatchList` [65]
+                                      ,34,52] -- LR/UL
+            enemies `shouldMatchList` [61, 65]
             let (empties2, enemies2) = allowableBishopMoves board01 65
             empties2 `shouldMatchList` [54 -- LL/UR
                                        ,38,47,56,74] -- LR/UL
@@ -63,19 +63,17 @@ chessTest = do
     describe "allowableKnightMoves" $
         it "Gets the allowable moves for a knight" $ do
             let (empties, enemies) = allowableKnightMoves board01 45
-            empties `shouldMatchList` [24, 37, 57, 64, 66]
+            empties `shouldMatchList` [24,37,64,66]
             enemies `shouldMatchList` []
 
             let (empties2, enemies2) = allowableKnightMoves board01 53
-            empties2 `shouldMatchList` [32,34,41,61,72,74]
-            enemies2 `shouldMatchList` [65]
-
-
+            empties2 `shouldMatchList` [32,34,41,72,74]
+            enemies2 `shouldMatchList` [61,65]
     describe "allowablePawnMoves" $
         it "Gets the allowable (non capturing) moves for a pawn" $ do
             allowablePawnMoves board01 22 `shouldMatchList` [32, 42]
-              allowablePawnMoves board01 33 `shouldMatchList` []
-            allowablePawnMoves board01 67 `shouldMatchList` [57]
+            allowablePawnMoves board01 33 `shouldMatchList` []
+            allowablePawnMoves board01 61 `shouldMatchList` [51]
 
     -- describe "allowablePawnCaptures" $
     --      it "Gets the allowable capturing moves for a pawn" $ do
@@ -83,6 +81,8 @@ chessTest = do
     --          allowablePawnCaptures board01 White 22 `shouldMatchList` [31, 33, 41, 43] -- en passant captures
     --          allowablePawnCaptures board01 Black 22 `shouldMatchList` [11, 13]
     --          allowablePawnCaptures board01 Black 77 `shouldMatchList` [56, 58, 66, 68]
+
+
     -- describe "calcDefended" $
     --   it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
     --    S.toList (calcDefended board01 White) `shouldMatchList` (S.toList $ S.fromList
@@ -159,8 +159,8 @@ board01 = V.fromList
                              '+',  'P',  'P',  ' ',  ' ',  'B',  'R',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  'B',  ' ',  'N',  'Q',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  'q',  ' ',  ' ',  'b',  ' ',  'p',  ' ',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
+                             '+',  'p',  'q',  ' ',  ' ',  'b',  ' ',  'p',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'p',  'b',  'p',  '+',
                              '+',  ' ',  ' ',  'r',  ' ',  ' ',  'r',  'k',  ' ',  '+',
                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
@@ -169,8 +169,8 @@ board01 = V.fromList
 
 -   -   r   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
 -   -   -   -   -   p   b   p          7| (50)  71   72   73   74   75   76   77   78  (79)
--   q   -   -   b   -   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
--   -   N   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+p   q   -   -   b   -   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   N   -   -   -   P   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   B   -   N   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 -   -   P   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
 P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
