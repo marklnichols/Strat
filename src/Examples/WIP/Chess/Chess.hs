@@ -462,11 +462,12 @@ allowableMultiMoves pieceDirs g idx =
 -- can be moved to. The second list contains squares with pieces that could be captured.
 allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([Int], [Int])
 allowableSingleMoves pieceDirs g idx =
-  foldr f ([], []) pieceDirs
+  foldr (f (indexToColor g idx)) ([], []) pieceDirs
     where
-      f :: Dir -> ([Int], [Int]) -> ([Int], [Int])
-      f x (r, r') =
-        let (freeLocs, captureLocs) = dirLocsSingle g idx x
+      -- fold function is curried f with Color applied
+      f :: Color -> Dir -> ([Int], [Int]) -> ([Int], [Int])
+      f c x (r, r') =
+        let (freeLocs, captureLocs) = dirLocsSingle g idx c x
         in (freeLocs ++ r, captureLocs ++ r')
 
 -- find the allowable destination locs for a queen.  The first list contains the empty squares that
@@ -482,25 +483,36 @@ allowableRookMoves g idx = allowableMultiMoves rookDirs g idx
 allowableBishopMoves :: Vector Char -> Int -> ([Int], [Int])
 allowableBishopMoves g idx = allowableMultiMoves bishopDirs g idx
 
-
 -- find the possible destination locs for a knight
 allowableKnightMoves :: Vector Char -> Int -> ([Int], [Int])
 allowableKnightMoves g idx = allowableSingleMoves knightDirs g idx
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
--- TODO: change all these 'allowable' functions to filter out moves blocked by friendly pieces
-allowablePawnMoves :: Vector Char -> Int -> Color -> ([Int], [Int])
-allowablePawnMoves _g _idx Unknown = undefined
-allowablePawnMoves _g _idx White = undefined
-  -- let oneSpace = whitePawnDir idx
-  -- in oneSpace : if hasPawnMoved White idx
-  --                 then []
-  --                 else [whitePawnDir oneSpace] -- hasn't moved, 2 space move avail.
-allowablePawnMoves _g _idx Black = undefined
-  -- let oneSpace = blackPawnDir idx
-  -- in oneSpace : if hasPawnMoved Black idx
-  --                 then []
-  --                 else [blackPawnDir oneSpace] -- hasn't moved, 2 space move avail.
+allowablePawnMoves :: Vector Char -> Int -> [Int]
+allowablePawnMoves g idx =
+    let c = indexToColor g idx
+        hasMoved = hasPawnMoved c idx
+    in case c of
+        Unknown -> []
+        White -> pawnMoves g c whitePawnDir hasMoved idx
+        Black -> pawnMoves g c blackPawnDir hasMoved idx
+
+-- pawnMoves :: Vector Char -> Dir -> Bool -> Int -> [Int]
+-- pawnMoves g dir hasMoved idx =
+--   let (firstMove : _, _) = dirLocsSingle g idx dir -- only take the 'empty' square
+--   in firstMove :
+--       if hasMoved then []
+--       else fst $ dirLocsSingle g firstMove dir
+pawnMoves :: Vector Char -> Color -> Dir -> Bool -> Int -> [Int]
+pawnMoves g c dir hasMoved idx =
+    case dirLocsSingle g idx c dir of
+        ([], _) -> []
+        (firstMove:_, _) ->  -- only take the 'empty' square
+           let secondList =
+                 (if hasMoved
+                   then []
+                   else fst $ dirLocsSingle g firstMove c dir)
+           in firstMove : secondList
 
 hasPawnMoved :: Color -> Int -> Bool
 hasPawnMoved Unknown _ = False
@@ -558,30 +570,14 @@ dirLocs g idx dir =
 
 -- Same as dirLocs, but for pieces that move only one square in a given direction
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
-dirLocsSingle :: Vector Char -> Int -> Dir ->([Int], [Int])
-dirLocsSingle g idx dir =
-  let str = "dirLocsSingle called with idx: " ++ show idx
-        ++ ", color: " ++ show c ++ ", dir: " ++ show dir
-  in trace str (loop (apply dir idx) ([], []))
-      where
-        c = indexToColor g idx
-        loop x (empties, enemies) =
-            let friendly = hasFriendly g c x
-                enemy = hasEnemy g c x
-                (sqState, (newEmpties, newEnemies)) =
-                    if not (onBoard x) then (OffBoard ,(empties, enemies))
-                    else if enemy then (HasEnemy, (empties, x : enemies))
-                    else if friendly then (HasFriendly, (empties, enemies))
-                    else (Empty, (x : empties, enemies))
-            -- in case sqState of
-            --     Empty -> loop (apply dir x) (newEmpties, newEnemies)
-            --     _ -> (newEmpties, newEnemies)
-            in trace ("'LOOOOOP' in dirLocsSingle call with index: " ++ show x
-                      ++ " value at index: " ++ show ((V.!) g x)
-                      ++ " dir: " ++ show dir
-                    ++ " returning - sqState: " ++ show sqState ++ " empties: " ++ show empties
-                    ++ ", enemies: " ++ show enemies)
-                    (newEmpties, newEnemies)
+dirLocsSingle :: Vector Char -> Int -> Color -> Dir ->([Int], [Int])
+dirLocsSingle g idx c dir =
+    let x = apply dir idx
+    in
+      if not (onBoard x) then (([], []))
+      else if hasEnemy g c x then (([], [x]))
+      else if hasFriendly g c x then (([], []))
+      else ([x],[]) -- empty square
 
 onBoard :: Int -> Bool
 onBoard x

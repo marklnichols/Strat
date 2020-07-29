@@ -71,12 +71,11 @@ chessTest = do
             enemies2 `shouldMatchList` [65]
 
 
-    -- describe "allowablePawnMoves" $
-    --     it "Gets the allowable (non capturing) moves for a pawn" $ do
-    --         allowablePawnMoves board01 22 White `shouldMatchList` [32, 42]
-    --         allowablePawnMoves board01 54 White `shouldMatchList` [64]
-    --         allowablePawnMoves board01 22 Black `shouldMatchList` [12]
-    --         allowablePawnMoves board01 72 Black `shouldMatchList` [52, 62]
+    describe "allowablePawnMoves" $
+        it "Gets the allowable (non capturing) moves for a pawn" $ do
+            allowablePawnMoves board01 22 `shouldMatchList` [32, 42]
+              allowablePawnMoves board01 33 `shouldMatchList` []
+            allowablePawnMoves board01 67 `shouldMatchList` [57]
 
     -- describe "allowablePawnCaptures" $
     --      it "Gets the allowable capturing moves for a pawn" $ do
