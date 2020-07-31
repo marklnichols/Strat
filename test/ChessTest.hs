@@ -15,24 +15,24 @@ chessTest = do
             getPieceLocs (nodeFromGridW board01) `shouldMatchList`
               [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
             getPieceLocs (nodeFromGridB board01) `shouldMatchList`
-              [61, 62, 65, 67, 76, 77, 78, 83, 86, 87]
+              [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
     describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = possibleKingMoves board01 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             let (empties2, enemies2) = possibleKingMoves board01 87
-            empties2 `shouldMatchList` [88]
+            empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
             let (empties, enemies) = allowableQueenMoves board01 46
             empties `shouldMatchList`
                 [47,48 -- left/right
-                ,36,56,66 -- up/down
+                ,36,56 -- up/down
                 ,24,35 -- LL/UR
                 ,28,37,55,64,73,82] -- LR, UL
-            enemies `shouldMatchList` [76]
+            enemies `shouldMatchList` [66]
             let (empties2, enemies2) = allowableQueenMoves board01 62
             empties2 `shouldMatchList`
                 [63, 64 -- L/R
@@ -57,14 +57,14 @@ chessTest = do
                                       ,34,52] -- LR/UL
             enemies `shouldMatchList` [61, 65]
             let (empties2, enemies2) = allowableBishopMoves board01 65
-            empties2 `shouldMatchList` [54 -- LL/UR
+            empties2 `shouldMatchList` [54,76 -- LL/UR
                                        ,38,47,56,74] -- LR/UL
             enemies2 `shouldMatchList` [43]
     describe "allowableKnightMoves" $
         it "Gets the allowable moves for a knight" $ do
             let (empties, enemies) = allowableKnightMoves board01 45
-            empties `shouldMatchList` [24,37,64,66]
-            enemies `shouldMatchList` []
+            empties `shouldMatchList` [24,37,64]
+            enemies `shouldMatchList` [66]
 
             let (empties2, enemies2) = allowableKnightMoves board01 53
             empties2 `shouldMatchList` [32,34,41,72,74]
@@ -75,12 +75,11 @@ chessTest = do
             allowablePawnMoves board01 33 `shouldMatchList` []
             allowablePawnMoves board01 61 `shouldMatchList` [51]
 
-    -- describe "allowablePawnCaptures" $
-    --      it "Gets the allowable capturing moves for a pawn" $ do
-    --          allowablePawnCaptures board01 White 43 `shouldMatchList` [52, 54] -- regular captures
-    --          allowablePawnCaptures board01 White 22 `shouldMatchList` [31, 33, 41, 43] -- en passant captures
-    --          allowablePawnCaptures board01 Black 22 `shouldMatchList` [11, 13]
-    --          allowablePawnCaptures board01 Black 77 `shouldMatchList` [56, 58, 66, 68]
+    -- START HERE - move pawn on 76 to 66 ?
+    describe "allowablePawnCaptures" $
+         it "Gets the allowable capturing moves for a pawn" $ do
+             allowablePawnCaptures board01 57 `shouldMatchList` [66]
+             allowablePawnCaptures board01 78 `shouldMatchList` [57] -- en passant captures
 
 
     -- describe "calcDefended" $
@@ -160,16 +159,16 @@ board01 = V.fromList
                              '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  'B',  ' ',  'N',  'Q',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
-                             '+',  'p',  'q',  ' ',  ' ',  'b',  ' ',  'p',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'p',  'b',  'p',  '+',
+                             '+',  'p',  'q',  ' ',  ' ',  'b',  'p',  'p',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'b',  'p',  '+',
                              '+',  ' ',  ' ',  'r',  ' ',  ' ',  'r',  'k',  ' ',  '+',
                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 -   -   r   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
--   -   -   -   -   p   b   p          7| (50)  71   72   73   74   75   76   77   78  (79)
-p   q   -   -   b   -   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   b   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+p   q   -   -   b   p   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
 -   -   N   -   -   -   P   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   B   -   N   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 -   -   P   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)

@@ -154,6 +154,9 @@ indexToPiece g idx =
     let gridVal =  fromMaybe ' ' (g ^? ix idx)
     in charToPiece gridVal
 
+indexToChar :: Vector Char -> Int -> Char
+indexToChar g idx = fromMaybe ' ' (g ^? ix idx)
+
 instance PositionNode ChessNode ChessMv ChessEval where
     newNode = calcNewNode
     possibleMoves = legalMoves
@@ -294,11 +297,17 @@ whitePawnDir = up
 whitePawnCaptureDirs :: [Dir]
 whitePawnCaptureDirs = [diagUL, diagUR]
 
+whitePawnEnPassantDirs :: [Dir]
+whitePawnEnPassantDirs = [knightUL, knightUR]
+
 blackPawnDir :: Dir -- non capturing moves...
 blackPawnDir = down
 
 blackPawnCaptureDirs :: [Dir]
 blackPawnCaptureDirs = [diagDL, diagDR]
+
+blackPawnEnPassantDirs :: [Dir]
+blackPawnEnPassantDirs = [knightDL, knightDR]
 
 noDirs :: [Dir]
 noDirs = []
@@ -359,6 +368,15 @@ charToColor c
   | ord c > 64 && ord c < 91 = White  -- A - Z : 65 - 90
   | ord c > 96 && ord c < 123 = Black -- a - z : 97 - 122
   | otherwise = Unknown
+
+-- r to R, B to b, etc.
+flipCharColor :: Char -> Char
+flipCharColor ch =
+  case charToColor ch of
+    Black -> chr $ ord ch - 32
+    White -> chr $ ord ch + 32
+    Unknown -> ch
+
 
 pieceMoves :: ChessNode -> Int -> [ChessMv]
 pieceMoves _ _ = undefined
@@ -428,17 +446,12 @@ movesFromLoc :: Vector Char -> Int -> ([Int], [Int])
 movesFromLoc g loc =
   let cp = indexToPiece g loc -- ChessPiece (k :: SomeSing Piece)
   in case cp of
-      -- charToPiece :: Char -> ChessPiece (k :: SomeSing Piece)
-
-      -- data ChessPiece :: SomeSing Piece -> Type where
-      --   MkChessPiece :: Color -> SomeSing Piece -> ChessPiece k
-
       MkChessPiece _c (SomeSing SKing) -> possibleKingMoves g loc
       MkChessPiece _c (SomeSing SQueen) -> allowableQueenMoves g loc
       MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
       MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
       MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
-      MkChessPiece c (SomeSing SPawn) -> allowablePawnCaptures g c loc
+      MkChessPiece _c (SomeSing SPawn) -> (allowablePawnMoves g loc, allowablePawnCaptures g loc)
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
@@ -497,12 +510,6 @@ allowablePawnMoves g idx =
         White -> pawnMoves g c whitePawnDir hasMoved idx
         Black -> pawnMoves g c blackPawnDir hasMoved idx
 
--- pawnMoves :: Vector Char -> Dir -> Bool -> Int -> [Int]
--- pawnMoves g dir hasMoved idx =
---   let (firstMove : _, _) = dirLocsSingle g idx dir -- only take the 'empty' square
---   in firstMove :
---       if hasMoved then []
---       else fst $ dirLocsSingle g firstMove dir
 pawnMoves :: Vector Char -> Color -> Dir -> Bool -> Int -> [Int]
 pawnMoves g c dir hasMoved idx =
     case dirLocsSingle g idx c dir of
@@ -520,18 +527,31 @@ hasPawnMoved White idx = idx > 28
 hasPawnMoved Black idx = idx < 71
 
 -- find the allowable destination capture locs for a pawn
-allowablePawnCaptures :: Vector Char -> Color -> Int -> ([Int], [Int])
-allowablePawnCaptures _g Unknown _idx = undefined -- []
-allowablePawnCaptures _g White _idx = undefined
-  -- let twoCaps = filter onBoard (fmap ($ idx) whitePawnCaptureDirs)
-  -- in twoCaps ++ if hasPawnMoved White idx
-  --                 then []
-  --                 else filter onBoard (fmap ($ whitePawnDir idx) whitePawnCaptureDirs) --en passant
-allowablePawnCaptures _g Black _idx = undefined
-  -- let twoCaps = filter onBoard (fmap ($ idx) blackPawnCaptureDirs)
-  -- in twoCaps ++ if hasPawnMoved Black idx
-  --                 then []
-  --                 else filter onBoard (fmap ($ blackPawnDir idx) blackPawnCaptureDirs) --en passant
+allowablePawnCaptures :: Vector Char -> Int -> ([Int])
+allowablePawnCaptures g idx =
+    let c = indexToColor g idx
+    in pawnCaptures g c idx ++ enPassantCaptures g c idx
+
+pawnCaptures :: Vector Char -> Color -> Int -> [Int]
+pawnCaptures g c idx =
+      let dirs = case c of
+              White -> whitePawnCaptureDirs
+              Black -> blackPawnCaptureDirs
+              Unknown -> []
+      in snd $ allowableSingleMoves dirs g idx
+
+enPassantCaptures :: Vector Char -> Color -> Int -> [Int]
+enPassantCaptures g c idx =
+    if hasPawnMoved c idx then []
+    else
+      let dirs = case c of
+              White -> whitePawnEnPassantDirs
+              Black -> blackPawnEnPassantDirs
+              Unknown -> []
+          enemies = snd $ allowableSingleMoves dirs g idx
+          thisPawn = indexToChar g idx
+      -- only pawns can be captured this way
+      in filter (\n -> indexToChar g n == flipCharColor thisPawn) enemies
 
 data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
    deriving Show
