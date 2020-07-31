@@ -2,13 +2,10 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -42,9 +39,7 @@ module Chess
 import Control.Lens hiding (Empty)
 
 import Data.Char
--- import Data.Foldable
 import Data.HashMap (Map)
--- import qualified Data.HashMap as M
 import Data.Kind
 import Data.Maybe
 import Data.Singletons
@@ -268,13 +263,7 @@ knightUR = Dir (21+) "knightUR"
 knightDL = Dir (\x -> x - 21) "knightDL"
 
 instance Show Dir where
-  show d = _dirName d
-{-
-newtype IntMove = IntMove {theInt :: Int}
-
-instance Show IntMove where
-    show m = show $ theInt m
--}
+  show = _dirName
 
 queenDirs :: [Dir]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
@@ -357,7 +346,7 @@ locsForColor :: Vector Char -> Color -> [Int]
 locsForColor locs theColor =
     let range = V.fromList [0..100] :: Vector Int
         pairs = V.zip range locs
-        filtrd = V.filter ((pMatch theColor) . snd) pairs
+        filtrd = V.filter (pMatch theColor . snd) pairs
         first = V.map fst filtrd
     in V.toList first
         where
@@ -381,25 +370,19 @@ flipCharColor ch =
 pieceMoves :: ChessNode -> Int -> [ChessMv]
 pieceMoves _ _ = undefined
 
--- movesFromDir :: Dir -> Int -> MoveType -> [ChessMv]
--- movesFromDir _ _ _ = undefined  -- dir idx moveType
-
-
-
--- find the possible destination locs for a king
 -- The function 'allowableKingMoves' later filters out the moves that would allow the enemy to
 -- capture the king
 possibleKingMoves :: Vector Char -> Int -> ([Int], [Int])
-possibleKingMoves g idx = allowableSingleMoves kingDirs g idx
+possibleKingMoves = allowableSingleMoves kingDirs
 
 -- TODO: this will probably become 'allowableKingMoves'
-legalKingMoves :: ChessPos -> (Map Int Bool) -> Int -> [ChessMv]
+legalKingMoves :: ChessPos -> Map Int Bool -> Int -> [ChessMv]
 legalKingMoves _pos _defendedMap _idx = undefined
     -- let locs = possibleKingMoves (pos^.cpGrid) idx
     --     indexes = filter (kingFilter (pos ^.cpGrid) defendedMap (pos^.cpColor)) locs
     -- in  destinationsToMoves idx indexes
 
-kingFilter :: Vector Char -> (Map Int Bool) -> Color -> Int -> Bool
+kingFilter :: Vector Char -> Map Int Bool -> Color -> Int -> Bool
 kingFilter g defendedMap c idx =
     if hasFriendly g c idx
         then False
@@ -408,19 +391,11 @@ kingFilter g defendedMap c idx =
 hasFriendly :: Vector Char -> Color -> Int -> Bool
 hasFriendly g c idx = indexToColor g idx == c
 
--- hasFriendly pos c idx = case indexToPiece (_cpGrid pos) idx of
---     MkSomeChessPiece _theSing (UnsafeMkChessPiece aColor) -> aColor == c
-
 hasEnemy :: Vector Char -> Color -> Int -> Bool
 hasEnemy g c idx = indexToColor g idx == enemyColor c
 
 isEmpty :: ChessPos -> Int -> Bool
-isEmpty pos idx = fromMaybe empty ((_cpGrid pos) ^? ix idx) == empty
-
-  -- for each opposing piece,
-  -- build list of legal moves
-  -- build Set consisting of each ending loc
-  -- (for pawns this must be only the capturing moves)
+isEmpty pos idx = fromMaybe empty (_cpGrid pos ^? ix idx) == empty
 
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all locations that are 'defended' by the given color
@@ -435,8 +410,8 @@ calcDefended g c =
     in S.fromList (destEmpty ++ destEnemy)
 
 movesFromLocs :: Vector Char -> [Int] -> ([Int], [Int])
-movesFromLocs g locs =
-  foldr f ([], []) locs where
+movesFromLocs g =
+  foldr f ([], []) where
     f :: Int -> ([Int], [Int]) -> ([Int], [Int])
     f loc (r1, r2) =
       let (xs, ys) = movesFromLoc g loc
@@ -483,22 +458,21 @@ allowableSingleMoves pieceDirs g idx =
         let (freeLocs, captureLocs) = dirLocsSingle g idx c x
         in (freeLocs ++ r, captureLocs ++ r')
 
--- find the allowable destination locs for a queen.  The first list contains the empty squares that
--- can be moved to. The second list contains squares with pieces that could be captured.
+-- find the allowable destination locs for a queen.
 allowableQueenMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableQueenMoves g idx = allowableMultiMoves queenDirs g idx
+allowableQueenMoves = allowableMultiMoves queenDirs
 
 -- find the allowable destination locs for a rook
 allowableRookMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableRookMoves g idx = allowableMultiMoves rookDirs g idx
+allowableRookMoves = allowableMultiMoves rookDirs
 
 -- find the allowable destination locs for a bishop
 allowableBishopMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableBishopMoves g idx = allowableMultiMoves bishopDirs g idx
+allowableBishopMoves = allowableMultiMoves bishopDirs
 
 -- find the possible destination locs for a knight
 allowableKnightMoves :: Vector Char -> Int -> ([Int], [Int])
-allowableKnightMoves g idx = allowableSingleMoves knightDirs g idx
+allowableKnightMoves = allowableSingleMoves knightDirs
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
 allowablePawnMoves :: Vector Char -> Int -> [Int]
@@ -527,7 +501,7 @@ hasPawnMoved White idx = idx > 28
 hasPawnMoved Black idx = idx < 71
 
 -- find the allowable destination capture locs for a pawn
-allowablePawnCaptures :: Vector Char -> Int -> ([Int])
+allowablePawnCaptures :: Vector Char -> Int -> [Int]
 allowablePawnCaptures g idx =
     let c = indexToColor g idx
     in pawnCaptures g c idx ++ enPassantCaptures g c idx
@@ -571,22 +545,14 @@ dirLocs g idx dir =
         loop x (empties, enemies) =
             let friendly = hasFriendly g c x
                 enemy = hasEnemy g c x
-                (sqState, (newEmpties, newEnemies)) =
-                    if not (onBoard x) then (OffBoard ,(empties, enemies))
-                    else if enemy then (HasEnemy, (empties, x : enemies))
-                    else if friendly then (HasFriendly, (empties, enemies))
-                    else (Empty, (x : empties, enemies))
-            -- in case sqState of
-            --     Empty -> loop (apply dir x) (newEmpties, newEnemies)
-            --     _ -> (newEmpties, newEnemies)
-            in trace ("'LOOOOOP' in dirLocs call with index: " ++ show x
-                      ++ " value at index: " ++ show ((V.!) g x)
-                      ++ " dir: " ++ show dir
-                    ++ " returning - sqState: " ++ show sqState ++ " empties: " ++ show empties
-                    ++ ", enemies: " ++ show enemies)
-                    (case sqState of
-                        Empty -> loop (apply dir x) (newEmpties, newEnemies)
-                        _ -> (newEmpties, newEnemies))
+                (sqState, (newEmpties, newEnemies))
+                    | not (onBoard x) = (OffBoard ,(empties, enemies))
+                    | enemy = (HasEnemy, (empties, x : enemies))
+                    | friendly = (HasFriendly, (empties, enemies))
+                    | otherwise = (Empty, (x : empties, enemies))
+            in (case sqState of
+                Empty -> loop (apply dir x) (newEmpties, newEnemies)
+                _ -> (newEmpties, newEnemies))
 
 -- Same as dirLocs, but for pieces that move only one square in a given direction
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
@@ -594,9 +560,9 @@ dirLocsSingle :: Vector Char -> Int -> Color -> Dir ->([Int], [Int])
 dirLocsSingle g idx c dir =
     let x = apply dir idx
     in
-      if not (onBoard x) then (([], []))
-      else if hasEnemy g c x then (([], [x]))
-      else if hasFriendly g c x then (([], []))
+      if not (onBoard x) then ([], [])
+      else if hasEnemy g c x then ([], [x])
+      else if hasFriendly g c x then ([], [])
       else ([x],[]) -- empty square
 
 onBoard :: Int -> Bool
