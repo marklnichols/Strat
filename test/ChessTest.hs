@@ -2,7 +2,7 @@
 module ChessTest (chessTest) where
 
 import Chess
--- import qualified Data.Set as S
+import qualified Data.Set as S
 import Data.Tree
 import Strat.StratTree.TreeNode
 import Test.Hspec
@@ -18,83 +18,102 @@ chessTest = do
               [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
     describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
-            let (empties, enemies) = possibleKingMoves board01 12
+            let (empties, enemies, friendlies) = possibleKingMoves board01 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
-            let (empties2, enemies2) = possibleKingMoves board01 87
+            friendlies `shouldMatchList` [12, 21, 22]
+            let (empties2, enemies2, friendlies2) = possibleKingMoves board01 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
+            friendlies2 `shouldMatchList` [77, 78, 86]
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
-            let (empties, enemies) = allowableQueenMoves board01 46
+            let (empties, enemies, friendlies) = allowableQueenMoves board01 46
             empties `shouldMatchList`
                 [47,48 -- left/right
                 ,36,56 -- up/down
                 ,24,35 -- LL/UR
                 ,28,37,55,64,73,82] -- LR, UL
             enemies `shouldMatchList` [66]
-            let (empties2, enemies2) = allowableQueenMoves board01 62
+            friendlies `shouldMatchList` [13, 26, 45, 57, 66]
+            let (empties2, enemies2, friendlies2) = allowableQueenMoves board01 62
             empties2 `shouldMatchList`
                 [63, 64 -- L/R
                 ,32,42,52,72,82 -- U/D
                 ,51,73,84 -- LL/UR
                 ,71 ] -- LR/UL
             enemies2 `shouldMatchList` [22, 53]
+            friendlies2 `shouldMatchList` [22, 53,61, 65]
     describe "allowableRookMoves" $
         it "Gets the allowable moves for a rook" $ do
-            let (empties, enemies) = allowableRookMoves board01 13
+            let (empties, enemies, friendlies) = allowableRookMoves board01 13
             empties `shouldMatchList` [14,15,16,17,18 -- L/R
                                       ,23] -- U/D
             enemies `shouldMatchList` []
-            let (empties2, enemies2) = allowableRookMoves board01 83
+            friendlies `shouldMatchList` [12, 33]
+            let (empties2, enemies2, friendlies2) = allowableRookMoves board01 83
             empties2 `shouldMatchList` [81,82,84,85 -- L/R
                                       ,73,63] -- U/D
             enemies2 `shouldMatchList` [53]
+            friendlies2 `shouldMatchList` [53, 86]
     describe "allowableBishopMoves" $
         it "Gets the allowable moves for a bishop" $ do
-            let (empties, enemies) = allowableBishopMoves board01 43
+            let (empties, enemies, friendlies) = allowableBishopMoves board01 43
             empties `shouldMatchList` [32,54 -- LL/UR
                                       ,34,52] -- LR/UL
             enemies `shouldMatchList` [61, 65]
-            let (empties2, enemies2) = allowableBishopMoves board01 65
+            friendlies `shouldMatchList` [21, 25]
+            let (empties2, enemies2, friendlies2) = allowableBishopMoves board01 65
             empties2 `shouldMatchList` [54,76 -- LL/UR
                                        ,38,47,56,74] -- LR/UL
             enemies2 `shouldMatchList` [43]
+            friendlies2 `shouldMatchList` [83, 87]
     describe "allowableKnightMoves" $
         it "Gets the allowable moves for a knight" $ do
-            let (empties, enemies) = allowableKnightMoves board01 45
+            let (empties, enemies, friendlies) = allowableKnightMoves board01 45
             empties `shouldMatchList` [24,37,64]
             enemies `shouldMatchList` [66]
+            friendlies `shouldMatchList` [26, 53]
 
-            let (empties2, enemies2) = allowableKnightMoves board01 53
+            let (empties2, enemies2, friendlies2) = allowableKnightMoves board01 53
             empties2 `shouldMatchList` [32,34,41,72,74]
             enemies2 `shouldMatchList` [61,65]
+            friendlies2 `shouldMatchList` [45]
     describe "allowablePawnMoves" $
         it "Gets the allowable (non capturing) moves for a pawn" $ do
-            allowablePawnMoves board01 22 `shouldMatchList` [32, 42]
-            allowablePawnMoves board01 33 `shouldMatchList` []
-            allowablePawnMoves board01 61 `shouldMatchList` [51]
-
-    -- START HERE - move pawn on 76 to 66 ?
+            allowablePawnNonCaptures board01 22 `shouldMatchList` [32, 42]
+            allowablePawnNonCaptures board01 33 `shouldMatchList` []
+            allowablePawnNonCaptures board01 61 `shouldMatchList` [51]
     describe "allowablePawnCaptures" $
-         it "Gets the allowable capturing moves for a pawn" $ do
-             allowablePawnCaptures board01 57 `shouldMatchList` [66]
-             allowablePawnCaptures board01 78 `shouldMatchList` [57] -- en passant captures
+        it "Gets the allowable capturing moves for a pawn" $ do
+            let (enemies, friendlies) = allowablePawnCaptures board01 57
+            enemies `shouldMatchList` [66]
+            friendlies `shouldMatchList` []
+            let (enemies2, friendlies2) = allowablePawnCaptures board01 78
+            enemies2 `shouldMatchList` [57] -- en passant captures
+            friendlies2 `shouldMatchList` [67]
 
+    describe "calcDefended" $
+       it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
+           S.toList (calcDefended board01 White) `shouldMatchList`
+              [ 11, 13, 21, 22, 23                 -- K
+              , 45, 47, 48                         -- Q (horizontal)
+              , 26, 36, 56, 66                     -- Q (vertical)
+              , 28, 37, 55, 64, 73, 82             -- Q (diagonal UL/LR)
+              , 13, 24, 35, 57, 68                 -- Q (diagonal LL/UR)
+              , 11, 13, 14, 15, 16, 17, 18, 22, 32 -- R1
+              , 25, 27, 28,16, 36, 46              -- R2
+              , 14, 36, 47, 58, 16, 34, 43         -- B1
+              , 21, 32, 54, 65                     -- B2
+              , 53, 64, 66, 57, 37, 26,24, 33      -- N1 (@45)
+              , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
+              , 32, 31, 33, 42, 44, 66, 68         -- Pawns
+              ]
+{-
+the missing elements are: [13, 21, 22, 45, 26, 13, 57, 68, 11, 13, 22, 25, 28, 16, 36, 46, 14, 36, 47, 16, 43, 21, 32, 53, 64, 66, 57, 37, 26, 24, 33, 65, 45, 34, 32, 32, 33, 44, 66, 68]
 
-    -- describe "calcDefended" $
-    --   it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
-    --    S.toList (calcDefended board01 White) `shouldMatchList` (S.toList $ S.fromList
-
-    --        [ 11, 13, 23                 -- K
-    --        , 41, 42, 43, 44, 45, 47, 48 -- Q (horizontal)
-    --        , 36, 56, 66                 -- Q (vertical)
-    --        , 28, 37, 55, 64, 73, 82     -- Q (diagonal 1)
-    --        , 13, 24, 35, 57, 68         -- Q (diagonal 2)
-    --        , 23, 24, 25, 27, 28         -- R (horizontal)
-    --        , 16, 36                     -- R (vertical)
-    --        , 31, 32, 42, 44 ])          -- P
-
+the extra elements are:   [52]
+-}
        -- S.toList (calcDefended board01 Black) `shouldMatchList`
        --     [ 11, 13, 23, 56, 66, 36, 41, 42, 43, 44, 45, 47, 48, 55, 64, 74, 83, 37, 28, 57, 68, 35,
        --       24, 13, 36, 16, 23, 24, 25, 27, 28, 32, 31, 42, 44 ]

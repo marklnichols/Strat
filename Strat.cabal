@@ -62,6 +62,7 @@ executable strat-exe
     , bytestring
     , Cabal
     , containers
+    , extra
     , hashmap
     , lens
     , mtl
@@ -94,6 +95,7 @@ executable test-as-exe
     , bytestring
     , Cabal
     , containers
+    , extra
     , hashmap
     , hspec
     , lens
@@ -126,6 +128,7 @@ test-suite StratTreeTest
     , base
     , bytestring
     , containers
+    , extra
     , hashmap
     , hspec
     , lens
