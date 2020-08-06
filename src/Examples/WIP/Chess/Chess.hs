@@ -54,7 +54,7 @@ import qualified Data.Vector.Unboxed as V
 
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
-import Debug.Trace
+-- import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -414,17 +414,7 @@ calcDefended :: Vector Char -> Color -> Set Int
 calcDefended g c =
     let theLocs = locsForColor g c
         (destEmpty, destEnemy, destFriendly) = movesFromLocs g theLocs
-    -- in S.fromList (destEmpty ++ destEnemy ++ destFriendly)
-        str = "calcDefended - theLocs: " ++ show theLocs
-            ++ ", destEmpty: " ++ show destEmpty
-            ++ ", destEnemy: " ++ show destEnemy
-            ++ ", destFriendly: " ++ show destFriendly
-        theList = (destEmpty ++ destEnemy ++ destFriendly)
-        str2 = "The entire list: " ++ show theList
-        theSet = S.fromList theList
-        str3 = "The set: " ++ show theSet
-    in trace (str ++ str2 ++ str3) theSet
-
+    in S.fromList (destEmpty ++ destEnemy ++ destFriendly)
 
 movesFromLocs :: Vector Char -> [Int] -> ([Int], [Int], [Int])
 movesFromLocs g =
@@ -446,9 +436,6 @@ movesFromLoc g loc =
       MkChessPiece _c (SomeSing SPawn) ->
         let (empties, enemies, friendlies) = allowablePawnCaptures g loc
         in (allowablePawnNonCaptures g loc ++ empties, enemies, friendlies)
-        --     str = "movesFromLoc for location " ++ show loc ++ ": "
-        --         ++ show (allowablePawnNonCaptures g loc, enemies, friendlies)
-        -- in trace str (allowablePawnNonCaptures g loc, enemies, friendlies)
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
@@ -475,7 +462,7 @@ allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([Int], [Int], [Int])
 allowableSingleMoves pieceDirs g idx =
   foldr (f (indexToColor g idx)) ([], [], []) pieceDirs
     where
-      -- fold function is curried f with Color applied
+      -- fold function: curried f with Color applied
       f :: Color -> Dir -> ([Int], [Int], [Int]) -> ([Int], [Int], [Int])
       f c x (r, r', r'') =
         let (freeLocs, captureLocs, friendlyLocs) = dirLocsSingle g idx c x
@@ -554,7 +541,7 @@ pawnCaptures g c idx =
 
 -- find the allowable enPassant destination capture locs for a pawn
 -- only enemy squares containing pawns are returned
-allowableEnPassant :: Vector Char -> Int -> ([Int])
+allowableEnPassant :: Vector Char -> Int -> [Int]
 allowableEnPassant g idx =
     let c = indexToColor g idx
     in enPassantCaptures g c idx
@@ -586,9 +573,7 @@ data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
 -- the 'defended' squares
 dirLocs :: Vector Char -> Int -> Dir ->([Int], [Int], [Int])
 dirLocs g idx dir =
-  let str = "dirLocs called with idx: " ++ show idx
-        ++ ", color: " ++ show c ++ ", dir: " ++ show dir
-  in trace str (loop (apply dir idx) ([], [], []))
+    loop (apply dir idx) ([], [], [])
       where
         c = indexToColor g idx
         loop x (empties, enemies, friendlies) =

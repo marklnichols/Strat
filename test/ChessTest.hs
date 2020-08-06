@@ -96,7 +96,6 @@ chessTest = do
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $
             allowableEnPassant board01 78 `shouldMatchList` [57]
-
     describe "calcDefended" $
        it "Creates a set w/all locations that are defended by the opposing color's pieces" $
            S.toList (calcDefended board01 White) `shouldMatchList`
@@ -114,14 +113,6 @@ chessTest = do
               , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
               , 32, 31, 33, 42, 44, 66, 68         -- Pawns
               ])
-{-
-the missing elements are: [13, 23, 28, 16, 36, 14, 36, 47, 16, 21, 25, 34, 64, 66, 57, 37, 26, 24, 33, 61, 65, 45, 34, 32, 32, 33, 44, 66, 68]
-
--}
-
-       -- S.toList (calcDefended board01 Black) `shouldMatchList`
-       --     [ 11, 13, 23, 56, 66, 36, 41, 42, 43, 44, 45, 47, 48, 55, 64, 74, 83, 37, 28, 57, 68, 35,
-       --       24, 13, 36, 16, 23, 24, 25, 27, 28, 32, 31, 42, 44 ]
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
