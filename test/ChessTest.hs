@@ -21,7 +21,7 @@ chessTest = do
             let (empties, enemies, friendlies) = possibleKingMoves board01 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
-            friendlies `shouldMatchList` [12, 21, 22]
+            friendlies `shouldMatchList` [13, 21, 22]
             let (empties2, enemies2, friendlies2) = possibleKingMoves board01 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
@@ -35,7 +35,7 @@ chessTest = do
                 ,24,35 -- LL/UR
                 ,28,37,55,64,73,82] -- LR, UL
             enemies `shouldMatchList` [66]
-            friendlies `shouldMatchList` [13, 26, 45, 57, 66]
+            friendlies `shouldMatchList` [13, 26, 45, 57]
             let (empties2, enemies2, friendlies2) = allowableQueenMoves board01 62
             empties2 `shouldMatchList`
                 [63, 64 -- L/R
@@ -43,7 +43,7 @@ chessTest = do
                 ,51,73,84 -- LL/UR
                 ,71 ] -- LR/UL
             enemies2 `shouldMatchList` [22, 53]
-            friendlies2 `shouldMatchList` [22, 53,61, 65]
+            friendlies2 `shouldMatchList` [61, 65]
     describe "allowableRookMoves" $
         it "Gets the allowable moves for a rook" $ do
             let (empties, enemies, friendlies) = allowableRookMoves board01 13
@@ -53,9 +53,9 @@ chessTest = do
             friendlies `shouldMatchList` [12, 33]
             let (empties2, enemies2, friendlies2) = allowableRookMoves board01 83
             empties2 `shouldMatchList` [81,82,84,85 -- L/R
-                                      ,73,63] -- U/D
+                                       ,73,63] -- U/D
             enemies2 `shouldMatchList` [53]
-            friendlies2 `shouldMatchList` [53, 86]
+            friendlies2 `shouldMatchList` [86]
     describe "allowableBishopMoves" $
         it "Gets the allowable moves for a bishop" $ do
             let (empties, enemies, friendlies) = allowableBishopMoves board01 43
@@ -73,8 +73,7 @@ chessTest = do
             let (empties, enemies, friendlies) = allowableKnightMoves board01 45
             empties `shouldMatchList` [24,37,64]
             enemies `shouldMatchList` [66]
-            friendlies `shouldMatchList` [26, 53]
-
+            friendlies `shouldMatchList` [26, 33, 53, 57]
             let (empties2, enemies2, friendlies2) = allowableKnightMoves board01 53
             empties2 `shouldMatchList` [32,34,41,72,74]
             enemies2 `shouldMatchList` [61,65]
@@ -100,20 +99,20 @@ chessTest = do
               , 45, 47, 48                         -- Q (horizontal)
               , 26, 36, 56, 66                     -- Q (vertical)
               , 28, 37, 55, 64, 73, 82             -- Q (diagonal UL/LR)
-              , 13, 24, 35, 57, 68                 -- Q (diagonal LL/UR)
-              , 11, 13, 14, 15, 16, 17, 18, 22, 32 -- R1
-              , 25, 27, 28,16, 36, 46              -- R2
+              , 13, 24, 35, 57                     -- Q (diagonal LL/UR)
+              , 12, 14, 15, 16, 17, 18, 23, 33     -- R1
+              , 25, 27, 28, 16, 36, 46             -- R2
               , 14, 36, 47, 58, 16, 34, 43         -- B1
-              , 21, 32, 54, 65                     -- B2
-              , 53, 64, 66, 57, 37, 26,24, 33      -- N1 (@45)
+              , 21, 32, 54, 65, 25, 34, 52, 61     -- B2
+              , 53, 64, 66, 57, 37, 26, 24, 33      -- N1 (@45)
               , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
               , 32, 31, 33, 42, 44, 66, 68         -- Pawns
               ]
 {-
-the missing elements are: [13, 21, 22, 45, 26, 13, 57, 68, 11, 13, 22, 25, 28, 16, 36, 46, 14, 36, 47, 16, 43, 21, 32, 53, 64, 66, 57, 37, 26, 24, 33, 65, 45, 34, 32, 32, 33, 44, 66, 68]
+the missing elements are: [13, 23, 28, 16, 36, 14, 36, 47, 16, 21, 25, 34, 64, 66, 57, 37, 26, 24, 33, 61, 65, 45, 34, 32, 32, 33, 44, 66, 68]
 
-the extra elements are:   [52]
 -}
+
        -- S.toList (calcDefended board01 Black) `shouldMatchList`
        --     [ 11, 13, 23, 56, 66, 36, 41, 42, 43, 44, 45, 47, 48, 55, 64, 74, 83, 37, 28, 57, 68, 35,
        --       24, 13, 36, 16, 23, 24, 25, 27, 28, 32, 31, 42, 44 ]

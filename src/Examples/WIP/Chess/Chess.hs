@@ -413,7 +413,13 @@ calcDefended :: Vector Char -> Color -> Set Int
 calcDefended g c =
     let theLocs = locsForColor g c
         (destEmpty, destEnemy, destFriendly) = movesFromLocs g theLocs
-    in S.fromList (destEmpty ++ destEnemy ++ destFriendly)
+    -- in S.fromList (destEmpty ++ destEnemy ++ destFriendly)
+        str = "calcDefended - theLocs: " ++ show theLocs
+            ++ ", destEmpty: " ++ show destEmpty
+            ++ ", destEnemy: " ++ show destEnemy
+            ++ ", destFriendly: " ++ show destFriendly
+    in trace str S.fromList (destEmpty ++ destEnemy ++ destFriendly)
+
 
 movesFromLocs :: Vector Char -> [Int] -> ([Int], [Int], [Int])
 movesFromLocs g =
@@ -434,7 +440,10 @@ movesFromLoc g loc =
       MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
       MkChessPiece _c (SomeSing SPawn) ->
         let (enemies, friendlies) = allowablePawnCaptures g loc
-        in (allowablePawnNonCaptures g loc, enemies, friendlies)
+        -- in (allowablePawnNonCaptures g loc, enemies, friendlies)
+            str = "movesFromLoc for location " ++ show loc ++ ": "
+                ++ show (allowablePawnNonCaptures g loc, enemies, friendlies)
+        in trace str (allowablePawnNonCaptures g loc, enemies, friendlies)
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
