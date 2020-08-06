@@ -85,16 +85,22 @@ chessTest = do
             allowablePawnNonCaptures board01 61 `shouldMatchList` [51]
     describe "allowablePawnCaptures" $
         it "Gets the allowable capturing moves for a pawn" $ do
-            let (enemies, friendlies) = allowablePawnCaptures board01 57
+            let (empties, enemies, friendlies) = allowablePawnCaptures board01 57
+            empties `shouldMatchList` [68]
             enemies `shouldMatchList` [66]
             friendlies `shouldMatchList` []
-            let (enemies2, friendlies2) = allowablePawnCaptures board01 78
-            enemies2 `shouldMatchList` [57] -- en passant captures
+            let (empties2, enemies2, friendlies2) = allowablePawnCaptures board01 78
+            empties2 `shouldMatchList` []
+            enemies2 `shouldMatchList` []
             friendlies2 `shouldMatchList` [67]
+    describe "allowableEnPassant" $
+        it "Gets the allowable enPassant capturing moves for a pawn" $
+            allowableEnPassant board01 78 `shouldMatchList` [57]
 
     describe "calcDefended" $
-       it "Creates a set w/all locations that are defended by the opposing color's pieces" $ do
+       it "Creates a set w/all locations that are defended by the opposing color's pieces" $
            S.toList (calcDefended board01 White) `shouldMatchList`
+              S.toList (S.fromList                 -- remove dupes (which are useful for debugging)
               [ 11, 13, 21, 22, 23                 -- K
               , 45, 47, 48                         -- Q (horizontal)
               , 26, 36, 56, 66                     -- Q (vertical)
@@ -107,7 +113,7 @@ chessTest = do
               , 53, 64, 66, 57, 37, 26, 24, 33      -- N1 (@45)
               , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
               , 32, 31, 33, 42, 44, 66, 68         -- Pawns
-              ]
+              ])
 {-
 the missing elements are: [13, 23, 28, 16, 36, 14, 36, 47, 16, 21, 25, 34, 64, 66, 57, 37, 26, 24, 33, 61, 65, 45, 34, 32, 32, 33, 44, 66, 68]
 

@@ -30,6 +30,7 @@ module Chess
     , allowableBishopMoves
     , allowableKnightMoves
     , possibleKingMoves
+    , allowableEnPassant
     , allowablePawnNonCaptures
     , allowablePawnCaptures
     , allowableQueenMoves
@@ -418,7 +419,11 @@ calcDefended g c =
             ++ ", destEmpty: " ++ show destEmpty
             ++ ", destEnemy: " ++ show destEnemy
             ++ ", destFriendly: " ++ show destFriendly
-    in trace str S.fromList (destEmpty ++ destEnemy ++ destFriendly)
+        theList = (destEmpty ++ destEnemy ++ destFriendly)
+        str2 = "The entire list: " ++ show theList
+        theSet = S.fromList theList
+        str3 = "The set: " ++ show theSet
+    in trace (str ++ str2 ++ str3) theSet
 
 
 movesFromLocs :: Vector Char -> [Int] -> ([Int], [Int], [Int])
@@ -439,11 +444,11 @@ movesFromLoc g loc =
       MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
       MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
       MkChessPiece _c (SomeSing SPawn) ->
-        let (enemies, friendlies) = allowablePawnCaptures g loc
-        -- in (allowablePawnNonCaptures g loc, enemies, friendlies)
-            str = "movesFromLoc for location " ++ show loc ++ ": "
-                ++ show (allowablePawnNonCaptures g loc, enemies, friendlies)
-        in trace str (allowablePawnNonCaptures g loc, enemies, friendlies)
+        let (empties, enemies, friendlies) = allowablePawnCaptures g loc
+        in (allowablePawnNonCaptures g loc ++ empties, enemies, friendlies)
+        --     str = "movesFromLoc for location " ++ show loc ++ ": "
+        --         ++ show (allowablePawnNonCaptures g loc, enemies, friendlies)
+        -- in trace str (allowablePawnNonCaptures g loc, enemies, friendlies)
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
@@ -495,7 +500,7 @@ allowableKnightMoves = allowableSingleMoves knightDirs
 
 allowablePawnMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
 allowablePawnMoves g idx =
-   let (enemies, friendlies) = allowablePawnCaptures g idx
+   let (enemies, friendlies, empties) = allowablePawnCaptures g idx
    in (allowablePawnNonCaptures g idx, enemies, friendlies)
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
@@ -524,26 +529,36 @@ hasPawnMoved Unknown _ = False
 hasPawnMoved White idx = idx > 28
 hasPawnMoved Black idx = idx < 71
 
--- find the allowable destination capture locs for a pawn
--- the first list are the squares that could be captured, the second list contains
--- friendly pieces that are defended
-allowablePawnCaptures :: Vector Char -> Int -> ([Int], [Int])
+-- find the allowable destination capture locs for a pawn (enPassant are not included here and
+-- are handled elsewhere)
+-- the first list contains the empty squares that are 'defened' via pawn capture.  The second list
+-- contains the squares that could be captured, and the third list contains
+-- friendly pieces that are 'defended'
+allowablePawnCaptures :: Vector Char -> Int -> ([Int], [Int], [Int])
 allowablePawnCaptures g idx =
     let c = indexToColor g idx
-        (pcEnemies, pcFriendlies) = pawnCaptures g c idx
-        epcEnemies= enPassantCaptures g c idx
-    in (pcEnemies ++ epcEnemies, pcFriendlies)
+    in pawnCaptures g c idx
 
--- the first list are the squares that could be captured, the second list contains
--- friendly pieces that are defended
-pawnCaptures :: Vector Char -> Color -> Int -> ([Int], [Int])
+-- the first list contains the empty squares that are 'defened' via pawn capture.  The second list
+-- contains the squares that could be captured, and the third list contains
+-- friendly pieces that are 'defended'
+-- EnPassant captures are handled elsewhere and are not included here
+pawnCaptures :: Vector Char -> Color -> Int -> ([Int], [Int], [Int])
 pawnCaptures g c idx =
       let dirs = case c of
               White -> whitePawnCaptureDirs
               Black -> blackPawnCaptureDirs
               Unknown -> []
           (empties, enemies, friendlies) = allowableSingleMoves dirs g idx
-      in (enemies, friendlies)
+      in (empties, enemies, friendlies)
+
+-- find the allowable enPassant destination capture locs for a pawn
+-- only enemy squares containing pawns are returned
+allowableEnPassant :: Vector Char -> Int -> ([Int])
+allowableEnPassant g idx =
+    let c = indexToColor g idx
+    in enPassantCaptures g c idx
+
 -- the first list are the squares that could be captured, the second list contains
 -- friendly pieces that are defended
 enPassantCaptures :: Vector Char -> Color -> Int -> [Int]
