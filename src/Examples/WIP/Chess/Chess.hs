@@ -17,14 +17,15 @@
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
 module Chess
-    ( ChessEval(..)
-    , ChessMv(..)
-    , ChessNode(..)
-    , ChessPos(..)
+    ( ChessEval(..), total, details
+    , ChessMove(..), isExchange, startIdx, endIdx, removedIdx
+    , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
+    , ChessPos(..), cpGrid, cpColor, cpFin
     , Color(..)
     , calcDefended
     , colorFromInt
     , colorToInt
+    , getStartNode
     -- exported for testing only
     , getPieceLocs
     , allowableBishopMoves
@@ -68,14 +69,14 @@ data Color = Black | White | Unknown
 data ChessPos = ChessPos {_cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState} deriving (Show)
 makeLenses ''ChessPos
 
-data ChessMv = ChessMv {isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
+data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
     deriving (Eq, Ord, Show)
-makeLenses ''ChessMv
+makeLenses ''ChessMove
 
 data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
 makeLenses ''ChessEval
 
-data ChessNode = ChessNode {_chessMv :: ChessMv, _chessVal :: ChessEval,
+data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval,
                             _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
 makeLenses ''ChessNode
 
@@ -154,14 +155,14 @@ indexToPiece g idx =
 indexToChar :: Vector Char -> Int -> Char
 indexToChar g idx = fromMaybe ' ' (g ^? ix idx)
 
-instance PositionNode ChessNode ChessMv ChessEval where
+instance PositionNode ChessNode ChessMove ChessEval where
     newNode = calcNewNode
     possibleMoves = legalMoves
     color = colorToInt . view (chessPos . cpColor)
     final = view (chessPos . cpFin)
-    parseMove = parseChessMv
+    parseMove = parseChessMove
 
-instance TreeNode ChessNode ChessMv ChessEval where
+instance TreeNode ChessNode ChessMove ChessEval where
     getMove = _chessMv
     getValue = _chessVal
     getErrorValue = _chessErrorVal
@@ -173,7 +174,7 @@ instance Show ChessNode where
 instance Show ChessEval where
     show e = "Total " ++ show (e ^. total) ++ " made up of " ++ (e ^. details)
 
-instance Move ChessMv
+instance Move ChessMove
 
 instance Eval ChessEval where
     getInt e = e ^. total
@@ -181,15 +182,9 @@ instance Eval ChessEval where
     fromInt n = ChessEval {_total = n, _details = ""}
 
 ---------------------------------------------------------------------------------------------------
--- starting position,
----------------------------------------------------------------------------------------------------
-getStartNode :: Tree ChessNode
-getStartNode = undefined
-
----------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-99
 ---------------------------------------------------------------------------------------------------
-{-- how indexes relate to board position (indexes in parens are off the edge of the board):
+{- how indexes relate to board position (indexes in parens are off the edge of the board):
 
    (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
@@ -225,19 +220,64 @@ getStartNode = undefined
     Diag D/L    -11                 Knight DL   -21
 
 Piece representation as integers:
-1 = White King      -1 = Black King
-2 = White Queen     -2 = Black Queen
-3 = White Rook      -3 = Black Rook
-4 = White Bishop    -4 = Black Bishop
-5 = White Knight    -5 = Black Knight
-6 = White Pawn      -6 = Black Pawn
 
-75 = 0x4b = White King     107 = 0x6b = White King
-81 = 0x51 = White Queen    113 = 0x71 = White Queen
-82 = 0x52 = White Rook     114 = 0x72 = White Rook
-78 = 0x4e = White Knight   110 = 0x6e = White Knight
-66 = 0x42 = White Bishop   098 = 0x62 = White Bishop
-80 = 0x50 = White Pawn     112 = 0x70 = White Pawn
+75 = 0x4b = 'K' = white King     107 = 0x6b = 'k' = black King
+81 = 0x51 = 'Q' = white Queen    113 = 0x71 = 'q' = black Queen
+82 = 0x52 = 'R' = white Rook     114 = 0x72 = 'r' = black Rook
+78 = 0x4e = 'N' = white Knight   110 = 0x6e = 'n' = black Knight
+66 = 0x42 = 'B' = white Bishop   098 = 0x62 = 'b' = black Bishop
+80 = 0x50 = 'P' = white Pawn     112 = 0x70 = 'p' = black Pawn
+
+32 = 0x20 = ' ' = Empty Squre
+43 = 0x2b = '+' = off the board
+-}
+----------------------------------------------------------------------------------------------------
+-- starting position, white at the 'bottom'
+----------------------------------------------------------------------------------------------------
+startingBoard :: V.Vector Char
+startingBoard = V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  'N',  'B',  'K',  'Q',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  'P',  'P',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  'p',  'p',  'p',  'p',  'p',  '+',
+                             '+',  'r',  'n',  'b',  'k',  'q',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   k   q   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+_   _   -   -   _   _   _   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   _   -   -   -   _   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   _   -   _   _   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   _   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   K   Q   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+---------------------------------------------------------------------------------------------------
+-- starting position,
+---------------------------------------------------------------------------------------------------
+getStartNode :: Tree ChessNode
+getStartNode = Node ChessNode
+    { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
+    , _chessVal = ChessEval { _total = 0, _details = "" }
+    , _chessErrorVal = ChessEval { _total = 0, _details = "" }
+    , _chessPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = White, _cpFin = NotFinal } }
+    []
+
+-- Color represents the color at the 'bottom' of the board
+mkStartGrid :: Color -> V.Vector Char
+mkStartGrid White = startingBoard
+mkStartGrid Black = V.reverse startingBoard
+mkStartGrid Unknown = V.empty
 
 ---------------------------------------------------------------------------------------------------}
 -- TODO: revert this eventually...
@@ -304,9 +344,9 @@ noDirs :: [Dir]
 noDirs = []
 
 ---------------------------------------------------------------------------------------------------
--- Convert ChessMv to Parser Move (for display)
+-- Convert ChessMove to Parser Move (for display)
 ---------------------------------------------------------------------------------------------------
-toParserMove :: ChessMv -> Maybe P.Move
+toParserMove :: ChessMove -> Maybe P.Move
 toParserMove _ = undefined
 
 ---------------------------------------------------------------------------------------------------
@@ -318,19 +358,19 @@ format _ = undefined
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------------------------------------------------
-parseChessMv :: ChessNode -> String -> Either String ChessMv
-parseChessMv _ _ = undefined
+parseChessMove :: ChessNode -> String -> Either String ChessMove
+parseChessMove _ _ = undefined
 
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
-calcNewNode :: ChessNode -> ChessMv -> ChessNode
+calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode _ _ = undefined
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 --------------------------------------------------------------------------------------------------
-legalMoves :: ChessNode -> [ChessMv]
+legalMoves :: ChessNode -> [ChessMove]
 legalMoves = undefined
 
 ---------------------------------------------------------------------------------------------------
@@ -369,7 +409,7 @@ flipCharColor ch =
     Unknown -> ch
 
 
-pieceMoves :: ChessNode -> Int -> [ChessMv]
+pieceMoves :: ChessNode -> Int -> [ChessMove]
 pieceMoves _ _ = undefined
 
 -- The function 'allowableKingMoves' later filters out the moves that would allow the enemy to
@@ -378,7 +418,7 @@ possibleKingMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
 possibleKingMoves = allowableSingleMoves kingDirs
 
 -- TODO: this will probably become 'allowableKingMoves'
-legalKingMoves :: ChessPos -> Map Int Bool -> Int -> [ChessMv]
+legalKingMoves :: ChessPos -> Map Int Bool -> Int -> [ChessMove]
 legalKingMoves _pos _defendedMap _idx = undefined
     -- let locs = possibleKingMoves (pos^.cpGrid) idx
     --     indexes = filter (kingFilter (pos ^.cpGrid) defendedMap (pos^.cpColor)) locs
@@ -610,12 +650,12 @@ onBoard x
 offBoard :: Int -> Bool
 offBoard x = not $ onBoard x
 
-noMoves :: ChessPos -> Int -> [ChessMv]
+noMoves :: ChessPos -> Int -> [ChessMove]
 noMoves _ _ = undefined
 
-destinationsToMoves :: Int -> [Int] -> [ChessMv]
+destinationsToMoves :: Int -> [Int] -> [ChessMove]
 destinationsToMoves _ _ = undefined     -- idx dests
     --pair up idx with each index in dests to form moves
 
-indexesToMove :: [Int] -> ChessMv
+indexesToMove :: [Int] -> ChessMove
 indexesToMove _ = undefined

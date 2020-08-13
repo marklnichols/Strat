@@ -143,26 +143,23 @@ posFromGridW g = ChessPos {_cpGrid = g, _cpColor = White, _cpFin = NotFinal}
 posFromGridB :: V.Vector Char -> ChessPos
 posFromGridB g = ChessPos {_cpGrid = g, _cpColor = Black, _cpFin = NotFinal}
 
-noMove :: ChessMv
-noMove = ChessMv {isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
+noMove :: ChessMove
+noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
 {-
     Piece representation as integers:
-    1 = White King      -1 = Black King
-    2 = White Queen     -2 = Black Queen
-    3 = White Rook      -3 = Black Rook
-    4 = White Bishop    -4 = Black Bishop
-    5 = White Knight    -5 = Black Knight
-    6 = White Pawn      -6 = Black Pawn
 
-    75 = 0x4b = White King     107 = 0x6b = White King
-    81 = 0x51 = White Queen    113 = 0x71 = White Queen
-    82 = 0x52 = White Rook     114 = 0x72 = White Rook
-    78 = 0x4e = White Knight   110 = 0x6e = White Knight
-    66 = 0x42 = White Bishop   098 = 0x62 = White Bishop
-    80 = 0x50 = White Pawn     112 = 0x70 = White Pawn
+    75 = 0x4b = 'K' = white King     107 = 0x6b = 'k' = black King
+    81 = 0x51 = 'Q' = white Queen    113 = 0x71 = 'q' = black Queen
+    82 = 0x52 = 'R' = white Rook     114 = 0x72 = 'r' = black Rook
+    78 = 0x4e = 'N' = white Knight   110 = 0x6e = 'n' = black Knight
+    66 = 0x42 = 'B' = white Bishop   098 = 0x62 = 'b' = black Bishop
+    80 = 0x50 = 'P' = white Pawn     112 = 0x70 = 'p' = black Pawn
+
+    32 = 0x20 = ' ' = Empty Squre
+    00 = 0x00 = n/a = offBoard
 -}
 
 ---------------------------------------------------------------------------------------------------

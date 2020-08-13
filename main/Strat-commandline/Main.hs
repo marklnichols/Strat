@@ -1,6 +1,8 @@
 module Main where
 
 import Checkers
+import Chess
+import ChessText
 import GameRunner
 import CheckersText
 import System.Environment
@@ -16,12 +18,10 @@ main = do
     a <- getArgs
     parse a
     return ()
- 
---TODO add real parser here, make web vs text an option, etc. 
+
+--TODO add real parser here, make web vs text an option, etc.
 parse :: [String] -> IO ()
 parse ["checkers"]    = GameRunner.startGame CheckersText Checkers.getStartNode
-parse ["checkersWeb"] = webInit 
-parse _               = webInit -- default to checkers via web   
-    
-
-
+parse ["checkersWeb"] = webInit
+parse ["chess"]    = GameRunner.startGame ChessText Chess.getStartNode
+parse _            = webInit -- default to checkers via web
