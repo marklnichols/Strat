@@ -7,7 +7,6 @@ import Chess
 import Control.Lens
 import Data.List.Extra
 import Data.Tree
--- import Debug.Trace
 import Strat.StratTree
 import Strat.StratTree.TreeNode
 import Strat.StratTree.Trees
@@ -74,10 +73,10 @@ playerMove tree turn = do
 formatBoard :: ChessNode -> String
 formatBoard node =
     let g = node ^. (chessPos . cpGrid)
-    in (colLabels ++ "\n") ++ loop g 11 8 ""
+    in (colLabels ++ loop g 11 8 "") ++ "\n"
   where
     loop :: V.Vector Char -> Int -> Int -> String -> String
-    loop _src _nDrop 0 dest = dest
+    loop _ _ 0 dest = dest
     loop src nDrop rows dest =
       let newHead = V.drop nDrop src
           pieces = padChars $ V.toList $ V.take 8 newHead
