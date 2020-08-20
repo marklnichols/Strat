@@ -155,6 +155,21 @@ indexToPiece g idx =
 indexToChar :: Vector Char -> Int -> Char
 indexToChar g idx = fromMaybe ' ' (g ^? ix idx)
 
+pieceVal :: ChessPiece (k :: SomeSing Piece) -> Int
+pieceVal piece@(MkChessPiece c ssp) =
+  let absVal = pieceAbsVal piece
+  in case c of
+    White -> absVal
+    Black -> negate absVal
+
+pieceAbsVal :: ChessPiece (k :: SomeSing Piece) -> Int
+pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = 100
+pieceAbsVal (MkChessPiece _c (SomeSing SQueen)) = 9
+pieceAbsVal (MkChessPiece _c (SomeSing SRook)) = 5
+pieceAbsVal (MkChessPiece _c (SomeSing SKnight)) = 3
+pieceAbsVal (MkChessPiece _c (SomeSing SBishop)) = 3
+pieceAbsVal (MkChessPiece _c (SomeSing SPawn)) = 1
+
 instance PositionNode ChessNode ChessMove ChessEval where
     newNode = calcNewNode
     possibleMoves = legalMoves
@@ -363,9 +378,90 @@ parseChessMove _ _ = undefined
 
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
+-- TODO
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
-calcNewNode _ _ = undefined
+calcNewNode node mv =
+  let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
+      clrFlipped = over (chessPos . cpColor) flipColor  node
+      -- (eval, finalSt) = evalNode clrFlipped
+  in undefined
+
+{-
+$(singletons [d|
+  data Piece = King | Queen | Rook | Knight | Bishop | Pawn
+    deriving (Show, Eq)
+  |])
+
+data ChessPiece :: SomeSing Piece -> Type where
+  MkChessPiece :: Color -> SomeSing Piece -> ChessPiece k
+
+data ChessPos = ChessPos {_cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState} deriving (Show)
+
+data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
+    deriving (Eq, Ord, Show)
+
+data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
+
+data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval,
+                            _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
+data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
+makeLenses ''ChessEval
+-}
+
+--TODO: add more evaluations and set the FinalState appropirately
+---------------------------------------------------------------------------------------------------
+-- Evaluate the node, producing a score for the position
+--------------------------------------------------------------------------------------------------
+evalNode :: ChessNode -> (ChessEval, FinalState)
+evalNode node =
+     let material = countMaterial (node ^. chessPos)
+         total = material
+         detailsStr = "Material: " ++ show material
+         eval = ChessEval { _total = total
+                          , _details = detailsStr
+                          }
+         finalState = NotFinal
+     in (eval, finalState)
+
+
+-- data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
+
+---------------------------------------------------------------------------------------------------
+-- Count the 'material' score for the pieces on the board
+--------------------------------------------------------------------------------------------------
+countMaterial :: ChessPos -> Int
+countMaterial pos =
+    let g = pos ^. cpGrid
+    in V.foldr f 0 g
+  where
+    f :: Char -> Int -> Int
+    f empty total = total
+    f ch total = total + pieceVal (charToPiece ch)
+
+
+---------------------------------------------------------------------------------------------------
+-- Move a piece on the board, removing any captured piece.  Returns the updated node
+--------------------------------------------------------------------------------------------------
+movePiece :: ChessNode -> Int -> Int -> ChessNode
+movePiece node pFrom pTo =
+    let pieceChar = node ^? (chessPos . cpGrid . ix pFrom)
+    in case pieceChar of
+        Nothing -> node
+        Just ch -> let z = checkPromote node pieceChar pTo
+                   in set (chessPos . cpGrid . ix pTo) z node
+
+-- TODO: currently not implemented
+checkPromote :: ChessNode -> Char -> Int -> Char
+checkPromote node chPiece toLoc = chPiece
+
+----------------------------------------------------------------------------------------------------
+-- Capture a piece.  Replace the captured piece with the capturing one, and return
+-- the updated node
+----------------------------------------------------------------------------------------------------
+-- capturePiece :: ChessNode -> Int -> ChessPiece -> ChessNode
+-- capturePiece node idx = undefined
+
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
@@ -438,6 +534,9 @@ hasEnemy g c idx = indexToColor g idx == enemyColor c
 
 isEmpty :: ChessPos -> Int -> Bool
 isEmpty pos idx = fromMaybe empty (_cpGrid pos ^? ix idx) == empty
+
+isEmpty' :: ChessNode -> Int -> Bool
+isEmpty' node idx = isEmpty (_chessPos node ) idx
 
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all locations that are 'defended' by the given color
