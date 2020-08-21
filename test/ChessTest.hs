@@ -113,6 +113,10 @@ chessTest = do
               , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
               , 32, 31, 33, 42, 44, 66, 68         -- Pawns
               ])
+    describe "countMaterial" $
+      it "Calculates a score for the position based on the pieces on the board for each side" $
+          countMaterial board01 `shouldBe` 6
+
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions

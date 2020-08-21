@@ -98,6 +98,7 @@ executable test-as-exe
     , extra
     , hashmap
     , hspec
+    , hspec-expectations
     , lens
     , mtl
     , parsec
@@ -131,6 +132,7 @@ test-suite StratTreeTest
     , extra
     , hashmap
     , hspec
+    , hspec-expectations
     , lens
     , mtl
     , parsec

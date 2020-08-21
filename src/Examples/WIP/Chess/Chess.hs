@@ -25,6 +25,7 @@ module Chess
     , calcDefended
     , colorFromInt
     , colorToInt
+    , countMaterial
     , getStartNode
     -- exported for testing only
     , getPieceLocs
@@ -99,7 +100,7 @@ enemyColor Unknown = Unknown
 -- New, new attempt with singletons
 ----------------------------------------------------------------------------------------------------
 $(singletons [d|
-  data Piece = King | Queen | Rook | Knight | Bishop | Pawn
+  data Piece = King | Queen | Rook | Knight | Bishop | Pawn | None | OffBoardNone
     deriving (Show, Eq)
   |])
 
@@ -126,6 +127,8 @@ pieceToChar Bishop White = 'B'
 pieceToChar Bishop Black = 'b'
 pieceToChar Pawn White = 'P'
 pieceToChar Pawn Black = 'p'
+pieceToChar None _ = ' '
+pieceToChar OffBoardNone _ = '+'
 
 charToPiece :: Char -> ChessPiece (k :: SomeSing Piece)
 charToPiece 'K' = MkChessPiece White (SomeSing SKing)
@@ -140,6 +143,8 @@ charToPiece 'r' = MkChessPiece Black (SomeSing SRook)
 charToPiece 'n' = MkChessPiece Black (SomeSing SKnight)
 charToPiece 'b' = MkChessPiece Black (SomeSing SBishop)
 charToPiece 'p' = MkChessPiece Black (SomeSing SPawn)
+charToPiece ' ' = MkChessPiece Unknown (SomeSing SNone)
+charToPiece '+' = MkChessPiece Unknown (SomeSing SOffBoardNone)
 charToPiece ch = error $ "charToPiece not implemented for the value " ++ show ch
 
 indexToColor :: Vector Char -> Int -> Color
@@ -156,11 +161,12 @@ indexToChar :: Vector Char -> Int -> Char
 indexToChar g idx = fromMaybe ' ' (g ^? ix idx)
 
 pieceVal :: ChessPiece (k :: SomeSing Piece) -> Int
-pieceVal piece@(MkChessPiece c ssp) =
+pieceVal piece@(MkChessPiece c _) =
   let absVal = pieceAbsVal piece
   in case c of
     White -> absVal
     Black -> negate absVal
+    Unknown -> 0
 
 pieceAbsVal :: ChessPiece (k :: SomeSing Piece) -> Int
 pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = 100
@@ -169,6 +175,8 @@ pieceAbsVal (MkChessPiece _c (SomeSing SRook)) = 5
 pieceAbsVal (MkChessPiece _c (SomeSing SKnight)) = 3
 pieceAbsVal (MkChessPiece _c (SomeSing SBishop)) = 3
 pieceAbsVal (MkChessPiece _c (SomeSing SPawn)) = 1
+pieceAbsVal (MkChessPiece _c (SomeSing SNone)) = 0
+pieceAbsVal (MkChessPiece _c (SomeSing SOffBoardNone)) = 0
 
 instance PositionNode ChessNode ChessMove ChessEval where
     newNode = calcNewNode
@@ -383,11 +391,15 @@ parseChessMove _ _ = undefined
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
   let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
-      clrFlipped = over (chessPos . cpColor) flipColor  node
-      -- (eval, finalSt) = evalNode clrFlipped
-  in undefined
+      clrFlipped = over (chessPos . cpColor) flipPieceColor moved
+      (eval, finalSt) = evalNode clrFlipped
+      finSet = set (chessPos . cpFin) finalSt node
+      scoreSet = set chessVal eval finSet
+  in set chessMv mv scoreSet
 
 {-
+-- set lens value lens-target
+
 $(singletons [d|
   data Piece = King | Queen | Rook | Knight | Bishop | Pawn
     deriving (Show, Eq)
@@ -409,16 +421,21 @@ data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord
 makeLenses ''ChessEval
 -}
 
+flipPieceColor :: Color -> Color
+flipPieceColor White = Black
+flipPieceColor Black = White
+flipPieceColor Unknown = Unknown
+
 --TODO: add more evaluations and set the FinalState appropirately
 ---------------------------------------------------------------------------------------------------
 -- Evaluate the node, producing a score for the position
 --------------------------------------------------------------------------------------------------
 evalNode :: ChessNode -> (ChessEval, FinalState)
 evalNode node =
-     let material = countMaterial (node ^. chessPos)
-         total = material
+     let material = countMaterial (node ^. (chessPos . cpGrid))
+         t = material
          detailsStr = "Material: " ++ show material
-         eval = ChessEval { _total = total
+         eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
          finalState = NotFinal
@@ -430,15 +447,13 @@ evalNode node =
 ---------------------------------------------------------------------------------------------------
 -- Count the 'material' score for the pieces on the board
 --------------------------------------------------------------------------------------------------
-countMaterial :: ChessPos -> Int
-countMaterial pos =
-    let g = pos ^. cpGrid
-    in V.foldr f 0 g
+countMaterial :: Vector Char -> Int
+countMaterial = V.foldr f 0
   where
-    f :: Char -> Int -> Int
-    f empty total = total
-    f ch total = total + pieceVal (charToPiece ch)
-
+    f ch theTotal =
+        if ch == empty
+          then theTotal
+          else theTotal + pieceVal (charToPiece ch)
 
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the board, removing any captured piece.  Returns the updated node
@@ -448,12 +463,12 @@ movePiece node pFrom pTo =
     let pieceChar = node ^? (chessPos . cpGrid . ix pFrom)
     in case pieceChar of
         Nothing -> node
-        Just ch -> let z = checkPromote node pieceChar pTo
+        Just ch -> let z = checkPromote node ch pTo
                    in set (chessPos . cpGrid . ix pTo) z node
 
 -- TODO: currently not implemented
 checkPromote :: ChessNode -> Char -> Int -> Char
-checkPromote node chPiece toLoc = chPiece
+checkPromote _node chPiece _toLoc = chPiece
 
 ----------------------------------------------------------------------------------------------------
 -- Capture a piece.  Replace the captured piece with the capturing one, and return
@@ -536,7 +551,7 @@ isEmpty :: ChessPos -> Int -> Bool
 isEmpty pos idx = fromMaybe empty (_cpGrid pos ^? ix idx) == empty
 
 isEmpty' :: ChessNode -> Int -> Bool
-isEmpty' node idx = isEmpty (_chessPos node ) idx
+isEmpty' node = isEmpty (_chessPos node )
 
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all locations that are 'defended' by the given color
@@ -575,6 +590,7 @@ movesFromLoc g loc =
       MkChessPiece _c (SomeSing SPawn) ->
         let (empties, enemies, friendlies) = allowablePawnCaptures g loc
         in (allowablePawnNonCaptures g loc ++ empties, enemies, friendlies)
+      MkChessPiece _c (SomeSing _) -> ([], [], [])
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
 isDefended _ =  undefined   --color index
