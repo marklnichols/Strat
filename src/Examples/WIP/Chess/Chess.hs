@@ -37,6 +37,7 @@ module Chess
     , allowablePawnCaptures
     , allowableQueenMoves
     , allowableRookMoves
+    , tripleToIndexes
     ) where
 
 import Control.Lens hiding (Empty)
@@ -215,7 +216,7 @@ instance Eval ChessEval where
 7| (50)  71   72   73   74   75   76   77   78  (79)
 6| (50)  61   62   63   64   65   66   67   68  (69)
 5| (50)  51   52   53   54   55   56   57   58  (59)
-4| (40)  41   42   43   44   45   46   47   48  (49)
+4| (40)  41   4   43   44   45   46   47   48  (49)
 3| (30)  31   32   33   34   35   36   37   38  (39)
 2| (20)  21   22   23   24   25   26   27   28  (29)
 1| (10)  11   12   13   14   15   16   17   18  (19)
@@ -482,7 +483,24 @@ checkPromote _node chPiece _toLoc = chPiece
 -- get possible moves from a given position
 --------------------------------------------------------------------------------------------------
 legalMoves :: ChessNode -> [ChessMove]
-legalMoves = undefined
+legalMoves node =
+   let pos = _chessPos node
+       (destEmpty, destEnemy, destFriendly) = pieceDestinations pos
+
+       nonCaptures = destsToMove
+    in (destEmpty ++ destEnemy)
+---------------------------------------------------------------------------------------------------
+-- for a fixed start index, convert a list of (destinationIndex, isExchangeFlag) pairs to ChessMoves
+---------------------------------------------------------------------------------------------------
+destsToMove :: Int -> [(Int, Bool)] -> [ChessMove]
+destsToMove startIndex = foldr f [] where
+    f :: (Int, Bool) -> [ChessMove] -> [ChessMove]
+    f (destIdx, isExch) moves =
+      ChessMove { _isExchange = isExch
+                , _startIdx = startIndex
+                , _endIdx = destIdx
+                , _removedIdx = if isExch then destIdx else -1
+                } : moves
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for the current color from a ChessNode
@@ -525,7 +543,7 @@ pieceMoves _ _ = undefined
 
 -- The function 'allowableKingMoves' later filters out the moves that would allow the enemy to
 -- capture the king
-possibleKingMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
+possibleKingMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 possibleKingMoves = allowableSingleMoves kingDirs
 
 -- TODO: this will probably become 'allowableKingMoves'
@@ -553,6 +571,9 @@ isEmpty pos idx = fromMaybe empty (_cpGrid pos ^? ix idx) == empty
 isEmpty' :: ChessNode -> Int -> Bool
 isEmpty' node = isEmpty (_chessPos node )
 
+tripleToIndexes :: ([ChessMove], [ChessMove], [ChessMove]) -> ([Int], [Int], [Int])
+tripleToIndexes (xs, ys, zs) = (_endIdx <$> xs, _endIdx <$> ys, _endIdx <$> zs)
+
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all locations that are 'defended' by the given color
 -- Squares 'defended' by a piece are the empty squres it can move to, the squares of enemy pieces it
@@ -564,21 +585,32 @@ isEmpty' node = isEmpty (_chessPos node )
 -- Note: Pieces that could be captured by pawns and then in-turn would be defended by en-passant
 -- pawn captures are not currently part of this set
 ----------------------------------------------------------------------------------------------------
-calcDefended :: Vector Char -> Color -> Set Int
-calcDefended g c =
-    let theLocs = locsForColor g c
-        (destEmpty, destEnemy, destFriendly) = movesFromLocs g theLocs
+calcDefended :: ChessPos -> Set Int
+calcDefended pos =
+    let (destEmpty, destEnemy, destFriendly) = tripleToIndexes $ pieceDestinations pos
     in S.fromList (destEmpty ++ destEnemy ++ destFriendly)
 
-movesFromLocs :: Vector Char -> [Int] -> ([Int], [Int], [Int])
+-- the first list in the tuple are the empty squres that could be moved to
+-- the second tuple contains squares where enemy pieces could be captured
+-- The third list is the protected friendly pieces
+pieceDestinations :: ChessPos -> ([ChessMove], [ChessMove], [ChessMove])
+pieceDestinations pos =
+  let g = _cpGrid pos
+      c = _cpColor pos
+      locs = locsForColor g c
+  in movesFromLocs g locs
+
+
+
+movesFromLocs :: Vector Char -> [Int] -> ([ChessMove], [ChessMove], [ChessMove])
 movesFromLocs g =
   foldr f ([], [], []) where
-    f :: Int -> ([Int], [Int], [Int]) -> ([Int], [Int], [Int])
+    f :: Int -> ([ChessMove], [ChessMove], [ChessMove]) -> ([ChessMove], [ChessMove], [ChessMove])
     f loc (r1, r2, r3) =
       let (xs, ys, zs) = movesFromLoc g loc
       in (xs ++ r1, ys ++ r2, zs ++ r3)
 
-movesFromLoc :: Vector Char -> Int -> ([Int], [Int], [Int])
+movesFromLoc :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 movesFromLoc g loc =
   let cp = indexToPiece g loc -- ChessPiece (k :: SomeSing Piece)
   in case cp of
@@ -601,11 +633,11 @@ isDefended _ =  undefined   --color index
 -- can be moved to. The second list contains squares with pieces that could be captured. The third
 -- list of is the protected friendly pieces -- the union of the three lists is
 -- the 'defended' squares
-allowableMultiMoves :: [Dir] -> Vector Char -> Int -> ([Int], [Int], [Int])
+allowableMultiMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableMultiMoves pieceDirs g idx =
   foldr f ([], [], []) pieceDirs
     where
-      f :: Dir -> ([Int], [Int], [Int]) -> ([Int], [Int], [Int])
+      f :: Dir -> ([ChessMove], [ChessMove], [ChessMove]) -> ([ChessMove], [ChessMove], [ChessMove])
       f x (r, r', r'') =
         let (freeLocs, captureLocs, friendlyLocs) = dirLocs g idx x
         in (freeLocs ++ r, captureLocs ++ r', friendlyLocs ++ r'')
@@ -613,40 +645,40 @@ allowableMultiMoves pieceDirs g idx =
 -- find the allowable destination locs for a pieces that move one square in a given
 -- direction (i.e., King and Knight). The first list contains the empty squares that
 -- can be moved to. The second list contains squares with pieces that could be captured.
-allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([Int], [Int], [Int])
+allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableSingleMoves pieceDirs g idx =
   foldr (f (indexToColor g idx)) ([], [], []) pieceDirs
     where
       -- fold function: curried f with Color applied
-      f :: Color -> Dir -> ([Int], [Int], [Int]) -> ([Int], [Int], [Int])
+      f :: Color -> Dir -> ([ChessMove], [ChessMove], [ChessMove]) -> ([ChessMove], [ChessMove], [ChessMove])
       f c x (r, r', r'') =
         let (freeLocs, captureLocs, friendlyLocs) = dirLocsSingle g idx c x
         in (freeLocs ++ r, captureLocs ++ r', friendlyLocs ++ r'')
 
 -- find the allowable destination locs for a queen.
-allowableQueenMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
+allowableQueenMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableQueenMoves = allowableMultiMoves queenDirs
 
 -- find the allowable destination locs for a rook
-allowableRookMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
+allowableRookMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableRookMoves = allowableMultiMoves rookDirs
 
 -- find the allowable destination locs for a bishop
-allowableBishopMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
+allowableBishopMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableBishopMoves = allowableMultiMoves bishopDirs
 
 -- find the possible destination locs for a knight
-allowableKnightMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
+allowableKnightMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableKnightMoves = allowableSingleMoves knightDirs
 
 
-allowablePawnMoves :: Vector Char -> Int -> ([Int], [Int], [Int])
+allowablePawnMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowablePawnMoves g idx =
    let (enemies, friendlies, empties) = allowablePawnCaptures g idx
    in (allowablePawnNonCaptures g idx, enemies, friendlies)
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
-allowablePawnNonCaptures :: Vector Char -> Int -> [Int]
+allowablePawnNonCaptures :: Vector Char -> Int -> [ChessMove]
 allowablePawnNonCaptures g idx =
     let c = indexToColor g idx
         hasMoved = hasPawnMoved c idx
@@ -655,7 +687,7 @@ allowablePawnNonCaptures g idx =
         White -> pawnMoves g c whitePawnDir hasMoved idx
         Black -> pawnMoves g c blackPawnDir hasMoved idx
 
-pawnMoves :: Vector Char -> Color -> Dir -> Bool -> Int -> [Int]
+pawnMoves :: Vector Char -> Color -> Dir -> Bool -> Int -> [ChessMove]
 pawnMoves g c dir hasMoved idx =
     case dirLocsSingle g idx c dir of
         ([], _, _) -> []
@@ -663,7 +695,7 @@ pawnMoves g c dir hasMoved idx =
            let secondList =
                  (if hasMoved
                    then []
-                   else fst3 $ dirLocsSingle g firstMove c dir)
+                   else fst3 $ dirLocsSingle g (_endIdx firstMove) c dir)
            in firstMove : secondList
 
 hasPawnMoved :: Color -> Int -> Bool
@@ -676,7 +708,7 @@ hasPawnMoved Black idx = idx < 71
 -- the first list contains the empty squares that are 'defened' via pawn capture.  The second list
 -- contains the squares that could be captured, and the third list contains
 -- friendly pieces that are 'defended'
-allowablePawnCaptures :: Vector Char -> Int -> ([Int], [Int], [Int])
+allowablePawnCaptures :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowablePawnCaptures g idx =
     let c = indexToColor g idx
     in pawnCaptures g c idx
@@ -685,7 +717,7 @@ allowablePawnCaptures g idx =
 -- contains the squares that could be captured, and the third list contains
 -- friendly pieces that are 'defended'
 -- EnPassant captures are handled elsewhere and are not included here
-pawnCaptures :: Vector Char -> Color -> Int -> ([Int], [Int], [Int])
+pawnCaptures :: Vector Char -> Color -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 pawnCaptures g c idx =
       let dirs = case c of
               White -> whitePawnCaptureDirs
@@ -696,14 +728,14 @@ pawnCaptures g c idx =
 
 -- find the allowable enPassant destination capture locs for a pawn
 -- only enemy squares containing pawns are returned
-allowableEnPassant :: Vector Char -> Int -> [Int]
+allowableEnPassant :: Vector Char -> Int -> [ChessMove]
 allowableEnPassant g idx =
     let c = indexToColor g idx
     in enPassantCaptures g c idx
 
 -- the first list are the squares that could be captured, the second list contains
 -- friendly pieces that are defended
-enPassantCaptures :: Vector Char -> Color -> Int -> [Int]
+enPassantCaptures :: Vector Char -> Color -> Int -> [ChessMove]
 enPassantCaptures g c idx =
     if hasPawnMoved c idx then []
     else
@@ -714,7 +746,7 @@ enPassantCaptures g c idx =
           enemies = snd3 $ allowableSingleMoves dirs g idx
           thisPawn = indexToChar g idx
       -- only pawns can be captured this way
-      in filter (\n -> indexToChar g n == flipCharColor thisPawn) enemies
+      in filter (\n -> indexToChar g (_endIdx n) == flipCharColor thisPawn) enemies
 
 data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
    deriving Show
@@ -726,7 +758,7 @@ data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
 -- the second tuple contains squares where enemy pieces could be captured
 -- The third list is the protected friendly pieces -- the union of the three lists is
 -- the 'defended' squares
-dirLocs :: Vector Char -> Int -> Dir ->([Int], [Int], [Int])
+dirLocs :: Vector Char -> Int -> Dir ->([ChessMove], [ChessMove], [ChessMove])
 dirLocs g idx dir =
     loop (apply dir idx) ([], [], [])
       where
@@ -736,23 +768,23 @@ dirLocs g idx dir =
                 enemy = hasEnemy g c x
                 (sqState, (newEmpties, newEnemies, newFriendlies))
                     | not (onBoard x) = (OffBoard ,(empties, enemies, friendlies))
-                    | enemy = (HasEnemy, (empties, x : enemies, friendlies))
-                    | friendly = (HasFriendly, (empties, enemies, x:friendlies))
-                    | otherwise = (Empty, (x : empties, enemies, friendlies))
+                    | enemy = (HasEnemy, (empties, ChessMove True idx x x : enemies, friendlies))
+                    | friendly = (HasFriendly, (empties, enemies, ChessMove True idx x x :friendlies))
+                    | otherwise = (Empty, (ChessMove True idx x x : empties, enemies, friendlies))
             in (case sqState of
                 Empty -> loop (apply dir x) (newEmpties, newEnemies, newFriendlies)
                 _ -> (newEmpties, newEnemies, newFriendlies))
 
 -- Same as dirLocs, but for pieces that move only one square in a given direction
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
-dirLocsSingle :: Vector Char -> Int -> Color -> Dir ->([Int], [Int], [Int])
+dirLocsSingle :: Vector Char -> Int -> Color -> Dir ->([ChessMove], [ChessMove], [ChessMove])
 dirLocsSingle g idx c dir =
     let x = apply dir idx
     in
       if not (onBoard x) then ([], [], [])
-      else if hasEnemy g c x then ([], [x], [])
-      else if hasFriendly g c x then ([], [], [x])
-      else ([x],[],[]) -- empty square
+      else if hasEnemy g c x then ([], [ChessMove True idx x x], [])
+      else if hasFriendly g c x then ([], [], [ChessMove True idx x x])
+      else ([ChessMove False idx x (-1)],[],[]) -- empty square
 
 onBoard :: Int -> Bool
 onBoard x

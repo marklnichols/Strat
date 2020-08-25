@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeApplications #-}
 module ChessTest (chessTest) where
 
 import Chess
@@ -18,17 +19,17 @@ chessTest = do
               [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
     describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
-            let (empties, enemies, friendlies) = possibleKingMoves board01 12
+            let (empties, enemies, friendlies) = tripleToIndexes $ possibleKingMoves board01 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             friendlies `shouldMatchList` [13, 21, 22]
-            let (empties2, enemies2, friendlies2) = possibleKingMoves board01 87
+            let (empties2, enemies2, friendlies2) = tripleToIndexes $ possibleKingMoves board01 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
             friendlies2 `shouldMatchList` [77, 78, 86]
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
-            let (empties, enemies, friendlies) = allowableQueenMoves board01 46
+            let (empties, enemies, friendlies) =  tripleToIndexes $ allowableQueenMoves board01 46
             empties `shouldMatchList`
                 [47,48 -- left/right
                 ,36,56 -- up/down
@@ -36,7 +37,7 @@ chessTest = do
                 ,28,37,55,64,73,82] -- LR, UL
             enemies `shouldMatchList` [66]
             friendlies `shouldMatchList` [13, 26, 45, 57]
-            let (empties2, enemies2, friendlies2) = allowableQueenMoves board01 62
+            let (empties2, enemies2, friendlies2) = tripleToIndexes $ allowableQueenMoves board01 62
             empties2 `shouldMatchList`
                 [63, 64 -- L/R
                 ,32,42,52,72,82 -- U/D
@@ -46,60 +47,60 @@ chessTest = do
             friendlies2 `shouldMatchList` [61, 65]
     describe "allowableRookMoves" $
         it "Gets the allowable moves for a rook" $ do
-            let (empties, enemies, friendlies) = allowableRookMoves board01 13
+            let (empties, enemies, friendlies) = tripleToIndexes $ allowableRookMoves board01 13
             empties `shouldMatchList` [14,15,16,17,18 -- L/R
                                       ,23] -- U/D
             enemies `shouldMatchList` []
             friendlies `shouldMatchList` [12, 33]
-            let (empties2, enemies2, friendlies2) = allowableRookMoves board01 83
+            let (empties2, enemies2, friendlies2) = tripleToIndexes $ allowableRookMoves board01 83
             empties2 `shouldMatchList` [81,82,84,85 -- L/R
                                        ,73,63] -- U/D
             enemies2 `shouldMatchList` [53]
             friendlies2 `shouldMatchList` [86]
     describe "allowableBishopMoves" $
         it "Gets the allowable moves for a bishop" $ do
-            let (empties, enemies, friendlies) = allowableBishopMoves board01 43
+            let (empties, enemies, friendlies) = tripleToIndexes $ allowableBishopMoves board01 43
             empties `shouldMatchList` [32,54 -- LL/UR
                                       ,34,52] -- LR/UL
             enemies `shouldMatchList` [61, 65]
             friendlies `shouldMatchList` [21, 25]
-            let (empties2, enemies2, friendlies2) = allowableBishopMoves board01 65
+            let (empties2, enemies2, friendlies2) = tripleToIndexes $ allowableBishopMoves board01 65
             empties2 `shouldMatchList` [54,76 -- LL/UR
                                        ,38,47,56,74] -- LR/UL
             enemies2 `shouldMatchList` [43]
             friendlies2 `shouldMatchList` [83, 87]
     describe "allowableKnightMoves" $
         it "Gets the allowable moves for a knight" $ do
-            let (empties, enemies, friendlies) = allowableKnightMoves board01 45
+            let (empties, enemies, friendlies) = tripleToIndexes $ allowableKnightMoves board01 45
             empties `shouldMatchList` [24,37,64]
             enemies `shouldMatchList` [66]
             friendlies `shouldMatchList` [26, 33, 53, 57]
-            let (empties2, enemies2, friendlies2) = allowableKnightMoves board01 53
+            let (empties2, enemies2, friendlies2) = tripleToIndexes $ allowableKnightMoves board01 53
             empties2 `shouldMatchList` [32,34,41,72,74]
             enemies2 `shouldMatchList` [61,65]
             friendlies2 `shouldMatchList` [45]
     describe "allowablePawnMoves" $
         it "Gets the allowable (non capturing) moves for a pawn" $ do
-            allowablePawnNonCaptures board01 22 `shouldMatchList` [32, 42]
-            allowablePawnNonCaptures board01 33 `shouldMatchList` []
-            allowablePawnNonCaptures board01 61 `shouldMatchList` [51]
+            _endIdx <$> allowablePawnNonCaptures board01 22 `shouldMatchList` [32, 42]
+            _endIdx <$> allowablePawnNonCaptures board01 33 `shouldMatchList` []
+            _endIdx <$> allowablePawnNonCaptures board01 61 `shouldMatchList` [51]
     describe "allowablePawnCaptures" $
         it "Gets the allowable capturing moves for a pawn" $ do
-            let (empties, enemies, friendlies) = allowablePawnCaptures board01 57
+            let (empties, enemies, friendlies) = tripleToIndexes $ allowablePawnCaptures board01 57
             empties `shouldMatchList` [68]
             enemies `shouldMatchList` [66]
             friendlies `shouldMatchList` []
-            let (empties2, enemies2, friendlies2) = allowablePawnCaptures board01 78
+            let (empties2, enemies2, friendlies2) = tripleToIndexes $ allowablePawnCaptures board01 78
             empties2 `shouldMatchList` []
             enemies2 `shouldMatchList` []
             friendlies2 `shouldMatchList` [67]
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $
-            allowableEnPassant board01 78 `shouldMatchList` [57]
+            _endIdx <$> allowableEnPassant board01 78 `shouldMatchList` [57]
     describe "calcDefended" $
        it "Creates a set w/all locations that are defended by the opposing color's pieces" $
-           S.toList (calcDefended board01 White) `shouldMatchList`
-              S.toList (S.fromList                 -- remove dupes (which are useful for debugging)
+           S.toList (calcDefended (posFromGridW board01) ) `shouldMatchList`
+              S.toList (S.fromList @Int                 -- remove dupes (which are useful for debugging)
               [ 11, 13, 21, 22, 23                 -- K
               , 45, 47, 48                         -- Q (horizontal)
               , 26, 36, 56, 66                     -- Q (vertical)
@@ -112,7 +113,7 @@ chessTest = do
               , 53, 64, 66, 57, 37, 26, 24, 33      -- N1 (@45)
               , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
               , 32, 31, 33, 42, 44, 66, 68         -- Pawns
-              ])
+              ]  )
     describe "countMaterial" $
       it "Calculates a score for the position based on the pieces on the board for each side" $
           countMaterial board01 `shouldBe` 6
