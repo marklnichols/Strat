@@ -55,6 +55,7 @@ import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
+import qualified CkParser as Parser -- TODO: rename this to be more general
 import Strat.StratTree.TreeNode
 import qualified ChessParser as P
 -- import Debug.Trace
@@ -398,30 +399,6 @@ calcNewNode node mv =
       scoreSet = set chessVal eval finSet
   in set chessMv mv scoreSet
 
-{-
--- set lens value lens-target
-
-$(singletons [d|
-  data Piece = King | Queen | Rook | Knight | Bishop | Pawn
-    deriving (Show, Eq)
-  |])
-
-data ChessPiece :: SomeSing Piece -> Type where
-  MkChessPiece :: Color -> SomeSing Piece -> ChessPiece k
-
-data ChessPos = ChessPos {_cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState} deriving (Show)
-
-data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
-    deriving (Eq, Ord, Show)
-
-data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
-
-data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval,
-                            _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
-data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
-makeLenses ''ChessEval
--}
-
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
@@ -441,9 +418,6 @@ evalNode node =
                           }
          finalState = NotFinal
      in (eval, finalState)
-
-
--- data FinalState = WWins | BWins | Draw | NotFinal deriving (Enum, Show, Eq)
 
 ---------------------------------------------------------------------------------------------------
 -- Count the 'material' score for the pieces on the board
@@ -471,14 +445,6 @@ movePiece node pFrom pTo =
 checkPromote :: ChessNode -> Char -> Int -> Char
 checkPromote _node chPiece _toLoc = chPiece
 
-----------------------------------------------------------------------------------------------------
--- Capture a piece.  Replace the captured piece with the capturing one, and return
--- the updated node
-----------------------------------------------------------------------------------------------------
--- capturePiece :: ChessNode -> Int -> ChessPiece -> ChessNode
--- capturePiece node idx = undefined
-
-
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position
 --------------------------------------------------------------------------------------------------
@@ -486,21 +452,7 @@ legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
    let pos = _chessPos node
        (destEmpty, destEnemy, destFriendly) = pieceDestinations pos
-
-       nonCaptures = destsToMove
     in (destEmpty ++ destEnemy)
----------------------------------------------------------------------------------------------------
--- for a fixed start index, convert a list of (destinationIndex, isExchangeFlag) pairs to ChessMoves
----------------------------------------------------------------------------------------------------
-destsToMove :: Int -> [(Int, Bool)] -> [ChessMove]
-destsToMove startIndex = foldr f [] where
-    f :: (Int, Bool) -> [ChessMove] -> [ChessMove]
-    f (destIdx, isExch) moves =
-      ChessMove { _isExchange = isExch
-                , _startIdx = startIndex
-                , _endIdx = destIdx
-                , _removedIdx = if isExch then destIdx else -1
-                } : moves
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for the current color from a ChessNode
@@ -804,5 +756,54 @@ destinationsToMoves :: Int -> [Int] -> [ChessMove]
 destinationsToMoves _ _ = undefined     -- idx dests
     --pair up idx with each index in dests to form moves
 
-indexesToMove :: [Int] -> ChessMove
-indexesToMove _ = undefined
+-- This should always be a list of length two
+indexesToMove :: [Int] -> Maybe ChessMove
+indexesToMove (from : to : []) =
+    let isExch =
+        removed =
+    in Just ChessMove { _isExchange = isExch
+                      , _startIdx = from
+                      , _endIdx = to
+                      , _removedIdx = removed }
+
+indexesToMove _ = Nothing
+
+---------------------------------------------------------------------------------------------------
+-- parse string input to move
+---------------------------------------------------------------------------------------------------
+parseTextMove :: ChessNode -> String -> Either String ChessMove
+parseTextMove n s
+    | Left err <- pMove   = Left err
+    | Right x  <- pMove   = parserToChessMove n x
+        where
+        pMove = Parser.run s
+
+---------------------------------------------------------------------------------------------------
+-- Convert Parser's Move type to ChessMove
+---------------------------------------------------------------------------------------------------
+parserToChessMove :: Parser.Move -> Maybe ChessMove
+parserToChessMove (Parser.Move xs)
+    | length xs == 2 = indexesToMove $ fmap parserLocToInt xs
+    | otherwise      = Nothing
+
+
+parserLocToInt :: Parser.Loc -> Int  -- parser ensures valid key
+parserLocToInt (Parser.Loc c row) =
+    let col = ord (toUpper c) - 64  -- 1 based index
+    in row * 10 + col
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   k   q   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+_   _   -   -   _   _   _   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   _   -   -   -   _   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   _   -   _   _   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   _   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   K   Q   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}

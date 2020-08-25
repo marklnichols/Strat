@@ -14,7 +14,7 @@ module Checkers
     , CkPosition(..)
     , ckValue
     , closestToKing
-    , clr   
+    , clr
     , getAllowedMoves
     , getStartNode
     , grid
@@ -34,7 +34,7 @@ module Checkers
     , totalKingCount
     , totalPieceCount
     ) where
-        
+
 import Control.Lens
 import Control.Monad
 import Data.Char
@@ -80,12 +80,12 @@ instance PositionNode CkNode CkMove CkEval where
 
 instance TreeNode CkNode CkMove CkEval where
     getMove = _ckMove
-    getValue = _ckValue 
+    getValue = _ckValue
     getErrorValue = _ckErrorValue
 
 instance Show CkMove where
     show mv = show $ toParserMove mv
-    
+
 instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: "
              ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
@@ -197,7 +197,6 @@ fromMultLoc xs =
     in  CkMove { _isJump = isJmp, _startIdx = st, _endIdx = end, _middleIdxs = mid,
                  _removedIdxs = remvd }
 
-
 calcRemoved :: [Int] -> [Int]
 calcRemoved xs = foldr f [] (zip xs (tail xs))  where
     f (prevX, x) r
@@ -205,10 +204,10 @@ calcRemoved xs = foldr f [] (zip xs (tail xs))  where
         | otherwise                      = r
 
 locToInt :: Parser.Loc -> Int  -- parser ensures valid key
-locToInt (Parser.Loc c d) = 
+locToInt (Parser.Loc c d) =
     let col = ord (toUpper c) - 65
-    in Map.findWithDefault (-1) d rowIndexes + (col `div` 2) 
-     
+    in Map.findWithDefault (-1) d rowIndexes + (col `div` 2)
+
 rowIndexes :: Map.Map Int Int
 rowIndexes = Map.fromList [(1, 5), (2, 10), (3, 14), (4, 19), (5, 23), (6, 28), (7, 32), (8, 37)]
 
@@ -219,12 +218,12 @@ toParserMove :: CkMove -> Parser.Move
 toParserMove mv =
     let mAll = intToLoc (mv^.startIdx) : fmap intToLoc (mv^.middleIdxs) ++ [intToLoc (mv^.endIdx)]
     in Parser.Move mAll
-       
+
 intToLoc :: Int -> Parser.Loc
 intToLoc n =
     let mchar = chr $ 65 + offset n + colPlus n
         num = rowNum n
-    in Parser.Loc mchar num      
+    in Parser.Loc mchar num
 
 offset :: Int -> Int
 offset n =  if ((n-5) `mod` 9) `div` 5 == 0 then 0 else 1
@@ -320,8 +319,8 @@ evalNode n = let g =   n ^. (ckPosition . grid)
              in case finl of
                     NotFinal ->
                         (CkEval {_total = mat + mob + home + prog,
-                                 _details =  "material = " ++ show mat ++ 
-                                   "<br>" ++ "mobility = " ++ show mob ++ 
+                                 _details =  "material = " ++ show mat ++
+                                   "<br>" ++ "mobility = " ++ show mob ++
                                    "<br>" ++ "home row occupation = " ++ show home ++
                                    "<br>" ++ "forward progress = " ++ show prog ++
                                    "<br>" ++ "kings' proximity to enemy pieces = " ++ show kProximity}
@@ -465,7 +464,7 @@ pieceMoves node idx =
     in case g ^? ix idx of
         Nothing -> []
         Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr)
-       
+
 forwardMoves :: V.Vector Int -> Int -> Int -> [CkMove]
 forwardMoves g indx colr =
     let newIdxs = filter f [indx + (colr * 4), indx + (colr * 5)]
@@ -474,7 +473,7 @@ forwardMoves g indx colr =
             Just val -> val == 0
     in fmap h newIdxs where
         h newIdx = CkMove {_isJump = False, _startIdx = indx, _endIdx = newIdx, _middleIdxs = [], _removedIdxs = []}
-        
+
 kingMoves :: V.Vector Int -> Int -> [CkMove]
 kingMoves g idx = forwardMoves g idx (-1) ++ forwardMoves g idx 1
 
@@ -500,7 +499,7 @@ multiJumps grd colr offsets indx = jmpsToCkMoves $ fmap reverse (outer grd indx 
         in case nextIdxs of
             [] -> [x : xs]
             _  -> inner gNew x nextIdxs xs where
-                inner gNew' y ys acc =  
+                inner gNew' y ys acc =
                     let acc'  = y : acc
                         f z r = outer gNew' z acc' ++ r
                     in foldr f [[]] ys
@@ -524,7 +523,7 @@ isValidJump grd colr loc1 loc2 =
         check jmpOvr landOn = landOn == 0 && jmpOvr /= 0 && jmpOvr /= 99 && jmpOvr * colr < 0
 
 removeCaptured :: V.Vector Int -> [Int] -> V.Vector Int
-removeCaptured = 
+removeCaptured =
     foldr f where
         f :: Int -> V.Vector Int -> V.Vector Int
         f idx grid' = grid' & ix idx .~ 0
