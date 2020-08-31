@@ -79,11 +79,12 @@ chessTest = do
             empties2 `shouldMatchList` [32,34,41,72,74]
             enemies2 `shouldMatchList` [61,65]
             friendlies2 `shouldMatchList` [45]
-    describe "allowablePawnMoves" $
+    describe "allowablePawnNonCaptures" $
         it "Gets the allowable (non capturing) moves for a pawn" $ do
-            _endIdx <$> allowablePawnNonCaptures board01 22 `shouldMatchList` [32, 42]
-            _endIdx <$> allowablePawnNonCaptures board01 33 `shouldMatchList` []
-            _endIdx <$> allowablePawnNonCaptures board01 61 `shouldMatchList` [51]
+            let f = (\m -> (_startIdx m, _endIdx m))
+            f <$> allowablePawnNonCaptures board01 22 `shouldMatchList` [(22,32),(22,42)]
+            f <$> allowablePawnNonCaptures board01 33 `shouldMatchList` []
+            f <$> allowablePawnNonCaptures board01 61 `shouldMatchList` [(61, 51)]
     describe "allowablePawnCaptures" $
         it "Gets the allowable capturing moves for a pawn" $ do
             let (empties, enemies, friendlies) = tripleToIndexes $ allowablePawnCaptures board01 57
@@ -117,7 +118,6 @@ chessTest = do
     describe "countMaterial" $
       it "Calculates a score for the position based on the pieces on the board for each side" $
           countMaterial board01 `shouldBe` 6
-
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions

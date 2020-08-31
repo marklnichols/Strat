@@ -1,11 +1,11 @@
-module Strat.StratTree 
+module Strat.StratTree
     ( addEquiv
     , best
     , best'
     , checkBlunders
     , expandTree
     , isLegal
-    , isWorse 
+    , isWorse
     , possibleBlunders
     , processMove
     , worst
@@ -21,6 +21,7 @@ import Data.Tree.Zipper
 import Safe
 import Strat.StratTree.TreeNode
 import Strat.StratTree.Trees
+import Debug.Trace
 
 best :: (TreeNode t m e) => Tree t -> Int -> RST (Maybe (Result m e))
 best t colr = do
@@ -34,7 +35,7 @@ checkBlunders _ _ [ms] = return $ Just [ms]
 checkBlunders t colr equivMS = do
     depth <- asks _errorDepth
     threshold <- asks _errorEquivThreshold
-    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along 
+    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along
     -- with the score of the worst opponent's reply to that move
     let equivScore = _score $ head equivMS
     let possibles = possibleBlunders t depth colr equivMS -- :: [MoveScore m]
@@ -55,7 +56,10 @@ processMove t mv = case subForest t of
     _ -> pruneToChild t mv
 
 isLegal :: PositionNode n m e => Tree n -> m -> Bool
-isLegal t mv = mv `elem` possibleMoves (rootLabel t)
+-- isLegal t mv = mv `elem` possibleMoves (rootLabel t)
+isLegal t mv =
+  let str = "isLegal - mv: " ++ show mv ++ ", possibleMoves: " ++ show (possibleMoves (rootLabel t))
+  in trace str (mv `elem` possibleMoves (rootLabel t))
 
 --"worse" here is better wrt color used, since color is from tree level above
 isWorse :: Eval e => e -> e -> Int -> Int -> Bool
@@ -66,7 +70,7 @@ isWorse  scoreToCheck compareTo margin colr
 
 possibleBlunders :: TreeNode t m e => Tree t -> Int -> Int -> [MoveScore m e] -> [MoveScore m e]
 possibleBlunders t depth colr equivMS = mapMaybe convert equivMS where
-    convert ms = 
+    convert ms =
         let result = worstReply t depth colr (_move ms) -- :: Maybe Result
         in result >>= (\r -> case _moveScores r of
             [] -> Nothing

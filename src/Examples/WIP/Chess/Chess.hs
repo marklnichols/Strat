@@ -57,9 +57,7 @@ import qualified Data.Vector.Unboxed as V
 
 import qualified CkParser as Parser -- TODO: rename this to be more general
 import Strat.StratTree.TreeNode
-import qualified ChessParser as P
--- import Debug.Trace
-
+import Debug.Trace
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
@@ -369,24 +367,6 @@ noDirs :: [Dir]
 noDirs = []
 
 ---------------------------------------------------------------------------------------------------
--- Convert ChessMove to Parser Move (for display)
----------------------------------------------------------------------------------------------------
-toParserMove :: ChessMove -> Maybe P.Move
-toParserMove _ = undefined
-
----------------------------------------------------------------------------------------------------
--- format position as a string
----------------------------------------------------------------------------------------------------
-format :: ChessNode -> String
-format _ = undefined
-
----------------------------------------------------------------------------------------------------
--- parse string input to move
----------------------------------------------------------------------------------------------------
-parseChessMove :: ChessNode -> String -> Either String ChessMove
-parseChessMove _ _ = undefined
-
----------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
 -- TODO
 ---------------------------------------------------------------------------------------------------
@@ -489,10 +469,6 @@ flipCharColor ch =
     White -> chr $ ord ch + 32
     Unknown -> ch
 
-
-pieceMoves :: ChessNode -> Int -> [ChessMove]
-pieceMoves _ _ = undefined
-
 -- The function 'allowableKingMoves' later filters out the moves that would allow the enemy to
 -- capture the king
 possibleKingMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
@@ -500,7 +476,7 @@ possibleKingMoves = allowableSingleMoves kingDirs
 
 -- TODO: this will probably become 'allowableKingMoves'
 legalKingMoves :: ChessPos -> Map Int Bool -> Int -> [ChessMove]
-legalKingMoves _pos _defendedMap _idx = undefined
+legalKingMoves _pos _defendedMap _idx = error "legalKindMoves is undefined"
     -- let locs = possibleKingMoves (pos^.cpGrid) idx
     --     indexes = filter (kingFilter (pos ^.cpGrid) defendedMap (pos^.cpColor)) locs
     -- in  destinationsToMoves idx indexes
@@ -577,7 +553,7 @@ movesFromLoc g loc =
       MkChessPiece _c (SomeSing _) -> ([], [], [])
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
-isDefended _ =  undefined   --color index
+isDefended _ =  error "isDefended is undefined"   --color index
   -- this is just lookup of map built from calcDefended, with Nothing converted to False
 
 -- find the allowable destination locs for a pieces that move multiple squares in a given
@@ -641,14 +617,19 @@ allowablePawnNonCaptures g idx =
 
 pawnMoves :: Vector Char -> Color -> Dir -> Bool -> Int -> [ChessMove]
 pawnMoves g c dir hasMoved idx =
-    case dirLocsSingle g idx c dir of
-        ([], _, _) -> []
-        (firstMove:_, _, _) ->  -- only take the 'empty' square
-           let secondList =
-                 (if hasMoved
-                   then []
-                   else fst3 $ dirLocsSingle g (_endIdx firstMove) c dir)
-           in firstMove : secondList
+    let str = "pawnMoves - color: " ++ show c ++ ", hasMoved: " ++ show hasMoved
+          ++ ", idx: " ++ show idx ++ "results: "
+    in case dirLocsSingle g idx c dir of
+          ([], _, _) -> trace (str ++ "[]") []
+          (firstMove:_, _, _) ->  -- only take the 'empty' square
+            let twoSpacer =
+                  if hasMoved then []
+                  else
+                    -- get the one square moves starting from the end loc of the first
+                    -- and combine with fistMove to make a 2 square pawn move
+                    fmap f (fst3 $ dirLocsSingle g (_endIdx firstMove) c dir)
+                    where f = \m -> m {_startIdx = _startIdx firstMove}
+            in trace (str ++ show (firstMove : twoSpacer)) firstMove : twoSpacer
 
 hasPawnMoved :: Color -> Int -> Bool
 hasPawnMoved Unknown _ = False
@@ -749,30 +730,32 @@ onBoard x
 offBoard :: Int -> Bool
 offBoard x = not $ onBoard x
 
-noMoves :: ChessPos -> Int -> [ChessMove]
-noMoves _ _ = undefined
-
 destinationsToMoves :: Int -> [Int] -> [ChessMove]
-destinationsToMoves _ _ = undefined     -- idx dests
+destinationsToMoves _ _ = error "destinationToMoves is undefined"     -- idx dests
     --pair up idx with each index in dests to form moves
 
 -- This should always be a list of length two
-indexesToMove :: [Int] -> Maybe ChessMove
-indexesToMove (from : to : []) =
-    let isExch =
-        removed =
-    in Just ChessMove { _isExchange = isExch
-                      , _startIdx = from
-                      , _endIdx = to
-                      , _removedIdx = removed }
-
-indexesToMove _ = Nothing
+indexesToMove :: ChessNode -> [Int] -> Either String ChessMove
+indexesToMove node (fromLoc : toLoc : []) =
+-- indexToColor :: Vector Char -> Int -> Color
+    let g = node ^. (chessPos . cpGrid)
+        cFrom = indexToColor g fromLoc
+        cTo = indexToColor g toLoc
+        isExch = cFrom /= Unknown &&  enemyColor cFrom == cTo
+        removed = case isExch of
+            True -> toLoc
+            False -> -1
+    in Right $ ChessMove { _isExchange = isExch
+                         , _startIdx = fromLoc
+                         , _endIdx = toLoc
+                         , _removedIdx = removed }
+indexesToMove _ _ = Left "IndexesToMove - expected 2 element list as input, e.g. [E2, E4]"
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------------------------------------------------
-parseTextMove :: ChessNode -> String -> Either String ChessMove
-parseTextMove n s
+parseChessMove :: ChessNode -> String -> Either String ChessMove
+parseChessMove n s
     | Left err <- pMove   = Left err
     | Right x  <- pMove   = parserToChessMove n x
         where
@@ -781,16 +764,28 @@ parseTextMove n s
 ---------------------------------------------------------------------------------------------------
 -- Convert Parser's Move type to ChessMove
 ---------------------------------------------------------------------------------------------------
-parserToChessMove :: Parser.Move -> Maybe ChessMove
-parserToChessMove (Parser.Move xs)
-    | length xs == 2 = indexesToMove $ fmap parserLocToInt xs
-    | otherwise      = Nothing
-
+parserToChessMove :: ChessNode -> Parser.Move -> Either String ChessMove
+parserToChessMove node (Parser.Move xs)
+    | length xs == 2 = indexesToMove node $ fmap parserLocToInt xs
+    | otherwise      = Left "parserToChessMove - expected 2 element list as input, e.g. [E2, E4]"
 
 parserLocToInt :: Parser.Loc -> Int  -- parser ensures valid key
 parserLocToInt (Parser.Loc c row) =
     let col = ord (toUpper c) - 64  -- 1 based index
     in row * 10 + col
+
+---------------------------------------------------------------------------------------------------
+-- Convert ChessMove to Parser Move (for display)
+---------------------------------------------------------------------------------------------------
+toParserMove :: ChessMove -> Parser.Move
+toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
+
+intToParserLoc :: Int -> Parser.Loc
+intToParserLoc n =
+    let r = n `div` 10
+        c = chr $ 64 + (n - r)
+    in Parser.Loc c r
+
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
