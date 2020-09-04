@@ -377,7 +377,12 @@ calcNewNode node mv =
       (eval, finalSt) = evalNode clrFlipped
       finSet = set (chessPos . cpFin) finalSt node
       scoreSet = set chessVal eval finSet
-  in set chessMv mv scoreSet
+
+      cm = ChessMove {_isExchange = False, _startIdx = mv ^. startIdx, _endIdx = mv ^. endIdx, _removedIdx = -1}
+      pMv = toParserMove cm
+      str = ("calcNewNode - move: " ++ show pMv ++ ", eval: " ++ show eval
+             ++ " (" ++ show (mv ^.startIdx) ++ "-" ++ show (mv^.endIdx) ++ ")")
+  in trace str (set chessMv mv scoreSet)
 
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
@@ -783,7 +788,7 @@ toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc 
 intToParserLoc :: Int -> Parser.Loc
 intToParserLoc n =
     let r = n `div` 10
-        c = chr $ 64 + (n - r)
+        c = chr $ 64 + (n - r * 10)
     in Parser.Loc c r
 
 
@@ -791,10 +796,10 @@ intToParserLoc n =
 
 r   n   b   k   q   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
 p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
-_   _   -   -   _   _   _   -          6| (50)  61   62   63   64   65   66   67   68  (69)
--   -   _   -   -   -   _   -          5| (50)  51   52   53   54   55   56   57   58  (59)
--   -   _   -   _   _   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
--   -   _   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
 P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
 R   N   B   K   Q   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
 
