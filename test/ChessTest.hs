@@ -143,10 +143,10 @@ nodeFromGridB :: V.Vector Char -> ChessNode
 nodeFromGridB g = rootLabel $ treeFromGridB g
 
 posFromGridW :: V.Vector Char -> ChessPos
-posFromGridW g = ChessPos {_cpGrid = g, _cpColor = White, _cpFin = NotFinal}
+posFromGridW g = ChessPos {_cpGrid = g, _cpColor = White, _cpFin = NotFinal, _cpDefended = S.empty}
 
 posFromGridB :: V.Vector Char -> ChessPos
-posFromGridB g = ChessPos {_cpGrid = g, _cpColor = Black, _cpFin = NotFinal}
+posFromGridB g = ChessPos {_cpGrid = g, _cpColor = Black, _cpFin = NotFinal, _cpDefended = S.empty}
 
 noMove :: ChessMove
 noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}

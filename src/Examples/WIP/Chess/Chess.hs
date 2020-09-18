@@ -57,7 +57,8 @@ import qualified Data.Vector.Unboxed as V
 
 import qualified CkParser as Parser -- TODO: rename this to be more general
 import Strat.StratTree.TreeNode
-import Debug.Trace
+-- import Debug.Trace
+
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
@@ -67,7 +68,8 @@ empty = ' '
 data Color = Black | White | Unknown
     deriving (Show, Eq)
 
-data ChessPos = ChessPos {_cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState} deriving (Show)
+data ChessPos = ChessPos { _cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState
+                         , _cpDefended :: Set Int } deriving (Show)
 makeLenses ''ChessPos
 
 data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
@@ -77,8 +79,8 @@ makeLenses ''ChessMove
 data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
 makeLenses ''ChessEval
 
-data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval,
-                            _chessErrorVal :: ChessEval, _chessPos :: ChessPos}
+data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval, _chessErrorVal :: ChessEval
+                           , _chessPos :: ChessPos}
 makeLenses ''ChessNode
 
 colorToInt :: Color -> Int
@@ -293,7 +295,8 @@ getStartNode = Node ChessNode
     { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
     , _chessVal = ChessEval { _total = 0, _details = "" }
     , _chessErrorVal = ChessEval { _total = 0, _details = "" }
-    , _chessPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = White, _cpFin = NotFinal } }
+    , _chessPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = White, _cpFin = NotFinal
+                           , _cpDefended = S.empty } }
     []
 
 -- Color represents the color at the 'bottom' of the board
@@ -373,16 +376,17 @@ noDirs = []
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
   let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
+      -- str1 = "calcNewNode - prev node color: " ++ show (node ^.(chessPos . cpColor))
       clrFlipped = over (chessPos . cpColor) flipPieceColor moved
-      (eval, finalSt) = evalNode clrFlipped
-      finSet = set (chessPos . cpFin) finalSt node
+      -- str2 = ", new node color: " ++ show (clrFlipped^.(chessPos . cpColor))
+      defended = calcDefended ( clrFlipped^.chessPos)
+      withDefended = set (chessPos . cpDefended) defended clrFlipped
+      (eval, finalSt) = evalNode withDefended
+      finSet = set (chessPos . cpFin) finalSt withDefended
       scoreSet = set chessVal eval finSet
+  -- in trace (str1 ++ str2) set chessMv mv scoreSet
+  in set chessMv mv scoreSet
 
-      cm = ChessMove {_isExchange = False, _startIdx = mv ^. startIdx, _endIdx = mv ^. endIdx, _removedIdx = -1}
-      pMv = toParserMove cm
-      str = ("calcNewNode - move: " ++ show pMv ++ ", eval: " ++ show eval
-             ++ " (" ++ show (mv ^.startIdx) ++ "-" ++ show (mv^.endIdx) ++ ")")
-  in trace str (set chessMv mv scoreSet)
 
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
@@ -396,8 +400,10 @@ flipPieceColor Unknown = Unknown
 evalNode :: ChessNode -> (ChessEval, FinalState)
 evalNode node =
      let material = countMaterial (node ^. (chessPos . cpGrid))
-         t = material
-         detailsStr = "Material: " ++ show material
+         mobility = S.size $ node ^. (chessPos . cpDefended)
+         t = (material * 5 ) + mobility
+         detailsStr = "Material (x 5): " ++ show material
+                ++ "\n Mobility (x 1): " ++ show mobility
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -424,7 +430,11 @@ movePiece node pFrom pTo =
     in case pieceChar of
         Nothing -> node
         Just ch -> let z = checkPromote node ch pTo
-                   in set (chessPos . cpGrid . ix pTo) z node
+                       p = set (chessPos . cpGrid . ix pTo) z node
+                   in removePiece p pFrom
+
+removePiece :: ChessNode -> Int -> ChessNode
+removePiece node idx = set (chessPos . cpGrid . ix idx) empty node
 
 -- TODO: currently not implemented
 checkPromote :: ChessNode -> Char -> Int -> Char
@@ -553,8 +563,9 @@ movesFromLoc g loc =
       MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
       MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
       MkChessPiece _c (SomeSing SPawn) ->
-        let (empties, enemies, friendlies) = allowablePawnCaptures g loc
-        in (allowablePawnNonCaptures g loc ++ empties, enemies, friendlies)
+        -- let (empties, enemies, friendlies) = allowablePawnCaptures g loc
+        -- in (allowablePawnNonCaptures g loc ++ empties, enemies, friendlies)
+        allowablePawnMoves g loc
       MkChessPiece _c (SomeSing _) -> ([], [], [])
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
@@ -575,9 +586,8 @@ allowableMultiMoves pieceDirs g idx =
         let (freeLocs, captureLocs, friendlyLocs) = dirLocs g idx x
         in (freeLocs ++ r, captureLocs ++ r', friendlyLocs ++ r'')
 
--- find the allowable destination locs for a pieces that move one square in a given
--- direction (i.e., King and Knight). The first list contains the empty squares that
--- can be moved to. The second list contains squares with pieces that could be captured.
+-- find the destination locs for pieces that move one square in a given
+-- direction (i.e., King and Knight). See @allowableMultiMoves
 allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableSingleMoves pieceDirs g idx =
   foldr (f (indexToColor g idx)) ([], [], []) pieceDirs
@@ -604,10 +614,9 @@ allowableBishopMoves = allowableMultiMoves bishopDirs
 allowableKnightMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowableKnightMoves = allowableSingleMoves knightDirs
 
-
 allowablePawnMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove], [ChessMove])
 allowablePawnMoves g idx =
-   let (enemies, friendlies, empties) = allowablePawnCaptures g idx
+   let (_, enemies, friendlies) = allowablePawnCaptures g idx
    in (allowablePawnNonCaptures g idx, enemies, friendlies)
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
@@ -622,11 +631,9 @@ allowablePawnNonCaptures g idx =
 
 pawnMoves :: Vector Char -> Color -> Dir -> Bool -> Int -> [ChessMove]
 pawnMoves g c dir hasMoved idx =
-    let str = "pawnMoves - color: " ++ show c ++ ", hasMoved: " ++ show hasMoved
-          ++ ", idx: " ++ show idx ++ "results: "
-    in case dirLocsSingle g idx c dir of
-          ([], _, _) -> trace (str ++ "[]") []
-          (firstMove:_, _, _) ->  -- only take the 'empty' square
+    case dirLocsSingle g idx c dir of
+        ([], _, _) -> []
+        (firstMove:_, _, _) ->  -- only take the 'empty' square
             let twoSpacer =
                   if hasMoved then []
                   else
@@ -634,7 +641,7 @@ pawnMoves g c dir hasMoved idx =
                     -- and combine with fistMove to make a 2 square pawn move
                     fmap f (fst3 $ dirLocsSingle g (_endIdx firstMove) c dir)
                     where f = \m -> m {_startIdx = _startIdx firstMove}
-            in trace (str ++ show (firstMove : twoSpacer)) firstMove : twoSpacer
+            in firstMove : twoSpacer
 
 hasPawnMoved :: Color -> Int -> Bool
 hasPawnMoved Unknown _ = False
@@ -778,32 +785,3 @@ parserLocToInt :: Parser.Loc -> Int  -- parser ensures valid key
 parserLocToInt (Parser.Loc c row) =
     let col = ord (toUpper c) - 64  -- 1 based index
     in row * 10 + col
-
----------------------------------------------------------------------------------------------------
--- Convert ChessMove to Parser Move (for display)
----------------------------------------------------------------------------------------------------
-toParserMove :: ChessMove -> Parser.Move
-toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
-
-intToParserLoc :: Int -> Parser.Loc
-intToParserLoc n =
-    let r = n `div` 10
-        c = chr $ 64 + (n - r * 10)
-    in Parser.Loc c r
-
-
-{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
-
-r   n   b   k   q   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
-p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
--   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
--   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
--   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
--   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
-P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
-R   N   B   K   Q   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
-
-                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
-                                          -------------------------------------------------
-                                                A    B    C    D    E    F    G    H
--}

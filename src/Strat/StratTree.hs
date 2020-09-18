@@ -58,8 +58,11 @@ processMove t mv = case subForest t of
 isLegal :: PositionNode n m e => Tree n -> m -> Bool
 -- isLegal t mv = mv `elem` possibleMoves (rootLabel t)
 isLegal t mv =
-  let str = "isLegal - mv: " ++ show mv ++ ", possibleMoves: " ++ show (possibleMoves (rootLabel t))
-  in trace str (mv `elem` possibleMoves (rootLabel t))
+  let mvs = possibleMoves (rootLabel t)
+      count = length  mvs
+      b = mv `elem` mvs
+      str = "isLegal - " ++ show count ++ " possibleMoves, returns: " ++ show b
+  in trace str b
 
 --"worse" here is better wrt color used, since color is from tree level above
 isWorse :: Eval e => e -> e -> Int -> Int -> Bool

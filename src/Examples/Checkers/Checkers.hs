@@ -46,6 +46,7 @@ import Safe
 import qualified CkParser as Parser
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
+import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -262,7 +263,13 @@ calcNewNode node mv =
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue eval finSet
         errScoreSet = set ckErrorValue errEval scoreSet
-    in  set ckMove mv errScoreSet
+    -- in  set ckMove mv errScoreSet
+
+        pMv = toParserMove mv
+        str = ("calcNewNode - move: " ++ show pMv ++ ", eval: " ++ show eval
+             ++ " (" ++ show (mv ^.startIdx) ++ "-" ++ show (mv^.endIdx) ++ ")")
+    in trace str (set ckMove mv errScoreSet)
+
 
 removePiece :: CkNode -> Int -> CkNode
 removePiece node idx = set (ckPosition . grid . ix idx) 0 node

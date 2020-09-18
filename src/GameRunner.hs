@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module GameRunner
- (startGame) where 
+ (startGame) where
 
 import Control.Lens
 import Control.Monad.Reader
@@ -13,7 +13,9 @@ import Strat.StratTree
 import Strat.StratTree.TreeNode
 
 gameEnv :: Env
-gameEnv = Env { _depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0
+-- gameEnv = Env { _depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0
+--               , _p1Comp = False, _p2Comp = True }
+gameEnv = Env { _depth = 2, _errorDepth = 1, _equivThreshold = 0, _errorEquivThreshold = 0
               , _p1Comp = False, _p2Comp = True }
 
 startGame :: (Output o n m e, PositionNode n m e) => o -> Tree n -> IO ()

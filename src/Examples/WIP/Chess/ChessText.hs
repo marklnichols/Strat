@@ -1,10 +1,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module ChessText
     ( ChessText(..)
+    , intToParserLoc
+    , toParserMove
     ) where
 
 import Chess
 import Control.Lens
+import Data.Char
 import Data.List.Extra
 import Data.Tree
 import Strat.StratTree
@@ -12,6 +15,8 @@ import Strat.StratTree.TreeNode
 import Strat.StratTree.Trees
 import System.Exit
 import qualified Data.Vector.Unboxed as V
+
+import qualified CkParser as Parser -- TODO: rename this to be more general
 
 data ChessText = ChessText
 
@@ -33,13 +38,13 @@ showBoard _ node = do
 
 printMoveChoiceInfo :: Tree ChessNode -> [MoveScore ChessMove ChessEval]
   -> Result ChessMove ChessEval ->  ChessMove -> IO ()
-printMoveChoiceInfo tree finalChoices result mv = do
-    putStrLn ("Choices from best: " ++ show (result^.moveScores))
-    putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
+printMoveChoiceInfo tree _finalChoices result mv = do
+    -- putStrLn ("Choices from best: " ++ show (result^.moveScores))
+    -- putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
     putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Equivalent best moves: " ++ show (result^.moveChoices))
-    putStrLn ("Following moves: " ++ show ( result^.followingMoves))
-    putStrLn ("Computer's move:\n (m:" ++ show mv ++
+    putStrLn ("Equivalent best moves: " ++ showMoves (result^.moveChoices))
+    putStrLn ("Following moves: " ++ showMoves ( result^.followingMoves))
+    putStrLn ("Computer's move:\n (m:" ++ showMove mv ++
                   ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
     putStrLn ""
 
@@ -47,6 +52,12 @@ exitFail :: ChessText -> String -> IO ()
 exitFail _ s = do
     putStrLn s
     exitFailure
+
+showMove :: ChessMove -> String
+showMove cm = show $ toParserMove cm
+
+showMoves :: [ChessMove] -> String
+showMoves cms = unlines $ fmap showMove cms
 
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
@@ -92,3 +103,33 @@ padChars src =
 
 colLabels :: String
 colLabels = "   A  B  C  D  E  F  G  H"
+
+
+---------------------------------------------------------------------------------------------------
+-- Convert ChessMove to Parser Move (for display)
+---------------------------------------------------------------------------------------------------
+toParserMove :: ChessMove -> Parser.Move
+toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
+
+intToParserLoc :: Int -> Parser.Loc
+intToParserLoc n =
+    let r = n `div` 10
+        c = chr $ 64 + (n - r * 10)
+    in Parser.Loc c r
+
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   k   q   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   K   Q   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
