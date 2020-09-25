@@ -19,10 +19,11 @@
 module Chess
     ( ChessEval(..), total, details
     , ChessMove(..), isExchange, startIdx, endIdx, removedIdx
+    , ChessMoves(..), cmEmpty, cmEnemy, cmFriendly
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
     , ChessPos(..), cpGrid, cpColor, cpFin
     , Color(..)
-    , calcDefended
+    , calcMoveLists
     , colorFromInt
     , colorToInt
     , countMaterial
@@ -48,8 +49,6 @@ import Data.Kind
 import Data.Maybe
 import Data.Singletons
 import Data.Singletons.TH
-import Data.Set (Set)
-import qualified Data.Set as S
 import Data.Tree
 import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector)
@@ -65,16 +64,23 @@ import Strat.StratTree.TreeNode
 empty :: Char
 empty = ' '
 
+data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
+    deriving (Eq, Ord, Show)
+makeLenses ''ChessMove
+
+data ChessMoves = ChessMoves
+  { _cmEmpty :: [ChessMove]
+  , _cmEnemy :: [ChessMove]
+  , _cmFriendly :: [ChessMove] }
+  deriving (Show, Eq)
+makeLenses ''ChessMoves
+
 data Color = Black | White | Unknown
     deriving (Show, Eq)
 
 data ChessPos = ChessPos { _cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState
-                         , _cpDefended :: Set Int } deriving (Show)
+                         , _cpMoves :: ChessMoves, _cpOppPrevMoves :: ChessMoves }  deriving (Show)
 makeLenses ''ChessPos
-
-data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
-    deriving (Eq, Ord, Show)
-makeLenses ''ChessMove
 
 data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
 makeLenses ''ChessEval
@@ -291,13 +297,24 @@ R   N   B   K   Q   B   N   R          1| (10)  11   12   13   14   15   16   17
 -- starting position,
 ---------------------------------------------------------------------------------------------------
 getStartNode :: Tree ChessNode
-getStartNode = Node ChessNode
-    { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
-    , _chessVal = ChessEval { _total = 0, _details = "" }
-    , _chessErrorVal = ChessEval { _total = 0, _details = "" }
-    , _chessPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = White, _cpFin = NotFinal
-                           , _cpDefended = S.empty } }
-    []
+getStartNode =
+    let cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = White, _cpFin = NotFinal
+                        , _cpOppPrevMoves = ChessMoves { _cmEmpty = []
+                                                , _cmEnemy = []
+                                                , _cmFriendly = []}
+                        , _cpMoves = ChessMoves { _cmEmpty = []
+                                                , _cmEnemy = []
+                                                , _cmFriendly = []}}
+
+        moves = calcMoveLists cPos
+        withMoves = set cpMoves moves cPos
+    in Node ChessNode
+        { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
+        , _chessVal = ChessEval { _total = 0, _details = "" }
+        , _chessErrorVal = ChessEval { _total = 0, _details = "" }
+        , _chessPos = withMoves}
+
+      []
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> V.Vector Char
@@ -371,23 +388,26 @@ noDirs = []
 
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
--- TODO
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
-  let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
-      -- str1 = "calcNewNode - prev node color: " ++ show (node ^.(chessPos . cpColor))
-      clrFlipped = over (chessPos . cpColor) flipPieceColor moved
-      -- str2 = ", new node color: " ++ show (clrFlipped^.(chessPos . cpColor))
-      defended = calcDefended ( clrFlipped^.chessPos)
-      withDefended = set (chessPos . cpDefended) defended clrFlipped
-      (eval, finalSt) = evalNode withDefended
-      finSet = set (chessPos . cpFin) finalSt withDefended
-      scoreSet = set chessVal eval finSet
-  -- in trace (str1 ++ str2) set chessMv mv scoreSet
-  in set chessMv mv scoreSet
+    let oppPrevMoves = node ^. (chessPos . cpOppPrevMoves)
+        prevPos = node ^. chessPos
+        prevGrid = prevPos ^. cpGrid
+        newGrid = movePieceGrid prevGrid (mv ^. startIdx) (mv ^. endIdx)
+        clrFlipped = flipPieceColor (prevPos ^. cpColor)
+        newMoves = calcMoveListsGrid newGrid clrFlipped
+        newPos = prevPos { _cpGrid = newGrid
+                         , _cpColor = clrFlipped
+                         , _cpMoves = newMoves
+                         , _cpOppPrevMoves = oppPrevMoves }
+        (eval, finalSt) = evalPos newPos
+        updatedPos = newPos { _cpFin = finalSt}
+    in ChessNode { _chessMv = mv , _chessVal = eval
+                 , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
+                 , _chessPos = updatedPos }
 
-
+---------------------------------------------------------------------------------------------------
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
@@ -395,12 +415,12 @@ flipPieceColor Unknown = Unknown
 
 --TODO: add more evaluations and set the FinalState appropirately
 ---------------------------------------------------------------------------------------------------
--- Evaluate the node, producing a score for the position
+-- Evaluate and produce a score for the position
 --------------------------------------------------------------------------------------------------
-evalNode :: ChessNode -> (ChessEval, FinalState)
-evalNode node =
-     let material = countMaterial (node ^. (chessPos . cpGrid))
-         mobility = S.size $ node ^. (chessPos . cpDefended)
+evalPos :: ChessPos -> (ChessEval, FinalState)
+evalPos pos =
+     let material = countMaterial (pos ^. cpGrid)
+         mobility = calcMobility pos
          t = (material * 5 ) + mobility
          detailsStr = "Material (x 5): " ++ show material
                 ++ "\n Mobility (x 1): " ++ show mobility
@@ -422,32 +442,50 @@ countMaterial = V.foldr f 0
           else theTotal + pieceVal (charToPiece ch)
 
 ---------------------------------------------------------------------------------------------------
+-- Calculate the 'mobility' score for the pieces on the board
+--------------------------------------------------------------------------------------------------
+calcMobility :: ChessPos -> Int
+calcMobility cp =
+  let moves = cp ^. cpMoves
+  in length (_cmEmpty moves) + length (_cmEnemy moves)
+
+---------------------------------------------------------------------------------------------------
 -- Move a piece on the board, removing any captured piece.  Returns the updated node
 --------------------------------------------------------------------------------------------------
 movePiece :: ChessNode -> Int -> Int -> ChessNode
 movePiece node pFrom pTo =
-    let pieceChar = node ^? (chessPos . cpGrid . ix pFrom)
-    in case pieceChar of
-        Nothing -> node
-        Just ch -> let z = checkPromote node ch pTo
-                       p = set (chessPos . cpGrid . ix pTo) z node
-                   in removePiece p pFrom
+    let newGrid = movePieceGrid (node ^. (chessPos . cpGrid)) pFrom pTo
+    in set (chessPos . cpGrid) newGrid node
 
-removePiece :: ChessNode -> Int -> ChessNode
-removePiece node idx = set (chessPos . cpGrid . ix idx) empty node
-
--- TODO: currently not implemented
-checkPromote :: ChessNode -> Char -> Int -> Char
-checkPromote _node chPiece _toLoc = chPiece
+-- removePiece :: ChessNode -> Int -> ChessNode
+-- removePiece node idx = set (chessPos . cpGrid . ix idx) empty node
 
 ---------------------------------------------------------------------------------------------------
--- get possible moves from a given position
+-- Move a piece on the grid vector, removing any captured piece.  Returns the updated grid
+--------------------------------------------------------------------------------------------------
+movePieceGrid :: Vector Char -> Int -> Int -> Vector Char
+movePieceGrid g pFrom pTo =
+    let pieceChar = g ^? ix pFrom
+    in case pieceChar of
+        Nothing -> g
+        Just ch -> let z = checkPromote g ch pTo
+                       p = set (ix pTo) z g
+                   in removePieceGrid p pFrom
+
+removePieceGrid :: Vector Char -> Int -> Vector Char
+removePieceGrid g idx = set (ix idx) empty g
+
+-- TODO: currently not implemented
+checkPromote :: Vector Char -> Char -> Int -> Char
+checkPromote _g chPiece _toLoc = chPiece
+
+---------------------------------------------------------------------------------------------------
+-- get possible moves from a node
 --------------------------------------------------------------------------------------------------
 legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
-   let pos = _chessPos node
-       (destEmpty, destEnemy, destFriendly) = pieceDestinations pos
-    in (destEmpty ++ destEnemy)
+    let moves = node ^. (chessPos . cpMoves)
+    in (moves ^. cmEmpty) ++ (moves ^. cmEnemy)
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for the current color from a ChessNode
@@ -528,22 +566,38 @@ tripleToIndexes (xs, ys, zs) = (_endIdx <$> xs, _endIdx <$> ys, _endIdx <$> zs)
 -- Note: Pieces that could be captured by pawns and then in-turn would be defended by en-passant
 -- pawn captures are not currently part of this set
 ----------------------------------------------------------------------------------------------------
-calcDefended :: ChessPos -> Set Int
-calcDefended pos =
-    let (destEmpty, destEnemy, destFriendly) = tripleToIndexes $ pieceDestinations pos
-    in S.fromList (destEmpty ++ destEnemy ++ destFriendly)
+-- calcDefended :: ChessPos -> Defended
+-- calcDefended pos =
+--     let (destEmpty, destEnemy, destFriendly) = tripleToIndexes $ pieceDestinations pos
+--     in Defended
+--       { _defEmpty = S.fromList destEmpty
+--       , _defEnemy = S.fromList destEnemy
+--       , _defFriendly = S.fromList destFriendly }
+
+----------------------------------------------------------------------------------------------------
+-- Calculate the set of all possible moves for the given position & the position's color
+----------------------------------------------------------------------------------------------------
+calcMoveLists :: ChessPos -> ChessMoves
+calcMoveLists pos =
+    let c = _cpColor pos
+        g = _cpGrid pos
+    in calcMoveListsGrid g c
+
+calcMoveListsGrid :: Vector Char -> Color -> ChessMoves
+calcMoveListsGrid g c =
+    let (_empty, enemy, friendly) = pieceDestinations g c
+    in ChessMoves
+      { _cmEmpty = _empty
+      , _cmEnemy = enemy
+      , _cmFriendly = friendly }
 
 -- the first list in the tuple are the empty squres that could be moved to
 -- the second tuple contains squares where enemy pieces could be captured
 -- The third list is the protected friendly pieces
-pieceDestinations :: ChessPos -> ([ChessMove], [ChessMove], [ChessMove])
-pieceDestinations pos =
-  let g = _cpGrid pos
-      c = _cpColor pos
-      locs = locsForColor g c
+pieceDestinations :: Vector Char -> Color -> ([ChessMove], [ChessMove], [ChessMove])
+pieceDestinations g c =
+  let locs = locsForColor g c
   in movesFromLocs g locs
-
-
 
 movesFromLocs :: Vector Char -> [Int] -> ([ChessMove], [ChessMove], [ChessMove])
 movesFromLocs g =

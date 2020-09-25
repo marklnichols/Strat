@@ -3,7 +3,6 @@
 module ChessTest (chessTest) where
 
 import Chess
-import qualified Data.Set as S
 import Data.Tree
 import Strat.StratTree.TreeNode
 import Test.Hspec
@@ -98,23 +97,25 @@ chessTest = do
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $
             _endIdx <$> allowableEnPassant board01 78 `shouldMatchList` [57]
-    describe "calcDefended" $
-       it "Creates a set w/all locations that are defended by the opposing color's pieces" $
-           S.toList (calcDefended (posFromGridW board01) ) `shouldMatchList`
-              S.toList (S.fromList @Int                 -- remove dupes (which are useful for debugging)
-              [ 11, 13, 21, 22, 23                 -- K
-              , 45, 47, 48                         -- Q (horizontal)
-              , 26, 36, 56, 66                     -- Q (vertical)
-              , 28, 37, 55, 64, 73, 82             -- Q (diagonal UL/LR)
-              , 13, 24, 35, 57                     -- Q (diagonal LL/UR)
-              , 12, 14, 15, 16, 17, 18, 23, 33     -- R1
-              , 25, 27, 28, 16, 36, 46             -- R2
-              , 14, 36, 47, 58, 16, 34, 43         -- B1
-              , 21, 32, 54, 65, 25, 34, 52, 61     -- B2
-              , 53, 64, 66, 57, 37, 26, 24, 33      -- N1 (@45)
-              , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
-              , 32, 31, 33, 42, 44, 66, 68         -- Pawns
-              ]  )
+    -- describe "calcDefended" $
+    --    it "Creates a set w/all locations that are defended by the opposing color's pieces" $
+    --        let moves = calcMoveLists (posFromGridW board01)
+    --        in _cmEmpty moves ++_cmEnemy moves
+    --           ++ _cmFriendly moves `shouldMatchList`
+    --           S.toList (S.fromList @Int                 -- remove dupes (which are useful for debugging)
+    --           [ 11, 13, 21, 22, 23                 -- K
+    --           , 45, 47, 48                         -- Q (horizontal)
+    --           , 26, 36, 56, 66                     -- Q (vertical)
+    --           , 28, 37, 55, 64, 73, 82             -- Q (diagonal UL/LR)
+    --           , 13, 24, 35, 57                     -- Q (diagonal LL/UR)
+    --           , 12, 14, 15, 16, 17, 18, 23, 33     -- R1
+    --           , 25, 27, 28, 16, 36, 46             -- R2
+    --           , 14, 36, 47, 58, 16, 34, 43         -- B1
+    --           , 21, 32, 54, 65, 25, 34, 52, 61     -- B2
+    --           , 53, 64, 66, 57, 37, 26, 24, 33      -- N1 (@45)
+    --           , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
+    --           , 32, 31, 33, 42, 44, 66, 68         -- Pawns
+    --           ]  )
     describe "countMaterial" $
       it "Calculates a score for the position based on the pieces on the board for each side" $
           countMaterial board01 `shouldBe` 6
@@ -143,10 +144,14 @@ nodeFromGridB :: V.Vector Char -> ChessNode
 nodeFromGridB g = rootLabel $ treeFromGridB g
 
 posFromGridW :: V.Vector Char -> ChessPos
-posFromGridW g = ChessPos {_cpGrid = g, _cpColor = White, _cpFin = NotFinal, _cpDefended = S.empty}
+posFromGridW g = ChessPos { _cpGrid = g, _cpColor = White, _cpFin = NotFinal
+                          , _cpMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []}
+                          , _cpOppPrevMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
 
 posFromGridB :: V.Vector Char -> ChessPos
-posFromGridB g = ChessPos {_cpGrid = g, _cpColor = Black, _cpFin = NotFinal, _cpDefended = S.empty}
+posFromGridB g = ChessPos { _cpGrid = g, _cpColor = Black, _cpFin = NotFinal
+                          , _cpMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []}
+                          , _cpOppPrevMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
 
 noMove :: ChessMove
 noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
