@@ -1,13 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module ChessText
     ( ChessText(..)
-    , intToParserLoc
-    , toParserMove
     ) where
 
-import Chess
 import Control.Lens
-import Data.Char
 import Data.List.Extra
 import Data.Tree
 import Strat.StratTree
@@ -16,7 +12,7 @@ import Strat.StratTree.Trees
 import System.Exit
 import qualified Data.Vector.Unboxed as V
 
-import qualified CkParser as Parser -- TODO: rename this to be more general
+import Chess
 
 data ChessText = ChessText
 
@@ -103,20 +99,6 @@ padChars src =
 
 colLabels :: String
 colLabels = "   A  B  C  D  E  F  G  H"
-
-
----------------------------------------------------------------------------------------------------
--- Convert ChessMove to Parser Move (for display)
----------------------------------------------------------------------------------------------------
-toParserMove :: ChessMove -> Parser.Move
-toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
-
-intToParserLoc :: Int -> Parser.Loc
-intToParserLoc n =
-    let r = n `div` 10
-        c = chr $ 64 + (n - r * 10)
-    in Parser.Loc c r
-
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 

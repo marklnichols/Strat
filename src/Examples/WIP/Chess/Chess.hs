@@ -28,6 +28,7 @@ module Chess
     , colorToInt
     , countMaterial
     , getStartNode
+    , toParserMove
     -- exported for testing only
     , getPieceLocs
     , allowableBishopMoves
@@ -53,10 +54,11 @@ import Data.Tree
 import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
+import Text.Printf
 
 import qualified CkParser as Parser -- TODO: rename this to be more general
 import Strat.StratTree.TreeNode
--- import Debug.Trace
+import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -268,26 +270,26 @@ Piece representation as integers:
 startingBoard :: V.Vector Char
 startingBoard = V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
-                             '+',  'R',  'N',  'B',  'K',  'Q',  'B',  'N',  'R',  '+',
+                             '+',  'R',  'N',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  'P',  'P',  'P',  'P',  'P',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  'p',  'p',  'p',  'p',  'p',  'p',  'p',  'p',  '+',
-                             '+',  'r',  'n',  'b',  'k',  'q',  'b',  'n',  'r',  '+',
+                             '+',  'r',  'n',  'b',  'q',  'k',  'b',  'n',  'r',  '+',
                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
-r   n   b   k   q   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+r   n   b   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
 p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
 _   _   -   -   _   _   _   -          6| (50)  61   62   63   64   65   66   67   68  (69)
 -   -   _   -   -   -   _   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   _   -   _   _   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 -   -   _   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
 P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
-R   N   B   K   Q   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
 
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------
@@ -391,7 +393,7 @@ noDirs = []
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
-    let oppPrevMoves = node ^. (chessPos . cpOppPrevMoves)
+    let oppPrevMoves = node ^. (chessPos . cpMoves)
         prevPos = node ^. chessPos
         prevGrid = prevPos ^. cpGrid
         newGrid = movePieceGrid prevGrid (mv ^. startIdx) (mv ^. endIdx)
@@ -401,9 +403,20 @@ calcNewNode node mv =
                          , _cpColor = clrFlipped
                          , _cpMoves = newMoves
                          , _cpOppPrevMoves = oppPrevMoves }
-        (eval, finalSt) = evalPos newPos
+
+        (eval, finalSt) = evalPos newPos mv
         updatedPos = newPos { _cpFin = finalSt}
-    in ChessNode { _chessMv = mv , _chessVal = eval
+
+        prevMv = show $ toParserMove $ _chessMv node
+        thisMv = show $ toParserMove $ mv
+        str = printf ("Done with calcNewNode - new node created with color: %s, for move: %s (previous node's move: %s)"
+               ++ "number of move choices: |%d|%d|%d|") (show clrFlipped) thisMv prevMv
+                  (length (_cmEmpty newMoves))
+                  (length (_cmEnemy newMoves))
+                  (length (_cmFriendly newMoves))
+
+    in trace str $
+      ChessNode { _chessMv = mv , _chessVal = eval
                  , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
                  , _chessPos = updatedPos }
 
@@ -417,10 +430,10 @@ flipPieceColor Unknown = Unknown
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
 --------------------------------------------------------------------------------------------------
-evalPos :: ChessPos -> (ChessEval, FinalState)
-evalPos pos =
+evalPos :: ChessPos -> ChessMove -> (ChessEval, FinalState)
+evalPos pos mv =
      let material = countMaterial (pos ^. cpGrid)
-         mobility = calcMobility pos
+         mobility = calcMobility pos mv
          t = (material * 5 ) + mobility
          detailsStr = "Material (x 5): " ++ show material
                 ++ "\n Mobility (x 1): " ++ show mobility
@@ -444,10 +457,17 @@ countMaterial = V.foldr f 0
 ---------------------------------------------------------------------------------------------------
 -- Calculate the 'mobility' score for the pieces on the board
 --------------------------------------------------------------------------------------------------
-calcMobility :: ChessPos -> Int
-calcMobility cp =
-  let moves = cp ^. cpMoves
-  in length (_cmEmpty moves) + length (_cmEnemy moves)
+calcMobility :: ChessPos -> ChessMove -> Int
+calcMobility cp mv =
+  let ourMoves = cp ^. cpMoves
+      theirMoves = cp ^. cpOppPrevMoves
+      str = printf ("Mobility score for the move |%s|- our empty: %d, our enemy: %d, "
+            ++ "their empty: %d, their enemy: %d" ) (show (toParserMove mv))
+            (length (_cmEmpty ourMoves)) (length (_cmEnemy ourMoves))
+            (length (_cmEmpty theirMoves)) (length (_cmEnemy theirMoves))
+
+  in trace str (length (ourMoves ^. cmEmpty) + length (ourMoves ^. cmEnemy )
+     - length (theirMoves ^. cmEmpty) + length (theirMoves ^. cmEnemy))
 
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the board, removing any captured piece.  Returns the updated node
@@ -839,3 +859,32 @@ parserLocToInt :: Parser.Loc -> Int  -- parser ensures valid key
 parserLocToInt (Parser.Loc c row) =
     let col = ord (toUpper c) - 64  -- 1 based index
     in row * 10 + col
+
+---------------------------------------------------------------------------------------------------
+-- Convert ChessMove to Parser Move (for display)
+---------------------------------------------------------------------------------------------------
+toParserMove :: ChessMove -> Parser.Move
+toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
+
+intToParserLoc :: Int -> Parser.Loc
+intToParserLoc n =
+    let r = n `div` 10
+        c = chr $ 64 + (n - r * 10)
+    in Parser.Loc c r
+
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
