@@ -3,8 +3,6 @@
 module ChessTest (chessTest) where
 
 import Chess
-import Data.Tree
-import Strat.StratTree.TreeNode
 import Test.Hspec
 import qualified Data.Vector.Unboxed as V
 
@@ -12,9 +10,11 @@ chessTest :: SpecWith ()
 chessTest = do
     describe "getPieceLocs" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
-            getPieceLocs (nodeFromGridW board01) `shouldMatchList`
+            -- getPieceLocs (nodeFromGridW board01) `shouldMatchList`
+            locsForColor board01 White `shouldMatchList`
               [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
-            getPieceLocs (nodeFromGridB board01) `shouldMatchList`
+            -- getPieceLocs (nodeFromGridB board01) `shouldMatchList`
+            locsForColor board01 Black `shouldMatchList`
               [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
     describe "possibleKingMoves" $
         it "Gets the possible moves for a king" $ do
@@ -123,38 +123,38 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
-treeFromGridW :: V.Vector Char -> Tree ChessNode
-treeFromGridW g = Node ChessNode
-    { _chessMv = noMove
-    , _chessVal = ChessEval {_total = 0, _details = ""}
-    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = posFromGridW g } []
+-- treeFromGridW :: V.Vector Char -> Tree ChessNode
+-- treeFromGridW g = Node ChessNode
+--     { _chessMv = noMove
+--     , _chessVal = ChessEval {_total = 0, _details = ""}
+--     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
+--     , _chessPos = posFromGridW g } []
 
-treeFromGridB :: V.Vector Char -> Tree ChessNode
-treeFromGridB g = Node ChessNode
-    { _chessMv = noMove
-    , _chessVal = ChessEval {_total = 0, _details = ""}
-    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = posFromGridB g } []
+-- treeFromGridB :: V.Vector Char -> Tree ChessNode
+-- treeFromGridB g = Node ChessNode
+--     { _chessMv = noMove
+--     , _chessVal = ChessEval {_total = 0, _details = ""}
+--     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
+--     , _chessPos = posFromGridB g } []
 
-nodeFromGridW :: V.Vector Char -> ChessNode
-nodeFromGridW g = rootLabel $ treeFromGridW g
+-- nodeFromGridW :: V.Vector Char -> ChessNode
+-- nodeFromGridW g = rootLabel $ treeFromGridW g
 
-nodeFromGridB :: V.Vector Char -> ChessNode
-nodeFromGridB g = rootLabel $ treeFromGridB g
+-- nodeFromGridB :: V.Vector Char -> ChessNode
+-- nodeFromGridB g = rootLabel $ treeFromGridB g
 
-posFromGridW :: V.Vector Char -> ChessPos
-posFromGridW g = ChessPos { _cpGrid = g, _cpColor = White, _cpFin = NotFinal
-                          , _cpMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []}
-                          , _cpOppPrevMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
+-- posFromGridW :: V.Vector Char -> ChessPos
+-- posFromGridW g = ChessPos { _cpGrid = g, _cpColor = White, _cpFin = NotFinal
+--                           , _cpMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []}
+--                           , _cpOppNextMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
 
-posFromGridB :: V.Vector Char -> ChessPos
-posFromGridB g = ChessPos { _cpGrid = g, _cpColor = Black, _cpFin = NotFinal
-                          , _cpMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []}
-                          , _cpOppPrevMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
+-- posFromGridB :: V.Vector Char -> ChessPos
+-- posFromGridB g = ChessPos { _cpGrid = g, _cpColor = Black, _cpFin = NotFinal
+--                           , _cpMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []}
+--                           , _cpOppNextMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
 
-noMove :: ChessMove
-noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
+-- noMove :: ChessMove
+-- noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions

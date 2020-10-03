@@ -61,7 +61,8 @@ isLegal t mv =
   let mvs = possibleMoves (rootLabel t)
       count = length  mvs
       b = mv `elem` mvs
-      str = "isLegal - " ++ show count ++ " possibleMoves, returns: " ++ show b
+      str = if b then ""
+            else "isLegal - NOT a legal move - " ++ show count ++ " possibleMoves: " ++ show mvs
   in trace str b
 
 --"worse" here is better wrt color used, since color is from tree level above
