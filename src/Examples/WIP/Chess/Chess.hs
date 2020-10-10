@@ -19,7 +19,7 @@
 
 module Chess
     ( ChessEval(..), total, details
-    , ChessMove(..), isExchange, startIdx, endIdx, removedIdx
+    , ChessMove(..), isExchange, startIdx, endIdx
     , ChessMoves(..), cmEmpty, cmEnemy
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
     , ChessPos(..), cpGrid, cpColor, cpFin
@@ -68,7 +68,7 @@ import Debug.Trace
 empty :: Char
 empty = ' '
 
-data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _removedIdx :: Int}
+data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int}
     deriving (Eq, Ord)
 makeLenses ''ChessMove
 
@@ -76,9 +76,7 @@ instance Show ChessMove where
   show cm@ChessMove{..} =
     let pm = show $ toParserMove cm
         exch = if _isExchange then " [Exchange]" else ""
-        rmvd = if _removedIdx == (- 1) || _removedIdx == 0 then ""
-               else " [Remove: " ++ show _removedIdx ++ "]"
-    in pm ++ exch ++ rmvd
+    in pm ++ exch
 
 data Color = Black | White | Unknown
     deriving (Show, Eq)
@@ -335,7 +333,7 @@ getStartNode =
                         , _cpMoves = startingMoves firstColor
                         , _cpOppNextMoves = startingMoves $ flipPieceColor firstColor }
     in Node ChessNode
-        { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
+        { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
         , _chessVal = ChessEval { _total = 0, _details = "" }
         , _chessErrorVal = ChessEval { _total = 0, _details = "" }
         , _chessPos = cPos}
@@ -349,20 +347,20 @@ startingMoves White = ChessMoves
                           , (12,31), (12,33), (17,36), (17,38)]
   , _cmEnemy = []
   , _cmForColor = White
-  , _cmAfterMove = ChessMove { _isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1 } }
+  , _cmAfterMove = ChessMove { _isExchange = False, _startIdx = -1, _endIdx = -1 } }
   where
     f (start, end) acc = ChessMove { _isExchange = False, _startIdx = start
-                                   , _endIdx = end, _removedIdx = -1 } : acc
+                                   , _endIdx = end } : acc
 startingMoves _ = ChessMoves
   { _cmEmpty = foldr f [] [ (71,61), (71,51), (72,62), (72,52), (73,63), (73,53), (74,64), (74,54)
                           , (75,65), (75,55), (76,66), (76,56), (77,67), (77,57), (78,68), (78,58)
                           , (82,61), (82,63), (87,66), (87,68)]
   , _cmEnemy = []
   , _cmForColor = Black
-  , _cmAfterMove = ChessMove { _isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1 } }
+  , _cmAfterMove = ChessMove { _isExchange = False, _startIdx = -1, _endIdx = -1 } }
   where
     f (start, end) acc = ChessMove { _isExchange = False, _startIdx = start
-                                   , _endIdx = end, _removedIdx = -1 } : acc
+                                   , _endIdx = end } : acc
 
 
 -- Color represents the color at the 'bottom' of the board
@@ -455,14 +453,14 @@ calcNewNode node mv =
 
         prevMv = show $ toParserMove $ _chessMv node
         thisMv = show $ toParserMove $ mv
-        str = printf ("Done with calcNewNode - new node created from the move: %s "
-                       ++ "(previous move: %s) The next turn is by color: %s"
-                       ++ " The number of move choices for the next turn is : |%d|%d|")
-                     thisMv prevMv (show clrFlipped)
-                     (length (_cmEmpty myMoves))
-                     (length (_cmEnemy myMoves))
-    in trace str $
-      ChessNode { _chessMv = mv , _chessVal = eval
+        -- str = printf ("Done with calcNewNode - new node created from the move: %s "
+        --                ++ "(previous move: %s) The next turn is by color: %s"
+        --                ++ " The number of move choices for the next turn is : |%d|%d|")
+        --              thisMv prevMv (show clrFlipped)
+        --              (length (_cmEmpty myMoves))
+        --              (length (_cmEnemy myMoves))
+    -- in trace str $
+    in ChessNode { _chessMv = mv , _chessVal = eval
                  , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
                  , _chessPos = updatedPos }
 
@@ -505,22 +503,22 @@ countMaterial = V.foldr f 0
 -- TODO: correct this, needs to be white mobility - black mobility
 --------------------------------------------------------------------------------------------------
 calcMobility :: ChessPos -> ChessMove -> Int
-calcMobility cp mv =
+calcMobility cp _mv =
   let posMoves = cp ^. cpMoves
       posColor = _cpColor cp
       oppMoves = cp ^. cpOppNextMoves
       oppColor = flipPieceColor (_cpColor cp)
-      str = printf ("Color set for the pos being evaluated is: %s. "
-                    ++ "Mobility score after the move |%s| - "
-                    ++ "%s's empty: %d, %s's enemy: %d, "
-                    ++ "%s's empty: %d, %s's enemy: %d" )
-            (show (_cpColor cp))
-            (show (toParserMove mv))
-            (show posColor) (length (_cmEmpty posMoves)) (show posColor) (length (_cmEnemy posMoves))
-            (show oppColor) (length (_cmEmpty oppMoves)) (show oppColor) (length (_cmEnemy oppMoves))
+      -- str = printf ("Color set for the pos being evaluated is: %s. "
+      --               ++ "Mobility score after the move |%s| - "
+      --               ++ "%s's empty: %d, %s's enemy: %d, "
+      --               ++ "%s's empty: %d, %s's enemy: %d" )
+            -- (show (_cpColor cp))
+            -- (show (toParserMove mv))
+            -- (show posColor) (length (_cmEmpty posMoves)) (show posColor) (length (_cmEnemy posMoves))
+            -- (show oppColor) (length (_cmEmpty oppMoves)) (show oppColor) (length (_cmEnemy oppMoves))
       signFlip = if posColor == White then 1 else -1
-  in trace str
-    (signFlip * (length (posMoves ^. cmEmpty) + length (posMoves ^. cmEnemy )
+  -- in trace str
+  in (signFlip * (length (posMoves ^. cmEmpty) + length (posMoves ^. cmEnemy )
      -  length (oppMoves ^. cmEmpty) + length (oppMoves ^. cmEnemy)))
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the board, removing any captured piece.  Returns the updated node
@@ -796,9 +794,9 @@ dirLocs g idx dir =
                 enemy = hasEnemy g c x
                 (sqState, (newEmpties, newEnemies))
                     | not (onBoard x) = (OffBoard ,(empties, enemies))
-                    | enemy = (HasEnemy, (empties, ChessMove True idx x x : enemies))
+                    | enemy = (HasEnemy, (empties, ChessMove True idx x : enemies))
                     | friendly = (HasFriendly, (empties, enemies))
-                    | otherwise = (Empty, (ChessMove False idx x x : empties, enemies))
+                    | otherwise = (Empty, (ChessMove False idx x : empties, enemies))
             in (case sqState of
                 Empty -> loop (apply dir x) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
@@ -810,9 +808,9 @@ dirLocsSingle g idx c dir =
     let x = apply dir idx
     in
       if not (onBoard x) then ([], [])
-      else if hasEnemy g c x then ([], [ChessMove True idx x x])
+      else if hasEnemy g c x then ([], [ChessMove True idx x])
       else if hasFriendly g c x then ([], [])
-      else ([ChessMove False idx x (-1)],[]) -- empty square
+      else ([ChessMove False idx x ],[]) -- empty square
 
 onBoard :: Int -> Bool
 onBoard x
@@ -842,11 +840,10 @@ indexesToMove node (fromLoc : toLoc : []) =
     -- in Right $ ChessMove { _isExchange = isExch
     --                      , _startIdx = fromLoc
     --                      , _endIdx = toLoc
-    --                      , _removedIdx = removed }
+    --                      }
         ret = Right $ ChessMove { _isExchange = isExch
                                 , _startIdx = fromLoc
-                                , _endIdx = toLoc
-                                , _removedIdx = removed }
+                                , _endIdx = toLoc }
        in if isExch then
               let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
               in trace str ret

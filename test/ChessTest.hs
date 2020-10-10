@@ -153,7 +153,7 @@ chessTest = do
 --   , _cpMoves = ChessMoves
 --       { _cmEmpty = [], _cmEnemy = [], _cmFriendly = [] , _cmForColor = White
 --       , _cmAfterMove = ChessMove
---           { _isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1 } }
+--           { _isExchange = False, _startIdx = -1, _endIdx = -1 } }
 --   , _cpOppNextMoves = startingMoves $ flipPieceColor White }
 
 -- posFromGridB :: V.Vector Char -> ChessPos
@@ -162,7 +162,7 @@ chessTest = do
 --                           , _cpOppNextMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
 
 noMove :: ChessMove
-noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
+noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
