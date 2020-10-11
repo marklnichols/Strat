@@ -92,7 +92,7 @@ chessTest = do
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
-            let moves = calcMoveListsGrid board02 noMove White
+            let moves = calcMoveListsGrid board02 White
             let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
             f <$> emptyAndEnemy `shouldMatchList`
                [ (11,12), (13,24), (13,35), (13,46), (13,57), (13,68), (14,24), (14,25), (14,36)
@@ -127,42 +127,8 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
--- treeFromGridW :: V.Vector Char -> Tree ChessNode
--- treeFromGridW g = Node ChessNode
---     { _chessMv = noMove
---     , _chessVal = ChessEval {_total = 0, _details = ""}
---     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
---     , _chessPos = posFromGridW g } []
-
--- treeFromGridB :: V.Vector Char -> Tree ChessNode
--- treeFromGridB g = Node ChessNode
---     { _chessMv = noMove
---     , _chessVal = ChessEval {_total = 0, _details = ""}
---     , _chessErrorVal = ChessEval {_total = 0, _details = ""}
---     , _chessPos = posFromGridB g } []
-
--- nodeFromGridW :: V.Vector Char -> ChessNode
--- nodeFromGridW g = rootLabel $ treeFromGridW g
-
--- nodeFromGridB :: V.Vector Char -> ChessNode
--- nodeFromGridB g = rootLabel $ treeFromGridB g
-
--- posFromGridW :: V.Vector Char -> ChessPos
--- posFromGridW g = ChessPos
---   { _cpGrid = g, _cpColor = White, _cpFin = NotFinal
---   , _cpMoves = ChessMoves
---       { _cmEmpty = [], _cmEnemy = [], _cmFriendly = [] , _cmForColor = White
---       , _cmAfterMove = ChessMove
---           { _isExchange = False, _startIdx = -1, _endIdx = -1 } }
---   , _cpOppNextMoves = startingMoves $ flipPieceColor White }
-
--- posFromGridB :: V.Vector Char -> ChessPos
--- posFromGridB g = ChessPos { _cpGrid = g, _cpColor = Black, _cpFin = NotFinal
---                           , _cpMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []}
---                           , _cpOppNextMoves = ChessMoves {_cmEmpty = [], _cmEnemy = [], _cmFriendly = []} }
-
-noMove :: ChessMove
-noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
+-- noMove :: ChessMove
+-- noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions

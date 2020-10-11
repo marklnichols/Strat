@@ -97,18 +97,16 @@ intToParserLoc n =
 data ChessMoves = ChessMoves
   { _cmEmpty :: [ChessMove]
   , _cmEnemy :: [ChessMove]
-  , _cmForColor :: Color  -- for debugging output
-  , _cmAfterMove :: ChessMove } -- for debugging output
+  , _cmForColor :: Color }  -- for debugging output
   deriving (Eq)
 makeLenses ''ChessMoves
 
 instance Show ChessMoves where
-  show ChessMoves{..} = "Moves for color: " ++ show _cmForColor ++ " after the move: "
-    ++ show (toParserMove _cmAfterMove) ++ "\nEmpty: " ++ show _cmEmpty
-    ++ "\nEnemy: " ++ show _cmEnemy
+  show ChessMoves{..} = "Moves for color: " ++ show _cmForColor
+    ++  "\nEmpty: " ++ show _cmEmpty ++ "\nEnemy: " ++ show _cmEnemy
 
 data ChessPos = ChessPos { _cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState
-                         , _cpMoves :: ChessMoves, _cpOppNextMoves :: ChessMoves }  deriving (Show)
+                         }  deriving (Show)
 makeLenses ''ChessPos
 
 data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
@@ -329,9 +327,7 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 getStartNode :: Tree ChessNode
 getStartNode =
     let firstColor = White
-        cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor, _cpFin = NotFinal
-                        , _cpMoves = startingMoves firstColor
-                        , _cpOppNextMoves = startingMoves $ flipPieceColor firstColor }
+        cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor, _cpFin = NotFinal }
     in Node ChessNode
         { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
         , _chessVal = ChessEval { _total = 0, _details = "" }
@@ -339,29 +335,6 @@ getStartNode =
         , _chessPos = cPos}
 
       []
-
-startingMoves :: Color -> ChessMoves
-startingMoves White = ChessMoves
-  { _cmEmpty = foldr f [] [ (21,31), (21,41), (22,32), (22,42), (23,33), (23,43), (24,34), (24,44)
-                          , (25,35), (25,45), (26,36), (26,46), (27,37), (27,47), (28,38), (28,48)
-                          , (12,31), (12,33), (17,36), (17,38)]
-  , _cmEnemy = []
-  , _cmForColor = White
-  , _cmAfterMove = ChessMove { _isExchange = False, _startIdx = -1, _endIdx = -1 } }
-  where
-    f (start, end) acc = ChessMove { _isExchange = False, _startIdx = start
-                                   , _endIdx = end } : acc
-startingMoves _ = ChessMoves
-  { _cmEmpty = foldr f [] [ (71,61), (71,51), (72,62), (72,52), (73,63), (73,53), (74,64), (74,54)
-                          , (75,65), (75,55), (76,66), (76,56), (77,67), (77,57), (78,68), (78,58)
-                          , (82,61), (82,63), (87,66), (87,68)]
-  , _cmEnemy = []
-  , _cmForColor = Black
-  , _cmAfterMove = ChessMove { _isExchange = False, _startIdx = -1, _endIdx = -1 } }
-  where
-    f (start, end) acc = ChessMove { _isExchange = False, _startIdx = start
-                                   , _endIdx = end } : acc
-
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> V.Vector Char
@@ -438,28 +411,15 @@ noDirs = []
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
-    let myMoves = node ^. (chessPos . cpOppNextMoves)
+    let
         prevPos = node ^. chessPos
         prevGrid = prevPos ^. cpGrid
         newGrid = movePieceGrid prevGrid (mv ^. startIdx) (mv ^. endIdx)
         clrFlipped = flipPieceColor (prevPos ^. cpColor)
-        oppNextMoves = calcMoveListsGrid newGrid mv (prevPos ^. cpColor)
         newPos = prevPos { _cpGrid = newGrid
-                         , _cpColor = clrFlipped
-                         , _cpMoves = myMoves
-                         , _cpOppNextMoves = oppNextMoves }
-        (eval, finalSt) = evalPos newPos mv
+                         , _cpColor = clrFlipped }
+        (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
-
-        prevMv = show $ toParserMove $ _chessMv node
-        thisMv = show $ toParserMove $ mv
-        -- str = printf ("Done with calcNewNode - new node created from the move: %s "
-        --                ++ "(previous move: %s) The next turn is by color: %s"
-        --                ++ " The number of move choices for the next turn is : |%d|%d|")
-        --              thisMv prevMv (show clrFlipped)
-        --              (length (_cmEmpty myMoves))
-        --              (length (_cmEnemy myMoves))
-    -- in trace str $
     in ChessNode { _chessMv = mv , _chessVal = eval
                  , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
                  , _chessPos = updatedPos }
@@ -474,10 +434,10 @@ flipPieceColor Unknown = Unknown
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
 --------------------------------------------------------------------------------------------------
-evalPos :: ChessPos -> ChessMove -> (ChessEval, FinalState)
-evalPos pos mv =
+evalPos :: ChessPos -> (ChessEval, FinalState)
+evalPos pos =
      let material = countMaterial (pos ^. cpGrid)
-         mobility = calcMobility pos mv
+         mobility = calcMobility pos
          t = (material * 5 ) + mobility
          detailsStr = "Material (x 5): " ++ show material
                 ++ "\n Mobility (x 1): " ++ show mobility
@@ -500,26 +460,34 @@ countMaterial = V.foldr f 0
 
 ---------------------------------------------------------------------------------------------------
 -- Calculate the 'mobility' score for the pieces on the board
--- TODO: correct this, needs to be white mobility - black mobility
 --------------------------------------------------------------------------------------------------
-calcMobility :: ChessPos -> ChessMove -> Int
-calcMobility cp _mv =
-  let posMoves = cp ^. cpMoves
-      posColor = _cpColor cp
-      oppMoves = cp ^. cpOppNextMoves
-      oppColor = flipPieceColor (_cpColor cp)
-      -- str = printf ("Color set for the pos being evaluated is: %s. "
-      --               ++ "Mobility score after the move |%s| - "
-      --               ++ "%s's empty: %d, %s's enemy: %d, "
-      --               ++ "%s's empty: %d, %s's enemy: %d" )
-            -- (show (_cpColor cp))
-            -- (show (toParserMove mv))
-            -- (show posColor) (length (_cmEmpty posMoves)) (show posColor) (length (_cmEnemy posMoves))
-            -- (show oppColor) (length (_cmEmpty oppMoves)) (show oppColor) (length (_cmEnemy oppMoves))
-      signFlip = if posColor == White then 1 else -1
-  -- in trace str
-  in (signFlip * (length (posMoves ^. cmEmpty) + length (posMoves ^. cmEnemy )
-     -  length (oppMoves ^. cmEmpty) + length (oppMoves ^. cmEnemy)))
+calcMobility :: ChessPos -> Int
+calcMobility cp =
+  let g = cp ^. cpGrid
+      wLocs = locsForColor g White
+      wCnt = moveCountFromLocs g wLocs
+      bLocs = locsForColor g Black
+      bCnt = moveCountFromLocs g bLocs
+   in wCnt - bCnt
+
+moveCountFromLocs :: Vector Char -> [Int] -> Int
+moveCountFromLocs g =
+  foldr f 0 where
+    f :: Int -> Int -> Int
+    f loc r =
+      let cnt = moveCountFromLoc g loc
+      in cnt + r
+
+moveCountFromLoc :: Vector Char -> Int -> Int
+moveCountFromLoc g loc =
+  let cp = indexToPiece g loc -- ChessPiece (k :: SomeSing Piece)
+  in case cp of
+      MkChessPiece _c (SomeSing SQueen) -> queenMobility g loc
+      MkChessPiece _c (SomeSing SRook) -> rookMobility g loc
+      MkChessPiece _c (SomeSing SKnight) -> knightMobility g loc
+      MkChessPiece _c (SomeSing SBishop) -> bishopMobility g loc
+      MkChessPiece _c (SomeSing _) -> 0
+
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the board, removing any captured piece.  Returns the updated node
 --------------------------------------------------------------------------------------------------
@@ -555,8 +523,10 @@ checkPromote _g chPiece _toLoc = chPiece
 --------------------------------------------------------------------------------------------------
 legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
-    let moves = node ^. (chessPos . cpMoves)
-    in (moves ^. cmEmpty) ++ (moves ^. cmEnemy)
+    let pos = node ^. chessPos
+        g = pos ^. cpGrid
+        moves = calcMoveListsGrid g (pos ^. cpColor)
+    in _cmEmpty moves ++ _cmEnemy moves
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for the current color from a ChessNode
@@ -623,20 +593,22 @@ isEmpty pos idx = fromMaybe empty (_cpGrid pos ^? ix idx) == empty
 isEmpty' :: ChessNode -> Int -> Bool
 isEmpty' node = isEmpty (_chessPos node )
 
+isEmptyGrid :: Vector Char -> Int -> Bool
+isEmptyGrid g idx =  fromMaybe empty (g ^? ix idx) == empty
+
 pairToIndexes :: ([ChessMove], [ChessMove]) -> ([Int], [Int])
 pairToIndexes (xs, ys) = (_endIdx <$> xs, _endIdx <$> ys)
 
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all possible moves for the given position & the position's color
 ----------------------------------------------------------------------------------------------------
-calcMoveListsGrid :: Vector Char -> ChessMove -> Color -> ChessMoves
-calcMoveListsGrid g mv c =
+calcMoveListsGrid :: Vector Char -> Color -> ChessMoves
+calcMoveListsGrid g c =
     let (_empty, enemy) = pieceDestinations g c
     in ChessMoves
       { _cmEmpty = _empty
       , _cmEnemy = enemy
-      , _cmForColor = c
-      , _cmAfterMove = mv }
+      , _cmForColor = c }
 
 pieceDestinations :: Vector Char -> Color -> ([ChessMove], [ChessMove])
 pieceDestinations g c =
@@ -679,6 +651,15 @@ allowableMultiMoves pieceDirs g idx =
         let (freeLocs, captureLocs) = dirLocs g idx x
         in (freeLocs ++ r, captureLocs ++ r')
 
+multiMoveMobility :: [Dir] -> Vector Char -> Int -> Int
+multiMoveMobility pieceDirs g idx =
+  foldr f 0 pieceDirs
+    where
+      f :: Dir -> Int -> Int
+      f x r =
+        let count = dirLocsCount g idx x
+        in count + r
+
 -- find the destination locs for pieces that move one square in a given
 -- direction (i.e., King and Knight). See @allowableMultiMoves
 allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove])
@@ -691,21 +672,42 @@ allowableSingleMoves pieceDirs g idx =
         let (freeLocs, captureLocs) = dirLocsSingle g idx c x
         in (freeLocs ++ r, captureLocs ++ r')
 
+singleMoveMobility :: [Dir] -> Vector Char -> Int -> Int
+singleMoveMobility pieceDirs g idx =
+  foldr f 0 pieceDirs
+    where
+      f :: Dir -> Int -> Int
+      f x r =
+        let count = dirLocsSingleCount g idx x
+        in count + r
+
 -- find the allowable destination locs for a queen.
 allowableQueenMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableQueenMoves = allowableMultiMoves queenDirs
+
+queenMobility :: Vector Char -> Int -> Int
+queenMobility = multiMoveMobility queenDirs
 
 -- find the allowable destination locs for a rook
 allowableRookMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableRookMoves = allowableMultiMoves rookDirs
 
+rookMobility :: Vector Char -> Int -> Int
+rookMobility = multiMoveMobility rookDirs
+
 -- find the allowable destination locs for a bishop
 allowableBishopMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableBishopMoves = allowableMultiMoves bishopDirs
 
+bishopMobility :: Vector Char -> Int -> Int
+bishopMobility = multiMoveMobility bishopDirs
+
 -- find the possible destination locs for a knight
 allowableKnightMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableKnightMoves = allowableSingleMoves knightDirs
+
+knightMobility :: Vector Char -> Int -> Int
+knightMobility = singleMoveMobility knightDirs
 
 allowablePawnMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowablePawnMoves g idx =
@@ -801,6 +803,16 @@ dirLocs g idx dir =
                 Empty -> loop (apply dir x) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
+dirLocsCount :: Vector Char -> Int -> Dir -> Int
+dirLocsCount g idx dir =
+    loop (apply dir idx) 0
+      where
+        c = indexToColor g idx
+        loop x count
+            | not (onBoard x) = count
+            | isEmptyGrid g x = loop (apply dir x) count+1
+            | otherwise = count
+
 -- Same as dirLocs, but for pieces that move only one square in a given "direction"
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
 dirLocsSingle :: Vector Char -> Int -> Color -> Dir ->([ChessMove], [ChessMove])
@@ -811,6 +823,14 @@ dirLocsSingle g idx c dir =
       else if hasEnemy g c x then ([], [ChessMove True idx x])
       else if hasFriendly g c x then ([], [])
       else ([ChessMove False idx x ],[]) -- empty square
+
+dirLocsSingleCount :: Vector Char -> Int -> Dir -> Int
+dirLocsSingleCount g idx dir =
+    let x = apply dir idx
+    in
+      if not (onBoard x) then 0
+      else if isEmptyGrid g x then 1
+      else 0
 
 onBoard :: Int -> Bool
 onBoard x
