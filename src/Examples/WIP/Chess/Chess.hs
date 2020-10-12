@@ -62,6 +62,7 @@ import qualified CkParser as Parser -- TODO: rename this to be more general
 import Strat.StratTree.TreeNode
 import Debug.Trace
 
+
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
@@ -72,6 +73,15 @@ data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: In
     deriving (Eq, Ord)
 makeLenses ''ChessMove
 
+toParserMove :: ChessMove -> Parser.Move
+toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
+
+intToParserLoc :: Int -> Parser.Loc
+intToParserLoc n =
+    let r = n `div` 10
+        c = chr $ 64 + (n - r * 10)
+    in Parser.Loc c r
+
 instance Show ChessMove where
   show cm@ChessMove{..} =
     let pm = show $ toParserMove cm
@@ -81,17 +91,19 @@ instance Show ChessMove where
 data Color = Black | White | Unknown
     deriving (Show, Eq)
 
----------------------------------------------------------------------------------------------------
--- Convert ChessMove to Parser Move (for display)
----------------------------------------------------------------------------------------------------
-toParserMove :: ChessMove -> Parser.Move
-toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
+data Castling = Castled
+              | LeftOnlyAvailable
+              | RightOnlyAvailable
+              | BothAvailable
+              | Unavailable
+  deriving (Eq, Show)
 
-intToParserLoc :: Int -> Parser.Loc
-intToParserLoc n =
-    let r = n `div` 10
-        c = chr $ 64 + (n - r * 10)
-    in Parser.Loc c r
+data CastlingState = CastlingState
+  { _csWhiteCastling :: Castling
+  , _csBlackCastling :: Castling }
+  deriving (Show, Eq)
+makeLenses ''CastlingState
+
 ---------------------------------------------------------------------------------------------------
 
 data ChessMoves = ChessMoves
@@ -105,7 +117,8 @@ instance Show ChessMoves where
   show ChessMoves{..} = "Moves for color: " ++ show _cmForColor
     ++  "\nEmpty: " ++ show _cmEmpty ++ "\nEnemy: " ++ show _cmEnemy
 
-data ChessPos = ChessPos { _cpGrid :: Vector Char, _cpColor :: Color, _cpFin :: FinalState
+data ChessPos = ChessPos { _cpGrid :: Vector Char, _cpColor :: Color
+                         , _cpCastlingState :: CastlingState, _cpFin :: FinalState
                          }  deriving (Show)
 makeLenses ''ChessPos
 
@@ -327,7 +340,11 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 getStartNode :: Tree ChessNode
 getStartNode =
     let firstColor = White
-        cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor, _cpFin = NotFinal }
+        cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor
+                        , _cpCastlingState = CastlingState
+                          { _csWhiteCastling = BothAvailable
+                          , _csBlackCastling = BothAvailable }
+                        , _cpFin = NotFinal }
     in Node ChessNode
         { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
         , _chessVal = ChessEval { _total = 0, _details = "" }
@@ -414,8 +431,10 @@ calcNewNode node mv =
     let
         prevPos = node ^. chessPos
         prevGrid = prevPos ^. cpGrid
+        prevColor = prevPos ^. cpColor
+        newCastling = updateCastling prevColor prevGrid (prevPos ^. cpCastlingState) mv
         newGrid = movePieceGrid prevGrid (mv ^. startIdx) (mv ^. endIdx)
-        clrFlipped = flipPieceColor (prevPos ^. cpColor)
+        clrFlipped = flipPieceColor prevColor
         newPos = prevPos { _cpGrid = newGrid
                          , _cpColor = clrFlipped }
         (eval, finalSt) = evalPos newPos
@@ -430,6 +449,20 @@ flipPieceColor White = Black
 flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
+---------------------------------------------------------------------------------------------------
+-- TODO: change state on rook moves as well
+updateCastling :: Color -> Vector Char -> CastlingState -> ChessMove -> CastlingState
+updateCastling White g oldState mv =
+  let piece = indexToPiece g (mv ^. startIdx)
+  in case piece of
+    (MkChessPiece _c (SomeSing SKing)) -> oldState { _csWhiteCastling = Unavailable }
+    (MkChessPiece _c (SomeSing _)) -> oldState
+updateCastling _ g oldState mv =
+  let piece = indexToPiece g (mv ^. startIdx)
+  in case piece of
+    (MkChessPiece _c (SomeSing SKing)) -> oldState { _csBlackCastling = Unavailable }
+    (MkChessPiece _c (SomeSing _)) -> oldState
+
 --TODO: add more evaluations and set the FinalState appropirately
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
@@ -438,9 +471,11 @@ evalPos :: ChessPos -> (ChessEval, FinalState)
 evalPos pos =
      let material = countMaterial (pos ^. cpGrid)
          mobility = calcMobility pos
-         t = (material * 5 ) + mobility
-         detailsStr = "Material (x 5): " ++ show material
-                ++ "\n Mobility (x 1): " ++ show mobility
+         castling = calcCastling pos
+         t = (material * 10 ) + mobility + (castling * 10)
+         detailsStr = "\n\tMaterial (x 10): " ++ show (material * 10)
+                ++ "\n\tMobility (x 1): " ++ show mobility
+                ++ "\n\tCastling (x 10): " ++ show (castling * 10)
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -469,6 +504,23 @@ calcMobility cp =
       bLocs = locsForColor g Black
       bCnt = moveCountFromLocs g bLocs
    in wCnt - bCnt
+
+---------------------------------------------------------------------------------------------------
+-- Calculate the castling score for the position
+--------------------------------------------------------------------------------------------------
+calcCastling :: ChessPos -> Int
+calcCastling cp =
+  let castlingState = cp ^. cpCastlingState
+  in castlingToAbsVal (castlingState ^. csWhiteCastling)
+  - castlingToAbsVal (castlingState ^. csBlackCastling)
+
+
+castlingToAbsVal :: Castling -> Int
+castlingToAbsVal Castled = 3
+castlingToAbsVal Unavailable = -3
+castlingToAbsVal BothAvailable = 0
+castlingToAbsVal LeftOnlyAvailable = -1
+castlingToAbsVal RightOnlyAvailable = -1
 
 moveCountFromLocs :: Vector Char -> [Int] -> Int
 moveCountFromLocs g =
