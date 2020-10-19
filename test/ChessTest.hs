@@ -3,9 +3,11 @@
 module ChessTest (chessTest) where
 
 import Test.Hspec
+import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
 import Chess
+import Strat.StratTree.TreeNode
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -17,24 +19,28 @@ chessTest = do
             -- getPieceLocs (nodeFromGridB board01) `shouldMatchList`
             locsForColor board01 Black `shouldMatchList`
               [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
-    describe "possibleKingMoves" $
+    describe "allowableKingMoves" $
         it "Gets the possible moves for a king" $ do
-            let (empties, enemies) = pairToIndexes $ possibleKingMoves board01 12
+            let (empties, enemies) = pairToIndexes White
+                  $ allowableKingMoves (posFromGrid board01 White castled) 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
-            let (empties2, enemies2) = pairToIndexes $ possibleKingMoves board01 87
+            let (empties2, enemies2) = pairToIndexes Black
+                  $ allowableKingMoves (posFromGrid board01 Black castled) 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
-            let (empties, enemies) =  pairToIndexes $ allowableQueenMoves board01 46
+            let (empties, enemies) =  pairToIndexes  White
+                  $ allowableQueenMoves board01 46
             empties `shouldMatchList`
                 [47,48 -- left/right
                 ,36,56 -- up/down
                 ,24,35 -- LL/UR
                 ,28,37,55,64,73,82] -- LR, UL
             enemies `shouldMatchList` [66]
-            let (empties2, enemies2) = pairToIndexes $ allowableQueenMoves board01 62
+            let (empties2, enemies2) = pairToIndexes Black
+                  $ allowableQueenMoves board01 62
             empties2 `shouldMatchList`
                 [63, 64 -- L/R
                 ,32,42,52,72,82 -- U/D
@@ -43,30 +49,36 @@ chessTest = do
             enemies2 `shouldMatchList` [22, 53]
     describe "allowableRookMoves" $
         it "Gets the allowable moves for a rook" $ do
-            let (empties, enemies) = pairToIndexes $ allowableRookMoves board01 13
+            let (empties, enemies) = pairToIndexes White
+                  $ allowableRookMoves board01 13
             empties `shouldMatchList` [14,15,16,17,18 -- L/R
                                       ,23] -- U/D
             enemies `shouldMatchList` []
-            let (empties2, enemies2) = pairToIndexes $ allowableRookMoves board01 83
+            let (empties2, enemies2) = pairToIndexes Black
+                  $ allowableRookMoves board01 83
             empties2 `shouldMatchList` [81,82,84,85 -- L/R
                                        ,73,63] -- U/D
             enemies2 `shouldMatchList` [53]
     describe "allowableBishopMoves" $
         it "Gets the allowable moves for a bishop" $ do
-            let (empties, enemies) = pairToIndexes $ allowableBishopMoves board01 43
+            let (empties, enemies) = pairToIndexes White
+                  $ allowableBishopMoves board01 43
             empties `shouldMatchList` [32,54 -- LL/UR
                                       ,34,52] -- LR/UL
             enemies `shouldMatchList` [61, 65]
-            let (empties2, enemies2) = pairToIndexes $ allowableBishopMoves board01 65
+            let (empties2, enemies2) = pairToIndexes Black
+                  $ allowableBishopMoves board01 65
             empties2 `shouldMatchList` [54,76 -- LL/UR
                                        ,38,47,56,74] -- LR/UL
             enemies2 `shouldMatchList` [43]
     describe "allowableKnightMoves" $
         it "Gets the allowable moves for a knight" $ do
-            let (empties, enemies) = pairToIndexes $ allowableKnightMoves board01 45
+            let (empties, enemies) = pairToIndexes White
+                  $ allowableKnightMoves board01 45
             empties `shouldMatchList` [24,37,64]
             enemies `shouldMatchList` [66]
-            let (empties2, enemies2) = pairToIndexes $ allowableKnightMoves board01 53
+            let (empties2, enemies2) = pairToIndexes White
+                  $ allowableKnightMoves board01 53
             empties2 `shouldMatchList` [32,34,41,72,74]
             enemies2 `shouldMatchList` [61,65]
     describe "allowablePawnNonCaptures" $
@@ -79,10 +91,12 @@ chessTest = do
 
     describe "allowablePawnCaptures" $
         it "Gets the allowable capturing moves for a pawn" $ do
-            let (empties, enemies) = pairToIndexes $ allowablePawnCaptures board01 57
+            let (empties, enemies) = pairToIndexes White
+                  $ allowablePawnCaptures board01 57
             empties `shouldMatchList` [68]
             enemies `shouldMatchList` [66]
-            let (empties2, enemies2) = pairToIndexes $ allowablePawnCaptures board01 78
+            let (empties2, enemies2) = pairToIndexes Black
+                  $ allowablePawnCaptures board01 78
             empties2 `shouldMatchList` []
             enemies2 `shouldMatchList` []
     describe "allowableEnPassant" $
@@ -92,7 +106,7 @@ chessTest = do
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
-            let moves = calcMoveListsGrid board02 White
+            let moves = calcMoveLists (posFromGrid board02 White allCastling)
             let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
             f <$> emptyAndEnemy `shouldMatchList`
                [ (11,12), (13,24), (13,35), (13,46), (13,57), (13,68), (14,24), (14,25), (14,36)
@@ -127,8 +141,19 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
--- noMove :: ChessMove
--- noMove = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
+posFromGrid :: Vector Char -> Color -> CastlingState -> ChessPos
+posFromGrid g c castlingSt = ChessPos
+  { _cpGrid = g, _cpColor = c, _cpCastlingState = castlingSt, _cpFin = NotFinal }
+
+castled :: CastlingState
+castled = CastlingState
+  { _csWhiteCastling = Castled
+  , _csBlackCastling = Castled }
+
+allCastling :: CastlingState
+allCastling = CastlingState
+  { _csWhiteCastling = BothAvailable
+  , _csBlackCastling = BothAvailable }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions

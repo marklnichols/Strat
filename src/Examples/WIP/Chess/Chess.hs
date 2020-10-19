@@ -18,7 +18,9 @@
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
 module Chess
-    ( ChessEval(..), total, details
+    ( Castling(..)
+    , CastlingState(..)
+    , ChessEval(..), total, details
     , ChessMove(..), isExchange, startIdx, endIdx
     , ChessMoves(..), cmEmpty, cmEnemy
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
@@ -33,13 +35,13 @@ module Chess
     , getPieceLocs
     , allowableBishopMoves
     , allowableKnightMoves
-    , possibleKingMoves
+    , allowableKingMoves
     , allowableEnPassant
     , allowablePawnNonCaptures
     , allowablePawnCaptures
     , allowableQueenMoves
     , allowableRookMoves
-    , calcMoveListsGrid
+    , calcMoveLists
     , locsForColor
     , pairToIndexes
     , startingBoard
@@ -69,12 +71,19 @@ import Debug.Trace
 empty :: Char
 empty = ' '
 
-data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int}
-    deriving (Eq, Ord)
+data Castle = QueenSide | KingSide
+  deriving (Eq, Ord, Show)
+
+-- data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int}
+data ChessMove
+  = StdMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int}
+  | CastlingMove Castle
+  deriving (Show, Eq, Ord)
 makeLenses ''ChessMove
 
 toParserMove :: ChessMove -> Parser.Move
-toParserMove mv = Parser.Move $ intToParserLoc (mv^.startIdx) : [intToParserLoc (mv^.endIdx)]
+toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
+toParserMove (CastlingMove _castle) = undefined
 
 intToParserLoc :: Int -> Parser.Loc
 intToParserLoc n =
@@ -82,18 +91,18 @@ intToParserLoc n =
         c = chr $ 64 + (n - r * 10)
     in Parser.Loc c r
 
-instance Show ChessMove where
-  show cm@ChessMove{..} =
-    let pm = show $ toParserMove cm
-        exch = if _isExchange then " [Exchange]" else ""
-    in pm ++ exch
+-- instance Show ChessMove where
+--   show cm@ChessMove{..} =
+--     let pm = show $ toParserMove cm
+--         exch = if _isExchange then " [Exchange]" else ""
+--     in pm ++ exch
 
 data Color = Black | White | Unknown
     deriving (Show, Eq)
 
 data Castling = Castled
-              | LeftOnlyAvailable
-              | RightOnlyAvailable
+              | KingSideOnlyAvailable
+              | QueenSideOnlyAvailable
               | BothAvailable
               | Unavailable
   deriving (Eq, Show)
@@ -346,7 +355,7 @@ getStartNode =
                           , _csBlackCastling = BothAvailable }
                         , _cpFin = NotFinal }
     in Node ChessNode
-        { _chessMv = ChessMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
+        { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
         , _chessVal = ChessEval { _total = 0, _details = "" }
         , _chessErrorVal = ChessEval { _total = 0, _details = "" }
         , _chessPos = cPos}
@@ -433,7 +442,10 @@ calcNewNode node mv =
         prevGrid = prevPos ^. cpGrid
         prevColor = prevPos ^. cpColor
         newCastling = updateCastling prevColor prevGrid (prevPos ^. cpCastlingState) mv
-        newGrid = movePieceGrid prevGrid (mv ^. startIdx) (mv ^. endIdx)
+        newGrid = case mv of
+          StdMove _isExch start end ->
+            movePiece' prevGrid start end
+          CastlingMove castle -> castle' prevGrid prevColor castle
         clrFlipped = flipPieceColor prevColor
         newPos = prevPos { _cpGrid = newGrid
                          , _cpColor = clrFlipped }
@@ -453,15 +465,21 @@ flipPieceColor Unknown = Unknown
 -- TODO: change state on rook moves as well
 updateCastling :: Color -> Vector Char -> CastlingState -> ChessMove -> CastlingState
 updateCastling White g oldState mv =
-  let piece = indexToPiece g (mv ^. startIdx)
-  in case piece of
-    (MkChessPiece _c (SomeSing SKing)) -> oldState { _csWhiteCastling = Unavailable }
-    (MkChessPiece _c (SomeSing _)) -> oldState
+  case mv of
+    StdMove _isExch start _end ->
+      let piece = indexToPiece g start
+      in case piece of
+        (MkChessPiece _c (SomeSing SKing)) -> oldState { _csWhiteCastling = Unavailable }
+        (MkChessPiece _c (SomeSing _)) -> oldState
+    CastlingMove _ -> oldState { _csWhiteCastling = Castled }
 updateCastling _ g oldState mv =
-  let piece = indexToPiece g (mv ^. startIdx)
-  in case piece of
-    (MkChessPiece _c (SomeSing SKing)) -> oldState { _csBlackCastling = Unavailable }
-    (MkChessPiece _c (SomeSing _)) -> oldState
+  case mv of
+    StdMove _isExch start _end ->
+      let piece = indexToPiece g start
+      in case piece of
+        (MkChessPiece _c (SomeSing SKing)) -> oldState { _csBlackCastling = Unavailable }
+        (MkChessPiece _c (SomeSing _)) -> oldState
+    CastlingMove _ -> oldState { _csBlackCastling = Castled }
 
 --TODO: add more evaluations and set the FinalState appropirately
 ---------------------------------------------------------------------------------------------------
@@ -519,8 +537,8 @@ castlingToAbsVal :: Castling -> Int
 castlingToAbsVal Castled = 3
 castlingToAbsVal Unavailable = -3
 castlingToAbsVal BothAvailable = 0
-castlingToAbsVal LeftOnlyAvailable = -1
-castlingToAbsVal RightOnlyAvailable = -1
+castlingToAbsVal KingSideOnlyAvailable = -1
+castlingToAbsVal QueenSideOnlyAvailable = -1
 
 moveCountFromLocs :: Vector Char -> [Int] -> Int
 moveCountFromLocs g =
@@ -545,7 +563,7 @@ moveCountFromLoc g loc =
 --------------------------------------------------------------------------------------------------
 movePiece :: ChessNode -> Int -> Int -> ChessNode
 movePiece node pFrom pTo =
-    let newGrid = movePieceGrid (node ^. (chessPos . cpGrid)) pFrom pTo
+    let newGrid = movePiece' (node ^. (chessPos . cpGrid)) pFrom pTo
     in set (chessPos . cpGrid) newGrid node
 
 -- removePiece :: ChessNode -> Int -> ChessNode
@@ -554,17 +572,31 @@ movePiece node pFrom pTo =
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the grid vector, removing any captured piece.  Returns the updated grid
 --------------------------------------------------------------------------------------------------
-movePieceGrid :: Vector Char -> Int -> Int -> Vector Char
-movePieceGrid g pFrom pTo =
+movePiece' :: Vector Char -> Int -> Int -> Vector Char
+movePiece' g pFrom pTo =
     let pieceChar = g ^? ix pFrom
     in case pieceChar of
         Nothing -> g
         Just ch -> let z = checkPromote g ch pTo
                        p = set (ix pTo) z g
-                   in removePieceGrid p pFrom
+                   in removePiece' p pFrom
 
-removePieceGrid :: Vector Char -> Int -> Vector Char
-removePieceGrid g idx = set (ix idx) empty g
+castle' :: Vector Char -> Color -> Castle -> Vector Char
+castle' g White KingSide =
+  let gTemp = movePiece' g 15 17
+  in movePiece' gTemp 18 16
+castle' g White QueenSide =
+  let gTemp = movePiece' g 15 13
+  in movePiece' gTemp 11 14
+castle' g _ KingSide =
+  let gTemp = movePiece' g 85 87
+  in movePiece' gTemp 88 86
+castle' g _ QueenSide =
+  let gTemp = movePiece' g 85 83
+  in movePiece' gTemp 88 84
+
+removePiece' :: Vector Char -> Int -> Vector Char
+removePiece' g idx = set (ix idx) empty g
 
 -- TODO: currently not implemented
 checkPromote :: Vector Char -> Char -> Int -> Char
@@ -576,8 +608,7 @@ checkPromote _g chPiece _toLoc = chPiece
 legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
     let pos = node ^. chessPos
-        g = pos ^. cpGrid
-        moves = calcMoveListsGrid g (pos ^. cpColor)
+        moves = calcMoveLists pos
     in _cmEmpty moves ++ _cmEnemy moves
 
 ---------------------------------------------------------------------------------------------------
@@ -615,17 +646,44 @@ flipCharColor ch =
     White -> chr $ ord ch + 32
     Unknown -> ch
 
--- The function 'allowableKingMoves' later filters out the moves that would allow the enemy to
--- capture the king
-possibleKingMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
-possibleKingMoves = allowableSingleMoves kingDirs
+allowableKingMoves :: ChessPos -> Int -> ([ChessMove], [ChessMove])
+allowableKingMoves pos loc =
+    let g = pos ^. cpGrid
+        castleMvs = castleMoves pos
+        (empties, enemies) = allowableSingleMoves kingDirs g loc
+    in (castleMvs ++ empties, enemies)
 
--- TODO: this will probably become 'allowableKingMoves'
-legalKingMoves :: ChessPos -> Map Int Bool -> Int -> [ChessMove]
-legalKingMoves _pos _defendedMap _idx = error "legalKindMoves is undefined"
-    -- let locs = possibleKingMoves (pos^.cpGrid) idx
-    --     indexes = filter (kingFilter (pos ^.cpGrid) defendedMap (pos^.cpColor)) locs
-    -- in  destinationsToMoves idx indexes
+castleMoves :: ChessPos -> [ChessMove]
+castleMoves pos@ChessPos{..} =
+  let castling = if _cpColor == White
+        then _csWhiteCastling _cpCastlingState
+        else _csBlackCastling _cpCastlingState
+  in case castling of
+      Unavailable -> []
+      Castled -> []
+      KingSideOnlyAvailable -> kingSideCastlingMove pos _cpColor
+      QueenSideOnlyAvailable -> queenSideCastlingMove pos _cpColor
+      BothAvailable -> kingSideCastlingMove pos _cpColor
+                    ++ queenSideCastlingMove pos _cpColor
+
+-- singleton list or empty list
+-- TODO: These functions do not yet handle the case where the square the king passes over while casteling
+-- is 'in Check' by the opponent
+kingSideCastlingMove :: ChessPos -> Color -> [ChessMove]
+kingSideCastlingMove pos White =
+  if isEmpty pos 16 && isEmpty pos 17 then [CastlingMove KingSide]
+  else []
+kingSideCastlingMove pos _ =
+  if isEmpty pos 86 && isEmpty pos 87 then [CastlingMove KingSide]
+  else []
+
+queenSideCastlingMove :: ChessPos -> Color -> [ChessMove]
+queenSideCastlingMove pos White =
+  if isEmpty pos 13 && isEmpty pos 14 then [CastlingMove QueenSide]
+  else []
+queenSideCastlingMove pos _ =
+  if isEmpty pos 83 && isEmpty pos 84 then [CastlingMove KingSide]
+  else []
 
 -- kingFilter :: Vector Char -> Map Int Bool -> Color -> Int -> Bool
 -- kingFilter g defendedMap c idx =
@@ -648,38 +706,48 @@ isEmpty' node = isEmpty (_chessPos node )
 isEmptyGrid :: Vector Char -> Int -> Bool
 isEmptyGrid g idx =  fromMaybe empty (g ^? ix idx) == empty
 
-pairToIndexes :: ([ChessMove], [ChessMove]) -> ([Int], [Int])
-pairToIndexes (xs, ys) = (_endIdx <$> xs, _endIdx <$> ys)
+pairToIndexes :: Color -> ([ChessMove], [ChessMove]) -> ([Int], [Int])
+pairToIndexes c (xs, ys) = ( fmap (moveToIndex c) xs
+                           , fmap (moveToIndex c) ys)
+
+moveToIndex :: Color -> ChessMove -> Int
+moveToIndex White (CastlingMove KingSide) = 17
+moveToIndex White (CastlingMove QueenSide) = 13
+moveToIndex _ (CastlingMove KingSide) = 87
+moveToIndex _ (CastlingMove QueenSide) = 83
+moveToIndex _ StdMove{..} = _endIdx
 
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all possible moves for the given position & the position's color
 ----------------------------------------------------------------------------------------------------
-calcMoveListsGrid :: Vector Char -> Color -> ChessMoves
-calcMoveListsGrid g c =
-    let (_empty, enemy) = pieceDestinations g c
+calcMoveLists :: ChessPos -> ChessMoves
+calcMoveLists pos =
+    let c = _cpColor pos
+        (_empty, enemy) = pieceDestinations pos c
     in ChessMoves
       { _cmEmpty = _empty
       , _cmEnemy = enemy
       , _cmForColor = c }
 
-pieceDestinations :: Vector Char -> Color -> ([ChessMove], [ChessMove])
-pieceDestinations g c =
-  let locs = locsForColor g c
-  in movesFromLocs g locs
+pieceDestinations :: ChessPos -> Color -> ([ChessMove], [ChessMove])
+pieceDestinations pos c =
+  let locs = locsForColor (_cpGrid pos) c
+  in movesFromLocs pos locs
 
-movesFromLocs :: Vector Char -> [Int] -> ([ChessMove], [ChessMove])
-movesFromLocs g =
-  foldr f ([], []) where
-    f :: Int -> ([ChessMove], [ChessMove]) -> ([ChessMove], [ChessMove])
-    f loc (r1, r2) =
-      let (xs, ys) = movesFromLoc g loc
-      in (xs ++ r1, ys ++ r2)
+movesFromLocs :: ChessPos -> [Int] -> ([ChessMove], [ChessMove])
+movesFromLocs pos =
+  let f :: Int -> ([ChessMove], [ChessMove]) -> ([ChessMove], [ChessMove])
+      f loc (r1, r2) =
+        let (xs, ys) = movesFromLoc pos loc
+        in (xs ++ r1, ys ++ r2)
+  in foldr f ([], [])
 
-movesFromLoc :: Vector Char -> Int -> ([ChessMove], [ChessMove])
-movesFromLoc g loc =
+movesFromLoc :: ChessPos -> Int -> ([ChessMove], [ChessMove])
+movesFromLoc pos loc =
   let cp = indexToPiece g loc -- ChessPiece (k :: SomeSing Piece)
+      g = _cpGrid pos
   in case cp of
-      MkChessPiece _c (SomeSing SKing) -> possibleKingMoves g loc
+      MkChessPiece _c (SomeSing SKing) -> allowableKingMoves pos loc
       MkChessPiece _c (SomeSing SQueen) -> allowableQueenMoves g loc
       MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
       MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
@@ -848,9 +916,9 @@ dirLocs g idx dir =
                 enemy = hasEnemy g c x
                 (sqState, (newEmpties, newEnemies))
                     | not (onBoard x) = (OffBoard ,(empties, enemies))
-                    | enemy = (HasEnemy, (empties, ChessMove True idx x : enemies))
+                    | enemy = (HasEnemy, (empties, StdMove True idx x : enemies))
                     | friendly = (HasFriendly, (empties, enemies))
-                    | otherwise = (Empty, (ChessMove False idx x : empties, enemies))
+                    | otherwise = (Empty, (StdMove False idx x : empties, enemies))
             in (case sqState of
                 Empty -> loop (apply dir x) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
@@ -872,9 +940,9 @@ dirLocsSingle g idx c dir =
     let x = apply dir idx
     in
       if not (onBoard x) then ([], [])
-      else if hasEnemy g c x then ([], [ChessMove True idx x])
+      else if hasEnemy g c x then ([], [StdMove True idx x])
       else if hasFriendly g c x then ([], [])
-      else ([ChessMove False idx x ],[]) -- empty square
+      else ([StdMove False idx x ],[]) -- empty square
 
 dirLocsSingleCount :: Vector Char -> Int -> Dir -> Int
 dirLocsSingleCount g idx dir =
@@ -913,9 +981,9 @@ indexesToMove node (fromLoc : toLoc : []) =
     --                      , _startIdx = fromLoc
     --                      , _endIdx = toLoc
     --                      }
-        ret = Right $ ChessMove { _isExchange = isExch
-                                , _startIdx = fromLoc
-                                , _endIdx = toLoc }
+        ret = Right $ StdMove { _isExchange = isExch
+                              , _startIdx = fromLoc
+                              , _endIdx = toLoc }
        in if isExch then
               let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
               in trace str ret
