@@ -19,17 +19,19 @@
 
 module Chess
     ( Castling(..)
-    , CastlingState(..)
     , ChessEval(..), total, details
     , ChessMove(..), isExchange, startIdx, endIdx
     , ChessMoves(..), cmEmpty, cmEnemy
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
     , ChessPos(..), cpGrid, cpColor, cpFin
     , Color(..)
+    , Unmoved(..)
     , colorFromInt
     , colorToInt
     , countMaterial
     , getStartNode
+    , startingUnmovedBlack
+    , startingUnmovedWhite
     , toParserMove
     -- exported for testing only
     , getPieceLocs
@@ -45,6 +47,8 @@ module Chess
     , locsForColor
     , pairToIndexes
     , startingBoard
+    , wK, wKB, wKN, wKR, wQB, wQN, wQR
+    , bK, bKB, bKN, bKR, bQB, bQN, bQR
     ) where
 
 import Control.Lens hiding (Empty)
@@ -53,6 +57,8 @@ import Data.Char
 import Data.HashMap (Map)
 import Data.Kind
 import Data.Maybe
+import Data.Set (Set)
+import qualified Data.Set as S
 import Data.Singletons
 import Data.Singletons.TH
 import Data.Tree
@@ -100,19 +106,6 @@ intToParserLoc n =
 data Color = Black | White | Unknown
     deriving (Show, Eq)
 
-data Castling = Castled
-              | KingSideOnlyAvailable
-              | QueenSideOnlyAvailable
-              | BothAvailable
-              | Unavailable
-  deriving (Eq, Show)
-
-data CastlingState = CastlingState
-  { _csWhiteCastling :: Castling
-  , _csBlackCastling :: Castling }
-  deriving (Show, Eq)
-makeLenses ''CastlingState
-
 ---------------------------------------------------------------------------------------------------
 
 data ChessMoves = ChessMoves
@@ -126,9 +119,30 @@ instance Show ChessMoves where
   show ChessMoves{..} = "Moves for color: " ++ show _cmForColor
     ++  "\nEmpty: " ++ show _cmEmpty ++ "\nEnemy: " ++ show _cmEnemy
 
-data ChessPos = ChessPos { _cpGrid :: Vector Char, _cpColor :: Color
-                         , _cpCastlingState :: CastlingState, _cpFin :: FinalState
-                         }  deriving (Show)
+data Castling = Castled
+              | KingSideOnlyAvailable
+              | QueenSideOnlyAvailable
+              | BothAvailable
+              | Unavailable
+  deriving (Eq, Show)
+
+data Unmoved = Unmoved
+  { _umDev :: Set Int
+  , _umCastling :: Set Int }
+  deriving (Show)
+makeLenses ''Unmoved
+
+--TODO:
+{-
+-- when a piece moves, remove its starting loc (aka idx) from either set if present
+-- use this to determine castling status
+-}
+data ChessPos = ChessPos
+  { _cpGrid :: Vector Char, _cpColor :: Color
+  , _cpCastlingWhite :: Castling, _cpCastlingBlack :: Castling
+  , _cpUnmovedWhite :: Unmoved, _cpUnmovedBlack :: Unmoved
+  , _cpFin :: FinalState }
+  deriving (Show)
 makeLenses ''ChessPos
 
 data ChessEval = ChessEval {_total :: Int, _details :: String} deriving (Eq, Ord)
@@ -350,9 +364,10 @@ getStartNode :: Tree ChessNode
 getStartNode =
     let firstColor = White
         cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor
-                        , _cpCastlingState = CastlingState
-                          { _csWhiteCastling = BothAvailable
-                          , _csBlackCastling = BothAvailable }
+                        , _cpCastlingWhite = BothAvailable
+                        , _cpCastlingBlack = BothAvailable
+                        , _cpUnmovedWhite = startingUnmovedWhite
+                        , _cpUnmovedBlack = startingUnmovedBlack
                         , _cpFin = NotFinal }
     in Node ChessNode
         { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
@@ -441,14 +456,24 @@ calcNewNode node mv =
         prevPos = node ^. chessPos
         prevGrid = prevPos ^. cpGrid
         prevColor = prevPos ^. cpColor
-        newCastling = updateCastling prevColor prevGrid (prevPos ^. cpCastlingState) mv
+        prevCastling = if prevColor == White
+          then _cpCastlingWhite prevPos
+          else _cpCastlingBlack prevPos
+        newCastling = updateCastling prevColor prevGrid prevCastling mv
+        newUnmoved = updateDevelopment ....etc...
         newGrid = case mv of
-          StdMove _isExch start end ->
-            movePiece' prevGrid start end
-          CastlingMove castle -> castle' prevGrid prevColor castle
+            StdMove _isExch start end -> movePiece' prevGrid start end
+            CastlingMove castle -> castle' prevGrid prevColor castle
         clrFlipped = flipPieceColor prevColor
-        newPos = prevPos { _cpGrid = newGrid
-                         , _cpColor = clrFlipped }
+        newPos = if prevColor == White then
+                     prevPos { _cpGrid = newGrid
+                             , _cpColor = clrFlipped
+                             , _cpCastlingWhite = newCastling }
+                 else
+                     prevPos { _cpGrid = newGrid
+                             , _cpColor = clrFlipped
+                             , _cpCastlingBlack = newCastling }
+
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
     in ChessNode { _chessMv = mv , _chessVal = eval
@@ -463,23 +488,28 @@ flipPieceColor Unknown = Unknown
 
 ---------------------------------------------------------------------------------------------------
 -- TODO: change state on rook moves as well
-updateCastling :: Color -> Vector Char -> CastlingState -> ChessMove -> CastlingState
+START HERE
+updateCastling :: Color -> Vector Char -> Castling -> ChessMove -> Castling
 updateCastling White g oldState mv =
   case mv of
     StdMove _isExch start _end ->
       let piece = indexToPiece g start
       in case piece of
-        (MkChessPiece _c (SomeSing SKing)) -> oldState { _csWhiteCastling = Unavailable }
+        (MkChessPiece _c (SomeSing SKing)) -> Unavailable
         (MkChessPiece _c (SomeSing _)) -> oldState
-    CastlingMove _ -> oldState { _csWhiteCastling = Castled }
+    CastlingMove _ -> Castled
 updateCastling _ g oldState mv =
   case mv of
     StdMove _isExch start _end ->
       let piece = indexToPiece g start
       in case piece of
-        (MkChessPiece _c (SomeSing SKing)) -> oldState { _csBlackCastling = Unavailable }
+        (MkChessPiece _c (SomeSing SKing)) -> Unavailable
         (MkChessPiece _c (SomeSing _)) -> oldState
-    CastlingMove _ -> oldState { _csBlackCastling = Castled }
+    CastlingMove _ -> Castled
+
+updateDevelopment :: Color -> Vector Char -> Set Int -> ChessMove -> Set Int
+updateDevelopment White g dev mv =
+
 
 --TODO: add more evaluations and set the FinalState appropirately
 ---------------------------------------------------------------------------------------------------
@@ -490,15 +520,26 @@ evalPos pos =
      let material = countMaterial (pos ^. cpGrid)
          mobility = calcMobility pos
          castling = calcCastling pos
-         t = (material * 10 ) + mobility + (castling * 10)
+         development = calcDevelopment pos
+         t = (material * 10 ) + mobility + (castling * 10) + (development * 5)
          detailsStr = "\n\tMaterial (x 10): " ++ show (material * 10)
                 ++ "\n\tMobility (x 1): " ++ show mobility
                 ++ "\n\tCastling (x 10): " ++ show (castling * 10)
+                ++ "\n\tDevelopment (x 5): " ++ show (development * 5)
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
          finalState = NotFinal
      in (eval, finalState)
+
+---------------------------------------------------------------------------------------------------
+-- Calculate the 'development' score for the position (White - Black)
+--------------------------------------------------------------------------------------------------
+calcDevelopment :: ChessPos -> Int
+calcDevelopment cp =
+  let whiteDev = 4 - S.size (cp ^. (cpUnmovedWhite . umDev))
+      blackDev = 4 - S.size (cp ^. (cpUnmovedBlack . umDev))
+  in whiteDev - blackDev
 
 ---------------------------------------------------------------------------------------------------
 -- Count the 'material' score for the pieces on the board
@@ -527,11 +568,8 @@ calcMobility cp =
 -- Calculate the castling score for the position
 --------------------------------------------------------------------------------------------------
 calcCastling :: ChessPos -> Int
-calcCastling cp =
-  let castlingState = cp ^. cpCastlingState
-  in castlingToAbsVal (castlingState ^. csWhiteCastling)
-  - castlingToAbsVal (castlingState ^. csBlackCastling)
-
+calcCastling ChessPos{..} =
+    castlingToAbsVal _cpCastlingWhite - castlingToAbsVal _cpCastlingBlack
 
 castlingToAbsVal :: Castling -> Int
 castlingToAbsVal Castled = 3
@@ -656,8 +694,8 @@ allowableKingMoves pos loc =
 castleMoves :: ChessPos -> [ChessMove]
 castleMoves pos@ChessPos{..} =
   let castling = if _cpColor == White
-        then _csWhiteCastling _cpCastlingState
-        else _csBlackCastling _cpCastlingState
+        then _cpCastlingWhite
+        else _cpCastlingBlack
   in case castling of
       Unavailable -> []
       Castled -> []
@@ -990,6 +1028,53 @@ indexesToMove node (fromLoc : toLoc : []) =
           else ret
 
 indexesToMove _ _ = Left "IndexesToMove - expected 2 element list as input, e.g. [E2, E4]"
+
+---------------------------------------------------------------------------------------------------
+-- Pieces with tracked "have they moved yet" state
+---------------------------------------------------------------------------------------------------
+-- starting locs...
+wK, wKB, wKN, wKR, wQB, wQN, wQR :: Int
+wK = 15
+wKB = 16
+wKN = 17
+wKR = 18
+wQB = 13
+wQN = 12
+wQR = 11
+
+wDevPieces :: Set Int
+wDevPieces = S.fromList [wKB, wKN, wQB, wQN]
+
+wCastlingPieces :: Set Int
+wCastlingPieces = S.fromList [wK, wKR, wQR]
+
+-- starting locs...
+bK, bKB, bKN, bKR, bQB, bQN, bQR :: Int
+bK = 85
+bKB = 86
+bKN = 87
+bKR = 88
+bQB = 83
+bQN = 82
+bQR = 81
+
+bDevPieces :: Set Int
+bDevPieces = S.fromList [bKB, bKN, bQB, bQN]
+
+bCastlingPieces :: Set Int
+bCastlingPieces = S.fromList [bK, bKR, bQR]
+
+startingUnmovedWhite :: Unmoved
+startingUnmovedWhite = Unmoved
+    { _umDev = wDevPieces
+    , _umCastling = wCastlingPieces }
+
+startingUnmovedBlack :: Unmoved
+startingUnmovedBlack = Unmoved
+    { _umDev = bDevPieces
+    , _umCastling = bCastlingPieces }
+
+
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move

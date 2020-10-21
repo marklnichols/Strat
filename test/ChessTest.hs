@@ -3,6 +3,7 @@
 module ChessTest (chessTest) where
 
 import Test.Hspec
+import qualified Data.Set as S
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
@@ -22,11 +23,15 @@ chessTest = do
     describe "allowableKingMoves" $
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = pairToIndexes White
-                  $ allowableKingMoves (posFromGrid board01 White castled) 12
+                  $ allowableKingMoves
+                      ( posFromGrid board01 White Castled Castled
+                        board01UnmovedW board01UnmovedB ) 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             let (empties2, enemies2) = pairToIndexes Black
-                  $ allowableKingMoves (posFromGrid board01 Black castled) 87
+                  $ allowableKingMoves
+                      ( posFromGrid board01 Black Castled Castled
+                        board01UnmovedW board01UnmovedB ) 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "allowableQueenMoves" $
@@ -106,7 +111,8 @@ chessTest = do
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
-            let moves = calcMoveLists (posFromGrid board02 White allCastling)
+            let moves = calcMoveLists (posFromGrid board02 White BothAvailable BothAvailable
+                                       board02UnmovedW board02UnmovedB )
             let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
             f <$> emptyAndEnemy `shouldMatchList`
                [ (11,12), (13,24), (13,35), (13,46), (13,57), (13,68), (14,24), (14,25), (14,36)
@@ -141,19 +147,12 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
-posFromGrid :: Vector Char -> Color -> CastlingState -> ChessPos
-posFromGrid g c castlingSt = ChessPos
-  { _cpGrid = g, _cpColor = c, _cpCastlingState = castlingSt, _cpFin = NotFinal }
-
-castled :: CastlingState
-castled = CastlingState
-  { _csWhiteCastling = Castled
-  , _csBlackCastling = Castled }
-
-allCastling :: CastlingState
-allCastling = CastlingState
-  { _csWhiteCastling = BothAvailable
-  , _csBlackCastling = BothAvailable }
+posFromGrid :: Vector Char -> Color -> Castling -> Castling -> Unmoved -> Unmoved -> ChessPos
+posFromGrid g c castlingW castlingB unmovedW unmovedB = ChessPos
+  { _cpGrid = g, _cpColor = c
+  , _cpCastlingWhite = castlingW, _cpCastlingBlack = castlingB
+  , _cpUnmovedWhite = unmovedW, _cpUnmovedBlack = unmovedB
+  , _cpFin = NotFinal }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
@@ -200,6 +199,15 @@ P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+board01UnmovedW :: Unmoved
+board01UnmovedW = Unmoved
+  { _umDev = S.fromList []
+  , _umCastling =  S.fromList [] }
+
+board01UnmovedB :: Unmoved
+board01UnmovedB = Unmoved
+  { _umDev = S.fromList []
+  , _umCastling =  S.fromList [] }
 
 ----------------------------------------------------------------------------------------------------
 board02 :: V.Vector Char
@@ -229,8 +237,15 @@ R   -   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
                                            -------------------------------------------------
                                                  A    B    C    D    E    F    G    H
 -}
+board02UnmovedW :: Unmoved
+board02UnmovedW = Unmoved
+  { _umDev = S.fromList [wKB, wQB, wQN]
+  , _umCastling =  S.fromList [wK, wKR, wQR] }
 
-
+board02UnmovedB :: Unmoved
+board02UnmovedB = Unmoved
+  { _umDev = S.fromList [bKN, bKB, bQB, bQN]
+  , _umCastling =  S.fromList [bK, bKR, bQR] }
 
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: V.Vector Char
