@@ -25,13 +25,13 @@ module Chess
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
     , ChessPos(..), cpGrid, cpColor, cpFin
     , Color(..)
-    , Unmoved(..)
+    , HasMoved(..)
     , colorFromInt
     , colorToInt
     , countMaterial
     , getStartNode
-    , startingUnmovedBlack
-    , startingUnmovedWhite
+    , startingHasMovedBlack
+    , startingHasMovedWhite
     , toParserMove
     -- exported for testing only
     , getPieceLocs
@@ -57,7 +57,7 @@ import Data.Char
 import Data.HashMap (Map)
 import Data.Kind
 import Data.Maybe
-import Data.Set (Set)
+import Data.Set (Set, member, notMember)
 import qualified Data.Set as S
 import Data.Singletons
 import Data.Singletons.TH
@@ -126,11 +126,13 @@ data Castling = Castled
               | Unavailable
   deriving (Eq, Show)
 
-data Unmoved = Unmoved
-  { _umDev :: Set Int
-  , _umCastling :: Set Int }
+data HasMoved = HasMoved
+  { _unMovedDev :: Set Int
+  , _unMovedCastling :: Set Int
+  , _castlingState :: Castling }
   deriving (Show)
-makeLenses ''Unmoved
+
+makeLenses ''HasMoved
 
 --TODO:
 {-
@@ -139,8 +141,7 @@ makeLenses ''Unmoved
 -}
 data ChessPos = ChessPos
   { _cpGrid :: Vector Char, _cpColor :: Color
-  , _cpCastlingWhite :: Castling, _cpCastlingBlack :: Castling
-  , _cpUnmovedWhite :: Unmoved, _cpUnmovedBlack :: Unmoved
+  , _cpHasMoved :: (HasMoved, HasMoved)
   , _cpFin :: FinalState }
   deriving (Show)
 makeLenses ''ChessPos
@@ -364,10 +365,7 @@ getStartNode :: Tree ChessNode
 getStartNode =
     let firstColor = White
         cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor
-                        , _cpCastlingWhite = BothAvailable
-                        , _cpCastlingBlack = BothAvailable
-                        , _cpUnmovedWhite = startingUnmovedWhite
-                        , _cpUnmovedBlack = startingUnmovedBlack
+                        , _cpHasMoved = (startingHasMovedWhite, startingHasMovedBlack)
                         , _cpFin = NotFinal }
     in Node ChessNode
         { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
@@ -456,24 +454,18 @@ calcNewNode node mv =
         prevPos = node ^. chessPos
         prevGrid = prevPos ^. cpGrid
         prevColor = prevPos ^. cpColor
-        prevCastling = if prevColor == White
-          then _cpCastlingWhite prevPos
-          else _cpCastlingBlack prevPos
-        newCastling = updateCastling prevColor prevGrid prevCastling mv
-        newUnmoved = updateDevelopment ....etc...
+        prevHasMoved = _cpHasMoved prevPos
+
+        newCastling = checkCastling prevColor prevGrid prevHasMoved mv
+        newHasMoved = checkDevelopment prevColor prevGrid prevHasMoved mv
+
         newGrid = case mv of
             StdMove _isExch start end -> movePiece' prevGrid start end
             CastlingMove castle -> castle' prevGrid prevColor castle
         clrFlipped = flipPieceColor prevColor
-        newPos = if prevColor == White then
-                     prevPos { _cpGrid = newGrid
-                             , _cpColor = clrFlipped
-                             , _cpCastlingWhite = newCastling }
-                 else
-                     prevPos { _cpGrid = newGrid
-                             , _cpColor = clrFlipped
-                             , _cpCastlingBlack = newCastling }
-
+        newPos = prevPos { _cpGrid = newGrid
+                         , _cpColor = clrFlipped
+                         , _cpHasMoved = newHasMoved }
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
     in ChessNode { _chessMv = mv , _chessVal = eval
@@ -481,35 +473,98 @@ calcNewNode node mv =
                  , _chessPos = updatedPos }
 
 ---------------------------------------------------------------------------------------------------
+checkDevelopment
+  :: Color
+  -> Vector Char
+  -> (HasMoved, HasMoved)
+  -> ChessMove
+  -> (HasMoved, HasMoved)
+checkDevelopment c g (w, b) mv =
+  let prevHasMoved = case c of
+        White -> w
+        _ ->     b
+      newHasMoved = case mv of
+        StdMove _isExch start _end ->
+          let piece = indexToPiece g start
+          in case piece of
+            (MkChessPiece _c (SomeSing SBishop)) -> updateDevelopment prevHasMoved start
+            (MkChessPiece _c (SomeSing SKnight)) -> updateDevelopment prevHasMoved start
+            (MkChessPiece _c (SomeSing _)) -> prevHasMoved
+        CastlingMove _ -> prevHasMoved
+  in case c of
+    White -> (newHasMoved, b)
+    _     -> (w, newHasMoved)
+
+updateDevelopment
+  :: HasMoved
+  -> Int
+  -> HasMoved
+updateDevelopment prevHasMoved start =
+  let prevSet = _unMovedDev prevHasMoved
+      newSet = S.delete start prevSet
+  in prevHasMoved
+    {  _unMovedDev = newSet }
+
+checkCastling
+  :: Color
+  -> Vector Char
+  -> (HasMoved, HasMoved)
+  -> ChessMove
+  -> (HasMoved, HasMoved)
+checkCastling c g (w, b) mv =
+  let prevHasMoved = case c of
+        White -> w
+        _ ->     b
+      newHasMoved = case mv of
+        StdMove _isExch start _end ->
+          let piece = indexToPiece g start
+          in case piece of
+            (MkChessPiece _c (SomeSing SKing)) -> updateCastling c prevHasMoved mv
+            (MkChessPiece _c (SomeSing SRook)) -> updateCastling c prevHasMoved mv
+            (MkChessPiece _c (SomeSing _)) -> prevHasMoved
+        CastlingMove _ -> updateCastling c prevHasMoved mv
+  in case c of
+    White -> (newHasMoved, b)
+    _     -> (w, newHasMoved)
+
+updateCastling
+  :: Color
+  -> HasMoved
+  -> ChessMove
+  -> HasMoved
+updateCastling c prevHasMoved mv =
+    case mv of
+        CastlingMove _ -> prevHasMoved
+            { _unMovedCastling = S.empty  -- not needed once castling has been done
+            , _castlingState = Castled }
+        StdMove _isExch start _end ->
+            let unMovedC = _unMovedCastling prevHasMoved
+                cState = _castlingState prevHasMoved
+            in if cState == Castled
+                then prevHasMoved -- nothing to do
+                else
+                    let newSet = S.delete start unMovedC
+                        (k, kr, qr) = if c == White
+                            then (wK, wKR, wQR)
+                            else (bK, bKR, bQR)
+                        newState = case newSet of
+                            s | k `notMember` s ->  Unavailable  -- king has moved
+                              | qr `notMember` s
+                              , kr `member` s -> KingSideOnlyAvailable -- k and kr haven't moved
+                              | kr `notMember` s
+                              , qr `member` s -> QueenSideOnlyAvailable -- k and qr haven't moved
+                              | kr `notMember` s
+                              , qr `notMember` s -> Unavailable -- kr and qr have moved
+                              | otherwise -> BothAvailable -- k, kr, and qr all have not moved
+                    in prevHasMoved
+                        { _unMovedCastling = newSet
+                        , _castlingState = newState }
+
+---------------------------------------------------------------------------------------------------
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
-
----------------------------------------------------------------------------------------------------
--- TODO: change state on rook moves as well
-START HERE
-updateCastling :: Color -> Vector Char -> Castling -> ChessMove -> Castling
-updateCastling White g oldState mv =
-  case mv of
-    StdMove _isExch start _end ->
-      let piece = indexToPiece g start
-      in case piece of
-        (MkChessPiece _c (SomeSing SKing)) -> Unavailable
-        (MkChessPiece _c (SomeSing _)) -> oldState
-    CastlingMove _ -> Castled
-updateCastling _ g oldState mv =
-  case mv of
-    StdMove _isExch start _end ->
-      let piece = indexToPiece g start
-      in case piece of
-        (MkChessPiece _c (SomeSing SKing)) -> Unavailable
-        (MkChessPiece _c (SomeSing _)) -> oldState
-    CastlingMove _ -> Castled
-
-updateDevelopment :: Color -> Vector Char -> Set Int -> ChessMove -> Set Int
-updateDevelopment White g dev mv =
-
 
 --TODO: add more evaluations and set the FinalState appropirately
 ---------------------------------------------------------------------------------------------------
@@ -537,8 +592,8 @@ evalPos pos =
 --------------------------------------------------------------------------------------------------
 calcDevelopment :: ChessPos -> Int
 calcDevelopment cp =
-  let whiteDev = 4 - S.size (cp ^. (cpUnmovedWhite . umDev))
-      blackDev = 4 - S.size (cp ^. (cpUnmovedBlack . umDev))
+  let whiteDev = 4 - S.size (cp ^. (cpHasMoved . _1 . unMovedCastling))
+      blackDev = 4 - S.size (cp ^. (cpHasMoved . _2 . unMovedCastling))
   in whiteDev - blackDev
 
 ---------------------------------------------------------------------------------------------------
@@ -568,8 +623,9 @@ calcMobility cp =
 -- Calculate the castling score for the position
 --------------------------------------------------------------------------------------------------
 calcCastling :: ChessPos -> Int
-calcCastling ChessPos{..} =
-    castlingToAbsVal _cpCastlingWhite - castlingToAbsVal _cpCastlingBlack
+calcCastling pos =
+    castlingToAbsVal (pos ^. (cpHasMoved . _1 . castlingState))
+    - castlingToAbsVal (pos ^. (cpHasMoved . _2 . castlingState))
 
 castlingToAbsVal :: Castling -> Int
 castlingToAbsVal Castled = 3
@@ -692,17 +748,18 @@ allowableKingMoves pos loc =
     in (castleMvs ++ empties, enemies)
 
 castleMoves :: ChessPos -> [ChessMove]
-castleMoves pos@ChessPos{..} =
-  let castling = if _cpColor == White
-        then _cpCastlingWhite
-        else _cpCastlingBlack
+castleMoves pos =
+  let c = pos ^. cpColor
+      castling = if c == White
+        then pos ^. (cpHasMoved . _1 . castlingState )
+        else pos ^. (cpHasMoved . _2 . castlingState )
   in case castling of
       Unavailable -> []
       Castled -> []
-      KingSideOnlyAvailable -> kingSideCastlingMove pos _cpColor
-      QueenSideOnlyAvailable -> queenSideCastlingMove pos _cpColor
-      BothAvailable -> kingSideCastlingMove pos _cpColor
-                    ++ queenSideCastlingMove pos _cpColor
+      KingSideOnlyAvailable -> kingSideCastlingMove pos c
+      QueenSideOnlyAvailable -> queenSideCastlingMove pos c
+      BothAvailable -> kingSideCastlingMove pos c
+                    ++ queenSideCastlingMove pos c
 
 -- singleton list or empty list
 -- TODO: These functions do not yet handle the case where the square the king passes over while casteling
@@ -1064,16 +1121,17 @@ bDevPieces = S.fromList [bKB, bKN, bQB, bQN]
 bCastlingPieces :: Set Int
 bCastlingPieces = S.fromList [bK, bKR, bQR]
 
-startingUnmovedWhite :: Unmoved
-startingUnmovedWhite = Unmoved
-    { _umDev = wDevPieces
-    , _umCastling = wCastlingPieces }
+startingHasMovedWhite :: HasMoved
+startingHasMovedWhite = HasMoved
+    { _unMovedDev = wDevPieces
+    , _unMovedCastling = wCastlingPieces
+    , _castlingState = BothAvailable }
 
-startingUnmovedBlack :: Unmoved
-startingUnmovedBlack = Unmoved
-    { _umDev = bDevPieces
-    , _umCastling = bCastlingPieces }
-
+startingHasMovedBlack :: HasMoved
+startingHasMovedBlack = HasMoved
+    { _unMovedDev = bDevPieces
+    , _unMovedCastling = bCastlingPieces
+    , _castlingState = BothAvailable }
 
 
 ---------------------------------------------------------------------------------------------------
