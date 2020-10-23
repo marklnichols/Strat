@@ -43,7 +43,9 @@ module Chess
     , allowablePawnCaptures
     , allowableQueenMoves
     , allowableRookMoves
+    , calcDevelopment
     , calcMoveLists
+    , checkCastling
     , locsForColor
     , pairToIndexes
     , startingBoard
@@ -592,8 +594,8 @@ evalPos pos =
 --------------------------------------------------------------------------------------------------
 calcDevelopment :: ChessPos -> Int
 calcDevelopment cp =
-  let whiteDev = 4 - S.size (cp ^. (cpHasMoved . _1 . unMovedCastling))
-      blackDev = 4 - S.size (cp ^. (cpHasMoved . _2 . unMovedCastling))
+  let whiteDev = 4 - S.size (cp ^. (cpHasMoved . _1 . unMovedDev))
+      blackDev = 4 - S.size (cp ^. (cpHasMoved . _2 . unMovedDev))
   in whiteDev - blackDev
 
 ---------------------------------------------------------------------------------------------------

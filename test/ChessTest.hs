@@ -117,29 +117,24 @@ chessTest = do
                , (21,41), (22,32), (22,42), (34,44), (34,45), (26,36), (26,46), (27,37), (27,47)
                , (28,38), (28,48), (33,12), (33,41), (33,52), (33,54), (33,45), (33,25) ]
 
+    describe "checkCastling" $
+        it ("Checks and possibly updates the castling state and the set of unmoved pieces tracked"
+           ++ "for castling purposes") $ do
+            let (newW, _newB) = checkCastling White board03 (board03HasMovedW, board03HasMovedB) board03Move
+            _castlingState newW `shouldBe` KingSideOnlyAvailable
+            let (_newW2, newB2) = checkCastling Black board03 (board03HasMovedW, board03HasMovedB) board03Move2
+            _castlingState newB2 `shouldBe` QueenSideOnlyAvailable
+            let (newW3, _newB3) = checkCastling White board03 (board03HasMovedW, board03HasMovedB) board03Move3
+            _castlingState newW3 `shouldBe` Unavailable
 
-    -- describe "calcDefended" $
-    --    it "Creates a set w/all locations that are defended by the opposing color's pieces" $
-    --        let moves = calcMoveLists (posFromGridW board01)
-    --        in _cmEmpty moves ++_cmEnemy moves
-    --           ++ _cmFriendly moves `shouldMatchList`
-    --           S.toList (S.fromList @Int                 -- remove dupes (which are useful for debugging)
-    --           [ 11, 13, 21, 22, 23                 -- K
-    --           , 45, 47, 48                         -- Q (horizontal)
-    --           , 26, 36, 56, 66                     -- Q (vertical)
-    --           , 28, 37, 55, 64, 73, 82             -- Q (diagonal UL/LR)
-    --           , 13, 24, 35, 57                     -- Q (diagonal LL/UR)
-    --           , 12, 14, 15, 16, 17, 18, 23, 33     -- R1
-    --           , 25, 27, 28, 16, 36, 46             -- R2
-    --           , 14, 36, 47, 58, 16, 34, 43         -- B1
-    --           , 21, 32, 54, 65, 25, 34, 52, 61     -- B2
-    --           , 53, 64, 66, 57, 37, 26, 24, 33      -- N1 (@45)
-    --           , 61, 72, 74, 65, 45, 34, 32, 41     -- N2 (@53)
-    --           , 32, 31, 33, 42, 44, 66, 68         -- Pawns
-    --           ]  )
     describe "countMaterial" $
       it "Calculates a score for the position based on the pieces on the board for each side" $
           countMaterial board01 `shouldBe` 6
+
+    describe "calcDevelopment" $
+      it ("Calculates a score for the position based on the development of the minor pieces "
+          ++ "(aka knight, bishop) for each side") $
+          calcDevelopment (posFromGrid board03 White (board03HasMovedW, board03HasMovedB)) `shouldBe` 1
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -246,6 +241,55 @@ board02HasMovedB = HasMoved
   { _unMovedDev = S.fromList [bKN, bKB, bQB, bQN]
   , _unMovedCastling =  S.fromList [bK, bKR, bQR]
   , _castlingState = BothAvailable}
+
+----------------------------------------------------------------------------------------------------
+board03 :: V.Vector Char
+board03 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  '-',  '-',  'Q',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  '-',  '-',  'P',  'P',  'P',  '+',
+                             '+',  '-',  '-',  'N',  '-',  '-',  '-',  '-',  '-',  '+',
+                             '+',  '-',  '-',  '-',  'P',  'P',  'B',  '-',  '-',  '+',
+                             '+',  '-',  '-',  '-',  'p',  '-',  '-',  '-',  '-',  '+',
+                             '+',  '-',  '-',  '-',  '-',  'p',  'n',  '-',  '-',  '+',
+                             '+',  'p',  'p',  'p',  '-',  'q',  'p',  'p',  'p',  '+',
+                             '+',  'r',  'n',  'b',  '-',  'k',  'b',  '-',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   -   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   -   q   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   p   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   P   B   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+-}
+board03HasMovedW :: HasMoved
+board03HasMovedW = HasMoved
+  { _unMovedDev = S.fromList [wKB, wKN]
+  , _unMovedCastling = S.fromList [wK, wKR, wQR]
+  , _castlingState = BothAvailable}
+
+board03HasMovedB :: HasMoved
+board03HasMovedB = HasMoved
+  { _unMovedDev = S.fromList [bKB, bQB, bQN]
+  , _unMovedCastling =  S.fromList [bK, bKR, bQR]
+  , _castlingState = BothAvailable}
+
+board03Move :: ChessMove
+board03Move = StdMove { _isExchange = False, _startIdx = 11, _endIdx = 12 }
+
+board03Move2 :: ChessMove
+board03Move2 = StdMove { _isExchange = False, _startIdx = 88, _endIdx = 87 }
+
+board03Move3 :: ChessMove
+board03Move3 = StdMove { _isExchange = False, _startIdx = 15, _endIdx = 24 }
 
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: V.Vector Char
