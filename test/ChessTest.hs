@@ -22,19 +22,19 @@ chessTest = do
               [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
     describe "allowableKingMoves" $
         it "Gets the possible moves for a king" $ do
-            let (empties, enemies) = pairToIndexes White
+            let (empties, enemies) = pairToIndexes
                   $ allowableKingMoves
                       ( posFromGrid board01 White (board01HasMovedW, board01HasMovedB) ) 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
-            let (empties2, enemies2) = pairToIndexes Black
+            let (empties2, enemies2) = pairToIndexes
                   $ allowableKingMoves
                       ( posFromGrid board01 Black (board01HasMovedW, board01HasMovedB) ) 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
-            let (empties, enemies) =  pairToIndexes  White
+            let (empties, enemies) =  pairToIndexes
                   $ allowableQueenMoves board01 46
             empties `shouldMatchList`
                 [47,48 -- left/right
@@ -42,7 +42,7 @@ chessTest = do
                 ,24,35 -- LL/UR
                 ,28,37,55,64,73,82] -- LR, UL
             enemies `shouldMatchList` [66]
-            let (empties2, enemies2) = pairToIndexes Black
+            let (empties2, enemies2) = pairToIndexes
                   $ allowableQueenMoves board01 62
             empties2 `shouldMatchList`
                 [63, 64 -- L/R
@@ -52,35 +52,35 @@ chessTest = do
             enemies2 `shouldMatchList` [22, 53]
     describe "allowableRookMoves" $
         it "Gets the allowable moves for a rook" $ do
-            let (empties, enemies) = pairToIndexes White
+            let (empties, enemies) = pairToIndexes
                   $ allowableRookMoves board01 13
             empties `shouldMatchList` [14,15,16,17,18 -- L/R
                                       ,23] -- U/D
             enemies `shouldMatchList` []
-            let (empties2, enemies2) = pairToIndexes Black
+            let (empties2, enemies2) = pairToIndexes
                   $ allowableRookMoves board01 83
             empties2 `shouldMatchList` [81,82,84,85 -- L/R
                                        ,73,63] -- U/D
             enemies2 `shouldMatchList` [53]
     describe "allowableBishopMoves" $
         it "Gets the allowable moves for a bishop" $ do
-            let (empties, enemies) = pairToIndexes White
+            let (empties, enemies) = pairToIndexes
                   $ allowableBishopMoves board01 43
             empties `shouldMatchList` [32,54 -- LL/UR
                                       ,34,52] -- LR/UL
             enemies `shouldMatchList` [61, 65]
-            let (empties2, enemies2) = pairToIndexes Black
+            let (empties2, enemies2) = pairToIndexes
                   $ allowableBishopMoves board01 65
             empties2 `shouldMatchList` [54,76 -- LL/UR
                                        ,38,47,56,74] -- LR/UL
             enemies2 `shouldMatchList` [43]
     describe "allowableKnightMoves" $
         it "Gets the allowable moves for a knight" $ do
-            let (empties, enemies) = pairToIndexes White
+            let (empties, enemies) = pairToIndexes
                   $ allowableKnightMoves board01 45
             empties `shouldMatchList` [24,37,64]
             enemies `shouldMatchList` [66]
-            let (empties2, enemies2) = pairToIndexes White
+            let (empties2, enemies2) = pairToIndexes
                   $ allowableKnightMoves board01 53
             empties2 `shouldMatchList` [32,34,41,72,74]
             enemies2 `shouldMatchList` [61,65]
@@ -94,11 +94,11 @@ chessTest = do
 
     describe "allowablePawnCaptures" $
         it "Gets the allowable capturing moves for a pawn" $ do
-            let (empties, enemies) = pairToIndexes White
+            let (empties, enemies) = pairToIndexes
                   $ allowablePawnCaptures board01 57
             empties `shouldMatchList` [68]
             enemies `shouldMatchList` [66]
-            let (empties2, enemies2) = pairToIndexes Black
+            let (empties2, enemies2) = pairToIndexes
                   $ allowablePawnCaptures board01 78
             empties2 `shouldMatchList` []
             enemies2 `shouldMatchList` []
@@ -126,6 +126,8 @@ chessTest = do
             _castlingState newB2 `shouldBe` QueenSideOnlyAvailable
             let (newW3, _newB3) = checkCastling White board03 (board03HasMovedW, board03HasMovedB) board03Move3
             _castlingState newW3 `shouldBe` Unavailable
+            let (newW4, _newB4) = checkCastling White board03 (board03HasMovedW, board03HasMovedB) board03Move4
+            _castlingState newW4 `shouldBe` Castled
 
     describe "countMaterial" $
       it "Calculates a score for the position based on the pieces on the board for each side" $
@@ -245,8 +247,8 @@ board02HasMovedB = HasMoved
 ----------------------------------------------------------------------------------------------------
 board03 :: V.Vector Char
 board03 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
-                             '+',  'R',  '-',  '-',  'Q',  'K',  'B',  'N',  'R',  '+',
-                             '+',  'P',  'P',  'P',  '-',  '-',  'P',  'P',  'P',  '+',
+                             '+',  'R',  '-',  '-',  '-',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  '-',  'Q',  'P',  'P',  'P',  '+',
                              '+',  '-',  '-',  'N',  '-',  '-',  '-',  '-',  '-',  '+',
                              '+',  '-',  '-',  '-',  'P',  'P',  'B',  '-',  '-',  '+',
                              '+',  '-',  '-',  '-',  'p',  '-',  '-',  '-',  '-',  '+',
@@ -263,8 +265,8 @@ p   p   p   -   q   p   p   p          7| (50)  71   72   73   74   75   76   77
 -   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   -   P   P   B   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 -   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
-P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
-R   -   -   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+P   P   P   -   Q   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
 
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                            -------------------------------------------------
@@ -290,6 +292,10 @@ board03Move2 = StdMove { _isExchange = False, _startIdx = 88, _endIdx = 87 }
 
 board03Move3 :: ChessMove
 board03Move3 = StdMove { _isExchange = False, _startIdx = 15, _endIdx = 24 }
+
+board03Move4 :: ChessMove
+board03Move4 = CastlingMove { _castle = QueenSide, _kingStartIdx = 15, _kingEndIdx = 13
+                           , _rookStartIdx = 11, _rookEndIdx = 15 }
 
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: V.Vector Char

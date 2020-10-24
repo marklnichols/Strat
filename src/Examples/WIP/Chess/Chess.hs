@@ -18,7 +18,8 @@
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
 module Chess
-    ( Castling(..)
+    ( Castle(..)
+    , Castling(..)
     , ChessEval(..), total, details
     , ChessMove(..), isExchange, startIdx, endIdx
     , ChessMoves(..), cmEmpty, cmEnemy
@@ -84,14 +85,15 @@ data Castle = QueenSide | KingSide
 
 -- data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int}
 data ChessMove
-  = StdMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int}
-  | CastlingMove Castle
+  = StdMove { _isExchange :: Bool, _startIdx :: Int, _endIdx :: Int }
+  | CastlingMove { _castle :: Castle, _kingStartIdx :: Int, _kingEndIdx :: Int
+                 , _rookStartIdx :: Int, _rookEndIdx :: Int }
   deriving (Show, Eq, Ord)
 makeLenses ''ChessMove
 
 toParserMove :: ChessMove -> Parser.Move
 toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
-toParserMove (CastlingMove _castle) = undefined
+toParserMove CastlingMove{..} = Parser.Move $ intToParserLoc _kingStartIdx : [intToParserLoc _kingEndIdx]
 
 intToParserLoc :: Int -> Parser.Loc
 intToParserLoc n =
@@ -463,7 +465,7 @@ calcNewNode node mv =
 
         newGrid = case mv of
             StdMove _isExch start end -> movePiece' prevGrid start end
-            CastlingMove castle -> castle' prevGrid prevColor castle
+            cm@CastlingMove{..} -> castle' prevGrid cm
         clrFlipped = flipPieceColor prevColor
         newPos = prevPos { _cpGrid = newGrid
                          , _cpColor = clrFlipped
@@ -492,7 +494,7 @@ checkDevelopment c g (w, b) mv =
             (MkChessPiece _c (SomeSing SBishop)) -> updateDevelopment prevHasMoved start
             (MkChessPiece _c (SomeSing SKnight)) -> updateDevelopment prevHasMoved start
             (MkChessPiece _c (SomeSing _)) -> prevHasMoved
-        CastlingMove _ -> prevHasMoved
+        CastlingMove{..}  -> prevHasMoved
   in case c of
     White -> (newHasMoved, b)
     _     -> (w, newHasMoved)
@@ -524,7 +526,7 @@ checkCastling c g (w, b) mv =
             (MkChessPiece _c (SomeSing SKing)) -> updateCastling c prevHasMoved mv
             (MkChessPiece _c (SomeSing SRook)) -> updateCastling c prevHasMoved mv
             (MkChessPiece _c (SomeSing _)) -> prevHasMoved
-        CastlingMove _ -> updateCastling c prevHasMoved mv
+        CastlingMove{..} -> updateCastling c prevHasMoved mv
   in case c of
     White -> (newHasMoved, b)
     _     -> (w, newHasMoved)
@@ -536,7 +538,7 @@ updateCastling
   -> HasMoved
 updateCastling c prevHasMoved mv =
     case mv of
-        CastlingMove _ -> prevHasMoved
+        CastlingMove {..} -> prevHasMoved
             { _unMovedCastling = S.empty  -- not needed once castling has been done
             , _castlingState = Castled }
         StdMove _isExch start _end ->
@@ -626,6 +628,10 @@ calcMobility cp =
 --------------------------------------------------------------------------------------------------
 calcCastling :: ChessPos -> Int
 calcCastling pos =
+    -- let str = printf "calcCastling - %d (White) minus %d (Black)"
+    --             (castlingToAbsVal (pos ^. (cpHasMoved . _1 . castlingState)))
+    --             (castlingToAbsVal (pos ^. (cpHasMoved . _2 . castlingState)))
+    -- in trace str $
     castlingToAbsVal (pos ^. (cpHasMoved . _1 . castlingState))
     - castlingToAbsVal (pos ^. (cpHasMoved . _2 . castlingState))
 
@@ -677,19 +683,38 @@ movePiece' g pFrom pTo =
                        p = set (ix pTo) z g
                    in removePiece' p pFrom
 
-castle' :: Vector Char -> Color -> Castle -> Vector Char
-castle' g White KingSide =
-  let gTemp = movePiece' g 15 17
-  in movePiece' gTemp 18 16
-castle' g White QueenSide =
-  let gTemp = movePiece' g 15 13
-  in movePiece' gTemp 11 14
-castle' g _ KingSide =
-  let gTemp = movePiece' g 85 87
-  in movePiece' gTemp 88 86
-castle' g _ QueenSide =
-  let gTemp = movePiece' g 85 83
-  in movePiece' gTemp 88 84
+
+mkCastleMove :: Color -> Castle -> ChessMove
+mkCastleMove White KingSide = CastlingMove
+  { _castle = KingSide
+  , _kingStartIdx = 15
+  , _kingEndIdx = 17
+  , _rookStartIdx = 18
+  , _rookEndIdx = 16 }
+mkCastleMove White QueenSide = CastlingMove
+  { _castle = QueenSide
+  , _kingStartIdx = 15
+  , _kingEndIdx = 13
+  , _rookStartIdx = 11
+  , _rookEndIdx = 14 }
+mkCastleMove _ KingSide = CastlingMove
+  { _castle = KingSide
+  , _kingStartIdx = 85
+  , _kingEndIdx = 87
+  , _rookStartIdx = 88
+  , _rookEndIdx = 86 }
+mkCastleMove _ QueenSide = CastlingMove
+  { _castle = QueenSide
+  , _kingStartIdx = 85
+  , _kingEndIdx = 83
+  , _rookStartIdx = 88
+  , _rookEndIdx = 84 }
+
+castle' :: Vector Char -> ChessMove -> Vector Char
+castle' _g StdMove{..} = error "This shouldn't happen..."
+castle' g CastlingMove{..} =
+  let gTemp = movePiece' g _kingStartIdx _kingEndIdx
+  in movePiece' gTemp _rookStartIdx _rookEndIdx
 
 removePiece' :: Vector Char -> Int -> Vector Char
 removePiece' g idx = set (ix idx) empty g
@@ -768,18 +793,18 @@ castleMoves pos =
 -- is 'in Check' by the opponent
 kingSideCastlingMove :: ChessPos -> Color -> [ChessMove]
 kingSideCastlingMove pos White =
-  if isEmpty pos 16 && isEmpty pos 17 then [CastlingMove KingSide]
+  if isEmpty pos 16 && isEmpty pos 17 then [mkCastleMove White KingSide]
   else []
 kingSideCastlingMove pos _ =
-  if isEmpty pos 86 && isEmpty pos 87 then [CastlingMove KingSide]
+  if isEmpty pos 86 && isEmpty pos 87 then [mkCastleMove Black KingSide]
   else []
 
 queenSideCastlingMove :: ChessPos -> Color -> [ChessMove]
 queenSideCastlingMove pos White =
-  if isEmpty pos 13 && isEmpty pos 14 then [CastlingMove QueenSide]
+  if isEmpty pos 13 && isEmpty pos 14 then [mkCastleMove White QueenSide]
   else []
 queenSideCastlingMove pos _ =
-  if isEmpty pos 83 && isEmpty pos 84 then [CastlingMove KingSide]
+  if isEmpty pos 83 && isEmpty pos 84 then [mkCastleMove Black KingSide]
   else []
 
 -- kingFilter :: Vector Char -> Map Int Bool -> Color -> Int -> Bool
@@ -803,16 +828,13 @@ isEmpty' node = isEmpty (_chessPos node )
 isEmptyGrid :: Vector Char -> Int -> Bool
 isEmptyGrid g idx =  fromMaybe empty (g ^? ix idx) == empty
 
-pairToIndexes :: Color -> ([ChessMove], [ChessMove]) -> ([Int], [Int])
-pairToIndexes c (xs, ys) = ( fmap (moveToIndex c) xs
-                           , fmap (moveToIndex c) ys)
+pairToIndexes :: ([ChessMove], [ChessMove]) -> ([Int], [Int])
+pairToIndexes (xs, ys) = ( fmap moveToIndex  xs
+                         , fmap moveToIndex ys)
 
-moveToIndex :: Color -> ChessMove -> Int
-moveToIndex White (CastlingMove KingSide) = 17
-moveToIndex White (CastlingMove QueenSide) = 13
-moveToIndex _ (CastlingMove KingSide) = 87
-moveToIndex _ (CastlingMove QueenSide) = 83
-moveToIndex _ StdMove{..} = _endIdx
+moveToIndex :: ChessMove -> Int
+moveToIndex CastlingMove{..} = _kingEndIdx
+moveToIndex StdMove{..} = _endIdx
 
 ----------------------------------------------------------------------------------------------------
 -- Calculate the set of all possible moves for the given position & the position's color
@@ -1066,27 +1088,45 @@ destinationsToMoves _ _ = error "destinationToMoves is undefined"     -- idx des
 
 -- This should always be a list of length two
 indexesToMove :: ChessNode -> [Int] -> Either String ChessMove
-indexesToMove node (fromLoc : toLoc : []) =
-    let g = node ^. (chessPos . cpGrid)
-        cFrom = indexToColor g fromLoc
-        cTo = indexToColor g toLoc
-        isExch = cFrom /= Unknown && enemyColor cFrom == cTo
-        removed = case isExch of
-            True -> toLoc
-            False -> -1
-    -- in Right $ ChessMove { _isExchange = isExch
-    --                      , _startIdx = fromLoc
-    --                      , _endIdx = toLoc
-    --                      }
-        ret = Right $ StdMove { _isExchange = isExch
-                              , _startIdx = fromLoc
-                              , _endIdx = toLoc }
-       in if isExch then
-              let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
-              in trace str ret
-          else ret
-
+indexesToMove node [fromLoc, toLoc] =
+    case checkIndexesToCastle [fromLoc, toLoc] of
+        Just cm -> Right cm
+        Nothing ->
+            let g = node ^. (chessPos . cpGrid)
+                cFrom = indexToColor g fromLoc
+                cTo = indexToColor g toLoc
+                isExch = cFrom /= Unknown && enemyColor cFrom == cTo
+                removed = case isExch of
+                    True -> toLoc
+                    False -> -1
+                ret = Right $ StdMove { _isExchange = isExch
+                                      , _startIdx = fromLoc
+                                      , _endIdx = toLoc }
+              in if isExch then
+                      let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
+                      in trace str ret
+                  else ret
 indexesToMove _ _ = Left "IndexesToMove - expected 2 element list as input, e.g. [E2, E4]"
+
+-- Looking for king moves: 15->17(KS-W), 85->87(KS-B), 15->13(QS-W), or 85->83(QS-B)
+-- The param should always be a list of length two
+checkIndexesToCastle :: [Int] -> Maybe ChessMove
+checkIndexesToCastle [fromLoc, toLoc]
+    | fromLoc /= 15
+    , fromLoc /= 85 = Nothing
+    | toLoc == fromLoc + 2  = Just $ CastlingMove
+        { _castle = KingSide
+        , _kingStartIdx = fromLoc
+        , _kingEndIdx = toLoc
+        , _rookStartIdx = fromLoc + 3
+        , _rookEndIdx = toLoc - 1 }
+    | toLoc == fromLoc - 2  = Just $ CastlingMove
+        { _castle = QueenSide
+        , _kingStartIdx = fromLoc
+        , _kingEndIdx = toLoc
+        , _rookStartIdx = fromLoc - 4
+        , _rookEndIdx = toLoc + 1 }
+checkIndexesToCastle z = error $ "checkIndexesToCastle called with a list not of length 2: " ++ show z
 
 ---------------------------------------------------------------------------------------------------
 -- Pieces with tracked "have they moved yet" state

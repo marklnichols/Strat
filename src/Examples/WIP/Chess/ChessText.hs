@@ -30,7 +30,7 @@ showBoard :: ChessText -> ChessNode -> IO ()
 showBoard _ node = do
     putStrLn $ formatBoard node
     putStrLn ("Current position score: " ++ show (getValue node))
-    putStrLn ""
+    putStrLn "\n--------------------------------------------------\n"
 
 printMoveChoiceInfo :: Tree ChessNode -> [MoveScore ChessMove ChessEval]
   -> Result ChessMove ChessEval ->  ChessMove -> IO ()
