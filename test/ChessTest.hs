@@ -120,14 +120,21 @@ chessTest = do
     describe "checkCastling" $
         it ("Checks and possibly updates the castling state and the set of unmoved pieces tracked"
            ++ "for castling purposes") $ do
-            let (newW, _newB) = checkCastling White board03 (board03HasMovedW, board03HasMovedB) board03Move
-            _castlingState newW `shouldBe` KingSideOnlyAvailable
-            let (_newW2, newB2) = checkCastling Black board03 (board03HasMovedW, board03HasMovedB) board03Move2
-            _castlingState newB2 `shouldBe` QueenSideOnlyAvailable
-            let (newW3, _newB3) = checkCastling White board03 (board03HasMovedW, board03HasMovedB) board03Move3
-            _castlingState newW3 `shouldBe` Unavailable
-            let (newW4, _newB4) = checkCastling White board03 (board03HasMovedW, board03HasMovedB) board03Move4
-            _castlingState newW4 `shouldBe` Castled
+            case checkCastling White board03 board03HasMovedW board03Move of
+                Just (_moved, castling) -> castling `shouldBe` KingSideOnlyAvailable
+                _ -> error "expecting Just"
+
+            case checkCastling Black board03 board03HasMovedB board03Move2 of
+                Just (_moved, castling) -> castling `shouldBe` QueenSideOnlyAvailable
+                _ -> error "expecting Just"
+
+            case checkCastling White board03 board03HasMovedW board03Move3 of
+                Just (_moved, castling) -> castling `shouldBe` Unavailable
+                _ -> error "expecting Just"
+
+            case checkCastling White board03 board03HasMovedW board03Move4 of
+                Just (_moved, castling) -> castling `shouldBe` Castled
+                _ -> error "expecting Just"
 
     describe "countMaterial" $
       it "Calculates a score for the position based on the pieces on the board for each side" $

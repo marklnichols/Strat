@@ -454,15 +454,11 @@ noDirs = []
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
-    let
-        prevPos = node ^. chessPos
+    let prevPos = node ^. chessPos
         prevGrid = prevPos ^. cpGrid
         prevColor = prevPos ^. cpColor
         prevHasMoved = _cpHasMoved prevPos
-
-        newCastling = checkCastling prevColor prevGrid prevHasMoved mv
-        newHasMoved = checkDevelopment prevColor prevGrid prevHasMoved mv
-
+        newHasMoved = checkHasMoved prevColor prevGrid prevHasMoved mv
         newGrid = case mv of
             StdMove _isExch start end -> movePiece' prevGrid start end
             cm@CastlingMove{..} -> castle' prevGrid cm
@@ -472,80 +468,101 @@ calcNewNode node mv =
                          , _cpHasMoved = newHasMoved }
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
+
+        -- (wHM, bHM) = newCastling
+        -- wcState = wHM ^. castlingState
+        -- bcState = bHM ^. castlingState
+        -- dbg = printf ("calcNewNode for move: %s - whiteCastlingState: %s, blackCastlingState: %s, "
+        --             ++ "") (show mv) (show wcState) (show bcState)
     in ChessNode { _chessMv = mv , _chessVal = eval
                  , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
                  , _chessPos = updatedPos }
 
 ---------------------------------------------------------------------------------------------------
-checkDevelopment
+checkHasMoved
   :: Color
   -> Vector Char
   -> (HasMoved, HasMoved)
   -> ChessMove
   -> (HasMoved, HasMoved)
-checkDevelopment c g (w, b) mv =
+checkHasMoved c g (w, b) mv =
   let prevHasMoved = case c of
         White -> w
         _ ->     b
-      newHasMoved = case mv of
-        StdMove _isExch start _end ->
-          let piece = indexToPiece g start
-          in case piece of
-            (MkChessPiece _c (SomeSing SBishop)) -> updateDevelopment prevHasMoved start
-            (MkChessPiece _c (SomeSing SKnight)) -> updateDevelopment prevHasMoved start
-            (MkChessPiece _c (SomeSing _)) -> prevHasMoved
-        CastlingMove{..}  -> prevHasMoved
+
+      (prevUnCastl , prevStateCastl) = (_unMovedCastling prevHasMoved, _castlingState prevHasMoved)
+      (newUnCastl, newStateCastl) =
+        case checkCastling c g prevHasMoved mv of
+            Nothing -> (prevUnCastl, prevStateCastl)
+            Just (u, s) -> (u, s)
+
+      prevUnDev = _unMovedDev prevHasMoved
+      newUnDev =
+         case checkDevelopment g prevHasMoved mv of
+             Nothing -> prevUnDev
+             Just u -> u
+
+      newHasMoved = HasMoved
+        { _unMovedDev = newUnDev
+        , _unMovedCastling = newUnCastl
+        , _castlingState = newStateCastl }
+
   in case c of
     White -> (newHasMoved, b)
     _     -> (w, newHasMoved)
+
+checkDevelopment
+  :: Vector Char
+  -> HasMoved
+  -> ChessMove
+  -> Maybe (Set Int)
+checkDevelopment g prevHasMoved mv =
+    case mv of
+        StdMove _isExch start _end ->
+            let piece = indexToPiece g start
+            in case piece of
+                (MkChessPiece _c (SomeSing SBishop)) -> Just $ updateDevelopment prevHasMoved start
+                (MkChessPiece _c (SomeSing SKnight)) -> Just $ updateDevelopment prevHasMoved start
+                (MkChessPiece _c (SomeSing _)) -> Nothing
+        CastlingMove{..}  -> Nothing
 
 updateDevelopment
   :: HasMoved
   -> Int
-  -> HasMoved
+  -> Set Int
 updateDevelopment prevHasMoved start =
   let prevSet = _unMovedDev prevHasMoved
-      newSet = S.delete start prevSet
-  in prevHasMoved
-    {  _unMovedDev = newSet }
+  in S.delete start prevSet
 
 checkCastling
   :: Color
   -> Vector Char
-  -> (HasMoved, HasMoved)
+  -> HasMoved
   -> ChessMove
-  -> (HasMoved, HasMoved)
-checkCastling c g (w, b) mv =
-  let prevHasMoved = case c of
-        White -> w
-        _ ->     b
-      newHasMoved = case mv of
-        StdMove _isExch start _end ->
-          let piece = indexToPiece g start
-          in case piece of
-            (MkChessPiece _c (SomeSing SKing)) -> updateCastling c prevHasMoved mv
-            (MkChessPiece _c (SomeSing SRook)) -> updateCastling c prevHasMoved mv
-            (MkChessPiece _c (SomeSing _)) -> prevHasMoved
-        CastlingMove{..} -> updateCastling c prevHasMoved mv
-  in case c of
-    White -> (newHasMoved, b)
-    _     -> (w, newHasMoved)
+  -> Maybe (Set Int, Castling)
+checkCastling c g prevHasMoved mv =
+    case mv of
+      StdMove _isExch start _end ->
+        let piece = indexToPiece g start
+        in case piece of
+          (MkChessPiece _c (SomeSing SKing)) -> Just $ updateCastling c prevHasMoved mv
+          (MkChessPiece _c (SomeSing SRook)) -> Just $ updateCastling c prevHasMoved mv
+          (MkChessPiece _c (SomeSing _)) -> Nothing
+      CastlingMove{..} -> Just $ updateCastling c prevHasMoved mv
 
 updateCastling
   :: Color
   -> HasMoved
   -> ChessMove
-  -> HasMoved
+  -> (Set Int, Castling)
 updateCastling c prevHasMoved mv =
     case mv of
-        CastlingMove {..} -> prevHasMoved
-            { _unMovedCastling = S.empty  -- not needed once castling has been done
-            , _castlingState = Castled }
+        CastlingMove {..} -> (S.empty, Castled)
         StdMove _isExch start _end ->
             let unMovedC = _unMovedCastling prevHasMoved
                 cState = _castlingState prevHasMoved
             in if cState == Castled
-                then prevHasMoved -- nothing to do
+                then ((_unMovedDev prevHasMoved), (_castlingState prevHasMoved))
                 else
                     let newSet = S.delete start unMovedC
                         (k, kr, qr) = if c == White
@@ -560,9 +577,7 @@ updateCastling c prevHasMoved mv =
                               | kr `notMember` s
                               , qr `notMember` s -> Unavailable -- kr and qr have moved
                               | otherwise -> BothAvailable -- k, kr, and qr all have not moved
-                    in prevHasMoved
-                        { _unMovedCastling = newSet
-                        , _castlingState = newState }
+                    in (newSet , newState)
 
 ---------------------------------------------------------------------------------------------------
 flipPieceColor :: Color -> Color
@@ -580,8 +595,8 @@ evalPos pos =
          mobility = calcMobility pos
          castling = calcCastling pos
          development = calcDevelopment pos
-         t = (material * 10 ) + mobility + (castling * 10) + (development * 5)
-         detailsStr = "\n\tMaterial (x 10): " ++ show (material * 10)
+         t = (material * 20 ) + mobility + (castling * 10) + (development * 5)
+         detailsStr = "\n\tMaterial (x 20): " ++ show (material * 20)
                 ++ "\n\tMobility (x 1): " ++ show mobility
                 ++ "\n\tCastling (x 10): " ++ show (castling * 10)
                 ++ "\n\tDevelopment (x 5): " ++ show (development * 5)
@@ -1126,6 +1141,7 @@ checkIndexesToCastle [fromLoc, toLoc]
         , _kingEndIdx = toLoc
         , _rookStartIdx = fromLoc - 4
         , _rookEndIdx = toLoc + 1 }
+    | otherwise = Nothing
 checkIndexesToCastle z = error $ "checkIndexesToCastle called with a list not of length 2: " ++ show z
 
 ---------------------------------------------------------------------------------------------------
