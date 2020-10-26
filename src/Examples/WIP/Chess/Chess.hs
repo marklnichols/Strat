@@ -83,7 +83,6 @@ empty = ' '
 data Castle = QueenSide | KingSide
   deriving (Eq, Ord, Show)
 
--- data ChessMove = ChessMove {_isExchange :: Bool, _startIdx :: Int, _endIdx :: Int}
 data ChessMove
   = StdMove { _isExchange :: Bool, _startIdx :: Int, _endIdx :: Int }
   | CastlingMove { _castle :: Castle, _kingStartIdx :: Int, _kingEndIdx :: Int
@@ -100,12 +99,6 @@ intToParserLoc n =
     let r = n `div` 10
         c = chr $ 64 + (n - r * 10)
     in Parser.Loc c r
-
--- instance Show ChessMove where
---   show cm@ChessMove{..} =
---     let pm = show $ toParserMove cm
---         exch = if _isExchange then " [Exchange]" else ""
---     in pm ++ exch
 
 data Color = Black | White | Unknown
     deriving (Show, Eq)
@@ -468,12 +461,6 @@ calcNewNode node mv =
                          , _cpHasMoved = newHasMoved }
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
-
-        -- (wHM, bHM) = newCastling
-        -- wcState = wHM ^. castlingState
-        -- bcState = bHM ^. castlingState
-        -- dbg = printf ("calcNewNode for move: %s - whiteCastlingState: %s, blackCastlingState: %s, "
-        --             ++ "") (show mv) (show wcState) (show bcState)
     in ChessNode { _chessMv = mv , _chessVal = eval
                  , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
                  , _chessPos = updatedPos }
@@ -562,7 +549,7 @@ updateCastling c prevHasMoved mv =
             let unMovedC = _unMovedCastling prevHasMoved
                 cState = _castlingState prevHasMoved
             in if cState == Castled
-                then ((_unMovedDev prevHasMoved), (_castlingState prevHasMoved))
+                then (_unMovedDev prevHasMoved, _castlingState prevHasMoved)
                 else
                     let newSet = S.delete start unMovedC
                         (k, kr, qr) = if c == White
@@ -585,7 +572,7 @@ flipPieceColor White = Black
 flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
---TODO: add more evaluations and set the FinalState appropirately
+--TODO: set the FinalState appropirately
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
 --------------------------------------------------------------------------------------------------
@@ -643,10 +630,6 @@ calcMobility cp =
 --------------------------------------------------------------------------------------------------
 calcCastling :: ChessPos -> Int
 calcCastling pos =
-    -- let str = printf "calcCastling - %d (White) minus %d (Black)"
-    --             (castlingToAbsVal (pos ^. (cpHasMoved . _1 . castlingState)))
-    --             (castlingToAbsVal (pos ^. (cpHasMoved . _2 . castlingState)))
-    -- in trace str $
     castlingToAbsVal (pos ^. (cpHasMoved . _1 . castlingState))
     - castlingToAbsVal (pos ^. (cpHasMoved . _2 . castlingState))
 
@@ -683,9 +666,6 @@ movePiece node pFrom pTo =
     let newGrid = movePiece' (node ^. (chessPos . cpGrid)) pFrom pTo
     in set (chessPos . cpGrid) newGrid node
 
--- removePiece :: ChessNode -> Int -> ChessNode
--- removePiece node idx = set (chessPos . cpGrid . ix idx) empty node
-
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the grid vector, removing any captured piece.  Returns the updated grid
 --------------------------------------------------------------------------------------------------
@@ -697,7 +677,6 @@ movePiece' g pFrom pTo =
         Just ch -> let z = checkPromote g ch pTo
                        p = set (ix pTo) z g
                    in removePiece' p pFrom
-
 
 mkCastleMove :: Color -> Castle -> ChessMove
 mkCastleMove White KingSide = CastlingMove
@@ -822,12 +801,6 @@ queenSideCastlingMove pos _ =
   if isEmpty pos 83 && isEmpty pos 84 then [mkCastleMove Black KingSide]
   else []
 
--- kingFilter :: Vector Char -> Map Int Bool -> Color -> Int -> Bool
--- kingFilter g defendedMap c idx =
---     if hasFriendly g c idx
---         then False
---         else not $ isDefended defendedMap c idx
-
 hasFriendly :: Vector Char -> Color -> Int -> Bool
 hasFriendly g c idx = indexToColor g idx == c
 
@@ -886,10 +859,7 @@ movesFromLoc pos loc =
       MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
       MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
       MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
-      MkChessPiece _c (SomeSing SPawn) ->
-        -- let (empties, enemies, friendlies) = allowablePawnCaptures g loc
-        -- in (allowablePawnNonCaptures g loc ++ empties, enemies, friendlies)
-        allowablePawnMoves g loc
+      MkChessPiece _c (SomeSing SPawn) -> allowablePawnMoves g loc
       MkChessPiece _c (SomeSing _) -> ([], [])
 
 isDefended :: Map Int Bool -> Color -> Int -> Bool
