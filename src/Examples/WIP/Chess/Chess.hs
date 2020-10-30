@@ -57,7 +57,6 @@ module Chess
 import Control.Lens hiding (Empty)
 
 import Data.Char
-import Data.HashMap (Map)
 import Data.Kind
 import Data.Maybe
 import Data.Set (Set, member, notMember)
@@ -139,6 +138,7 @@ makeLenses ''HasMoved
 data ChessPos = ChessPos
   { _cpGrid :: Vector Char, _cpColor :: Color
   , _cpHasMoved :: (HasMoved, HasMoved)
+  , _cpKingLoc :: Int
   , _cpFin :: FinalState }
   deriving (Show)
 makeLenses ''ChessPos
@@ -363,6 +363,7 @@ getStartNode =
     let firstColor = White
         cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor
                         , _cpHasMoved = (startingHasMovedWhite, startingHasMovedBlack)
+                        , _cpKingLoc = 15
                         , _cpFin = NotFinal }
     in Node ChessNode
         { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
@@ -452,18 +453,61 @@ calcNewNode node mv =
         prevColor = prevPos ^. cpColor
         prevHasMoved = _cpHasMoved prevPos
         newHasMoved = checkHasMoved prevColor prevGrid prevHasMoved mv
-        newGrid = case mv of
-            StdMove _isExch start end -> movePiece' prevGrid start end
-            cm@CastlingMove{..} -> castle' prevGrid cm
+        (newGrid, mvStartIdx) = case mv of
+            StdMove _isExch start end -> (movePiece' prevGrid start end, start)
+            cm@CastlingMove{..} -> (castle' prevGrid cm, _kingStartIdx)
         clrFlipped = flipPieceColor prevColor
+
+        kingLoc = case indexToPiece prevGrid mvStartIdx of
+            MkChessPiece _c (SomeSing SKing) -> mvStartIdx
+            _                                -> prevPos ^. cpKingLoc
         newPos = prevPos { _cpGrid = newGrid
                          , _cpColor = clrFlipped
+                         , _cpKingLoc = kingLoc
                          , _cpHasMoved = newHasMoved }
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
     in ChessNode { _chessMv = mv , _chessVal = eval
                  , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
                  , _chessPos = updatedPos }
+
+---------------------------------------------------------------------------------------------------
+-- Calulate if the king at the given location is in check
+---------------------------------------------------------------------------------------------------
+inCheck :: Vector Char -> Color -> Int -> Bool
+inCheck g c kingLoc =
+   let bLocs = multiMoveCaptureLocs bishopDirs g kingLoc
+       rLocs = multiMoveCaptureLocs rookDirs g kingLoc
+       nLocs = singleMoveCaptureLocs knightDirs g kingLoc
+       pLocs = case c of
+         White -> singleMoveCaptureLocs whitePawnCaptureDirs g kingLoc
+         Black -> singleMoveCaptureLocs blackPawnCaptureDirs g kingLoc
+       in matchesPiece g (MkChessPiece c (SomeSing SBishop))  bLocs
+          || matchesPiece g (MkChessPiece c (SomeSing SRook)) rLocs
+          || matchesPiece g (MkChessPiece c (SomeSing SKnight)) nLocs
+          || matchesPiece g (MkChessPiece c (SomeSing SPawn)) pLocs
+          || matchesPiece g (MkChessPiece c (SomeSing SQueen)) (bLocs ++ rLocs)
+
+-- SEq k =>
+matchesPiece :: Vector Char -> ChessPiece (k :: SomeSing Piece) -> [Int] -> Bool
+matchesPiece g (MkChessPiece c (SomeSing p)) xs =
+  foldr f False xs where
+    f :: Int -> Bool -> Bool
+    f x r =
+      let (MkChessPiece c (SomeSing p')) = indexToPiece g x
+          (Sing b') = (p' %== p)
+      in b' || r
+
+
+
+
+-- TODO:
+{-
+  place Bishop, capture bishop or queen?
+  place Rook, capture rook or queen?
+  place Night, capture knight?
+  place Pawn, capture pawn?
+-}
 
 ---------------------------------------------------------------------------------------------------
 checkHasMoved
@@ -476,7 +520,6 @@ checkHasMoved c g (w, b) mv =
   let prevHasMoved = case c of
         White -> w
         _ ->     b
-
       (prevUnCastl , prevStateCastl) = (_unMovedCastling prevHasMoved, _castlingState prevHasMoved)
       (newUnCastl, newStateCastl) =
         case checkCastling c g prevHasMoved mv of
@@ -862,10 +905,6 @@ movesFromLoc pos loc =
       MkChessPiece _c (SomeSing SPawn) -> allowablePawnMoves g loc
       MkChessPiece _c (SomeSing _) -> ([], [])
 
-isDefended :: Map Int Bool -> Color -> Int -> Bool
-isDefended _ =  error "isDefended is undefined"   --color index
-  -- this is just lookup of map built from calcDefended, with Nothing converted to False
-
 allowableMultiMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableMultiMoves pieceDirs g idx =
   foldr f ([], []) pieceDirs
@@ -884,7 +923,17 @@ multiMoveMobility pieceDirs g idx =
         let count = dirLocsCount g idx x
         in count + r
 
--- find the destination locs for pieces that move one square in a given
+multiMoveCaptureLocs :: [Dir] -> Vector Char -> Int -> [Int]
+multiMoveCaptureLocs pieceDirs g idx =
+  foldr f [] pieceDirs
+    where
+      f :: Dir -> [Int] -> [Int]
+      f x r =
+        case dirCaptureLoc g idx x of
+            Just z  -> z : r
+            Nothing -> r
+
+  -- find the destination locs for pieces that move one square in a given
 -- direction (i.e., King and Knight). See @allowableMultiMoves
 allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableSingleMoves pieceDirs g idx =
@@ -904,6 +953,17 @@ singleMoveMobility pieceDirs g idx =
       f x r =
         let count = dirLocsSingleCount g idx x
         in count + r
+
+singleMoveCaptureLocs :: [Dir] -> Vector Char -> Int -> [Int]
+singleMoveCaptureLocs pieceDirs g idx =
+  foldr (f (indexToColor g idx)) [] pieceDirs
+    where
+      -- fold function: curried f with Color applied
+      f :: Color -> Dir -> [Int] -> [Int]
+      f c x r =
+        case dirCaptureLocSingle g idx c x of
+            Just z -> z : r
+            Nothing -> r
 
 -- find the allowable destination locs for a queen.
 allowableQueenMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
@@ -1027,6 +1087,16 @@ dirLocs g idx dir =
                 Empty -> loop (apply dir x) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
+
+dirCaptureLoc :: Vector Char -> Int -> Dir -> Maybe Int
+dirCaptureLoc g idx dir =
+    let c = indexToColor g idx
+    in case hasEnemy g c idx of
+        True -> Just idx
+        False | not (onBoard idx) -> Nothing
+              | isEmptyGrid g idx -> dirCaptureLoc g (apply dir idx) dir
+              | otherwise -> Nothing
+
 dirLocsCount :: Vector Char -> Int -> Dir -> Int
 dirLocsCount g idx dir =
     loop (apply dir idx) 0
@@ -1055,6 +1125,13 @@ dirLocsSingleCount g idx dir =
       if not (onBoard x) then 0
       else if isEmptyGrid g x then 1
       else 0
+
+dirCaptureLocSingle :: Vector Char -> Int -> Color -> Dir -> Maybe Int
+dirCaptureLocSingle g idx c dir =
+    case apply dir idx of
+        x | not (onBoard x) -> Nothing
+          | hasEnemy g c x -> Just x
+          | otherwise -> Nothing
 
 onBoard :: Int -> Bool
 onBoard x

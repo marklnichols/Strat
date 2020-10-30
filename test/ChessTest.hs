@@ -24,12 +24,12 @@ chessTest = do
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = pairToIndexes
                   $ allowableKingMoves
-                      ( posFromGrid board01 White (board01HasMovedW, board01HasMovedB) ) 12
+                      ( posFromGrid board01 White 12 (board01HasMovedW, board01HasMovedB) ) 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             let (empties2, enemies2) = pairToIndexes
                   $ allowableKingMoves
-                      ( posFromGrid board01 Black (board01HasMovedW, board01HasMovedB) ) 87
+                      ( posFromGrid board01 Black 87 (board01HasMovedW, board01HasMovedB) ) 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "allowableQueenMoves" $
@@ -109,7 +109,7 @@ chessTest = do
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
-            let moves = calcMoveLists (posFromGrid board02 White (board02HasMovedW, board02HasMovedB) )
+            let moves = calcMoveLists (posFromGrid board02 White 15 (board02HasMovedW, board02HasMovedB) )
             let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
             f <$> emptyAndEnemy `shouldMatchList`
                [ (11,12), (13,24), (13,35), (13,46), (13,57), (13,68), (14,24), (14,25), (14,36)
@@ -143,15 +143,16 @@ chessTest = do
     describe "calcDevelopment" $
       it ("Calculates a score for the position based on the development of the minor pieces "
           ++ "(aka knight, bishop) for each side") $
-          calcDevelopment (posFromGrid board03 White (board03HasMovedW, board03HasMovedB)) `shouldBe` 1
+          calcDevelopment (posFromGrid board03 White 15 (board03HasMovedW, board03HasMovedB)) `shouldBe` 1
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
-posFromGrid :: Vector Char -> Color  -> (HasMoved, HasMoved) -> ChessPos
-posFromGrid g c (hasMovedW, hasMovedB) = ChessPos
+posFromGrid :: Vector Char -> Color -> Int -> (HasMoved, HasMoved) -> ChessPos
+posFromGrid g c kingLoc (hasMovedW, hasMovedB) = ChessPos
   { _cpGrid = g, _cpColor = c
   , _cpHasMoved = (hasMovedW, hasMovedB)
+  , _cpKingLoc = kingLoc
   , _cpFin = NotFinal }
 
 ---------------------------------------------------------------------------------------------------
