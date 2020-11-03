@@ -47,6 +47,7 @@ module Chess
     , calcDevelopment
     , calcMoveLists
     , checkCastling
+    , inCheck
     , locsForColor
     , pairToIndexes
     , startingBoard
@@ -57,6 +58,7 @@ module Chess
 import Control.Lens hiding (Empty)
 
 import Data.Char
+import Data.List (foldl')
 import Data.Kind
 import Data.Maybe
 import Data.Set (Set, member, notMember)
@@ -481,33 +483,18 @@ inCheck g c kingLoc =
        nLocs = singleMoveCaptureLocs knightDirs g kingLoc
        pLocs = case c of
          White -> singleMoveCaptureLocs whitePawnCaptureDirs g kingLoc
-         Black -> singleMoveCaptureLocs blackPawnCaptureDirs g kingLoc
-       in matchesPiece g (MkChessPiece c (SomeSing SBishop))  bLocs
-          || matchesPiece g (MkChessPiece c (SomeSing SRook)) rLocs
-          || matchesPiece g (MkChessPiece c (SomeSing SKnight)) nLocs
-          || matchesPiece g (MkChessPiece c (SomeSing SPawn)) pLocs
-          || matchesPiece g (MkChessPiece c (SomeSing SQueen)) (bLocs ++ rLocs)
+         _ -> singleMoveCaptureLocs blackPawnCaptureDirs g kingLoc
+       ec = flipPieceColor c
+       in matchesChar g (pieceToChar Bishop ec) bLocs
+          || matchesChar g (pieceToChar Rook ec) rLocs
+          || matchesChar g (pieceToChar Knight ec) nLocs
+          || matchesChar g (pieceToChar Pawn ec) pLocs
+          || matchesChar g (pieceToChar Queen ec) (bLocs ++ rLocs)
 
--- SEq k =>
-matchesPiece :: Vector Char -> ChessPiece (k :: SomeSing Piece) -> [Int] -> Bool
-matchesPiece g (MkChessPiece c (SomeSing p)) xs =
-  foldr f False xs where
-    f :: Int -> Bool -> Bool
-    f x r =
-      let (MkChessPiece c (SomeSing p')) = indexToPiece g x
-          (Sing b') = (p' %== p)
-      in b' || r
-
-
-
-
--- TODO:
-{-
-  place Bishop, capture bishop or queen?
-  place Rook, capture rook or queen?
-  place Night, capture knight?
-  place Pawn, capture pawn?
--}
+matchesChar :: Vector Char -> Char -> [Int] -> Bool
+matchesChar g ch xs = foldr f False xs
+  where
+    f x r = if indexToChar g x == ch then True else r
 
 ---------------------------------------------------------------------------------------------------
 checkHasMoved
@@ -907,28 +894,28 @@ movesFromLoc pos loc =
 
 allowableMultiMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableMultiMoves pieceDirs g idx =
-  foldr f ([], []) pieceDirs
+  foldl' f ([], []) pieceDirs
     where
-      f :: Dir -> ([ChessMove], [ChessMove]) -> ([ChessMove], [ChessMove])
-      f x (r, r') =
+      f :: ([ChessMove], [ChessMove]) -> Dir -> ([ChessMove], [ChessMove])
+      f (r, r') x =
         let (freeLocs, captureLocs) = dirLocs g idx x
         in (freeLocs ++ r, captureLocs ++ r')
 
 multiMoveMobility :: [Dir] -> Vector Char -> Int -> Int
 multiMoveMobility pieceDirs g idx =
-  foldr f 0 pieceDirs
+  foldl' f 0 pieceDirs
     where
-      f :: Dir -> Int -> Int
-      f x r =
+      f :: Int -> Dir -> Int
+      f r x =
         let count = dirLocsCount g idx x
         in count + r
 
 multiMoveCaptureLocs :: [Dir] -> Vector Char -> Int -> [Int]
 multiMoveCaptureLocs pieceDirs g idx =
-  foldr f [] pieceDirs
+  foldl' f [] pieceDirs
     where
-      f :: Dir -> [Int] -> [Int]
-      f x r =
+      f :: [Int] -> Dir -> [Int]
+      f r x =
         case dirCaptureLoc g idx x of
             Just z  -> z : r
             Nothing -> r
@@ -937,30 +924,30 @@ multiMoveCaptureLocs pieceDirs g idx =
 -- direction (i.e., King and Knight). See @allowableMultiMoves
 allowableSingleMoves :: [Dir] -> Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowableSingleMoves pieceDirs g idx =
-  foldr (f (indexToColor g idx)) ([], []) pieceDirs
+  foldl' (f (indexToColor g idx)) ([], []) pieceDirs
     where
       -- fold function: curried f with Color applied
-      f :: Color -> Dir -> ([ChessMove], [ChessMove]) -> ([ChessMove], [ChessMove])
-      f c x (r, r') =
+      f :: Color -> ([ChessMove], [ChessMove]) -> Dir -> ([ChessMove], [ChessMove])
+      f c (r, r') x =
         let (freeLocs, captureLocs) = dirLocsSingle g idx c x
         in (freeLocs ++ r, captureLocs ++ r')
 
 singleMoveMobility :: [Dir] -> Vector Char -> Int -> Int
 singleMoveMobility pieceDirs g idx =
-  foldr f 0 pieceDirs
+  foldl' f 0 pieceDirs
     where
-      f :: Dir -> Int -> Int
-      f x r =
+      f :: Int -> Dir -> Int
+      f r x =
         let count = dirLocsSingleCount g idx x
         in count + r
 
 singleMoveCaptureLocs :: [Dir] -> Vector Char -> Int -> [Int]
 singleMoveCaptureLocs pieceDirs g idx =
-  foldr (f (indexToColor g idx)) [] pieceDirs
+  foldl' (f (indexToColor g idx)) [] pieceDirs
     where
       -- fold function: curried f with Color applied
-      f :: Color -> Dir -> [Int] -> [Int]
-      f c x r =
+      f :: Color -> [Int] -> Dir -> [Int]
+      f c r x =
         case dirCaptureLocSingle g idx c x of
             Just z -> z : r
             Nothing -> r
@@ -1056,9 +1043,9 @@ enPassantCaptures g c idx =
     if hasPawnMoved c idx then []
     else
       let dirs = case c of
-              White -> whitePawnEnPassantDirs
-              Black -> blackPawnEnPassantDirs
-              Unknown -> []
+            White -> whitePawnEnPassantDirs
+            Black -> blackPawnEnPassantDirs
+            Unknown -> []
           enemies = snd $ allowableSingleMoves dirs g idx
           thisPawn = indexToChar g idx
       -- only pawns can be captured this way
@@ -1089,13 +1076,15 @@ dirLocs g idx dir =
 
 
 dirCaptureLoc :: Vector Char -> Int -> Dir -> Maybe Int
-dirCaptureLoc g idx dir =
-    let c = indexToColor g idx
-    in case hasEnemy g c idx of
-        True -> Just idx
-        False | not (onBoard idx) -> Nothing
-              | isEmptyGrid g idx -> dirCaptureLoc g (apply dir idx) dir
-              | otherwise -> Nothing
+dirCaptureLoc g x dir =
+    let c = indexToColor g x
+        loop idx = case hasEnemy g c idx of
+                      True -> Just idx
+                      False | not (onBoard idx) -> Nothing
+                            | isEmptyGrid g idx -> loop (apply dir idx)
+                            | otherwise -> Nothing
+    in loop (apply dir x)
+
 
 dirLocsCount :: Vector Char -> Int -> Dir -> Int
 dirLocsCount g idx dir =
