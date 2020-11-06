@@ -85,9 +85,9 @@ data Castle = QueenSide | KingSide
   deriving (Eq, Ord, Show)
 
 data ChessMove
-  = StdMove { _isExchange :: Bool, _startIdx :: Int, _endIdx :: Int }
+  = StdMove { _isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _stdNote :: String }
   | CastlingMove { _castle :: Castle, _kingStartIdx :: Int, _kingEndIdx :: Int
-                 , _rookStartIdx :: Int, _rookEndIdx :: Int }
+                 , _rookStartIdx :: Int, _rookEndIdx :: Int, _castleNote :: String }
   deriving (Show, Eq, Ord)
 makeLenses ''ChessMove
 
@@ -138,9 +138,11 @@ makeLenses ''HasMoved
 -- use this to determine castling status
 -}
 data ChessPos = ChessPos
-  { _cpGrid :: Vector Char, _cpColor :: Color
-  , _cpHasMoved :: (HasMoved, HasMoved)
-  , _cpKingLoc :: Int
+  { _cpGrid :: Vector Char
+  , _cpColor :: Color
+  , _cpHasMoved :: (HasMoved, HasMoved) -- (white value, black value) for these pairs...
+  , _cpKingLoc :: (Int, Int)
+  , _cpInCheck :: (Bool, Bool)
   , _cpFin :: FinalState }
   deriving (Show)
 makeLenses ''ChessPos
@@ -166,6 +168,14 @@ enemyColor :: Color -> Color
 enemyColor White = Black
 enemyColor Black = White
 enemyColor Unknown = Unknown
+
+colorToTupleElem :: Color -> (a, a) -> a
+colorToTupleElem White (x, _y) = x
+colorToTupleElem _ (_x, y) = y
+
+colorToTuple :: Color -> (a, a) -> a -> (a, a)
+colorToTuple White (_x, y) x' = (x', y)
+colorToTuple _ (x, _y) y' = (x, y')
 
 ----------------------------------------------------------------------------------------------------
 -- New, new attempt with singletons
@@ -365,10 +375,11 @@ getStartNode =
     let firstColor = White
         cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor
                         , _cpHasMoved = (startingHasMovedWhite, startingHasMovedBlack)
-                        , _cpKingLoc = 15
+                        , _cpKingLoc = (15, 85)
+                        , _cpInCheck = (False, False)
                         , _cpFin = NotFinal }
     in Node ChessNode
-        { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1}
+        { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
         , _chessVal = ChessEval { _total = 0, _details = "" }
         , _chessErrorVal = ChessEval { _total = 0, _details = "" }
         , _chessPos = cPos}
@@ -450,22 +461,34 @@ noDirs = []
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
-    let prevPos = node ^. chessPos
-        prevGrid = prevPos ^. cpGrid
-        prevColor = prevPos ^. cpColor
-        prevHasMoved = _cpHasMoved prevPos
-        newHasMoved = checkHasMoved prevColor prevGrid prevHasMoved mv
-        (newGrid, mvStartIdx) = case mv of
-            StdMove _isExch start end -> (movePiece' prevGrid start end, start)
-            cm@CastlingMove{..} -> (castle' prevGrid cm, _kingStartIdx)
-        clrFlipped = flipPieceColor prevColor
+    let curPos = node ^. chessPos
+        curGrid = curPos ^. cpGrid
+        curColor = curPos ^. cpColor
+        curHasMoved = _cpHasMoved curPos
+        newHasMoved = checkHasMoved curColor curGrid curHasMoved mv
+        (newGrid, mvStartIdx, mvEndIdx) = case mv of
+            StdMove _isExch start end _s -> (movePiece' curGrid start end, start, end)
+            cm@CastlingMove{..} -> (castle' curGrid cm, _kingStartIdx, _kingEndIdx)
+        clrFlipped = flipPieceColor curColor
 
-        kingLoc = case indexToPiece prevGrid mvStartIdx of
-            MkChessPiece _c (SomeSing SKing) -> mvStartIdx
-            _                                -> prevPos ^. cpKingLoc
-        newPos = prevPos { _cpGrid = newGrid
+
+        kingLocs = curPos ^. cpKingLoc
+        -- kingloc for side applying current move
+        kingLoc = case indexToPiece curGrid mvStartIdx of
+            MkChessPiece _c (SomeSing SKing) -> mvEndIdx
+            _                                -> (colorToTupleElem curColor kingLocs)
+        kingLocs' = colorToTuple curColor kingLocs kingLoc
+
+        -- after applying the current move, is the side to play next (w/ color 'clrFlipped')
+        -- in check?
+        inCheckPair = curPos ^. cpInCheck
+        isInCheck = inCheck newGrid clrFlipped (colorToTupleElem clrFlipped kingLocs)
+        inCheckPair' = colorToTuple clrFlipped inCheckPair isInCheck
+
+        newPos = curPos { _cpGrid = newGrid
                          , _cpColor = clrFlipped
-                         , _cpKingLoc = kingLoc
+                         , _cpKingLoc = kingLocs'
+                         , _cpInCheck = inCheckPair'
                          , _cpHasMoved = newHasMoved }
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
@@ -535,7 +558,7 @@ checkDevelopment
   -> Maybe (Set Int)
 checkDevelopment g prevHasMoved mv =
     case mv of
-        StdMove _isExch start _end ->
+        StdMove _isExch start _end _s ->
             let piece = indexToPiece g start
             in case piece of
                 (MkChessPiece _c (SomeSing SBishop)) -> Just $ updateDevelopment prevHasMoved start
@@ -559,7 +582,7 @@ checkCastling
   -> Maybe (Set Int, Castling)
 checkCastling c g prevHasMoved mv =
     case mv of
-      StdMove _isExch start _end ->
+      StdMove _isExch start _end _s ->
         let piece = indexToPiece g start
         in case piece of
           (MkChessPiece _c (SomeSing SKing)) -> Just $ updateCastling c prevHasMoved mv
@@ -575,7 +598,7 @@ updateCastling
 updateCastling c prevHasMoved mv =
     case mv of
         CastlingMove {..} -> (S.empty, Castled)
-        StdMove _isExch start _end ->
+        StdMove _isExch start _end _s ->
             let unMovedC = _unMovedCastling prevHasMoved
                 cState = _castlingState prevHasMoved
             in if cState == Castled
@@ -603,6 +626,18 @@ flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
 --TODO: set the FinalState appropirately
+--TODO: make random score diff more lenient
+{-  TODO add scores for
+      Queen deployed too early
+      Control of center
+      outposts
+      half-empty, empty file rooks
+      doubled rooks
+      doubled pawns
+      having 2 bishops
+      castled King pawn protection
+      slight pref. to kingside castle over queenside
+-}
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
 --------------------------------------------------------------------------------------------------
@@ -627,10 +662,13 @@ evalPos pos =
 -- Calculate the 'development' score for the position (White - Black)
 --------------------------------------------------------------------------------------------------
 calcDevelopment :: ChessPos -> Int
-calcDevelopment cp =
-  let whiteDev = 4 - S.size (cp ^. (cpHasMoved . _1 . unMovedDev))
-      blackDev = 4 - S.size (cp ^. (cpHasMoved . _2 . unMovedDev))
-  in whiteDev - blackDev
+calcDevelopment cp = whiteDev cp - blackDev cp
+
+whiteDev :: ChessPos -> Int
+whiteDev cp = 4 - S.size (cp ^. (cpHasMoved . _1 . unMovedDev))
+
+blackDev :: ChessPos -> Int
+blackDev cp = 4 - S.size (cp ^. (cpHasMoved . _2 . unMovedDev))
 
 ---------------------------------------------------------------------------------------------------
 -- Count the 'material' score for the pieces on the board
@@ -653,7 +691,13 @@ calcMobility cp =
       wCnt = moveCountFromLocs g wLocs
       bLocs = locsForColor g Black
       bCnt = moveCountFromLocs g bLocs
-   in wCnt - bCnt
+  in wCnt - bCnt
+
+      -- discount mobility based on lack of development of minor pieces ...
+      -- mobility score range [0,1,2,3,4] --> multiplier [0, .25, .5, .75, 1]
+      -- whiteMult = fromIntegral (whiteDev cp) * (0.25 :: Float) :: Float
+      -- blackMult = fromIntegral (blackDev cp) * (0.25 :: Float) :: Float
+   -- in round ((wCnt * whiteMult) - (bCnt * blackMult))
 
 ---------------------------------------------------------------------------------------------------
 -- Calculate the castling score for the position
@@ -714,25 +758,29 @@ mkCastleMove White KingSide = CastlingMove
   , _kingStartIdx = 15
   , _kingEndIdx = 17
   , _rookStartIdx = 18
-  , _rookEndIdx = 16 }
+  , _rookEndIdx = 16
+  , _castleNote = "O-O" }
 mkCastleMove White QueenSide = CastlingMove
   { _castle = QueenSide
   , _kingStartIdx = 15
   , _kingEndIdx = 13
   , _rookStartIdx = 11
-  , _rookEndIdx = 14 }
+  , _rookEndIdx = 14
+  , _castleNote = "O-O-O" }
 mkCastleMove _ KingSide = CastlingMove
   { _castle = KingSide
   , _kingStartIdx = 85
   , _kingEndIdx = 87
   , _rookStartIdx = 88
-  , _rookEndIdx = 86 }
+  , _rookEndIdx = 86
+  , _castleNote = "O-O" }
 mkCastleMove _ QueenSide = CastlingMove
   { _castle = QueenSide
   , _kingStartIdx = 85
   , _kingEndIdx = 83
   , _rookStartIdx = 88
-  , _rookEndIdx = 84 }
+  , _rookEndIdx = 84
+  , _castleNote = "O-O-O" }
 
 castle' :: Vector Char -> ChessMove -> Vector Char
 castle' _g StdMove{..} = error "This shouldn't happen..."
@@ -754,7 +802,25 @@ legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
     let pos = node ^. chessPos
         moves = calcMoveLists pos
-    in _cmEmpty moves ++ _cmEnemy moves
+        initialList = _cmEmpty moves ++ _cmEnemy moves
+    in filterKingInCheck pos initialList
+
+---------------------------------------------------------------------------------------------------
+-- filter out moves that result in the moving player's king being in check
+--------------------------------------------------------------------------------------------------
+filterKingInCheck :: ChessPos -> [ChessMove] -> [ChessMove]
+filterKingInCheck pos xs =
+    let g = pos ^. cpGrid
+        c = pos ^. cpColor
+        kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
+        foldf mv r =
+            let (tempG, _, _) = case mv of
+                  StdMove _isExch start end _s -> (movePiece' g start end, start, end)
+                  cm@CastlingMove{..} -> (castle' g cm, _kingStartIdx, _kingEndIdx)
+            in case inCheck tempG c kingLoc of
+             True -> r
+             False -> mv : r
+        in foldr foldf [] xs
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for the current color from a ChessNode
@@ -1067,9 +1133,9 @@ dirLocs g idx dir =
                 enemy = hasEnemy g c x
                 (sqState, (newEmpties, newEnemies))
                     | not (onBoard x) = (OffBoard ,(empties, enemies))
-                    | enemy = (HasEnemy, (empties, StdMove True idx x : enemies))
+                    | enemy = (HasEnemy, (empties, StdMove True idx x "": enemies))
                     | friendly = (HasFriendly, (empties, enemies))
-                    | otherwise = (Empty, (StdMove False idx x : empties, enemies))
+                    | otherwise = (Empty, (StdMove False idx x "": empties, enemies))
             in (case sqState of
                 Empty -> loop (apply dir x) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
@@ -1103,9 +1169,9 @@ dirLocsSingle g idx c dir =
     let x = apply dir idx
     in
       if not (onBoard x) then ([], [])
-      else if hasEnemy g c x then ([], [StdMove True idx x])
+      else if hasEnemy g c x then ([], [StdMove True idx x ""])
       else if hasFriendly g c x then ([], [])
-      else ([StdMove False idx x ],[]) -- empty square
+      else ([StdMove False idx x ""],[]) -- empty square
 
 dirLocsSingleCount :: Vector Char -> Int -> Dir -> Int
 dirLocsSingleCount g idx dir =
@@ -1152,7 +1218,8 @@ indexesToMove node [fromLoc, toLoc] =
                     False -> -1
                 ret = Right $ StdMove { _isExchange = isExch
                                       , _startIdx = fromLoc
-                                      , _endIdx = toLoc }
+                                      , _endIdx = toLoc
+                                      , _stdNote = ""}
               in if isExch then
                       let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
                       in trace str ret
@@ -1170,13 +1237,15 @@ checkIndexesToCastle [fromLoc, toLoc]
         , _kingStartIdx = fromLoc
         , _kingEndIdx = toLoc
         , _rookStartIdx = fromLoc + 3
-        , _rookEndIdx = toLoc - 1 }
+        , _rookEndIdx = toLoc - 1
+        , _castleNote = "O-O" }
     | toLoc == fromLoc - 2  = Just $ CastlingMove
         { _castle = QueenSide
         , _kingStartIdx = fromLoc
         , _kingEndIdx = toLoc
         , _rookStartIdx = fromLoc - 4
-        , _rookEndIdx = toLoc + 1 }
+        , _rookEndIdx = toLoc + 1
+        , _castleNote = "O-O-O" }
     | otherwise = Nothing
 checkIndexesToCastle z = error $ "checkIndexesToCastle called with a list not of length 2: " ++ show z
 

@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
 module ChessTest (chessTest) where
 
 import Test.Hspec
@@ -24,12 +23,13 @@ chessTest = do
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = pairToIndexes
                   $ allowableKingMoves
-                      ( posFromGrid board01 White 12 (board01HasMovedW, board01HasMovedB) ) 12
+                      ( posFromGrid board01 White (12, 87) (False, False)
+                        (board01HasMovedW, board01HasMovedB) ) 12
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             let (empties2, enemies2) = pairToIndexes
                   $ allowableKingMoves
-                      ( posFromGrid board01 Black 87 (board01HasMovedW, board01HasMovedB) ) 87
+                      ( posFromGrid board01 Black (12, 87) (False, False) (board01HasMovedW, board01HasMovedB) ) 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "allowableQueenMoves" $
@@ -109,7 +109,8 @@ chessTest = do
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
-            let moves = calcMoveLists (posFromGrid board02 White 15 (board02HasMovedW, board02HasMovedB) )
+            let moves = calcMoveLists (posFromGrid board02 White (15, 85) (False, False)
+                                       (board02HasMovedW, board02HasMovedB) )
             let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
             f <$> emptyAndEnemy `shouldMatchList`
                [ (11,12), (13,24), (13,35), (13,46), (13,57), (13,68), (14,24), (14,25), (14,36)
@@ -143,25 +144,23 @@ chessTest = do
     describe "calcDevelopment" $
       it ("Calculates a score for the position based on the development of the minor pieces "
           ++ "(aka knight, bishop) for each side") $
-          calcDevelopment (posFromGrid board03 White 15 (board03HasMovedW, board03HasMovedB)) `shouldBe` 1
-
+          calcDevelopment (posFromGrid board03 White (15, 85) (False, False)
+                           (board03HasMovedW, board03HasMovedB)) `shouldBe` 1
     describe "inCheck" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
-          -- inCheck board03 White 15 `shouldBe` False
-          -- inCheck board04 Black 85 `shouldBe` False
+          inCheck board03 White 15 `shouldBe` False
+          inCheck board04 Black 85 `shouldBe` False
           inCheck board04 White 45 `shouldBe` True
-
--- inCheck :: Vector Char -> Color -> Int -> Bool
-
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
-posFromGrid :: Vector Char -> Color -> Int -> (HasMoved, HasMoved) -> ChessPos
-posFromGrid g c kingLoc (hasMovedW, hasMovedB) = ChessPos
+posFromGrid :: Vector Char -> Color -> (Int, Int) -> (Bool, Bool) -> (HasMoved, HasMoved) -> ChessPos
+posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) (hasMovedW, hasMovedB) = ChessPos
   { _cpGrid = g, _cpColor = c
   , _cpHasMoved = (hasMovedW, hasMovedB)
-  , _cpKingLoc = kingLoc
+  , _cpKingLoc = (kingLocW, kingLocB)
+  , _cpInCheck = (inCheckW, inCheckB)
   , _cpFin = NotFinal }
 
 ---------------------------------------------------------------------------------------------------
@@ -302,17 +301,17 @@ board03HasMovedB = HasMoved
   , _castlingState = BothAvailable}
 
 board03Move :: ChessMove
-board03Move = StdMove { _isExchange = False, _startIdx = 11, _endIdx = 12 }
+board03Move = StdMove { _isExchange = False, _startIdx = 11, _endIdx = 12, _stdNote = ""}
 
 board03Move2 :: ChessMove
-board03Move2 = StdMove { _isExchange = False, _startIdx = 88, _endIdx = 87 }
+board03Move2 = StdMove { _isExchange = False, _startIdx = 88, _endIdx = 87, _stdNote = "" }
 
 board03Move3 :: ChessMove
-board03Move3 = StdMove { _isExchange = False, _startIdx = 15, _endIdx = 24 }
+board03Move3 = StdMove { _isExchange = False, _startIdx = 15, _endIdx = 24, _stdNote = "" }
 
 board03Move4 :: ChessMove
 board03Move4 = CastlingMove { _castle = QueenSide, _kingStartIdx = 15, _kingEndIdx = 13
-                           , _rookStartIdx = 11, _rookEndIdx = 15 }
+                           , _rookStartIdx = 11, _rookEndIdx = 15, _castleNote = "O-O-O"}
 
 ----------------------------------------------------------------------------------------------------
 board04 :: V.Vector Char
