@@ -1,6 +1,7 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-module TicTac.TTGame 
+module TicTac.TTGame
     ( calcNewNode
     , checkTwoWayWin
     , checkWins
@@ -8,42 +9,76 @@ module TicTac.TTGame
     , format
     , getPossibleMoves
     , strToMove
+    , IntEval(..)
+    , IntMove(..)
     , TTPosition (..)
     , TTNode (..)
     ) where
 
 import Control.Lens
+import Data.Mutable
 import Data.Tree
-import Strat.StratTree.TreeNode hiding (Result, MoveScore)
+import Strat.StratTree.TreeNode hiding (MoveScore)
 import qualified TicTac.TTParser as Parser
 
 ------------------------------------------------------------------
 -- Data Types
 ------------------------------------------------------------------
-data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState} deriving (Show)
+data TTPosition = TTPosition {_grid :: [Int], _clr :: Int, _fin :: FinalState}
+    deriving (Show, Eq, Ord)
 makeLenses ''TTPosition
 
-data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: IntEval, _ttErrorValue :: IntEval, _ttPosition :: TTPosition} deriving (Show)
+newtype IntMove = IntMove {theInt :: Int}
+
+instance Show IntMove where
+    show m = show $ theInt m
+
+instance Eq IntMove where
+    (==) m1 m2 = theInt m1 == theInt m2
+
+instance Ord IntMove where
+    (<=) m1 m2 = theInt m1 <= theInt m2
+
+instance Move IntMove
+
+newtype IntEval = IntEval {_theVal :: Int}
+makeLenses ''IntEval
+
+instance Show IntEval where
+    show m = show $ _theVal m
+
+instance Eq IntEval where
+    (==) m1 m2 = _theVal m1 == _theVal m2
+
+instance Ord IntEval where
+    (<=) m1 m2 = _theVal m1 <= _theVal m2
+
+data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: IntEval, _ttPosition :: TTPosition} deriving (Show, Eq, Ord)
 makeLenses ''TTNode
 
-instance PositionNode TTNode IntMove IntEval where
+instance Mutable s TTNode where
+
+instance Eval TTNode where
+    toFloat tn =
+      let asInt = (tn ^. (ttValue . theVal)) :: Int
+          asFloat = fromIntegral asInt :: Float
+      in asFloat
+    setFloat tn x = tn & (ttValue . theVal) .~ (round x)
+
+instance TreeNode TTNode IntMove where
+    getMove t = t ^. ttMove
     newNode = calcNewNode
     possibleMoves = getPossibleMoves
     color n = n ^. (ttPosition . clr)
     final n = n ^. (ttPosition . fin)
     parseMove n s = strToMove s (color n)
 
-instance TreeNode TTNode IntMove IntEval where
-    getMove t = t ^. ttMove
-    getValue t = t ^. ttValue
-    getErrorValue t = t ^. ttErrorValue
-
 ---------------------------------------------------------
 -- starting position,
 ---------------------------------------------------------
 _getStartNode :: Tree TTNode
 _getStartNode = Node TTNode { _ttMove = IntMove (-1), _ttValue = IntEval 0
-                            , _ttErrorValue = IntEval 0, _ttPosition = TTPosition
+                            , _ttPosition = TTPosition
                             { _grid = [0, 0, 0, 0, 0, 0, 0, 0, 0], _clr = 1, _fin = NotFinal } } []
 
 ---------------------------------------------------------
@@ -82,9 +117,9 @@ calcNewNode node mv =
         oldColor = view clr gridSet
         colorFlipped = set clr (negate oldColor) gridSet
         (scr, finalSt) = evalGrid colorFlipped
-        errorScr = errorEvalGrid $ colorFlipped ^. grid
+        -- errorScr = errorEvalGrid $ colorFlipped ^. grid
         allSet = set fin finalSt colorFlipped
-    in  TTNode mv (IntEval scr) (IntEval errorScr) allSet
+    in  TTNode mv (IntEval scr) allSet
 
 ----------------------------------------------------------
 -- convert from move value to grid index
@@ -121,15 +156,6 @@ evalGrid pos
 colorToFinalState :: Int -> FinalState
 colorToFinalState 1 = WWins
 colorToFinalState _ = BWins
-
-errorEvalGrid :: [Int] -> Int
-errorEvalGrid grd
-    | checkTwoWayWin grd 1    = 121
-    | checkTwoWayWin grd (-1) = -121
-    | checkWins grd 1        = 101
-    | checkWins grd (-1)     = -101
-    | checkDraw grd          = 1
-    | otherwise               = 1 -- scorePos grid
 
 ---------------------------------------------------------------------
 -- Check positions for winning / losing conditions

@@ -6,9 +6,9 @@ module ChessText
 import Control.Lens
 import Data.List.Extra
 import Data.Tree
+import Strat.Helpers
 import Strat.StratTree
 import Strat.StratTree.TreeNode
-import Strat.StratTree.Trees
 import System.Exit
 import qualified Data.Vector.Unboxed as V
 
@@ -16,7 +16,7 @@ import Chess
 
 data ChessText = ChessText
 
-instance Output ChessText ChessNode ChessMove ChessEval where
+instance Output ChessText ChessNode ChessMove where
     out _ = printString
     updateBoard = showBoard
     showCompMove _ = printMoveChoiceInfo
@@ -29,19 +29,15 @@ printString = putStrLn
 showBoard :: ChessText -> ChessNode -> IO ()
 showBoard _ node = do
     putStrLn $ formatBoard node
-    putStrLn ("Current position score: " ++ show (getValue node))
+    putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal node))
     putStrLn "\n--------------------------------------------------\n"
 
-printMoveChoiceInfo :: Tree ChessNode -> [MoveScore ChessMove ChessEval]
-  -> Result ChessMove ChessEval ->  ChessMove -> IO ()
-printMoveChoiceInfo tree _finalChoices result mv = do
-    -- putStrLn ("Choices from best: " ++ show (result^.moveScores))
-    -- putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
+printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> IO ()
+printMoveChoiceInfo tree result = do
     putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Equivalent best moves: " ++ showMoves (result^.moveChoices))
-    putStrLn ("Following moves: " ++ showMoves ( result^.followingMoves))
-    putStrLn ("Computer's move:\n (m:" ++ showMove mv ++
-                  ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
+    putStrLn ("Computer's move: \n" ++ showNegaMoves (best result))
+    putStrLn ("score details: \n" ++ showScoreDetails (_chessVal (branchScore (best result))))
+    putStrLn ("Alternative moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
     putStrLn ""
 
 exitFail :: ChessText -> String -> IO ()
@@ -49,11 +45,18 @@ exitFail _ s = do
     putStrLn s
     exitFailure
 
-showMove :: ChessMove -> String
-showMove cm = show $ toParserMove cm
+-- showMove :: ChessMove -> String
+-- showMove cm = show $ toParserMove cm
 
-showMoves :: [ChessMove] -> String
-showMoves cms = unlines $ fmap showMove cms
+-- showOtherMoves :: [(ChessNode, [ChessNode])] -> String
+-- showOtherMoves pairs =
+--   let cms = _chessMv . fst <$> pairs
+--   in unlines $ fmap showMove cms
+
+-- showFollowingMoves :: (ChessNode, [ChessNode]) -> String
+-- showFollowingMoves pair =
+--   let cms = _chessMv <$> snd pair
+--   in unlines $ fmap showMove cms
 
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input

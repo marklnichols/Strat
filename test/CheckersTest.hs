@@ -109,14 +109,14 @@ blackFirstStartNode :: CkNode
 blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
-treeFromGridW g = Node CkNode 
+treeFromGridW g = Node CkNode
     { _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
     , _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
-treeFromGridB g = Node CkNode 
+treeFromGridB g = Node CkNode
     { _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
@@ -130,7 +130,7 @@ nodeFromGridB g = rootLabel $ treeFromGridB g
 
 mkSimpleCkMove :: Int -> CkMove
 mkSimpleCkMove i = CkMove {_isJump = False, _startIdx = i `div` 100, _endIdx = i `mod` 100, _middleIdxs = [], _removedIdxs = []}
-           
+
 mkSimpleJsonMove :: Int -> String
 mkSimpleJsonMove x = J.jsonFromCkMove (mkSimpleCkMove x)
 
@@ -150,8 +150,8 @@ mkMultiJsonJump (mv, middle, removed) = J.jsonFromCkMove (mkMultiCkJump (mv, mid
 -- Test Reader environments
 ---------------------------------------------------------------------------------------------------
 _envDepth6 :: Env
-_envDepth6 = Env { _depth =6, _errorDepth = 3, _equivThreshold = 0, _errorEquivThreshold = 0
-                 , _p1Comp = False, _p2Comp = True }
+_envDepth6 = Env { depth =6, equivThreshold = 0
+                 , p1Comp = False, p2Comp = True }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions

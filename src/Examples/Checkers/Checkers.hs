@@ -1,6 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Checkers
     ( boardAsPieceList
@@ -30,6 +31,7 @@ module Checkers
     , PieceLoc(..)
     , pieceProgress
     , progress
+    , showScoreDetails
     , toParserMove
     , totalKingCount
     , totalPieceCount
@@ -39,9 +41,10 @@ import Control.Lens
 import Control.Monad
 import Data.Char
 import Data.Maybe
+import Data.Mutable
 import Data.Tree
 import Prelude hiding (lookup)
-import Strat.StratTree.TreeNode hiding (MoveScore, Result)
+import Strat.StratTree.TreeNode hiding (MoveScore)
 import Safe
 import qualified CkParser as Parser
 import qualified Data.Vector.Unboxed as V
@@ -51,19 +54,23 @@ import Debug.Trace
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
-data CkPosition = CkPosition {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState} deriving (Show)
+data CkPosition = CkPosition {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState}
+    deriving (Eq, Ord, Show)
 makeLenses ''CkPosition
 
 data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int], _removedIdxs :: [Int]}
     deriving (Eq, Ord)
 makeLenses ''CkMove
 
-data CkEval = CkEval {_total :: Int, _details :: String}
+data CkEval = CkEval {_total :: Float, _details :: String}
     deriving (Eq, Ord)
 makeLenses ''CkEval
 
 data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: CkEval, _ckErrorValue :: CkEval, _ckPosition :: CkPosition}
+    deriving (Eq)
 makeLenses ''CkNode
+
+instance Mutable s CkNode where
 
 data JumpOff = JumpOff {_jmpOver :: Int, _land :: Int}
 makeLenses ''JumpOff
@@ -72,34 +79,37 @@ data PieceLoc = PieceLoc {pieceLoc :: Parser.Loc, pieceLocValue :: Int}
 
 newtype PieceList = PieceList {pieceLocs :: [PieceLoc]}
 
-instance PositionNode CkNode CkMove CkEval where
+instance TreeNode CkNode CkMove where
     newNode = calcNewNode
     possibleMoves = getAllowedMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     parseMove = parseCkMove
-
-instance TreeNode CkNode CkMove CkEval where
     getMove = _ckMove
-    getValue = _ckValue
-    getErrorValue = _ckErrorValue
 
 instance Show CkMove where
     show mv = show $ toParserMove mv
 
 instance Show CkNode where
-    show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: "
-             ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
+    -- show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: "
+    --          ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
+    show n = "move: " ++ show (n ^. ckMove) ++ ", value: " ++ show (n ^. ckValue)
+
+instance Ord CkNode where
+    (<=) ckn1 ckn2 = toFloat ckn1 <= toFloat ckn2
 
 instance Show CkEval where
-    show e = "Total = " ++ show (e ^. total) ++ "<br>" ++ (e ^. details)
+    -- show e = "Total = " ++ show (e ^. total) ++ "<br>" ++ (e ^. details)
+    show e = show (e ^. total)
+
+showScoreDetails :: CkEval -> String
+showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
 
 instance Move CkMove
 
-instance Eval CkEval where
-    getInt e = e ^. total
-    setInt e n = e & total .~ n
-    fromInt n = CkEval {_total = n, _details = ""}
+instance Eval CkNode where
+    toFloat ckn = ckn ^. (ckValue . total)
+    setFloat ckn x = ckn & (ckValue . total) .~ x
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
@@ -263,13 +273,10 @@ calcNewNode node mv =
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue eval finSet
         errScoreSet = set ckErrorValue errEval scoreSet
-    -- in  set ckMove mv errScoreSet
-
         pMv = toParserMove mv
         str = ("calcNewNode - move: " ++ show pMv ++ ", eval: " ++ show eval
              ++ " (" ++ show (mv ^.startIdx) ++ "-" ++ show (mv^.endIdx) ++ ")")
     in trace str (set ckMove mv errScoreSet)
-
 
 removePiece :: CkNode -> Int -> CkNode
 removePiece node idx = set (ckPosition . grid . ix idx) 0 node
@@ -301,43 +308,46 @@ checkPromote node value toLoc
 -- Position Evaluation
 --------------------------------------------------------
 homeRowFull, homeRowPartial, homeRowNone, kingVal, pieceVal, mobilityVal, progressVal :: Int
-homeRowFull    = 4      -- (home row values for non-kings only)
+homeRowFull    = 4   -- (home row values for non-kings only)
 homeRowPartial = 2
 homeRowNone    = 0
 kingVal        = 15
 pieceVal       = 5
-mobilityVal    = 1      -- range 0-2 for non-kings, 0-4 for kings
-progressVal    = 1      -- range: 0-4 (for non-kings only)
+mobilityVal    = 1    -- range 0-2 for non-kings, 0-4 for kings
+progressVal    = 1    -- range: 0-4 (for non-kings only)
 
-kProximityVal, finalValW, finalValB, drawVal  :: Int
+kProximityVal :: Int
 kProximityVal  = 1      -- range 0-6, (for kings only)
-finalValW =  1000
-finalValB = -1000
-drawVal   =  0
+
+finalValW, finalValB, drawVal :: Float
+finalValW =  1000.0
+finalValB = -1000.0
+drawVal   =  0.0
 
 evalNode :: CkNode -> (CkEval, FinalState)
-evalNode n = let g =   n ^. (ckPosition . grid)
-                 mat = totalKingCount g * kingVal + totalPieceCount g * pieceVal
-                 mob = mobility n * mobilityVal
-                 home = homeRow g
-                 prog = progress n * progressVal
-                 kProximity = kingProximity n * kProximityVal
-                 finl = checkFinal n
-             in case finl of
-                    NotFinal ->
-                        (CkEval {_total = mat + mob + home + prog,
-                                 _details =  "material = " ++ show mat ++
-                                   "<br>" ++ "mobility = " ++ show mob ++
-                                   "<br>" ++ "home row occupation = " ++ show home ++
-                                   "<br>" ++ "forward progress = " ++ show prog ++
-                                   "<br>" ++ "kings' proximity to enemy pieces = " ++ show kProximity}
-                        , finl)
-                    WWins -> (CkEval {_total = finalValW,
-                                      _details="white wins <" ++ show finalValW ++ ">"}, finl)
-                    BWins -> (CkEval {_total = finalValB,
-                                      _details="black wins <" ++ show finalValB ++ ">"}, finl)
-                    Draw  -> (CkEval {_total = drawVal,
-                                      _details="draw <" ++ show drawVal ++ ">"}, finl)
+evalNode n =
+    let g = n ^. (ckPosition . grid)
+        mat = fromIntegral $ totalKingCount g * kingVal + totalPieceCount g * pieceVal
+        mob = fromIntegral $ mobility n * mobilityVal
+        home = fromIntegral $ homeRow g
+        prog = fromIntegral $ progress n * progressVal
+        kProximity = fromIntegral $ (kingProximity n * kProximityVal) :: Int
+        finl = checkFinal n
+    in case finl of
+        NotFinal -> ( CkEval { _total = mat + mob + home + prog
+                             , _details = "material = " ++ show mat ++
+                               "<br>" ++ "mobility = " ++ show mob ++
+                               "<br>" ++ "home row occupation = " ++ show home ++
+                               "<br>" ++ "forward progress = " ++ show prog ++
+                               "<br>" ++ "kings' proximity to enemy pieces = "
+                                      ++ show kProximity }
+                    , finl )
+        WWins -> (CkEval {_total = finalValW,
+                          _details="white wins <" ++ show finalValW ++ ">"}, finl)
+        BWins -> (CkEval {_total = finalValB,
+                          _details="black wins <" ++ show finalValB ++ ">"}, finl)
+        Draw  -> (CkEval {_total = drawVal,
+                          _details="draw <" ++ show drawVal ++ ">"}, finl)
 
 checkFinal :: CkNode -> FinalState
 checkFinal n
@@ -376,7 +386,7 @@ mobility node = wMoves - bMoves where
 homeRow :: V.Vector Int -> Int
 homeRow grd = homeRow' grd 1 - homeRow' grd (-1)
 
-homeRow' :: V.Vector Int -> Int -> Int
+homeRow' :: V.Vector Int -> Int ->Int
 homeRow' grd 1    = checkRow grd 1 [5..8]
 homeRow' grd (-1) = checkRow grd (-1) [37..40]
 homeRow' _ _    = homeRowNone     --should never happen
@@ -564,7 +574,7 @@ closestToKing :: Int -> [Int] -> Int
 closestToKing k foes = fromMaybe 7 $ minimumMay $ fmap (`distance` k) foes
 
 distance :: Int -> Int -> Int
-distance p1 p2 = max (hDistance p1 p2) (vDistance p1 p2)
+distance p1 p2 = fromIntegral $ max (hDistance p1 p2) (vDistance p1 p2)
 
 hDistance :: Int -> Int -> Int
 hDistance p1 p2 = abs $ (offset p1 + colPlus p1) - (offset p2 + colPlus p2)

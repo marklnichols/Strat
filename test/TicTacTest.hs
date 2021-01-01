@@ -17,9 +17,9 @@ ticTacTest = do
             checkWins aPos3 (-1) `shouldBe` False
     describe "eval" $
         it "evaluates the score for a position" $ do
-            eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` 100
-            eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos2 1 NotFinal)) `shouldBe` (-100)
-            eval (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos3 1 NotFinal)) `shouldBe` 0
+            eval (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` 100
+            eval (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos2 1 NotFinal)) `shouldBe` (-100)
+            eval (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos3 1 NotFinal)) `shouldBe` 0
     describe "checkTwoWayWin" $
         it "Checks whether a position contains two in a row in two different places." $ do
             checkTwoWayWin aPos3 1 `shouldBe` False
@@ -34,17 +34,17 @@ ticTacTest = do
             checkTwoWayWin aPos11 1 `shouldBe` False
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
-            _grid (_ttPosition (calcNewNode (TTNode (IntMove 1) (IntEval 1) (IntEval 1) (TTPosition aPos 1 NotFinal)) (IntMove 6))) `shouldBe` [1, 1, -1, 1, -1, 1, 1, 0, -1]
-            _grid (_ttPosition (calcNewNode (TTNode (IntMove 1) (IntEval 1) (IntEval 1) (TTPosition aPos (-1) NotFinal)) (IntMove(-8)))) `shouldBe` [1, 1, -1, 1, -1, 0, 1, -1, -1]
+            _grid (_ttPosition (calcNewNode (TTNode (IntMove 1) (IntEval 1) (TTPosition aPos 1 NotFinal)) (IntMove 6))) `shouldBe` [1, 1, -1, 1, -1, 1, 1, 0, -1]
+            _grid (_ttPosition (calcNewNode (TTNode (IntMove 1) (IntEval 1) (TTPosition aPos (-1) NotFinal)) (IntMove(-8)))) `shouldBe` [1, 1, -1, 1, -1, 0, 1, -1, -1]
     describe "getPossibleMoves" $
         it "gets a list of possible moves from a given position" $ do
-            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` [IntMove 6, IntMove 8]
-            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos (-1) NotFinal)) `shouldBe` [IntMove (-6), IntMove (-8)]
-            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos2 1 NotFinal)) `shouldBe` [IntMove 2]
-            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos3 (-1) NotFinal)) `shouldBe` []
+            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` [IntMove 6, IntMove 8]
+            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos (-1) NotFinal)) `shouldBe` [IntMove (-6), IntMove (-8)]
+            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos2 1 NotFinal)) `shouldBe` [IntMove 2]
+            getPossibleMoves (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos3 (-1) NotFinal)) `shouldBe` []
     describe "format" $
         it "formats a position as a string for display" $
-            format (TTNode (IntMove 0) (IntEval 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` "X X O \nX O - \nX - O \n"
+            format (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` "X X O \nX O - \nX - O \n"
     describe "strToMove" $
         it "parses move input into an IntMove" $ do
             strToMove "2" 1 `shouldBe` Right (IntMove 2)

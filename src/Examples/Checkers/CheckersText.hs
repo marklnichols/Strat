@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module CheckersText 
+module CheckersText
     ( CheckersText(..)
     ) where
 
@@ -7,16 +7,16 @@ import Checkers
 import Control.Lens
 import Data.List
 import Data.Tree
+import Strat.Helpers
 import Strat.StratTree
 import Strat.StratTree.TreeNode
-import Strat.StratTree.Trees
 import System.Exit
 import qualified Data.Map as Map
 import qualified Data.Vector.Unboxed as V
 
 data CheckersText = CheckersText
 
-instance Output CheckersText CkNode CkMove CkEval where
+instance Output CheckersText CkNode CkMove where
     out _ = printString
     updateBoard = showBoard
     showCompMove _ = printMoveChoiceInfo
@@ -25,29 +25,47 @@ instance Output CheckersText CkNode CkMove CkEval where
 
 printString :: String -> IO ()
 printString = putStrLn
-    
+
 showBoard :: CheckersText -> CkNode -> IO ()
-showBoard _ node = do  
-    putStrLn $ formatBoard node 
-    putStrLn ("Current position score: " ++ show (getValue node))
-    putStrLn ""
- 
-printMoveChoiceInfo :: Tree CkNode -> [MoveScore CkMove CkEval] -> Result CkMove CkEval ->  CkMove -> IO ()
-printMoveChoiceInfo tree finalChoices result mv = do
-    putStrLn ("Choices from best: " ++ show (result^.moveScores))
-    putStrLn ("Choices after checkBlunders: " ++ show finalChoices)
+showBoard _ node = do
+    putStrLn $ formatBoard node
+    putStrLn ("Current position score: " ++ show (toFloat node))
+    putStrLn ("Current position score: \n" ++ showScoreDetails (_ckValue node))
+    putStrLn "\n--------------------------------------------------\n"
+
+printMoveChoiceInfo :: Tree CkNode -> NegaResult CkNode -> IO ()
+printMoveChoiceInfo tree result = do
+    -- putStrLn ("Tree size: " ++ show (treeSize tree))
+    -- putStrLn ("Equivalent best moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
+    -- putStrLn ("Following moves: " ++ showNegaMoves (best result))
+    -- putStrLn ("Alternative moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
+    -- -- putStrLn ("Computer's move:\n (m:" ++ showMove mv ++
+    -- --               ", s:" ++ show (_score $ head moveScores) ++ ")")
+    -- putStrLn ""
+
     putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Equivalent best moves: " ++ show (result^.moveChoices))
-    putStrLn ("Following moves: " ++ show ( result^.followingMoves))
-    putStrLn ("Computer's move:\n (m:" ++ show mv ++
-                  ", s:" ++ show (_score $ head $ result^.moveScores) ++ ")")
+    putStrLn ("Computer's move: \n" ++ showNegaMoves (best result))
+    putStrLn ("score details: \n" ++ showScoreDetails (_ckValue (branchScore (best result))))
+    putStrLn ("Alternative moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
     putStrLn ""
 
 exitFail :: CheckersText -> String -> IO ()
 exitFail _ s = do
     putStrLn s
     exitFailure
-    
+
+-- showMove :: CkMove -> String
+-- showMove cm = show $ toParserMove cm
+
+-- showOtherMoves :: [(CkNode, [CkNode])] -> String
+-- showOtherMoves pairs =
+--   let cms = _ckMove . fst <$> pairs
+--   in unlines $ fmap showMove cms
+
+-- showFollowingMoves :: (CkNode, [CkNode]) -> String
+-- showFollowingMoves pair =
+--   let cms = _ckMove <$> snd pair
+--   in unlines $ fmap showMove cms
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
@@ -60,19 +78,19 @@ playerMove tree turn = do
         Left err -> do
             putStrLn err
             playerMove tree turn
-        Right mv -> 
+        Right mv ->
             if not (isLegal tree mv)
                 then do
                     putStrLn "Not a legal move."
                     playerMove tree turn
-                else return mv                         
-   
+                else return mv
+
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
 formatBoard :: CkNode -> String
 formatBoard node = loop (node ^. (ckPosition . grid)) 40 "" where
-    loop _ 4 result = result ++ "\n" ++ colLabels 
+    loop _ 4 result = result ++ "\n" ++ colLabels
     loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
         (newIdx, spaces) = case n `mod` 9 of
             0 -> (n-1, "")

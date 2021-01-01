@@ -2,21 +2,22 @@
 module ChessTest (chessTest) where
 
 import Test.Hspec
+import Control.Monad.ST
 import qualified Data.Set as S
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
 import Chess
+import GameRunner
+import Strat.Helpers
 import Strat.StratTree.TreeNode
 
 chessTest :: SpecWith ()
 chessTest = do
     describe "getPieceLocs" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
-            -- getPieceLocs (nodeFromGridW board01) `shouldMatchList`
             locsForColor board01 White `shouldMatchList`
               [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
-            -- getPieceLocs (nodeFromGridB board01) `shouldMatchList`
             locsForColor board01 Black `shouldMatchList`
               [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
     describe "allowableKingMoves" $
@@ -151,6 +152,15 @@ chessTest = do
           inCheck board03 White 15 `shouldBe` False
           inCheck board04 Black 85 `shouldBe` False
           inCheck board04 White 45 `shouldBe` True
+    describe "findMove" $
+      it ("find's a subtree element corresponding to a particular move from the current position"
+         ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
+          -- startingBoard :: V.Vector Char
+          let t = getStartNode
+          let newTree = runST $ expandTree t
+          let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
+          let t' = findMove newTree mv
+          (t /= t') `shouldBe` True
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
@@ -211,12 +221,14 @@ P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27
 board01HasMovedW :: HasMoved
 board01HasMovedW = HasMoved
   { _unMovedDev = S.fromList []
+  , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList []
   , _castlingState = Castled }
 
 board01HasMovedB :: HasMoved
 board01HasMovedB = HasMoved
   { _unMovedDev = S.fromList []
+  , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList []
   , _castlingState = Castled }
 
@@ -251,12 +263,14 @@ R   -   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 board02HasMovedW :: HasMoved
 board02HasMovedW = HasMoved
   { _unMovedDev = S.fromList [wKB, wQB, wQN]
+  , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling = S.fromList [wK, wKR, wQR]
   , _castlingState = BothAvailable}
 
 board02HasMovedB :: HasMoved
 board02HasMovedB = HasMoved
   { _unMovedDev = S.fromList [bKN, bKB, bQB, bQN]
+  , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList [bK, bKR, bQR]
   , _castlingState = BothAvailable}
 
@@ -291,12 +305,14 @@ R   -   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 board03HasMovedW :: HasMoved
 board03HasMovedW = HasMoved
   { _unMovedDev = S.fromList [wKB, wKN]
+  , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling = S.fromList [wK, wKR, wQR]
   , _castlingState = BothAvailable}
 
 board03HasMovedB :: HasMoved
 board03HasMovedB = HasMoved
   { _unMovedDev = S.fromList [bKB, bQB, bQN]
+  , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList [bK, bKR, bQR]
   , _castlingState = BothAvailable}
 
