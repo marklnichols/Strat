@@ -1,151 +1,184 @@
-module Strat.StratTree 
-    ( addEquiv
-    , best
-    , best'
-    , checkBlunders
-    , expandTree
-    , isLegal
-    , isWorse 
-    , possibleBlunders
-    , processMove
-    , worst
-    , worstReply
-    ) where
+{-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+
+module Strat.StratTree
+  ( expandTo
+  , decendUntil
+  , DecentFilterF
+  , MakeChildrenF
+  , negaMax
+  , negaRnd
+  , NegaResult(..)
+  , NegaMoves(..)
+  , Sign(..)
+  , treeSize
+  ) where
 
 import Control.Monad
-import Control.Monad.Reader
-import Control.Lens
-import Data.Maybe
+import Control.Monad.ST
+import Data.List
+import Data.Mutable
 import Data.Tree
-import Data.Tree.Zipper
-import Safe
-import Strat.StratTree.TreeNode
-import Strat.StratTree.Trees
+import System.Random
+import Debug.Trace
 
-best :: (TreeNode t m e) => Tree t -> Int -> RST (Maybe (Result m e))
-best t colr = do
-    depth <- asks _depth
-    return (best' t depth colr flipColor getValue)
+instance Mutable s a => Mutable s (Tree a) where
+    type Ref s (Tree a) = GRef s (Tree a)
 
---TODO: Convert to lens getters
-checkBlunders :: TreeNode t m e => Tree t -> Int -> [MoveScore m e] -> RST (Maybe [MoveScore m e])
-checkBlunders _ _ [] = return Nothing
-checkBlunders _ _ [ms] = return $ Just [ms]
-checkBlunders t colr equivMS = do
-    depth <- asks _errorDepth
-    threshold <- asks _errorEquivThreshold
-    --turn the list of equiv. MoveScores into a new list of MoveScores representing each move along 
-    -- with the score of the worst opponent's reply to that move
-    let equivScore = _score $ head equivMS
-    let possibles = possibleBlunders t depth colr equivMS -- :: [MoveScore m]
-    return $ worstMS possibles colr >>= (\wrst -> if isWorse (wrst ^. score) equivScore threshold colr
-                                                    then Just (addEquiv wrst possibles)
-                                                    else Just equivMS)
+type MakeChildrenF a = a -> [Tree a]
 
-expandTree :: PositionNode n m e => Tree n -> RST (Tree n)
-expandTree t = do
-    depth <- asks _depth
-    return $ visitTree t depth visitor
+type DecentFilterF a = Maybe (a -> Int -> Bool)
 
---process a chosen move - prune the tree down so the selected move is the new head
---if there are no child moves at all, create a tree with just the single position corresponding to the move
-processMove :: PositionNode n m e => Tree n -> m -> Tree n
-processMove t mv = case subForest t of
-    [] -> Node (newNode (rootLabel t) mv) []
-    _ -> pruneToChild t mv
+newtype TraceCmp a = TraceCmp (a, [a])
 
-isLegal :: PositionNode n m e => Tree n -> m -> Bool
-isLegal t mv = mv `elem` possibleMoves (rootLabel t)
+instance Eq a => Eq (TraceCmp a) where
+   (==) (TraceCmp (x, _xs)) (TraceCmp (y, _ys)) = x == y
 
---"worse" here is better wrt color used, since color is from tree level above
-isWorse :: Eval e => e -> e -> Int -> Int -> Bool
-isWorse  scoreToCheck compareTo margin colr
-    | abs (getInt scoreToCheck - getInt compareTo) < margin    = False
-    | (colr * getInt scoreToCheck) > (colr * getInt compareTo) = True
-    | otherwise = False
+instance (Ord a, Show a) => Ord (TraceCmp a) where
+   (<=) (TraceCmp (x, _xs)) (TraceCmp (y, _ys)) = x <= y
 
-possibleBlunders :: TreeNode t m e => Tree t -> Int -> Int -> [MoveScore m e] -> [MoveScore m e]
-possibleBlunders t depth colr equivMS = mapMaybe convert equivMS where
-    convert ms = 
-        let result = worstReply t depth colr (_move ms) -- :: Maybe Result
-        in result >>= (\r -> case _moveScores r of
-            [] -> Nothing
-            (x:_) ->  Just (mkMoveScore (_move ms) (_score x)))
+newtype Sign = Sign { signToInt :: Int }
 
-worstMS :: Eval e => [MoveScore m e] -> Int -> Maybe (MoveScore m e)
-worstMS [] _ = Nothing
-worstMS (x : xs) colr = Just $ foldr f x xs
-    where f ms wrst = if getInt (_score ms) * colr > getInt (_score wrst) * colr then ms else wrst
+data NegaMoves a = NegaMoves
+  { branchScore :: a
+  , moveSeq :: [a] }
+  deriving (Eq)
 
-addEquiv :: Eval e => MoveScore m e -> [MoveScore m e] -> [MoveScore m e]
-addEquiv target =
-    foldr f [] where
-        f x xs = if abs (getInt (_score x) - getInt (_score target)) == 0 then x:xs else xs    --TODO: add threshold for eqiv. here
+toNegaMoves :: TraceCmp a -> NegaMoves a
+toNegaMoves (TraceCmp (x, xs)) =
+    NegaMoves { branchScore = x
+              , moveSeq = xs }
 
-worstReply :: TreeNode t m e => Tree t -> Int -> Int -> m -> Maybe (Result m e)
-worstReply t depth colr mv = worst (pruneToChild t mv) depth colr
+data NegaResult a = NegaResult
+  { best :: NegaMoves a
+  , alternatives :: [NegaMoves a] }
 
-worst :: TreeNode t m e => Tree t -> Int -> Int -> Maybe (Result m e)
-worst t depth colr = best' t depth colr keepColor getErrorValue
+expandTo :: Mutable s a => Ref s (Tree a)
+         -> MakeChildrenF a -> DecentFilterF a
+         -> Int
+         -> ST s (Tree a)
+expandTo r makeChildren decFilter depth =
+    decendUntil r makeChildren decFilter 0 depth
 
-best' :: TreeNode t m e => Tree t -> Int -> Int -> (e -> e) -> (t -> e) -> Maybe (Result m e)
-best' t depth colr colorFlip getVal =
-    let (path, rChoices, flippedScore) = down t depth colr colorFlip getVal
+decendUntil :: (Mutable s a, Mutable s (Tree a)) => Ref s (Tree a)
+            -> MakeChildrenF a -> DecentFilterF a
+            -> Int -> Int
+            -> ST s (Tree a)
+decendUntil r makeChildren decFilter curDepth goalDepth =
+    if curDepth == goalDepth
+        then freezeRef r
+        else do
+            tempLabel <- freezePart (fieldMut #rootLabel) r
+            -- if DecentFilterF exists, decend on nodes passing filter only
+            if checkFilter decFilter tempLabel curDepth == False
+                then freezeRef r
+                else do
+                    children <- buildChildren r makeChildren decFilter curDepth goalDepth
+                    modifyPart (fieldMut #subForest) r (\_xs -> children)
+                    freezeRef r
 
-        --black score has been flipped to positive for the comparisons, flip it back to negative:
-        bestScore = setInt flippedScore (colr * getInt flippedScore)
+checkFilter :: forall a. DecentFilterF a -> a -> Int -> Bool
+checkFilter Nothing _ _ = True
+checkFilter (Just f) x depth = f x depth
 
-        pathM = tailMay path -- without the tree's starting "move"
-        headM = pathM >>= headMay
-        followingM = pathM >>= tailMay
-        randChoiceM = liftM2 (:) headM (Just rChoices)
-        --TODO: implement randchoices with different scores once scoreTolerance is added -- for now they are the same
-        f x = fmap (`mkMoveScore` x)
-        scoresM = fmap (f bestScore) randChoiceM
-    in liftM3 Result randChoiceM followingM scoresM
+buildChildren :: (Mutable s a, Mutable s (Tree a)) => Ref s (Tree a)
+              -> MakeChildrenF a -> DecentFilterF a
+              -> Int -> Int
+              -> ST s [Tree a]
+buildChildren parentRef makeChildren decFilter curDepth goalDepth = do
+    tempLabel <- freezePart (fieldMut #rootLabel) parentRef
+    tempForest <- freezePart (fieldMut #subForest) parentRef
+    let theChildren = if not (null tempForest)
+          then tempForest
+          else makeChildren tempLabel
+    foldM f [] theChildren
+    where
+        f acc t' = do
+          r' <- thawRef t'
+          newTree <- decendUntil r' makeChildren decFilter (curDepth + 1) goalDepth
+          return (newTree : acc)
 
---down :: tree -> depth -> color -> color flipping function -> getValue/getErrorValue funct
---        -> ([best mv path], [equiv random choices], best score)
-down :: TreeNode t m e => Tree t -> Int -> Int -> (e -> e) -> (t -> e) -> ([m], [m], e)
-down (Node n []) _ colr _ getVal = ([getMove n], [], setInt (getVal n) (colr * getInt (getVal n)))
-down (Node n _) 0 colr _ getVal = ([getMove n], [], setInt (getVal n) (colr * getInt (getValue n)))
-down (Node n xs) depth colr colorFlip getVal =
-    let (bestMvs, randChoices,  bestVal) =
-            foldl (across depth colr colorFlip getVal) ([], [], fromInt minBound) xs
-        --in trace ("Best move added: " ++ show (getValue n) ++ " (color is " ++ show color)
-        --    (getMove n : bestMvs, randChoices, bestVal)
-    in (getMove n : bestMvs, randChoices, bestVal)
+negaMax :: (Ord a, Show a) => Tree a -> Sign -> NegaResult a
+negaMax t sign =
+  let (theBest, traceCmps) = negaLoop t [] sign
+      noDup = delete theBest traceCmps
+      revTraceCmps = fmap (\(TraceCmp (tc, tcs)) -> TraceCmp (tc, reverse tcs)) noDup
+  in NegaResult { best = toNegaMoves theBest
+                , alternatives = toNegaMoves <$> revTraceCmps }
 
---across :: depth -> color -> color flipping function -> getValue/getErrorValue funct -> ([best move list], [equiv random choices], best score)
-across :: (Eval e, TreeNode t m e) => Int -> Int -> (e -> e) -> (t -> e) -> ([m], [m], e) -> Tree t -> ([m], [m], e)
-across depth colr colorFlip getVal (rMvs, randChoices, rVal) t =
-    let (mvs, _, v) = down t (depth - 1) (negate colr) colorFlip getVal
-        (newMvs, newVal) = (mvs, colorFlip v)
-    in  case rVal `compare` newVal of
-        EQ -> (rMvs, head newMvs : randChoices, rVal)
-        LT -> (newMvs, [], newVal)
-        GT ->  (rMvs, randChoices, rVal)
+negaLoop :: forall a. (Ord a, Show a) => Tree a -> [a] -> Sign -> (TraceCmp a, [TraceCmp a])
+negaLoop t cmpList sign =
+    let xs = subForest t
+    in if null xs then (TraceCmp (rootLabel t, cmpList), [])
+        else let traceCmps = foldr f [] xs
+                   where
+                   f :: (Ord a, Show a) => Tree a -> [TraceCmp a] -> [TraceCmp a]
+                   f t' acc =
+                     let (tc, _tcs) = negaLoop t' (rootLabel t' : cmpList) (flipSign sign)
+                     in tc : acc
+             in findBest traceCmps sign
 
---updateTree 'visit' function - if not a final position and no children -- create and add children moves
-visitor :: PositionNode n m e => TreePos Full n -> Int -> Int -> TreePos Full n
-visitor tPos depth maxi
-    | final (label tPos) /= NotFinal = tPos
-    | depth == maxi                  = tPos
-    | not (hasChildren tPos)         = modifyTree addBranches tPos
-    | otherwise                      = tPos
+findBest :: (Ord a, Show a) => [TraceCmp a] -> Sign -> (TraceCmp a, [TraceCmp a])
+findBest theList (Sign 1) = (maximum theList, theList)
+findBest theList _ = (minimum theList, theList)
 
---add branches at the bottom of the tree for a new depth-level of moves
---TODO: evaluate the new positions and set the values (set the move # too) and the "final" flag
-addBranches :: PositionNode n m e => Tree n -> Tree n
-addBranches t =  let n = rootLabel t
-                     ns = map (newNode n) (possibleMoves n)
-                     ts = map (\x -> Node x []) ns
-                 in Node (rootLabel t) ts
-{--
- in  trace ("Color is " ++ show (colorFlip color) ++ ", comparing " ++ show rVal ++
-                " to " ++ show newVal ++ " results in... ")
-        (case rVal `compare` newVal of
-            EQ -> trace "EQ - adding to equivalent list" (rMvs, head newMvs : randChoices, rVal)
-            LT -> trace ("LT - new candidate (" ++ show newVal ++ ")") (newMvs, [], newVal)
-            GT ->  trace "GT - ignoring" (rMvs, randChoices, rVal))
---}
+--------------------------------------------------------------------------------
+-- Replace findBest with this version for detailed negamax output
+--------------------------------------------------------------------------------
+_findBest :: (Ord a, Show a) => [TraceCmp a] -> Sign -> (TraceCmp a, [TraceCmp a])
+_findBest theList (Sign 1) =
+    let listStr = intercalate ", " (showTCs theList)
+        maxStr = showTC (maximum theList)
+        str = "\nfindBest (+):\n" ++ maxStr ++ "\nis the max of:[\n" ++ listStr ++ " ]"
+    in trace str (maximum theList, theList)
+_findBest theList _ =
+    let listStr = intercalate ", " (showTCs theList)
+        minStr = showTC (minimum theList)
+        str = "\nfindBest (-)\n" ++ minStr ++ "\nis the min of:[\n" ++ listStr ++ " ]"
+    in trace str (minimum theList, theList)
+
+showTC :: (Show a) => TraceCmp a -> String
+showTC (TraceCmp (_x, xs)) =
+    "\n[ " ++ intercalate ", " (fmap show (reverse xs)) ++ " ]"
+
+showTCs :: (Show a) => [TraceCmp a] -> [String]
+showTCs = fmap showTC
+--------------------------------------------------------------------------------
+
+flipSign :: Sign -> Sign
+flipSign (Sign 1) = Sign (-1)
+flipSign _ = Sign 1
+
+negaRnd :: (Ord a, Show a, RandomGen g) => Tree a -> Sign -> g -> (a -> Float) -> Float -> NegaResult a
+negaRnd t sign gen toFloat percentVar =
+  let (theBest, traceCmps) = negaLoop t [] sign
+      noDup = delete theBest traceCmps
+      close = filter (\x -> isWithin x theBest toFloat percentVar) noDup
+      pickedTC@(TraceCmp (picked, pickedPath)) = pickOne gen (theBest : close)
+      notPicked = delete pickedTC close
+      revNotPicked = fmap (\(TraceCmp (tc, tcs)) -> TraceCmp (tc, reverse tcs)) notPicked
+  in NegaResult { best = toNegaMoves (TraceCmp (picked, reverse pickedPath))
+                , alternatives = toNegaMoves <$> revNotPicked }
+
+pickOne :: RandomGen g => g -> [TraceCmp a] -> TraceCmp a
+pickOne gen choices =
+  let (r, _g) = randomR (0, length choices - 1) gen
+  in choices !! r
+
+isWithin :: TraceCmp a -> TraceCmp a -> (a -> Float) -> Float -> Bool
+isWithin (TraceCmp (bst, _)) (TraceCmp (possible, _)) toFloat percentVar =
+    let ratio = toFloat possible / toFloat bst
+    in (ratio <= (1 + percentVar)) && (ratio >= (1 - percentVar))
+
+--gets the number of elements at each level of the tree plus the total size
+--for debugging / analysis only
+treeSize :: Tree t -> (Int, [Int])
+treeSize t = let levelTotals = fmap length (levels t)
+                in (sum levelTotals, levelTotals)

@@ -1,26 +1,34 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module GameRunner
- (startGame) where 
+ ( startGame
+ , expandTree) where
 
-import Control.Lens
-import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Data.Maybe
+import Control.Monad.ST
+import Data.Mutable
 import Data.Tree
-import Strat.StratIO
+import Strat.Helpers
 import Strat.StratTree
 import Strat.StratTree.TreeNode
+import System.Random hiding (next)
 
 gameEnv :: Env
-gameEnv = Env { _depth = 6, _errorDepth = 4, _equivThreshold = 0, _errorEquivThreshold = 0
-              , _p1Comp = False, _p2Comp = True }
+gameEnv = Env { depth = 3, equivThreshold = 0.1, p1Comp = False, p2Comp = True }
 
-startGame :: (Output o n m e, PositionNode n m e) => o -> Tree n -> IO ()
-startGame o node = loop o node 1
+startGame :: (Output o n m, TreeNode n m, Ord n, Eval n)
+          => o -> Tree n -> IO ()
+startGame o node = do
+  rnd <- getStdGen
+  let newTree = runST $ expandTree node
+  loop rnd o newTree 1
 
-loop :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO ()
-loop o node turn = do
+loop :: (Output o n m, TreeNode n m, RandomGen g , Ord n, Eval n)
+     => g -> o -> Tree n -> Int -> IO ()
+loop gen o node turn = do
     updateBoard o $ rootLabel node
     theNext <- case final $ rootLabel node of
         WWins -> do
@@ -33,51 +41,48 @@ loop o node turn = do
             out o "Draw."
             return Nothing
         _ -> do
-            nextNode <- if evalState (runReaderT (unRST (isCompTurn turn)) gameEnv) (GameState 0)
-                            then computerMove o node turn
-                            else playerMove o node turn
+            nextNode <- if isCompTurn turn
+                  then computerMove gen o node turn
+                  else playerMove o node turn
             return (Just nextNode)
     case theNext of
         Nothing -> return ()
-        Just next -> loop o next (swapTurns turn)
+        Just next -> loop gen o next (swapTurns turn)
 
-playerMove :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO (Tree n)
+playerMove :: (Output o n m, TreeNode n m) => o -> Tree n -> Int -> IO (Tree n)
 playerMove o tree turn = do
     mv <- getPlayerMove o tree turn
-    return (processMove tree mv)
+    return (findMove tree mv)
 
-computerMove :: (Output o n m e, PositionNode n m e) => o -> Tree n -> Int -> IO (Tree n)
-computerMove o node turn = do
-    out o "Calculating computer move..."
-    let newTree = evalState (runReaderT (unRST (expandTree node)) gameEnv) (GameState 0)
-    let resultM = evalState (runReaderT (unRST (best newTree (turnToColor turn))) gameEnv) (GameState 0)
-    case resultM of
-        Nothing -> do
-            gameError o "Invalid result returned from best"
-            return newTree
-        Just result -> do
-            let badMovesM = checkBlunders newTree (turnToColor turn) (result^.moveScores)
-            let badMoves = evalState (runReaderT (unRST badMovesM) gameEnv) (GameState 0)
-            let finalChoices = fromMaybe (result ^. moveScores) badMoves
-            moveScoreM <- resolveRandom finalChoices
-            case moveScoreM of
-                Nothing -> do
-                    gameError o "Invalid result from resolveRandom"
-                    return newTree
-                Just ms -> do
-                    showCompMove o newTree finalChoices result $ ms^.move
-                    return (processMove newTree (ms^.move))
+computerMove :: (Output o n m, TreeNode n m, RandomGen g, Ord n, Eval n)
+             => g -> o -> Tree n -> Int -> IO (Tree n)
+computerMove gen o t turn = do
+    let newTree = runST $ expandTree t
+    let res@NegaResult{..} = negaRnd newTree (turnToSign turn) gen toFloat (equivThreshold gameEnv)
+    let nextMove = getMove $ head $ moveSeq best
+    showCompMove o newTree res
+    return (findMove newTree nextMove)
 
-isCompTurn :: Int -> RST Bool
-isCompTurn turn = do
-    p1 <- asks _p1Comp
-    p2 <- asks _p2Comp
-    return $ if turn == 1 then p1 else p2
+expandTree :: (Mutable s n, TreeNode n m)
+           => Tree n -> ST s (Tree n)
+expandTree t =
+    let newTree = do
+          r <- thawRef t
+          expandTo r makeChildren Nothing (depth gameEnv)
+    in newTree
+
+isCompTurn :: Int -> Bool
+isCompTurn turn =
+    let p1 = p1Comp gameEnv
+        p2 = p2Comp gameEnv
+    in if turn == 1 then p1 else p2
 
 swapTurns :: Int -> Int
 swapTurns t = 3-t   --alternate between 1 and 2
 
--- convert 1, 2 to +1, -1
-turnToColor :: Int -> Int
-turnToColor 2 = -1
-turnToColor _ = 1
+--TODO: allow player to play black
+-- convert values 1 | 2 into 1 | -1
+turnToSign :: Int -> Sign
+turnToSign 1 = Sign 1
+turnToSign 2 = Sign (-1)
+turnToSign n = error $ "Illegal value in turnToSign (" ++ show n ++ ")"

@@ -1,140 +1,378 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 module ChessTest (chessTest) where
 
-import Chess
-import Data.Tree
-import Strat.StratTree.TreeNode
 import Test.Hspec
+import Control.Monad.ST
+import qualified Data.Set as S
+import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
+
+import Chess
+import GameRunner
+import Strat.Helpers
+import Strat.StratTree.TreeNode
 
 chessTest :: SpecWith ()
 chessTest = do
     describe "getPieceLocs" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
-            getPieceLocs (nodeFromGridW board01) `shouldMatchList` [12, 21, 22, 26, 33, 46]
-            getPieceLocs (nodeFromGridB board01) `shouldMatchList` [62, 67, 76, 78, 86, 87]
-    describe "possibleKingMvs" $
+            locsForColor board01 White `shouldMatchList`
+              [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
+            locsForColor board01 Black `shouldMatchList`
+              [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
+    describe "allowableKingMoves" $
         it "Gets the possible moves for a king" $ do
-            possibleKingMvs 22 `shouldMatchList` [23,21,32,12,31,13,33,11]
-            possibleKingMvs 81 `shouldMatchList` [71, 72, 82]
-    describe "possibleQueenMvs" $
-        it "Gets the possible moves for a queen" $ do
-            possibleQueenMvs 22 `shouldMatchList` [23,24,25,26,27,28 -- right
-                                                  ,32,42,52,62,72,82 -- up
-                                                  ,33,44,55,66,77,88 -- UR
-                                                  ,21,12,31,11,13] --L, D, UL, LL, LR
-            possibleQueenMvs 81 `shouldMatchList` [71,61,51,41,31,21,11
-                                                  ,82,83,84,85,86,87,88
-                                                  ,72,63,54,45,36,27,18]
-    describe "possibleRookMvs" $
-        it "Gets the possible moves for a rook" $
-            possibleRookMvs 22 `shouldMatchList` [32,42,52,62,72,82
-                                                 ,23,24,25,26,27,28
-                                                 ,12, 21]
-    describe "possibleBishopMvs" $
-        it "Gets the possible moves for a bishop" $
-            possibleBishopMvs 22 `shouldMatchList` [ 11, 33, 44, 55, 66, 77, 88
-                                                   , 13, 31]
-    describe "possibleKnightMvs" $
-        it "Gets the possible moves for a knight" $ do
-            possibleKnightMvs 63 `shouldMatchList` [71, 82, 84, 75, 55, 44, 42, 51]
-            possibleKnightMvs 27 `shouldMatchList` [15, 35, 46, 48]
+            let (empties, enemies) = pairToIndexes
+                  $ allowableKingMoves
+                      ( posFromGrid board01 White (12, 87) (False, False)
+                        (board01HasMovedW, board01HasMovedB) ) 12
+            empties `shouldMatchList` [11, 23]
+            enemies `shouldMatchList` []
+            let (empties2, enemies2) = pairToIndexes
+                  $ allowableKingMoves
+                      ( posFromGrid board01 Black (12, 87) (False, False) (board01HasMovedW, board01HasMovedB) ) 87
+            empties2 `shouldMatchList` [76, 88]
+            enemies2 `shouldMatchList` []
+    describe "allowableQueenMoves" $
+        it "Gets the allowable moves for a queen" $ do
+            let (empties, enemies) =  pairToIndexes
+                  $ allowableQueenMoves board01 46
+            empties `shouldMatchList`
+                [47,48 -- left/right
+                ,36,56 -- up/down
+                ,24,35 -- LL/UR
+                ,28,37,55,64,73,82] -- LR, UL
+            enemies `shouldMatchList` [66]
+            let (empties2, enemies2) = pairToIndexes
+                  $ allowableQueenMoves board01 62
+            empties2 `shouldMatchList`
+                [63, 64 -- L/R
+                ,32,42,52,72,82 -- U/D
+                ,51,73,84 -- LL/UR
+                ,71 ] -- LR/UL
+            enemies2 `shouldMatchList` [22, 53]
+    describe "allowableRookMoves" $
+        it "Gets the allowable moves for a rook" $ do
+            let (empties, enemies) = pairToIndexes
+                  $ allowableRookMoves board01 13
+            empties `shouldMatchList` [14,15,16,17,18 -- L/R
+                                      ,23] -- U/D
+            enemies `shouldMatchList` []
+            let (empties2, enemies2) = pairToIndexes
+                  $ allowableRookMoves board01 83
+            empties2 `shouldMatchList` [81,82,84,85 -- L/R
+                                       ,73,63] -- U/D
+            enemies2 `shouldMatchList` [53]
+    describe "allowableBishopMoves" $
+        it "Gets the allowable moves for a bishop" $ do
+            let (empties, enemies) = pairToIndexes
+                  $ allowableBishopMoves board01 43
+            empties `shouldMatchList` [32,54 -- LL/UR
+                                      ,34,52] -- LR/UL
+            enemies `shouldMatchList` [61, 65]
+            let (empties2, enemies2) = pairToIndexes
+                  $ allowableBishopMoves board01 65
+            empties2 `shouldMatchList` [54,76 -- LL/UR
+                                       ,38,47,56,74] -- LR/UL
+            enemies2 `shouldMatchList` [43]
+    describe "allowableKnightMoves" $
+        it "Gets the allowable moves for a knight" $ do
+            let (empties, enemies) = pairToIndexes
+                  $ allowableKnightMoves board01 45
+            empties `shouldMatchList` [24,37,64]
+            enemies `shouldMatchList` [66]
+            let (empties2, enemies2) = pairToIndexes
+                  $ allowableKnightMoves board01 53
+            empties2 `shouldMatchList` [32,34,41,72,74]
+            enemies2 `shouldMatchList` [61,65]
+    describe "allowablePawnNonCaptures" $
+        it "Gets the allowable (non capturing) moves for a pawn" $ do
+            let f m = (_startIdx m, _endIdx m)
+            f <$> allowablePawnNonCaptures board01 22 `shouldMatchList` [(22,32),(22,42)]
+            f <$> allowablePawnNonCaptures board01 33 `shouldMatchList` []
+            f <$> allowablePawnNonCaptures board01 61 `shouldMatchList` [(61, 51)]
+            f <$> allowablePawnNonCaptures startingBoard 25 `shouldMatchList` [(25, 35), (25, 45)]
 
-    describe "possiblePawnMvs" $
-        it "Gets the possible (non capturing) moves for a pawn" $ do
-            possiblePawnMvs 22 White `shouldMatchList` [32, 42]
-            possiblePawnMvs 54 White `shouldMatchList` [64]
-            possiblePawnMvs 22 Black `shouldMatchList` [12]
-            possiblePawnMvs 72 Black `shouldMatchList` [52, 62]
-    describe "possiblePawnCaptures" $
-         it "Gets the possible capturing moves for a pawn" $ do
-             possiblePawnCaptures 43 White `shouldMatchList` [52, 54] -- regular captures
-             possiblePawnCaptures 22 White `shouldMatchList` [31, 33, 41, 43] -- en passant captures
-             possiblePawnCaptures 22 Black `shouldMatchList` [11, 13]
-             possiblePawnCaptures 77 Black `shouldMatchList` [56, 58, 66, 68]
+    describe "allowablePawnCaptures" $
+        it "Gets the allowable capturing moves for a pawn" $ do
+            let (empties, enemies) = pairToIndexes
+                  $ allowablePawnCaptures board01 57
+            empties `shouldMatchList` [68]
+            enemies `shouldMatchList` [66]
+            let (empties2, enemies2) = pairToIndexes
+                  $ allowablePawnCaptures board01 78
+            empties2 `shouldMatchList` []
+            enemies2 `shouldMatchList` []
+    describe "allowableEnPassant" $
+        it "Gets the allowable enPassant capturing moves for a pawn" $
+            _endIdx <$> allowableEnPassant board01 78 `shouldMatchList` [57]
+
+    describe "calcMoveListGrid" $
+        it "gets all possible moves from a grid, for a given color" $ do
+            let f m = (_startIdx m, _endIdx m)
+            let moves = calcMoveLists (posFromGrid board02 White (15, 85) (False, False)
+                                       (board02HasMovedW, board02HasMovedB) )
+            let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
+            f <$> emptyAndEnemy `shouldMatchList`
+               [ (11,12), (13,24), (13,35), (13,46), (13,57), (13,68), (14,24), (14,25), (14,36)
+               , (14,47), (14,58), (15,24), (15,25), (16,25), (17,25), (17,36), (17,38), (21,31)
+               , (21,41), (22,32), (22,42), (34,44), (34,45), (26,36), (26,46), (27,37), (27,47)
+               , (28,38), (28,48), (33,12), (33,41), (33,52), (33,54), (33,45), (33,25) ]
+
+    describe "checkCastling" $
+        it ("Checks and possibly updates the castling state and the set of unmoved pieces tracked"
+           ++ "for castling purposes") $ do
+            case checkCastling White board03 board03HasMovedW board03Move of
+                Just (_moved, castling) -> castling `shouldBe` KingSideOnlyAvailable
+                _ -> error "expecting Just"
+
+            case checkCastling Black board03 board03HasMovedB board03Move2 of
+                Just (_moved, castling) -> castling `shouldBe` QueenSideOnlyAvailable
+                _ -> error "expecting Just"
+
+            case checkCastling White board03 board03HasMovedW board03Move3 of
+                Just (_moved, castling) -> castling `shouldBe` Unavailable
+                _ -> error "expecting Just"
+
+            case checkCastling White board03 board03HasMovedW board03Move4 of
+                Just (_moved, castling) -> castling `shouldBe` Castled
+                _ -> error "expecting Just"
+
+    describe "countMaterial" $
+      it "Calculates a score for the position based on the pieces on the board for each side" $
+          countMaterial board01 `shouldBe` 6
+
+    describe "calcDevelopment" $
+      it ("Calculates a score for the position based on the development of the minor pieces "
+          ++ "(aka knight, bishop) for each side") $
+          calcDevelopment (posFromGrid board03 White (15, 85) (False, False)
+                           (board03HasMovedW, board03HasMovedB)) `shouldBe` 1
+    describe "inCheck" $
+      it "Determines if the King at a given loc is in check from any enemy pieces" $ do
+          inCheck board03 White 15 `shouldBe` False
+          inCheck board04 Black 85 `shouldBe` False
+          inCheck board04 White 45 `shouldBe` True
+    describe "findMove" $
+      it ("find's a subtree element corresponding to a particular move from the current position"
+         ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
+          -- startingBoard :: V.Vector Char
+          let t = getStartNode
+          let newTree = runST $ expandTree t
+          let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
+          let t' = findMove newTree mv
+          (t /= t') `shouldBe` True
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
-treeFromGridW :: V.Vector Int -> Tree ChessNode
-treeFromGridW g = Node ChessNode
-    { _chessMv = noMove
-    , _chessVal = ChessEval {_total = 0, _details = ""}
-    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = ChessPos {_grid = g, _clr = 1, _fin = NotFinal}} []
-
-treeFromGridB :: V.Vector Int -> Tree ChessNode
-treeFromGridB g = Node ChessNode
-    { _chessMv = noMove
-    , _chessVal = ChessEval {_total = 0, _details = ""}
-    , _chessErrorVal = ChessEval {_total = 0, _details = ""}
-    , _chessPos = ChessPos {_grid = g, _clr = -1, _fin = NotFinal } } []
-
-nodeFromGridW :: V.Vector Int -> ChessNode
-nodeFromGridW g = rootLabel $ treeFromGridW g
-
-nodeFromGridB :: V.Vector Int -> ChessNode
-nodeFromGridB g = rootLabel $ treeFromGridB g
-
-noMove :: ChessMv
-noMove = ChessMv {isExchange = False, _startIdx = -1, _endIdx = -1, _removedIdx = -1}
+posFromGrid :: Vector Char -> Color -> (Int, Int) -> (Bool, Bool) -> (HasMoved, HasMoved) -> ChessPos
+posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) (hasMovedW, hasMovedB) = ChessPos
+  { _cpGrid = g, _cpColor = c
+  , _cpHasMoved = (hasMovedW, hasMovedB)
+  , _cpKingLoc = (kingLocW, kingLocB)
+  , _cpInCheck = (inCheckW, inCheckB)
+  , _cpFin = NotFinal }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
 {-
     Piece representation as integers:
-    1 = White King      -1 = Black King
-    2 = White Queen     -2 = Black Queen
-    3 = White Rook      -3 = Black Rook
-    4 = White Bishop    -4 = Black Bishop
-    5 = White Knight    -5 = Black Knight
-    6 = White Pawn      -6 = Black Pawn
+
+    75 = 0x4b = 'K' = white King     107 = 0x6b = 'k' = black King
+    81 = 0x51 = 'Q' = white Queen    113 = 0x71 = 'q' = black Queen
+    82 = 0x52 = 'R' = white Rook     114 = 0x72 = 'r' = black Rook
+    78 = 0x4e = 'N' = white Knight   110 = 0x6e = 'n' = black Knight
+    66 = 0x42 = 'B' = white Bishop   098 = 0x62 = 'b' = black Bishop
+    80 = 0x50 = 'P' = white Pawn     112 = 0x70 = 'p' = black Pawn
+
+    32 = 0x20 = ' ' = Empty Squre
+    00 = 0x00 = n/a = offBoard
 -}
 
 ---------------------------------------------------------------------------------------------------
-board01 :: V.Vector Int
-board01 = V.fromList       [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
-                             99,  00,  01,  00,  00,  00,  00,  00,  00,  99,
-                             99,  06,  06,  00,  00,  00,  03,  00,  00,  99,
-                             99,  00,  00,  06,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  02,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00, -02,  00,  00,  00,  00, -06,  00,  99,
-                             99,  00,  00,  00,  00,  00, -06,  00, -06,  99,
-                             99,  00,  00,  00,  00,  00, -03, -01,  00,  99,
-                             99,  99,  99,  99,  99,  99,  99,  99,  99,  99 ]
+board01 :: V.Vector Char
+board01 = V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  'K',  'R',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'P',  'P',  ' ',  ' ',  'B',  'R',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'B',  ' ',  'N',  'Q',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
+                             '+',  'p',  'q',  ' ',  ' ',  'b',  'p',  'p',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'b',  'p',  '+',
+                             '+',  ' ',  ' ',  'r',  ' ',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
--   -   -   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
--   -   -   -   -   p   -   p          7| (50)  71   72   73   74   75   76   77   78  (79)
--   q   -   -   -   -   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
--   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
--   -   -   -   -   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   r   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   b   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+p   q   -   -   b   p   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   N   -   -   -   P   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   B   -   N   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 -   -   P   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
-P   P   -   -   -   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
--   K   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   K   R   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
 
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+board01HasMovedW :: HasMoved
+board01HasMovedW = HasMoved
+  { _unMovedDev = S.fromList []
+  , _unMovedCenterPawns = S.fromList []
+  , _unMovedCastling =  S.fromList []
+  , _castlingState = Castled }
+
+board01HasMovedB :: HasMoved
+board01HasMovedB = HasMoved
+  { _unMovedDev = S.fromList []
+  , _unMovedCenterPawns = S.fromList []
+  , _unMovedCastling =  S.fromList []
+  , _castlingState = Castled }
 
 ----------------------------------------------------------------------------------------------------
-_boardTemplate :: V.Vector Int
-_boardTemplate = V.fromList [ 99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  00,  00,  00,  00,  00,  00,  00,  00,  99,
-                             99,  99,  99,  99,  99,  99,  99,  99,  99,  99 ]
+board02 :: V.Vector Char
+board02 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'p',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'q',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  ' ',  'p',  'p',  'p',  'p',  '+',
+                             '+',  'r',  'n',  'b',  ' ',  'k',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
-                                          -- [71,47,55,51,87,75,82,25,44,84,21,42]
-                                          --  the extra elements are:   [47, 87, 25, 21]
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   -   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   -   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   q   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   p   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   P   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+-}
+board02HasMovedW :: HasMoved
+board02HasMovedW = HasMoved
+  { _unMovedDev = S.fromList [wKB, wQB, wQN]
+  , _unMovedCenterPawns = S.fromList []
+  , _unMovedCastling = S.fromList [wK, wKR, wQR]
+  , _castlingState = BothAvailable}
+
+board02HasMovedB :: HasMoved
+board02HasMovedB = HasMoved
+  { _unMovedDev = S.fromList [bKN, bKB, bQB, bQN]
+  , _unMovedCenterPawns = S.fromList []
+  , _unMovedCastling =  S.fromList [bK, bKR, bQR]
+  , _castlingState = BothAvailable}
+
+----------------------------------------------------------------------------------------------------
+board03 :: V.Vector Char
+board03 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  ' ',  ' ',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  'Q',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  'P',  'B',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'p',  'n',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  ' ',  'q',  'p',  'p',  'p',  '+',
+                             '+',  'r',  'n',  'b',  ' ',  'k',  'b',  ' ',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   -   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   -   q   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   p   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   P   B   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   Q   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+-}
+board03HasMovedW :: HasMoved
+board03HasMovedW = HasMoved
+  { _unMovedDev = S.fromList [wKB, wKN]
+  , _unMovedCenterPawns = S.fromList []
+  , _unMovedCastling = S.fromList [wK, wKR, wQR]
+  , _castlingState = BothAvailable}
+
+board03HasMovedB :: HasMoved
+board03HasMovedB = HasMoved
+  { _unMovedDev = S.fromList [bKB, bQB, bQN]
+  , _unMovedCenterPawns = S.fromList []
+  , _unMovedCastling =  S.fromList [bK, bKR, bQR]
+  , _castlingState = BothAvailable}
+
+board03Move :: ChessMove
+board03Move = StdMove { _isExchange = False, _startIdx = 11, _endIdx = 12, _stdNote = ""}
+
+board03Move2 :: ChessMove
+board03Move2 = StdMove { _isExchange = False, _startIdx = 88, _endIdx = 87, _stdNote = "" }
+
+board03Move3 :: ChessMove
+board03Move3 = StdMove { _isExchange = False, _startIdx = 15, _endIdx = 24, _stdNote = "" }
+
+board03Move4 :: ChessMove
+board03Move4 = CastlingMove { _castle = QueenSide, _kingStartIdx = 15, _kingEndIdx = 13
+                           , _rookStartIdx = 11, _rookEndIdx = 15, _castleNote = "O-O-O"}
+
+----------------------------------------------------------------------------------------------------
+board04 :: V.Vector Char
+board04 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'K',  'B',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'b',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   k   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   b   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   K   B   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+-}
+
+
+
+----------------------------------------------------------------------------------------------------
+_boardTemplate :: V.Vector Char
+_boardTemplate = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 -   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)

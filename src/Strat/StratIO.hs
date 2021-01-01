@@ -1,4 +1,4 @@
-module Strat.StratIO (resolveRandom) where
+module Strat.StratIO where
 
 import Strat.StratTree.TreeNode
 import System.Random
@@ -8,4 +8,3 @@ resolveRandom [] = return Nothing
 resolveRandom xs = do
     r <- getStdRandom $ randomR (1, length xs)
     return $ Just $ xs !! (r-1)
-    
