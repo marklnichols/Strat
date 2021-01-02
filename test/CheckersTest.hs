@@ -150,7 +150,7 @@ mkMultiJsonJump (mv, middle, removed) = J.jsonFromCkMove (mkMultiCkJump (mv, mid
 -- Test Reader environments
 ---------------------------------------------------------------------------------------------------
 _envDepth6 :: Env
-_envDepth6 = Env { depth =6, equivThreshold = 0
+_envDepth6 = Env { depth =6, critDepth = 10, equivThreshold = 0
                  , p1Comp = False, p2Comp = True }
 
 ---------------------------------------------------------------------------------------------------

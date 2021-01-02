@@ -71,6 +71,7 @@ instance TreeNode TTNode IntMove where
     possibleMoves = getPossibleMoves
     color n = n ^. (ttPosition . clr)
     final n = n ^. (ttPosition . fin)
+    critical _ = False
     parseMove n s = strToMove s (color n)
 
 ---------------------------------------------------------

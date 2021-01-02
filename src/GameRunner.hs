@@ -15,9 +15,10 @@ import Strat.Helpers
 import Strat.StratTree
 import Strat.StratTree.TreeNode
 import System.Random hiding (next)
+import System.Time.Extra (duration, showDuration)
 
 gameEnv :: Env
-gameEnv = Env { depth = 3, equivThreshold = 0.1, p1Comp = False, p2Comp = True }
+gameEnv = Env { depth = 3, critDepth = 10, equivThreshold = 0.1, p1Comp = False, p2Comp = True }
 
 startGame :: (Output o n m, TreeNode n m, Ord n, Eval n)
           => o -> Tree n -> IO ()
@@ -57,11 +58,36 @@ playerMove o tree turn = do
 computerMove :: (Output o n m, TreeNode n m, RandomGen g, Ord n, Eval n)
              => g -> o -> Tree n -> Int -> IO (Tree n)
 computerMove gen o t turn = do
-    let newTree = runST $ expandTree t
-    let res@NegaResult{..} = negaRnd newTree (turnToSign turn) gen toFloat (equivThreshold gameEnv)
-    let nextMove = getMove $ head $ moveSeq best
-    showCompMove o newTree res
-    return (findMove newTree nextMove)
+    (sec, newRoot) <- duration $ do
+        let newTree = runST $ expandTree t
+        let newTree' = runST $ expandTreeCrit newTree
+
+        let res@NegaResult{..} = negaRnd newTree' (turnToSign turn) gen toFloat
+              (equivThreshold gameEnv)
+        let nextMove = getMove $ head $ moveSeq best
+        showCompMove o newTree' res True
+        return (findMove newTree' nextMove)
+    putStrLn ("Time for computerMove: \n" ++ showDuration sec)
+    return newRoot
+
+-- computerMove :: (Output o n m, TreeNode n m, RandomGen g, Ord n, Eval n)
+--              => g -> o -> Tree n -> Int -> IO (Tree n)
+-- computerMove gen o t turn = do
+--     let depth_loop t' the_depth  = do
+--           (sec, newRoot) <- duration $ do
+--               let newTree = runST $ expandTree' t' the_depth
+--               let res@NegaResult{..} = negaRnd newTree (turnToSign turn) gen toFloat
+--                     (equivThreshold gameEnv)
+--               let nextMove = getMove $ head $ moveSeq best
+--               let lastLoop = the_depth == depth gameEnv
+--               showCompMove o newTree res lastLoop
+--               return (findMove newTree nextMove)
+--           putStrLn ("Time for computerMove " ++ "(depth " ++ show the_depth ++ "): "
+--                    ++ showDuration sec ++ "\n")
+--           if the_depth == depth gameEnv
+--               then return newRoot
+--               else depth_loop t (the_depth + 1)
+--     depth_loop t 1
 
 expandTree :: (Mutable s n, TreeNode n m)
            => Tree n -> ST s (Tree n)
@@ -70,6 +96,25 @@ expandTree t =
           r <- thawRef t
           expandTo r makeChildren Nothing (depth gameEnv)
     in newTree
+
+expandTreeCrit :: (Mutable s n, TreeNode n m)
+           => Tree n -> ST s (Tree n)
+expandTreeCrit t =
+    let newTree = do
+          r <- thawRef t
+          expandTo r makeChildren (Just critsOnly) (critDepth gameEnv)
+    in newTree
+
+critsOnly :: TreeNode n m => n -> Int -> Bool
+critsOnly n _ = critical n
+
+-- expandTree' :: (Mutable s n, TreeNode n m)
+--            => Tree n -> Int -> ST s (Tree n)
+-- expandTree' t the_depth =
+--     let newTree = do
+--           r <- thawRef t
+--           expandTo r makeChildren Nothing the_depth
+--     in newTree
 
 isCompTurn :: Int -> Bool
 isCompTurn turn =

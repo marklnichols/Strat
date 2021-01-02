@@ -25,7 +25,7 @@ import qualified Checkers as Ck
 import qualified CheckersJson as J
 
 gameEnv :: Env
-gameEnv = Env { depth = 6, equivThreshold = 0.0
+gameEnv = Env { depth = 6, critDepth = 10, equivThreshold = 0.0
               , p1Comp = False, p2Comp = True }
 
 data Jsonable = forall j. ToJSON j => Jsonable j

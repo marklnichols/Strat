@@ -27,6 +27,7 @@ import Data.List
 import Data.Mutable
 import Data.Tree
 import System.Random
+import Text.Printf
 import Debug.Trace
 
 instance Mutable s a => Mutable s (Tree a) where
@@ -98,12 +99,28 @@ buildChildren parentRef makeChildren decFilter curDepth goalDepth = do
     let theChildren = if not (null tempForest)
           then tempForest
           else makeChildren tempLabel
-    foldM f [] theChildren
-    where
-        f acc t' = do
+    let f acc t' = do
           r' <- thawRef t'
           newTree <- decendUntil r' makeChildren decFilter (curDepth + 1) goalDepth
           return (newTree : acc)
+
+    let crit = case decFilter of
+          Just _ -> True
+          Nothing -> False
+    let str = printf "decending to %d (critical == True)" (curDepth + 1)
+
+    if crit
+      then trace str ( foldM f [] theChildren )
+      else  foldM f [] theChildren
+
+       -- where
+       --  f acc t' = do
+       --    r' <- thawRef t'
+       --    let crit = case decFilter of
+       --          Just _ -> "True"
+       --          Nothing -> "False"
+       --      newTree <- decendUntil r' makeChildren decFilter (curDepth + 1) goalDepth
+       --      return (newTree : acc)
 
 negaMax :: (Ord a, Show a) => Tree a -> Sign -> NegaResult a
 negaMax t sign =

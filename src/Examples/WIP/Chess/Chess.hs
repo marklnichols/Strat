@@ -77,7 +77,6 @@ import Strat.StratTree
 import Strat.StratTree.TreeNode
 import Debug.Trace
 
-
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
@@ -157,6 +156,7 @@ intToParserLoc n =
 ---------------------------------------------------------------------------------------------------
 -- Types for StratTree
 ---------------------------------------------------------------------------------------------------
+-- makeChildren = ChessNode -> [Tree ChessNode]
 makeChildren :: MakeChildrenF ChessNode
 makeChildren n =
     let ns = map (newNode n) (possibleMoves n)
@@ -291,6 +291,7 @@ instance TreeNode ChessNode ChessMove where
     possibleMoves = legalMoves
     color = colorToInt . view (chessPos . cpColor)
     final = view (chessPos . cpFin)
+    critical = isCritical
     parseMove = parseChessMove
     getMove = _chessMv
 
@@ -666,6 +667,12 @@ updateCastling c prevHasMoved mv =
                               , qr `notMember` s -> Unavailable -- kr and qr have moved
                               | otherwise -> BothAvailable -- k, kr, and qr all have not moved
                     in (newSet , newState)
+
+isCritical :: ChessNode -> Bool
+isCritical cn =
+    case _chessMv cn of
+        StdMove{..} -> _isExchange
+        _ -> False
 
 ---------------------------------------------------------------------------------------------------
 flipPieceColor :: Color -> Color
@@ -1288,10 +1295,10 @@ indexesToMove node [fromLoc, toLoc] =
                                       , _startIdx = fromLoc
                                       , _endIdx = toLoc
                                       , _stdNote = ""}
-              in if isExch then
-                      let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
-                      in trace str ret
-                  else ret
+            in if isExch then
+                   let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
+                   in trace str ret
+               else ret
 indexesToMove _ _ = Left "IndexesToMove - expected 2 element list as input, e.g. [E2, E4]"
 
 -- Looking for king moves: 15->17(KS-W), 85->87(KS-B), 15->13(QS-W), or 85->83(QS-B)
