@@ -60,6 +60,7 @@ import Control.Lens hiding (Empty)
 
 import Data.Char
 import Data.List (foldl')
+import Data.List.Extra (replace)
 import Data.Kind
 import Data.Maybe
 import Data.Mutable
@@ -72,8 +73,7 @@ import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 import Text.Printf
 
-import qualified CkParser as Parser -- TODO: rename this to be more general
-import Strat.StratTree
+import qualified CkParser as Parser
 import Strat.StratTree.TreeNode
 import Debug.Trace
 
@@ -145,29 +145,18 @@ toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParse
 toParserMove CastlingMove{..} = Parser.Move $ intToParserLoc _kingStartIdx : [intToParserLoc _kingEndIdx]
 
 instance Show ChessMove where
-  show cm = show $ toParserMove cm
+  show (stm@StdMove {..}) =
+      let nonCaptureStr = show $ toParserMove stm
+      in if _isExchange
+           then replace "-" "x" nonCaptureStr
+           else nonCaptureStr
+  show (cm@CastlingMove {..}) = show $ toParserMove cm
 
 intToParserLoc :: Int -> Parser.Loc
 intToParserLoc n =
     let r = n `div` 10
         c = chr $ 64 + (n - r * 10)
     in Parser.Loc c r
-
----------------------------------------------------------------------------------------------------
--- Types for StratTree
----------------------------------------------------------------------------------------------------
--- makeChildren = ChessNode -> [Tree ChessNode]
-makeChildren :: MakeChildrenF ChessNode
-makeChildren n =
-    let ns = map (newNode n) (possibleMoves n)
-        ts = map (\x -> Node x []) ns
-        in ts
-
-decentFilterF :: DecentFilterF ChessNode
-decentFilterF = Just decentFilter
-
-decentFilter :: ChessNode -> Int -> Bool
-decentFilter _cn _depth = undefined
 
 ---------------------------------------------------------------------------------------------------
 data ChessMoves = ChessMoves

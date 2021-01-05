@@ -11,7 +11,7 @@
 module Strat.StratTree
   ( expandTo
   , decendUntil
-  , DecentFilterF
+  , DeepDecentFilterF
   , MakeChildrenF
   , negaMax
   , negaRnd
@@ -27,7 +27,7 @@ import Data.List
 import Data.Mutable
 import Data.Tree
 import System.Random
-import Text.Printf
+-- import Text.Printf
 import Debug.Trace
 
 instance Mutable s a => Mutable s (Tree a) where
@@ -35,7 +35,7 @@ instance Mutable s a => Mutable s (Tree a) where
 
 type MakeChildrenF a = a -> [Tree a]
 
-type DecentFilterF a = Maybe (a -> Int -> Bool)
+type DeepDecentFilterF a = Maybe (Int -> a -> Bool)
 
 newtype TraceCmp a = TraceCmp (a, [a])
 
@@ -61,36 +61,41 @@ data NegaResult a = NegaResult
   { best :: NegaMoves a
   , alternatives :: [NegaMoves a] }
 
-expandTo :: Mutable s a => Ref s (Tree a)
-         -> MakeChildrenF a -> DecentFilterF a
+expandTo :: (Mutable s a, Show a) => Ref s (Tree a)
+         -> MakeChildrenF a -> DeepDecentFilterF a
          -> Int
          -> ST s (Tree a)
 expandTo r makeChildren decFilter depth =
     decendUntil r makeChildren decFilter 0 depth
 
-decendUntil :: (Mutable s a, Mutable s (Tree a)) => Ref s (Tree a)
-            -> MakeChildrenF a -> DecentFilterF a
+decendUntil :: (Mutable s a, Mutable s (Tree a), Show a) => Ref s (Tree a)
+            -> MakeChildrenF a -> DeepDecentFilterF a
             -> Int -> Int
             -> ST s (Tree a)
-decendUntil r makeChildren decFilter curDepth goalDepth =
-    if curDepth == goalDepth
+decendUntil r makeChildren decFilter curDepth goalDepth = do
+    tempLabel <- freezePart (fieldMut #rootLabel) r
+    -- if DeepDecentFilterF exists, decend deeper than the goal depth
+    -- but only for the (parent) nodes that pass the filter
+    if curDepth >= goalDepth && checkDeepDecentParent decFilter curDepth tempLabel == False
         then freezeRef r
         else do
-            tempLabel <- freezePart (fieldMut #rootLabel) r
-            -- if DecentFilterF exists, decend on nodes passing filter only
-            if checkFilter decFilter tempLabel curDepth == False
-                then freezeRef r
-                else do
-                    children <- buildChildren r makeChildren decFilter curDepth goalDepth
-                    modifyPart (fieldMut #subForest) r (\_xs -> children)
-                    freezeRef r
+            unfiltered <- buildChildren r makeChildren decFilter curDepth goalDepth
+            let children = if curDepth >= goalDepth
+                  then filterDeepDecentChildren decFilter curDepth unfiltered
+                  else unfiltered
+            modifyPart (fieldMut #subForest) r (\_xs -> children)
+            freezeRef r
 
-checkFilter :: forall a. DecentFilterF a -> a -> Int -> Bool
-checkFilter Nothing _ _ = True
-checkFilter (Just f) x depth = f x depth
+checkDeepDecentParent :: forall a. DeepDecentFilterF a -> Int -> a -> Bool
+checkDeepDecentParent Nothing _ _ = True
+checkDeepDecentParent (Just f) depth x  = f depth x
 
-buildChildren :: (Mutable s a, Mutable s (Tree a)) => Ref s (Tree a)
-              -> MakeChildrenF a -> DecentFilterF a
+filterDeepDecentChildren :: forall a. DeepDecentFilterF a -> Int -> [Tree a] -> [Tree a]
+filterDeepDecentChildren Nothing _ xs = xs
+filterDeepDecentChildren (Just f) d xs = filter (\t -> (f d) (rootLabel t)) xs
+
+buildChildren :: (Mutable s a, Mutable s (Tree a), Show a) => Ref s (Tree a)
+              -> MakeChildrenF a -> DeepDecentFilterF a
               -> Int -> Int
               -> ST s [Tree a]
 buildChildren parentRef makeChildren decFilter curDepth goalDepth = do
@@ -103,24 +108,7 @@ buildChildren parentRef makeChildren decFilter curDepth goalDepth = do
           r' <- thawRef t'
           newTree <- decendUntil r' makeChildren decFilter (curDepth + 1) goalDepth
           return (newTree : acc)
-
-    let crit = case decFilter of
-          Just _ -> True
-          Nothing -> False
-    let str = printf "decending to %d (critical == True)" (curDepth + 1)
-
-    if crit
-      then trace str ( foldM f [] theChildren )
-      else  foldM f [] theChildren
-
-       -- where
-       --  f acc t' = do
-       --    r' <- thawRef t'
-       --    let crit = case decFilter of
-       --          Just _ -> "True"
-       --          Nothing -> "False"
-       --      newTree <- decendUntil r' makeChildren decFilter (curDepth + 1) goalDepth
-       --      return (newTree : acc)
+    foldM f [] theChildren
 
 negaMax :: (Ord a, Show a) => Tree a -> Sign -> NegaResult a
 negaMax t sign =
