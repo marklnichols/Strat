@@ -33,7 +33,7 @@ import Control.Monad.State.Strict
 import Data.List
 import Data.Mutable
 import Data.Tree
-import Strat.StratTree (NegaResult(..), NegaMoves(..))
+import Strat.ZipTree (NegaResult(..), NegaMoves(..))
 
 ----------------------------------------------------------------------------------------------------
 -- Data types

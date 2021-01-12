@@ -9,7 +9,7 @@ import Control.Monad
 import Data.List
 import Data.Tree
 import Strat.Helpers
-import Strat.StratTree
+import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Map as Map
@@ -50,18 +50,6 @@ exitFail _ s = do
     putStrLn s
     exitFailure
 
--- showMove :: CkMove -> String
--- showMove cm = show $ toParserMove cm
-
--- showOtherMoves :: [(CkNode, [CkNode])] -> String
--- showOtherMoves pairs =
---   let cms = _ckMove . fst <$> pairs
---   in unlines $ fmap showMove cms
-
--- showFollowingMoves :: (CkNode, [CkNode]) -> String
--- showFollowingMoves pair =
---   let cms = _ckMove <$> snd pair
---   in unlines $ fmap showMove cms
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------

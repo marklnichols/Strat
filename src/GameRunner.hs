@@ -5,14 +5,13 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module GameRunner
- ( startGame
- , expandTree) where
+ ( expandTree
+ , startGame
+ ) where
 
-import Control.Monad.ST
-import Data.Mutable
 import Data.Tree
 import Strat.Helpers
-import Strat.StratTree
+import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Random hiding (next)
 import System.Time.Extra (duration, showDuration)
@@ -25,7 +24,7 @@ startGame :: (Output o n m, TreeNode n m, Ord n, Eval n)
           => o -> Tree n -> IO ()
 startGame o node = do
   rnd <- getStdGen
-  let newTree = runST $ expandTree node
+  let newTree = expandTree node
   loop rnd o newTree 1
 
 loop :: (Output o n m, TreeNode n m, RandomGen g , Ord n, Eval n)
@@ -60,8 +59,7 @@ computerMove :: (Output o n m, TreeNode n m, RandomGen g, Ord n, Eval n)
              => g -> o -> Tree n -> Int -> IO (Tree n)
 computerMove gen o t turn = do
     (sec, newRoot) <- duration $ do
-        let newTree = runST $ expandTree t
-        -- let newTree' = runST $ expandTreeCrit newTree
+        let newTree = expandTree t
         let res@NegaResult{..} = negaRnd newTree (turnToSign turn) gen toFloat
               (equivThreshold gameEnv)
         let nextMove = getMove $ head $ moveSeq best
@@ -70,13 +68,8 @@ computerMove gen o t turn = do
     putStrLn ("Time for computerMove: \n" ++ showDuration sec)
     return newRoot
 
-expandTree :: (Mutable s n, TreeNode n m)
-           => Tree n -> ST s (Tree n)
-expandTree t =
-    let newTree = do
-          r <- thawRef t
-          expandTo r makeChildren (Just critsOnly) (depth gameEnv)
-    in newTree
+expandTree :: TreeNode n m => Tree n -> Tree n
+expandTree t = expandTo t makeChildren (Just critsOnly) (depth gameEnv)
 
 critsOnly :: TreeNode n m => Int -> n -> Bool
 critsOnly d n =

@@ -2,7 +2,6 @@
 module ChessTest (chessTest) where
 
 import Test.Hspec
-import Control.Monad.ST
 import qualified Data.Set as S
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
@@ -157,7 +156,7 @@ chessTest = do
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           -- startingBoard :: V.Vector Char
           let t = getStartNode
-          let newTree = runST $ expandTree t
+          let newTree = expandTree t
           let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           let t' = findMove newTree mv
           (t /= t') `shouldBe` True

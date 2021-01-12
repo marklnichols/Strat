@@ -8,7 +8,7 @@ import Control.Monad
 import Data.List.Extra
 import Data.Tree
 import Strat.Helpers
-import Strat.StratTree
+import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Vector.Unboxed as V
