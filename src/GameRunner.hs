@@ -5,25 +5,26 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module GameRunner
- ( startGame
- , expandTree) where
+ ( expandTree
+ , startGame
+ ) where
 
-import Control.Monad.ST
-import Data.Mutable
 import Data.Tree
 import Strat.Helpers
-import Strat.StratTree
+import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Random hiding (next)
+import System.Time.Extra (duration, showDuration)
+-- import Debug.Trace
 
 gameEnv :: Env
-gameEnv = Env { depth = 3, equivThreshold = 0.1, p1Comp = False, p2Comp = True }
+gameEnv = Env { depth = 3, critDepth = 6, equivThreshold = 0.1, p1Comp = False, p2Comp = True }
 
 startGame :: (Output o n m, TreeNode n m, Ord n, Eval n)
           => o -> Tree n -> IO ()
 startGame o node = do
   rnd <- getStdGen
-  let newTree = runST $ expandTree node
+  let newTree = expandTree node
   loop rnd o newTree 1
 
 loop :: (Output o n m, TreeNode n m, RandomGen g , Ord n, Eval n)
@@ -57,19 +58,24 @@ playerMove o tree turn = do
 computerMove :: (Output o n m, TreeNode n m, RandomGen g, Ord n, Eval n)
              => g -> o -> Tree n -> Int -> IO (Tree n)
 computerMove gen o t turn = do
-    let newTree = runST $ expandTree t
-    let res@NegaResult{..} = negaRnd newTree (turnToSign turn) gen toFloat (equivThreshold gameEnv)
-    let nextMove = getMove $ head $ moveSeq best
-    showCompMove o newTree res
-    return (findMove newTree nextMove)
+    (sec, newRoot) <- duration $ do
+        let newTree = expandTree t
+        let res@NegaResult{..} = negaRnd newTree (turnToSign turn) gen toFloat
+              (equivThreshold gameEnv)
+        let nextMove = getMove $ head $ moveSeq best
+        showCompMove o newTree res True
+        return (findMove newTree nextMove)
+    putStrLn ("Time for computerMove: \n" ++ showDuration sec)
+    return newRoot
 
-expandTree :: (Mutable s n, TreeNode n m)
-           => Tree n -> ST s (Tree n)
-expandTree t =
-    let newTree = do
-          r <- thawRef t
-          expandTo r makeChildren Nothing (depth gameEnv)
-    in newTree
+expandTree :: TreeNode n m => Tree n -> Tree n
+expandTree t = expandTo t makeChildren (Just critsOnly) (depth gameEnv)
+
+critsOnly :: TreeNode n m => Int -> n -> Bool
+critsOnly d n =
+  let notAtMax = d < critDepth gameEnv
+      b = critical n
+  in (b && notAtMax)
 
 isCompTurn :: Int -> Bool
 isCompTurn turn =

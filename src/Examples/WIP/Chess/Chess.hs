@@ -35,7 +35,6 @@ module Chess
     , startingHasMovedWhite
     , toParserMove
     -- exported for testing only
-    , getPieceLocs
     , allowableBishopMoves
     , allowableKnightMoves
     , allowableKingMoves
@@ -60,6 +59,7 @@ import Control.Lens hiding (Empty)
 
 import Data.Char
 import Data.List (foldl')
+import Data.List.Extra (replace)
 import Data.Kind
 import Data.Maybe
 import Data.Mutable
@@ -72,11 +72,9 @@ import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 import Text.Printf
 
-import qualified CkParser as Parser -- TODO: rename this to be more general
-import Strat.StratTree
+import qualified CkParser as Parser
 import Strat.StratTree.TreeNode
 import Debug.Trace
-
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -146,28 +144,18 @@ toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParse
 toParserMove CastlingMove{..} = Parser.Move $ intToParserLoc _kingStartIdx : [intToParserLoc _kingEndIdx]
 
 instance Show ChessMove where
-  show cm = show $ toParserMove cm
+  show (stm@StdMove {..}) =
+      let nonCaptureStr = show $ toParserMove stm
+      in if _isExchange
+           then replace "-" "x" nonCaptureStr
+           else nonCaptureStr
+  show (cm@CastlingMove {..}) = show $ toParserMove cm
 
 intToParserLoc :: Int -> Parser.Loc
 intToParserLoc n =
     let r = n `div` 10
         c = chr $ 64 + (n - r * 10)
     in Parser.Loc c r
-
----------------------------------------------------------------------------------------------------
--- Types for StratTree
----------------------------------------------------------------------------------------------------
-makeChildren :: MakeChildrenF ChessNode
-makeChildren n =
-    let ns = map (newNode n) (possibleMoves n)
-        ts = map (\x -> Node x []) ns
-        in ts
-
-decentFilterF :: DecentFilterF ChessNode
-decentFilterF = Just decentFilter
-
-decentFilter :: ChessNode -> Int -> Bool
-decentFilter _cn _depth = undefined
 
 ---------------------------------------------------------------------------------------------------
 data ChessMoves = ChessMoves
@@ -291,6 +279,7 @@ instance TreeNode ChessNode ChessMove where
     possibleMoves = legalMoves
     color = colorToInt . view (chessPos . cpColor)
     final = view (chessPos . cpFin)
+    critical = isCritical
     parseMove = parseChessMove
     getMove = _chessMv
 
@@ -667,21 +656,28 @@ updateCastling c prevHasMoved mv =
                               | otherwise -> BothAvailable -- k, kr, and qr all have not moved
                     in (newSet , newState)
 
+isCritical :: ChessNode -> Bool
+isCritical cn =
+    case _chessMv cn of
+        StdMove{..} -> _isExchange
+        _ -> False
+
 ---------------------------------------------------------------------------------------------------
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
---TODO: set the FinalState appropirately
+--TODO: set the FinalState appropriately
 {-  TODO add scores for
       outposts
       half-empty, empty file rooks
       doubled rooks
       doubled pawns
-      having 2 bishops
+      having both bishops
       castled King pawn protection
       slight pref. to kingside castle over queenside
+      pawn advancement
 -}
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
@@ -748,9 +744,8 @@ countMaterial = V.foldr f 0
 calcMobility :: ChessPos -> Float
 calcMobility cp =
   let g = cp ^. cpGrid
-      wLocs = locsForColor g White
+      (wLocs, bLocs) = locsForColor g
       wCnt = moveCountFromLocs cp wLocs
-      bLocs = locsForColor g Black
       bCnt = moveCountFromLocs cp bLocs
   in fromIntegral (wCnt - bCnt)
 
@@ -863,6 +858,7 @@ legalMoves node =
 
 ---------------------------------------------------------------------------------------------------
 -- filter out moves that result in the moving player's king being in check
+-- TODO: this needs some serious optimizing
 --------------------------------------------------------------------------------------------------
 filterKingInCheck :: ChessPos -> [ChessMove] -> [ChessMove]
 filterKingInCheck pos xs =
@@ -879,25 +875,22 @@ filterKingInCheck pos xs =
         in foldr foldf [] xs
 
 ---------------------------------------------------------------------------------------------------
--- get piece locations for the current color from a ChessNode
---------------------------------------------------------------------------------------------------
-getPieceLocs :: ChessNode -> [Int]
-getPieceLocs node =
-    let pos = node ^. chessPos
-    in locsForColor (_cpGrid pos) (_cpColor pos)
-
----------------------------------------------------------------------------------------------------
 -- get piece locations for a given color from a board
+-- This still needs more optimizing:
+-- TODO: replace the zip with
+--       indexed :: Vector a -> Vector (Int, a)
+-- and try: imap :: (Int -> a -> b) -> Vector a -> Vector b
 --------------------------------------------------------------------------------------------------
-locsForColor :: Vector Char -> Color -> [Int]
-locsForColor locs theColor =
-    let range = V.fromList [0..100] :: Vector Int
-        pairs = V.zip range locs
-        filtrd = V.filter (pMatch theColor . snd) pairs
-        theFirst = V.map fst filtrd
-    in V.toList theFirst
-        where
-          pMatch clr ch  = charToColor ch == clr
+locsForColor :: Vector Char -> ([Int], [Int])
+locsForColor locs =
+    let pairs = V.zip indexRange locs
+    in V.foldr f ([], []) pairs where
+        f :: (Int, Char) -> ([Int], [Int]) -> ([Int], [Int])
+        f (n, c) (wLocs, bLocs) =
+            case charToColor c of
+              White -> (n : wLocs, bLocs)
+              Black -> (wLocs, n : bLocs)
+              _     -> (wLocs, bLocs)
 
 charToColor :: Char -> Color
 charToColor c
@@ -990,7 +983,9 @@ calcMoveLists pos =
 
 pieceDestinations :: ChessPos -> Color -> ([ChessMove], [ChessMove])
 pieceDestinations pos c =
-  let locs = locsForColor (_cpGrid pos) c
+  let locs = case c of
+        White -> fst $ locsForColor (_cpGrid pos)
+        _     -> snd $ locsForColor (_cpGrid pos)
   in movesFromLocs pos locs
 
 movesFromLocs :: ChessPos -> [Int] -> ([ChessMove], [ChessMove])
@@ -1288,10 +1283,10 @@ indexesToMove node [fromLoc, toLoc] =
                                       , _startIdx = fromLoc
                                       , _endIdx = toLoc
                                       , _stdNote = ""}
-              in if isExch then
-                      let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
-                      in trace str ret
-                  else ret
+            in if isExch then
+                   let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
+                   in trace str ret
+               else ret
 indexesToMove _ _ = Left "IndexesToMove - expected 2 element list as input, e.g. [E2, E4]"
 
 -- Looking for king moves: 15->17(KS-W), 85->87(KS-B), 15->13(QS-W), or 85->83(QS-B)
@@ -1369,14 +1364,12 @@ startingHasMovedWhite = HasMoved
     , _unMovedCastling = wCastlingPieces
     , _castlingState = BothAvailable }
 
-
 startingHasMovedBlack :: HasMoved
 startingHasMovedBlack = HasMoved
     { _unMovedDev = bDevPieces
     , _unMovedCenterPawns = bCenterPawns
     , _unMovedCastling = bCastlingPieces
     , _castlingState = BothAvailable }
-
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
@@ -1401,6 +1394,8 @@ parserLocToInt (Parser.Loc c row) =
     let col = ord (toUpper c) - 64  -- 1 based index
     in row * 10 + col
 
+indexRange :: Vector Int
+indexRange = V.fromList [0..100] :: Vector Int
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 

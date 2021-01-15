@@ -8,7 +8,7 @@ import Data.Mutable
 import Data.Tree
 import Test.Hspec
 
-import Strat.StratTree
+import Strat.ZipTree
 
 newtype NodeVal = NodeVal { nvalToInt :: Int }
   deriving (Eq, Ord, Show)

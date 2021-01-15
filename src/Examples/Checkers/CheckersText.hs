@@ -5,10 +5,11 @@ module CheckersText
 
 import Checkers
 import Control.Lens
+import Control.Monad
 import Data.List
 import Data.Tree
 import Strat.Helpers
-import Strat.StratTree
+import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Map as Map
@@ -33,39 +34,22 @@ showBoard _ node = do
     putStrLn ("Current position score: \n" ++ showScoreDetails (_ckValue node))
     putStrLn "\n--------------------------------------------------\n"
 
-printMoveChoiceInfo :: Tree CkNode -> NegaResult CkNode -> IO ()
-printMoveChoiceInfo tree result = do
-    -- putStrLn ("Tree size: " ++ show (treeSize tree))
-    -- putStrLn ("Equivalent best moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
-    -- putStrLn ("Following moves: " ++ showNegaMoves (best result))
-    -- putStrLn ("Alternative moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
-    -- -- putStrLn ("Computer's move:\n (m:" ++ showMove mv ++
-    -- --               ", s:" ++ show (_score $ head moveScores) ++ ")")
-    -- putStrLn ""
-
+printMoveChoiceInfo :: Tree CkNode -> NegaResult CkNode -> Bool -> IO ()
+printMoveChoiceInfo tree result verbose = do
     putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Computer's move: \n" ++ showNegaMoves (best result))
-    putStrLn ("score details: \n" ++ showScoreDetails (_ckValue (branchScore (best result))))
-    putStrLn ("Alternative moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
-    putStrLn ""
+    putStrLn ("Computer's move: " ++ showNegaMoves (best result))
+    when verbose $ do
+        putStrLn ("score details: \n"
+                 ++ showScoreDetails (_ckValue (branchScore (best result))))
+        putStrLn ("Alternative moves:\n" ++ intercalate "\n"
+                 (showNegaMoves <$> alternatives result))
+        putStrLn ""
 
 exitFail :: CheckersText -> String -> IO ()
 exitFail _ s = do
     putStrLn s
     exitFailure
 
--- showMove :: CkMove -> String
--- showMove cm = show $ toParserMove cm
-
--- showOtherMoves :: [(CkNode, [CkNode])] -> String
--- showOtherMoves pairs =
---   let cms = _ckMove . fst <$> pairs
---   in unlines $ fmap showMove cms
-
--- showFollowingMoves :: (CkNode, [CkNode]) -> String
--- showFollowingMoves pair =
---   let cms = _ckMove <$> snd pair
---   in unlines $ fmap showMove cms
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------

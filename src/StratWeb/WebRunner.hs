@@ -13,19 +13,17 @@ module StratWeb.WebRunner
     ) where
 
 import Control.Monad.Reader
-import Control.Monad.ST
 import Data.Aeson
-import Data.Mutable
 import Data.Tree
 import Strat.Helpers
 import Strat.StratTree.TreeNode
-import Strat.StratTree
+import Strat.ZipTree
 import System.Random
 import qualified Checkers as Ck
 import qualified CheckersJson as J
 
 gameEnv :: Env
-gameEnv = Env { depth = 6, equivThreshold = 0.0
+gameEnv = Env { depth = 6, critDepth = 10, equivThreshold = 0.0
               , p1Comp = False, p2Comp = True }
 
 data Jsonable = forall j. ToJSON j => Jsonable j
@@ -89,7 +87,8 @@ computerResponse prevNode gen = do
 computerMove :: (RandomGen g) => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-    let newTree = runST $ expandTree t gameEnv
+    let newTree = expandTo t makeChildren Nothing (depth gameEnv)
+
     let res@NegaResult{..} = negaRnd newTree (Sign {signToInt = 1}) gen toFloat (equivThreshold gameEnv)
 
     let bestMv = getMove $ head $ moveSeq best
@@ -101,12 +100,12 @@ computerMove t gen = do
       , mrMove = bestMv
       , mrNewTree = newTree } )
 
-expandTree ::Tree Ck.CkNode -> Env -> ST s (Tree Ck.CkNode)
-expandTree t env =
-    let newTree = do
-          r <- thawRef t
-          expandTo r makeChildren Nothing (depth env)
-    in newTree
+-- expandTree ::Tree Ck.CkNode -> Env -> ST s (Tree Ck.CkNode)
+-- expandTree t env =
+--     let newTree = do
+--           r <- thawRef t
+--           expandTo r makeChildren Nothing (depth env)
+--     in newTree
 
 checkGameOver :: Tree Ck.CkNode -> (Bool, String)
 checkGameOver node =

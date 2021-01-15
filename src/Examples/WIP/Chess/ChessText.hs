@@ -4,10 +4,11 @@ module ChessText
     ) where
 
 import Control.Lens
+import Control.Monad
 import Data.List.Extra
 import Data.Tree
 import Strat.Helpers
-import Strat.StratTree
+import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Vector.Unboxed as V
@@ -32,31 +33,21 @@ showBoard _ node = do
     putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal node))
     putStrLn "\n--------------------------------------------------\n"
 
-printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> IO ()
-printMoveChoiceInfo tree result = do
+printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
+printMoveChoiceInfo tree result verbose = do
     putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Computer's move: \n" ++ showNegaMoves (best result))
-    putStrLn ("score details: \n" ++ showScoreDetails (_chessVal (branchScore (best result))))
-    putStrLn ("Alternative moves:\n" ++ intercalate "\n" (showNegaMoves <$> alternatives result))
-    putStrLn ""
+    putStrLn ("Computer's move: " ++ showNegaMoves (best result))
+    when verbose $ do
+        putStrLn ("score details: \n"
+                 ++ showScoreDetails (_chessVal (branchScore (best result))))
+        putStrLn ("Alternative moves:\n" ++ intercalate "\n"
+                 (showNegaMoves <$> alternatives result))
+        putStrLn ""
 
 exitFail :: ChessText -> String -> IO ()
 exitFail _ s = do
     putStrLn s
     exitFailure
-
--- showMove :: ChessMove -> String
--- showMove cm = show $ toParserMove cm
-
--- showOtherMoves :: [(ChessNode, [ChessNode])] -> String
--- showOtherMoves pairs =
---   let cms = _chessMv . fst <$> pairs
---   in unlines $ fmap showMove cms
-
--- showFollowingMoves :: (ChessNode, [ChessNode]) -> String
--- showFollowingMoves pair =
---   let cms = _chessMv <$> snd pair
---   in unlines $ fmap showMove cms
 
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input

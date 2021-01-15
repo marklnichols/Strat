@@ -33,7 +33,7 @@ import Control.Monad.State.Strict
 import Data.List
 import Data.Mutable
 import Data.Tree
-import Strat.StratTree (NegaResult(..), NegaMoves(..))
+import Strat.ZipTree (NegaResult(..), NegaMoves(..))
 
 ----------------------------------------------------------------------------------------------------
 -- Data types
@@ -42,7 +42,7 @@ data FinalState = WWins | BWins | Draw | NotFinal
     deriving (Enum, Show, Eq, Ord)
 
 data Env = Env
-    { depth :: Int, equivThreshold :: Float, p1Comp :: Bool ,p2Comp :: Bool } deriving (Show)
+    { depth :: Int, critDepth :: Int, equivThreshold :: Float, p1Comp :: Bool ,p2Comp :: Bool } deriving (Show)
 
 data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Show, Eq)
 $(makeLenses ''MoveScore)
@@ -69,13 +69,14 @@ class (forall s. Mutable s t, Move m, Eval t) => TreeNode t m | t -> m where
     color :: t -> Int
     possibleMoves :: t -> [m]
     final :: t -> FinalState
+    critical :: t -> Bool
     parseMove :: t -> String -> Either String m
     getMove :: t -> m
 
 class Output o n m | o -> n, n -> m where
     out :: o -> String -> IO ()
     updateBoard :: o -> n -> IO ()
-    showCompMove :: o -> Tree n -> NegaResult n -> IO ()
+    showCompMove :: o -> Tree n -> NegaResult n -> Bool -> IO ()
     getPlayerMove :: o -> Tree n -> Int -> IO m
     gameError :: o -> String -> IO ()
 

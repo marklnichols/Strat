@@ -84,6 +84,7 @@ instance TreeNode CkNode CkMove where
     possibleMoves = getAllowedMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
+    critical  = isCritical
     parseMove = parseCkMove
     getMove = _ckMove
 
@@ -358,6 +359,9 @@ checkFinal n
             g = n ^. (ckPosition . grid)
             numPieces = pieceCount g colr + kingCount g colr
             colr = n ^. (ckPosition . clr)
+
+isCritical :: CkNode -> Bool
+isCritical cn = _isJump $ _ckMove cn
 
 colorToWinState :: Int -> FinalState
 colorToWinState 1 = WWins
