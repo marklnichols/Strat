@@ -59,14 +59,16 @@ data NegaResult a = NegaResult
   , alternatives :: [NegaMoves a] }
 
 
-expandTo :: Tree a
+expandTo :: Show a
+         => Tree a
          -> MakeChildrenF a -> DeepDecentFilterF a
          -> Int
          -> Tree a
 expandTo t makeChildren decFilter depth =
     decendUntil (fromTree t) makeChildren decFilter 0 depth
 
-decendUntil :: TreePos Full a
+decendUntil :: (Show a)
+            => TreePos Full a
             -> MakeChildrenF a -> DeepDecentFilterF a
             -> Int
             -> Int
@@ -79,11 +81,16 @@ decendUntil z makeChildren decFilter curDepth goalDepth =
         then toTree z
         else
             let unfiltered = buildChildren z makeChildren decFilter curDepth goalDepth
-                theChildren = if curDepth >= goalDepth
-                    then filterDeepDecentChildren decFilter curDepth unfiltered
+                theChildren =
+                    if curDepth >= goalDepth then
+                        filterDeepDecentChildren decFilter curDepth unfiltered
+                        -- let str = "Decending for parent (depth " ++ show curDepth ++ "): " ++ show (label z)
+                            -- filtered = filterDeepDecentChildren decFilter curDepth unfiltered
+                            -- str2 = List.intercalate ", " (show . rootLabel <$> filtered)
+                            -- in trace (str ++ "\n" ++ str2) filtered
                     else unfiltered
-                -- modifyPart (fieldMut #subForest) r (\_xs -> children)
             in toTree $ modifyTree (\(Node x _) -> Node x theChildren) z
+
 
 checkDeepDecentParent :: forall a. DeepDecentFilterF a -> Int -> a -> Bool
 checkDeepDecentParent Nothing _ _ = False
@@ -93,7 +100,8 @@ filterDeepDecentChildren :: DeepDecentFilterF a -> Int -> [Tree a] -> [Tree a]
 filterDeepDecentChildren Nothing _ xs = xs
 filterDeepDecentChildren (Just f) d xs = filter (\t -> (f d) (rootLabel t)) xs
 
-buildChildren :: forall a. TreePos Full a
+buildChildren :: forall a. (Show a)
+              => TreePos Full a
               -> MakeChildrenF a -> DeepDecentFilterF a
               -> Int -> Int
               -> [Tree a]
@@ -110,7 +118,7 @@ buildChildren z makeChildren decFilter curDepth goalDepth =
                 t' = decendUntil zippedChild makeChildren decFilter (curDepth + 1) goalDepth
                 tmp = insert t childPos
                 nextChildPos = nextSpace tmp
-            in ((t' : xs), nextChildPos)
+            in (t' : xs, nextChildPos)
         (results, _) = zipFoldR f ([], children z) theChildren
     in results
 

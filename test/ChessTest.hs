@@ -13,11 +13,12 @@ import Strat.StratTree.TreeNode
 
 chessTest :: SpecWith ()
 chessTest = do
-    describe "getPieceLocs" $
+    describe "locsForColor" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
-            locsForColor board01 White `shouldMatchList`
+            let (wLocs, bLocs) = locsForColor board01
+            wLocs `shouldMatchList`
               [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
-            locsForColor board01 Black `shouldMatchList`
+            bLocs `shouldMatchList`
               [61, 62, 65, 66, 67, 77, 78, 83, 86, 87]
     describe "allowableKingMoves" $
         it "Gets the possible moves for a king" $ do
