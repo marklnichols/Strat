@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Main where
 
 import Checkers
@@ -5,23 +8,34 @@ import Chess
 import ChessText
 import GameRunner
 import CheckersText
-import System.Environment
+import System.Console.CmdArgs.Implicit
+-- import System.Environment
 import StratWeb.YesodMain
-
--- :set args "tictac"
--- :set args "checkers"
--- :set args "chess"
--- Main.main
 
 main :: IO ()
 main = do
-    a <- getArgs
-    parse a
-    return ()
+    theArgs@StratArgs{..} <- cmdArgs stratArgs
+    case exampleName of
+      "chess" -> do
+          let start = Chess.getStartNode restoreGame
+          GameRunner.startGame ChessText start depth critDepth
+      "checkers" -> do
+          let start = Checkers.getStartNode restoreGame
+          GameRunner.startGame CheckersText start depth critDepth
 
---TODO add real parser here, make web vs text an option, etc.
-parse :: [String] -> IO ()
-parse ["checkers"]    = GameRunner.startGame CheckersText Checkers.getStartNode
-parse ["checkersWeb"] = webInit
-parse ["chess"]    = GameRunner.startGame ChessText Chess.getStartNode
-parse _            = webInit -- default to checkers via web
+      "checkersWeb" -> webInit
+      _ -> print theArgs
+
+data StratArgs = StratArgs
+  { exampleName :: String
+  , depth :: Int
+  , critDepth :: Int
+  , restoreGame :: String }
+  deriving (Show, Data, Typeable)
+
+stratArgs :: StratArgs
+stratArgs = StratArgs
+  { exampleName = "chess" &= name "n" &= help "The example to run"
+  , depth = 4 &= help "Tree search depth"
+  , critDepth = 7 &= help "Tree search depth for critical moves"
+  , restoreGame = "new_game" &= help "Game name to restore"}

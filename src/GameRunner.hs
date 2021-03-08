@@ -1,8 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module GameRunner
  ( expandTree
@@ -14,24 +17,26 @@ import Strat.Helpers
 import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Random hiding (next)
-import System.Time.Extra (duration, showDuration)
--- import Debug.Trace
+-- import System.Time.Extra (duration, showDuration)
+import Debug.Trace
+import Text.Printf
 
 gameEnv :: Env
-gameEnv = Env { depth = 3, critDepth = 6, equivThreshold = 0.1, p1Comp = False, p2Comp = True }
+gameEnv = Env { equivThreshold = 0.05, p1Comp = False, p2Comp = True }
 
-startGame :: (Output o n m, TreeNode n m, Ord n, Eval n)
-          => o -> Tree n -> IO ()
-startGame o node = do
+startGame :: (Output o n m, TreeNode n m, ZipTreeNode n, Ord n, Eval n)
+          => o -> Tree n -> Int -> Int -> IO ()
+startGame o node depth critDepth = do
   rnd <- getStdGen
-  let newTree = expandTree node
-  loop rnd o newTree 1
+  let newTree = expandTree node 2 2
+  loop rnd o newTree depth critDepth
 
-loop :: (Output o n m, TreeNode n m, RandomGen g , Ord n, Eval n)
-     => g -> o -> Tree n -> Int -> IO ()
-loop gen o node turn = do
-    updateBoard o $ rootLabel node
-    theNext <- case final $ rootLabel node of
+loop :: (Output o n m, TreeNode n m, ZipTreeNode n, RandomGen g , Ord n, Eval n)
+     => g -> o -> Tree n -> Int -> Int -> IO ()
+loop gen o node depth critDepth = do
+    let label = rootLabel node
+    updateBoard o label
+    theNext <- case final $ label of
         WWins -> do
             out o "White wins."
             return Nothing
@@ -42,53 +47,80 @@ loop gen o node turn = do
             out o "Draw."
             return Nothing
         _ -> do
-            nextNode <- if isCompTurn turn
-                  then computerMove gen o node turn
-                  else playerMove o node turn
+            nextNode <- if isCompTurn (ztnSign label)
+                  then computerMove gen o node depth critDepth
+                  else playerMove o node depth critDepth
             return (Just nextNode)
     case theNext of
         Nothing -> return ()
-        Just next -> loop gen o next (swapTurns turn)
+        Just next -> loop gen o next depth critDepth
 
-playerMove :: (Output o n m, TreeNode n m) => o -> Tree n -> Int -> IO (Tree n)
-playerMove o tree turn = do
-    mv <- getPlayerMove o tree turn
+playerMove :: (Output o n m, TreeNode n m, ZipTreeNode n)
+           => o -> Tree n -> Int -> Int -> IO (Tree n)
+playerMove o tree _depth _critDepth = do
+    mv <- getPlayerMove o tree
     return (findMove tree mv)
 
-computerMove :: (Output o n m, TreeNode n m, RandomGen g, Ord n, Eval n)
-             => g -> o -> Tree n -> Int -> IO (Tree n)
-computerMove gen o t turn = do
-    (sec, newRoot) <- duration $ do
-        let newTree = expandTree t
-        let res@NegaResult{..} = negaRnd newTree (turnToSign turn) gen toFloat
-              (equivThreshold gameEnv)
-        let nextMove = getMove $ head $ moveSeq best
-        showCompMove o newTree res True
-        return (findMove newTree nextMove)
-    putStrLn ("Time for computerMove: \n" ++ showDuration sec)
-    return newRoot
+computerMove :: (Output o n m, TreeNode n m, ZipTreeNode n, RandomGen g, Ord n, Eval n)
+             => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
+computerMove gen o t maxDepth maxCritDepth = do
+    -- (newRoot, res@NegaResult{..}) <- runIncremental o t gen (equivThreshold gameEnv) maxDepth maxCritDepth
+    (newRoot, res@NegaResult{..}) <- runNonIncremental t gen (equivThreshold gameEnv) maxDepth maxCritDepth
+    let nextMove = getMove $ head $ moveSeq best
+    putStrLn "\n--------------------------------------------------\n"
+    putStrLn "Computer move:"
+    showCompMove o newRoot res True
+    return (findMove newRoot nextMove)
 
-expandTree :: TreeNode n m => Tree n -> Tree n
-expandTree t = expandTo t makeChildren (Just critsOnly) (depth gameEnv)
+expandTree :: (TreeNode n m, ZipTreeNode n) => Tree n -> Int -> Int -> Tree n
+expandTree t depth critDepth =
+    let (newTree, str) =
+          let newT = expandTo t depth critDepth
+              s = printf "expandTree - size before: %s, size after: %s"
+                  (show (treeSize t)) (show (treeSize newT))
+          in (newT, s)
+  in trace str newTree
 
-critsOnly :: TreeNode n m => Int -> n -> Bool
-critsOnly d n =
-  let notAtMax = d < critDepth gameEnv
-      b = critical n
-  in (b && notAtMax)
-
-isCompTurn :: Int -> Bool
-isCompTurn turn =
+isCompTurn :: Sign -> Bool
+isCompTurn sign =
     let p1 = p1Comp gameEnv
         p2 = p2Comp gameEnv
-    in if turn == 1 then p1 else p2
+    in if sign == Pos then p1 else p2
 
-swapTurns :: Int -> Int
-swapTurns t = 3-t   --alternate between 1 and 2
+runNonIncremental :: (TreeNode n m, ZipTreeNode n, Ord n, Show n, Eval n, RandomGen g)
+                  => Tree n
+                  -> g
+                  -> Float
+                  -> Int
+                  -> Int
+                  -> IO (Tree n, NegaResult n)
+runNonIncremental t _gen _percentVar maxDepth maxCritDepth = do
+    let expanded = expandTree t maxDepth maxCritDepth
+    -- let res = negaRnd expanded gen percentVar True
+    let res = negaMax expanded True
+    return (expanded, res)
 
---TODO: allow player to play black
--- convert values 1 | 2 into 1 | -1
-turnToSign :: Int -> Sign
-turnToSign 1 = Sign 1
-turnToSign 2 = Sign (-1)
-turnToSign n = error $ "Illegal value in turnToSign (" ++ show n ++ ")"
+_runIncremental :: (Output o n m, TreeNode n m, ZipTreeNode n, Ord n, Show n, Eval n, RandomGen g)
+                  => o
+                  -> Tree n
+                  -> g
+                  -> Float
+                  -> Int
+                  -> Int
+                  -> IO (Tree n, NegaResult n)
+_runIncremental o t gen percentVar maxDepth maxCritDepth =
+    incrementalDecent o t gen percentVar 1 1 maxDepth maxCritDepth
+
+--TODO: add sort
+incrementalDecent :: (Output o n m, TreeNode n m, ZipTreeNode n, Ord n, Show n, Eval n, RandomGen g)
+                  => o -> Tree n -> g -> Float -> Int -> Int -> Int -> Int
+                  -> IO (Tree n, NegaResult n)
+incrementalDecent o t gen percentVar curDepth curCritDepth maxDepth maxCritDepth = do
+    let expanded = expandTree t curDepth curCritDepth
+    let res = negaRnd expanded gen percentVar True
+    if curDepth == maxDepth && curCritDepth == maxCritDepth
+        then return (expanded, res)
+        else
+            let newDepth = if curDepth < maxDepth then curDepth + 1 else curDepth
+                newCritDepth = if curCritDepth < maxCritDepth then curCritDepth + 1 else curCritDepth
+            in incrementalDecent o expanded gen percentVar newDepth newCritDepth maxDepth maxCritDepth

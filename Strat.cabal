@@ -45,6 +45,7 @@ library
     , random
     , rosezipper
     , safe
+    , sort
   default-language: Haskell2010
 
 executable strat-exe
@@ -62,6 +63,7 @@ executable strat-exe
     , base
     , bytestring
     , Cabal
+    , cmdargs
     , containers
     , extra
     , hashmap
@@ -73,6 +75,7 @@ executable strat-exe
     , rosezipper
     , safe
     , singletons
+    , sort
     , text
     , vector
     , yesod
@@ -98,6 +101,7 @@ executable test-as-exe
       TicTacTest
       CkParser
       GameRunner
+      PruningTest
       StratTreeTest
       Strat.Helpers
       Strat.StratIO
@@ -117,6 +121,7 @@ executable test-as-exe
     , base
     , bytestring
     , Cabal
+    , cmdargs
     , containers
     , extra
     , hashmap
@@ -129,8 +134,10 @@ executable test-as-exe
     , random
     , rosezipper
     , safe
+    , sort
     , text
     , singletons
+    , unordered-containers
     , vector
     , yesod == 1.6.0.2
     , yesod-core
@@ -148,6 +155,7 @@ test-suite StratTreeTest
       ChessTest
       CkParser
       GameRunner
+      PruningTest
       Strat.Helpers
       StratTreeTest
       Strat.ZipTree
@@ -178,6 +186,8 @@ test-suite StratTreeTest
     , random
     , rosezipper
     , safe
+    , sort
     , singletons
+    , unordered-containers
     , vector
   default-language: Haskell2010

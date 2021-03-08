@@ -12,6 +12,7 @@ import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Vector.Unboxed as V
+import Text.Printf
 
 import Chess
 
@@ -31,11 +32,15 @@ showBoard :: ChessText -> ChessNode -> IO ()
 showBoard _ node = do
     putStrLn $ formatBoard node
     putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal node))
-    putStrLn "\n--------------------------------------------------\n"
 
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
 printMoveChoiceInfo tree result verbose = do
-    putStrLn ("Tree size: " ++ show (treeSize tree))
+    let tSize = fst $ treeSize tree
+    let evaluated = evalCount result
+    let percentSaved = 1.0 - fromIntegral evaluated / fromIntegral (tSize-1) :: Float
+    putStrLn ("Tree size: " ++ show tSize)
+    putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
+                      evaluated percentSaved
     putStrLn ("Computer's move: " ++ showNegaMoves (best result))
     when verbose $ do
         putStrLn ("score details: \n"
@@ -52,20 +57,20 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
-playerMove :: Tree ChessNode -> Int -> IO ChessMove
-playerMove tree turn = do
-    putStrLn ("Enter player " ++ show turn ++ "'s move:")
+playerMove :: Tree ChessNode -> IO ChessMove
+playerMove tree = do
+    putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
     case parseMove (rootLabel tree) line of
         Left err -> do
             putStrLn err
-            playerMove tree turn
+            playerMove tree
         Right mv ->
             if not (isLegal tree mv)
                 then do
                     putStrLn "Not a legal move."
-                    playerMove tree turn
+                    playerMove tree
                 else return mv
 
 ---------------------------------------------------------------------------------------------------
@@ -74,7 +79,7 @@ playerMove tree turn = do
 formatBoard :: ChessNode -> String
 formatBoard node =
     let g = node ^. (chessPos . cpGrid)
-    in (colLabels ++ loop g 11 8 "") ++ "\n"
+    in "\n" ++ (colLabels ++ loop g 11 8 "") ++ "\n"
   where
     loop :: V.Vector Char -> Int -> Int -> String -> String
     loop _ _ 0 dest = dest

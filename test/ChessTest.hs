@@ -10,6 +10,7 @@ import Chess
 import GameRunner
 import Strat.Helpers
 import Strat.StratTree.TreeNode
+-- import Strat.ZipTree
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -156,8 +157,8 @@ chessTest = do
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           -- startingBoard :: V.Vector Char
-          let t = getStartNode
-          let newTree = expandTree t
+          let t = getStartNode "new_game"
+          let newTree = expandTree t 2 2
           let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           let t' = findMove newTree mv
           (t /= t') `shouldBe` True

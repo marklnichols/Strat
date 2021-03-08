@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -44,7 +45,9 @@ import Data.Maybe
 import Data.Mutable
 import Data.Tree
 import Prelude hiding (lookup)
+import Strat.Helpers
 import Strat.StratTree.TreeNode hiding (MoveScore)
+import Strat.ZipTree
 import Safe
 import qualified CkParser as Parser
 import qualified Data.Vector.Unboxed as V
@@ -66,7 +69,12 @@ data CkEval = CkEval {_total :: Float, _details :: String}
     deriving (Eq, Ord)
 makeLenses ''CkEval
 
-data CkNode = CkNode {_ckMove :: CkMove, _ckValue :: CkEval, _ckErrorValue :: CkEval, _ckPosition :: CkPosition}
+data CkNode = CkNode
+  { _ckMove :: CkMove
+  , _ckValue :: CkEval
+  , _ckErrorValue :: CkEval
+  , _ckPosition :: CkPosition
+  , _ckIsEvaluated :: Bool }
     deriving (Eq)
 makeLenses ''CkNode
 
@@ -97,7 +105,7 @@ instance Show CkNode where
     show n = "move: " ++ show (n ^. ckMove) ++ ", value: " ++ show (n ^. ckValue)
 
 instance Ord CkNode where
-    (<=) ckn1 ckn2 = toFloat ckn1 <= toFloat ckn2
+    (<=) ckn1 ckn2 = evaluate ckn1 <= evaluate ckn2
 
 instance Show CkEval where
     -- show e = "Total = " ++ show (e ^. total) ++ "<br>" ++ (e ^. details)
@@ -106,11 +114,25 @@ instance Show CkEval where
 showScoreDetails :: CkEval -> String
 showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
 
+evalCkNode :: CkNode -> Float
+evalCkNode ckn = ckn ^. (ckValue . total)
+
 instance Move CkMove
 
 instance Eval CkNode where
-    toFloat ckn = ckn ^. (ckValue . total)
+    evaluate = evalCkNode
+    isEvaluated ckn = ckn ^. ckIsEvaluated
     setFloat ckn x = ckn & (ckValue . total) .~ x
+
+instance ZipTreeNode CkNode where
+  ztnEvaluate = evalCkNode
+  ztnMakeChildren = makeChildren
+  ztnSign cn = clrToSign (cn ^. (ckPosition . clr))
+  ztnDeepDecend = critsOnly
+
+clrToSign :: Int -> Sign
+clrToSign 1 = Pos
+clrToSign _ = Neg
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
@@ -123,14 +145,17 @@ parseCkMove n s
         pMove = Parser.run s
 
 ---------------------------------------------------------------------------------------------------
--- starting position,
+-- starting or other test position
 ---------------------------------------------------------------------------------------------------
-getStartNode :: Tree CkNode
-getStartNode = Node
-    CkNode {_ckMove = CkMove {_isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [],
-            _removedIdxs = []}, _ckValue = CkEval {_total = 0, _details = ""},
-            _ckErrorValue = CkEval {_total = 0, _details = ""},
-            _ckPosition = CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}} []
+getStartNode :: String -> Tree CkNode
+getStartNode _restoreGame =
+    Node CkNode
+        { _ckMove = CkMove
+          { _isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [], _removedIdxs = [] }
+          , _ckValue = CkEval {_total = 0, _details = ""}
+          , _ckErrorValue = CkEval {_total = 0, _details = ""}
+          , _ckPosition = CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}
+          , _ckIsEvaluated = False} []
 
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
@@ -423,6 +448,9 @@ pieceProgress xs colr =
 
 setColor :: CkNode -> Int -> CkNode
 setColor node colr = node & ckPosition.clr .~ colr
+
+critsOnly :: TreeNode n m => n -> Bool
+critsOnly = critical
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position

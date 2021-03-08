@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -11,6 +12,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -46,6 +48,7 @@ module Chess
     , calcDevelopment
     , calcMoveLists
     , checkCastling
+    , cnShowMoveOnly
     , inCheck
     , locsForColor
     , pairToIndexes
@@ -73,7 +76,9 @@ import qualified Data.Vector.Unboxed as V
 import Text.Printf
 
 import qualified CkParser as Parser
+import Strat.Helpers
 import Strat.StratTree.TreeNode
+import Strat.ZipTree
 import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
@@ -132,12 +137,34 @@ showScoreDetails :: ChessEval -> String
 showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
 
 data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval, _chessErrorVal :: ChessEval
-                           , _chessPos :: ChessPos}
+                           , _chessPos :: ChessPos, _chessMvSeq :: [ChessMove]
+                           , _chessIsEvaluated :: Bool}
     deriving (Eq)
 makeLenses ''ChessNode
 
 instance Show ChessNode where
-    show n = "move: " ++ show (n ^. chessMv) ++ ", value: " ++ show (n ^. chessVal)
+    -- show n = "move: " ++ show (n ^. chessMv) ++ ", value: " ++ show (n ^. chessVal)
+    --          ++ ", history: " ++ show (n ^. chessMvSeq)
+  show = cnShowMoveOnly
+
+cnShowMoveOnly :: ChessNode -> String
+cnShowMoveOnly cn = show (cn ^. chessMv)
+
+evalChessNode :: ChessNode -> Float
+evalChessNode cn = cn ^. (chessVal . total)
+
+instance ZipTreeNode ChessNode where
+  ztnEvaluate = evalChessNode
+  ztnMakeChildren = makeChildren
+  ztnSign cn = colorToSign (cn ^. (chessPos . cpColor))
+  ztnDeepDecend = critsOnly
+
+colorToSign :: Color -> Sign
+colorToSign White = Pos
+colorToSign _ = Neg
+
+critsOnly :: TreeNode n m => n -> Bool
+critsOnly = critical
 
 toParserMove :: ChessMove -> Parser.Move
 toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
@@ -149,7 +176,7 @@ instance Show ChessMove where
       in if _isExchange
            then replace "-" "x" nonCaptureStr
            else nonCaptureStr
-  show (cm@CastlingMove {..}) = show $ toParserMove cm
+  show cm = show $ toParserMove cm
 
 intToParserLoc :: Int -> Parser.Loc
 intToParserLoc n =
@@ -288,11 +315,12 @@ instance Mutable s ChessNode where
 instance Move ChessMove
 
 instance Eval ChessNode where
-    toFloat cn = cn ^. (chessVal . total)
+    evaluate = evalChessNode
+    isEvaluated cn = cn ^. chessIsEvaluated
     setFloat cn x = cn & (chessVal . total) .~ x
 
 instance Ord ChessNode where
-    (<=) cn1 cn2 = toFloat cn1 <= toFloat cn2
+    (<=) cn1 cn2 = evaluate cn1 <= evaluate cn2
 
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-99
@@ -344,6 +372,7 @@ Piece representation as integers:
 32 = 0x20 = ' ' = Empty Squre
 43 = 0x2b = '+' = off the board
 -}
+
 ----------------------------------------------------------------------------------------------------
 -- starting position, white at the 'bottom'
 ----------------------------------------------------------------------------------------------------
@@ -379,20 +408,49 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 -- starting position
 -- TODO: let this be either color
 ---------------------------------------------------------------------------------------------------
-getStartNode :: Tree ChessNode
-getStartNode =
-    let firstColor = White
-        cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = firstColor
+getStartNode :: String -> Tree ChessNode
+getStartNode restoreGame =
+    case restoreGame of
+      "new_game" ->
+        let nextColor = White
+            cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = nextColor
                         , _cpHasMoved = (startingHasMovedWhite, startingHasMovedBlack)
                         , _cpKingLoc = (15, 85)
                         , _cpInCheck = (False, False)
                         , _cpFin = NotFinal }
-    in Node ChessNode
-        { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-        , _chessVal = ChessEval { _total = 0.0, _details = "" }
-        , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-        , _chessPos = cPos}
-      []
+        in Node ChessNode
+            { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+            , _chessVal = ChessEval { _total = 0.0, _details = "" }
+            , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+            , _chessPos = cPos
+            , _chessMvSeq = []
+            , _chessIsEvaluated = False } []
+      "alpha_beta" ->
+        let cPos = ChessPos
+              { _cpGrid = alphaBetaBoard, _cpColor = White
+              , _cpHasMoved = (abHasMovedWhite, abHasMovedBlack)
+              , _cpKingLoc = (11, 31)
+              , _cpInCheck = (False, False)
+              , _cpFin = NotFinal }
+        in Node ChessNode
+            { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+            , _chessVal = ChessEval { _total = 0.0, _details = "" }
+            , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+            , _chessPos = cPos
+            , _chessMvSeq = []
+            , _chessIsEvaluated = False } []
+          where
+            abHasMovedWhite = HasMoved
+                { _unMovedDev = S.empty
+                , _unMovedCenterPawns = S.empty
+                , _unMovedCastling = S.empty
+                , _castlingState = Castled }
+            abHasMovedBlack = HasMoved
+                { _unMovedDev = S.empty
+                , _unMovedCenterPawns = S.empty
+                , _unMovedCastling = S.empty
+                , _castlingState = Castled }
+      _ -> error "unknown restore game string - choices are:\n new_game, alpha_beta"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> V.Vector Char
@@ -470,6 +528,7 @@ noDirs = []
 calcNewNode :: ChessNode -> ChessMove -> ChessNode
 calcNewNode node mv =
     let curPos = node ^. chessPos
+        curMoveSeq = node ^. chessMvSeq
         curGrid = curPos ^. cpGrid
         curColor = curPos ^. cpColor
         curHasMoved = _cpHasMoved curPos
@@ -501,7 +560,9 @@ calcNewNode node mv =
         updatedPos = newPos { _cpFin = finalSt }
     in ChessNode { _chessMv = mv , _chessVal = eval
                  , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
-                 , _chessPos = updatedPos }
+                 , _chessPos = updatedPos
+                 , _chessMvSeq = mv : curMoveSeq
+                 , _chessIsEvaluated = False }
 
 ---------------------------------------------------------------------------------------------------
 -- Calulate if the king at the given location is in check
@@ -542,7 +603,6 @@ checkHasMoved c g (w, b) mv =
         case checkCastling c g prevHasMoved mv of
             Nothing -> (prevUnCastl, prevStateCastl)
             Just (u, s) -> (u, s)
-
       prevUnDev = _unMovedDev prevHasMoved
       newUnDev = fromMaybe prevUnDev $ checkDevelopment g prevHasMoved mv
 
@@ -550,13 +610,11 @@ checkHasMoved c g (w, b) mv =
       newUnPawns = fromMaybe prevUnPawns $ case c of
           White -> checkCenterPawns g prevHasMoved mv wKP wQP
           _ -> checkCenterPawns g prevHasMoved mv bKP bQP
-
       newHasMoved = HasMoved
         { _unMovedDev = newUnDev
         , _unMovedCenterPawns = newUnPawns
         , _unMovedCastling = newUnCastl
         , _castlingState = newStateCastl }
-
   in case c of
     White -> (newHasMoved, b)
     _     -> (w, newHasMoved)
@@ -574,7 +632,7 @@ checkDevelopment g prevHasMoved mv =
                 (MkChessPiece _c (SomeSing SBishop)) -> Just $ updateDevelopment prevHasMoved start
                 (MkChessPiece _c (SomeSing SKnight)) -> Just $ updateDevelopment prevHasMoved start
                 (MkChessPiece _c (SomeSing _)) -> Nothing
-        CastlingMove{..}  -> Nothing
+        CastlingMove{}  -> Nothing
 
 checkCenterPawns
   :: Vector Char
@@ -593,7 +651,7 @@ checkCenterPawns g prevHasMoved mv kpLoc qpLoc =
                        then Just $ updateCenterPawns prevHasMoved start
                        else Nothing
                 (MkChessPiece _c (SomeSing _)) -> Nothing
-        CastlingMove{..}  -> Nothing
+        CastlingMove{}  -> Nothing
 
 updateDevelopment
   :: HasMoved
@@ -625,7 +683,7 @@ checkCastling c g prevHasMoved mv =
           (MkChessPiece _c (SomeSing SKing)) -> Just $ updateCastling c prevHasMoved mv
           (MkChessPiece _c (SomeSing SRook)) -> Just $ updateCastling c prevHasMoved mv
           (MkChessPiece _c (SomeSing _)) -> Nothing
-      CastlingMove{..} -> Just $ updateCastling c prevHasMoved mv
+      CastlingMove{} -> Just $ updateCastling c prevHasMoved mv
 
 updateCastling
   :: Color
@@ -634,7 +692,7 @@ updateCastling
   -> (Set Int, Castling)
 updateCastling c prevHasMoved mv =
     case mv of
-        CastlingMove {..} -> (S.empty, Castled)
+        CastlingMove {} -> (S.empty, Castled)
         StdMove _isExch start _end _s ->
             let unMovedC = _unMovedCastling prevHasMoved
                 cState = _castlingState prevHasMoved
@@ -834,7 +892,7 @@ mkCastleMove _ QueenSide = CastlingMove
   , _castleNote = "O-O-O" }
 
 castle' :: Vector Char -> ChessMove -> Vector Char
-castle' _g StdMove{..} = error "This shouldn't happen..."
+castle' _g StdMove{} = error "This shouldn't happen..."
 castle' g CastlingMove{..} =
   let gTemp = movePiece' g _kingStartIdx _kingEndIdx
   in movePiece' gTemp _rookStartIdx _rookEndIdx
@@ -1407,6 +1465,67 @@ p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77
 -   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
 P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
 R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
+----------------------------------------------------------------------------------------------------
+-- Some special starting positions for evaluating certain features....
+----------------------------------------------------------------------------------------------------
+alphaBetaBoard :: V.Vector Char
+alphaBetaBoard = V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'k',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   k   -   p   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   P   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   K   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
+alphaBetaBoard2 :: V.Vector Char
+alphaBetaBoard2 = V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'K',  '+',
+                             '+',  'Q',  'B',  ' ',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
+                             '+',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'P',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'b',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   k   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   r   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   b   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+P   -   -   -   -   -   -   P          3| (30)  31   32   33   34   35   36   37   38  (39)
+Q   B   -   -   -   -   P   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   K          1| (10)  11   12   13   14   15   16   17   18  (19)
 
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------

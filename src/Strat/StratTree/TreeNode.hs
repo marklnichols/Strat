@@ -42,7 +42,7 @@ data FinalState = WWins | BWins | Draw | NotFinal
     deriving (Enum, Show, Eq, Ord)
 
 data Env = Env
-    { depth :: Int, critDepth :: Int, equivThreshold :: Float, p1Comp :: Bool ,p2Comp :: Bool } deriving (Show)
+    { equivThreshold :: Float, p1Comp :: Bool ,p2Comp :: Bool } deriving (Show)
 
 data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Show, Eq)
 $(makeLenses ''MoveScore)
@@ -61,7 +61,8 @@ newtype GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
 class (Show m, Eq m, Ord m) => Move m
 
 class (Show e, Eq e, Ord e) => Eval e where
-    toFloat :: e -> Float
+    evaluate :: e -> Float
+    isEvaluated :: e -> Bool
     setFloat :: e -> Float -> e
 
 class (forall s. Mutable s t, Move m, Eval t) => TreeNode t m | t -> m where
@@ -77,7 +78,7 @@ class Output o n m | o -> n, n -> m where
     out :: o -> String -> IO ()
     updateBoard :: o -> n -> IO ()
     showCompMove :: o -> Tree n -> NegaResult n -> Bool -> IO ()
-    getPlayerMove :: o -> Tree n -> Int -> IO m
+    getPlayerMove :: o -> Tree n -> IO m
     gameError :: o -> String -> IO ()
 
 mkMoveScores :: (TreeNode n m, Eval n) => [n] -> [MoveScore m n]
@@ -88,7 +89,7 @@ mkMoveScore = MoveScore
 
 showNegaMoves :: (TreeNode n m, Eval n) => (NegaMoves n) -> String
 showNegaMoves NegaMoves{..} =
-        ("score: " ++ show (toFloat branchScore) ++
+        ("score: " ++ show (evaluate branchScore) ++
         " - move sequence: " ++ intercalate ", " (showMove <$> moveSeq))
            where
              showMove x = show $ getMove x

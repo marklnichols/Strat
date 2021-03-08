@@ -15,7 +15,7 @@ checkersTest :: SpecWith ()
 checkersTest = do
     describe "getAllowedMoves" $
         it "Gets the list of allowed moves for a given color from a given position." $ do
-            getAllowedMoves (rootLabel getStartNode) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
+            getAllowedMoves (rootLabel (getStartNode "new_game")) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
             getAllowedMoves blackFirstStartNode `shouldMatchList` fmap mkSimpleCkMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
 
             getAllowedMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935]
@@ -106,21 +106,23 @@ checkersTest = do
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
 blackFirstStartNode :: CkNode
-blackFirstStartNode = rootLabel getStartNode & ckPosition.clr .~ (-1)
+blackFirstStartNode = rootLabel (getStartNode "new_game") & ckPosition.clr .~ (-1)
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
 treeFromGridW g = Node CkNode
     { _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
-    , _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}} []
+    , _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}
+    , _ckIsEvaluated = False } []
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
 treeFromGridB g = Node CkNode
     { _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
-    , _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}} []
+    , _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}
+    , _ckIsEvaluated = False } []
 
 nodeFromGridW :: V.Vector Int -> CkNode
 nodeFromGridW g = rootLabel $ treeFromGridW g
@@ -149,9 +151,9 @@ mkMultiJsonJump (mv, middle, removed) = J.jsonFromCkMove (mkMultiCkJump (mv, mid
 ---------------------------------------------------------------------------------------------------
 -- Test Reader environments
 ---------------------------------------------------------------------------------------------------
-_envDepth6 :: Env
-_envDepth6 = Env { depth =6, critDepth = 10, equivThreshold = 0
-                 , p1Comp = False, p2Comp = True }
+-- _envDepth6 :: Env
+-- _envDepth6 = Env { depth =6, critDepth = 10, equivThreshold = 0
+--                  , p1Comp = False, p2Comp = True }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions

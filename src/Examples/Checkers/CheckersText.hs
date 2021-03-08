@@ -30,7 +30,7 @@ printString = putStrLn
 showBoard :: CheckersText -> CkNode -> IO ()
 showBoard _ node = do
     putStrLn $ formatBoard node
-    putStrLn ("Current position score: " ++ show (toFloat node))
+    putStrLn ("Current position score: " ++ show (evaluate node))
     putStrLn ("Current position score: \n" ++ showScoreDetails (_ckValue node))
     putStrLn "\n--------------------------------------------------\n"
 
@@ -53,20 +53,20 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
-playerMove :: Tree CkNode -> Int -> IO CkMove
-playerMove tree turn = do
-    putStrLn ("Enter player " ++ show turn ++ "'s move:")
+playerMove :: Tree CkNode -> IO CkMove
+playerMove tree = do
+    putStrLn ("Enter player's move:")
     line <- getLine
     putStrLn ""
     case parseMove (rootLabel tree) line of
         Left err -> do
             putStrLn err
-            playerMove tree turn
+            playerMove tree
         Right mv ->
             if not (isLegal tree mv)
                 then do
                     putStrLn "Not a legal move."
-                    playerMove tree turn
+                    playerMove tree
                 else return mv
 
 ---------------------------------------------------------------------------------------------------

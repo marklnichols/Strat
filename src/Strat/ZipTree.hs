@@ -1,48 +1,91 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Strat.ZipTree
   ( expandTo
   , decendUntil
-  , DeepDecentFilterF
-  , MakeChildrenF
   , negaMax
   , negaRnd
   , NegaResult(..)
   , NegaMoves(..)
   , Sign(..)
+  , showMoveSeq
+  , showTC
   , treeSize
+  , ZipTreeNode(..)
   ) where
 
 import qualified Data.List as List
 import Data.Tree
 import Data.Tree.Zipper
 import System.Random
+import Text.Printf
 import Debug.Trace
 
-type MakeChildrenF a = a -> [Tree a]
+data Sign = Pos | Neg
+  deriving (Eq, Ord, Show)
 
-type DeepDecentFilterF a = Maybe (Int -> a -> Bool)
+data AlphaBeta = AlphaBeta
+  { alpha :: Float
+  , beta :: Float }
+  deriving Show
 
-newtype TraceCmp a = TraceCmp (a, [a])
+maxValue :: Float
+maxValue = 1000000.0
 
-revTraceCmps :: TraceCmp a -> TraceCmp a
-revTraceCmps (TraceCmp (tc, tcs)) = TraceCmp (tc, reverse tcs)
+minValue :: Float
+minValue = - maxValue
+
+data TraceCmp a = Max | Min | TraceCmp (a, [a], Float)
+  deriving Show
 
 instance Eq a => Eq (TraceCmp a) where
-   (==) (TraceCmp (x, _xs)) (TraceCmp (y, _ys)) = x == y
+   (==) Max Max = True
+   (==) Max _ = False
+   (==) _ Max = False
+   (==) Min Min = True
+   (==) Min _ = False
+   (==) _ Min = False
+   (==) (TraceCmp (_, _, x)) (TraceCmp (_, _, y)) = x == y
 
 instance (Ord a, Show a) => Ord (TraceCmp a) where
-   (<=) (TraceCmp (x, _xs)) (TraceCmp (y, _ys)) = x <= y
+   (<=) Max Max = True
+   (<=) Max _ = False
+   (<=) _  Max = True
+   (<=) Min Min = True
+   (<=) Min _ = True
+   (<=) _ Min = False
+   (<=) (TraceCmp (_, _, x)) (TraceCmp (_, _, y)) = x <= y
 
-newtype Sign = Sign { signToInt :: Int }
+revTraceCmps :: TraceCmp a -> TraceCmp a
+revTraceCmps (TraceCmp (tc, tcs, x)) = TraceCmp (tc, reverse tcs, x)
+revTraceCmps Max = Max
+revTraceCmps Min = Min
+
+initAlphaBeta :: AlphaBeta
+initAlphaBeta = AlphaBeta
+  { alpha = minValue
+  , beta = maxValue }
+
+class ZipTreeNode a where
+  ztnEvaluate :: a -> Float
+  ztnMakeChildren :: a -> [Tree a]
+  ztnSign :: a -> Sign
+
+  ztnDeepDecend :: a -> Bool
+  ztnDeepDecend _ = False
+
+instance Ord a => Ord (Tree a) where
+   (<=) (Node x _xs) (Node y _ys) = x <= y
 
 data NegaMoves a = NegaMoves
   { branchScore :: a
@@ -50,164 +93,263 @@ data NegaMoves a = NegaMoves
   deriving (Eq)
 
 toNegaMoves :: TraceCmp a -> NegaMoves a
-toNegaMoves (TraceCmp (x, xs)) =
-    NegaMoves { branchScore = x
-              , moveSeq = xs }
+toNegaMoves (TraceCmp (a, as, _)) =
+    NegaMoves { branchScore = a
+              , moveSeq = as }
+toNegaMoves Min = error "received 'Min' in toNegaMoves?"
+toNegaMoves Max = error "received 'Max' in toNegaMoves?"
 
 data NegaResult a = NegaResult
   { best :: NegaMoves a
-  , alternatives :: [NegaMoves a] }
+  , alternatives :: [NegaMoves a]
+  , evalCount :: Int }
 
-
-expandTo :: Show a
+expandTo :: (Ord a, Show a, ZipTreeNode a)
          => Tree a
-         -> MakeChildrenF a -> DeepDecentFilterF a
          -> Int
+        -> Int
          -> Tree a
-expandTo t makeChildren decFilter depth =
-    decendUntil (fromTree t) makeChildren decFilter 0 depth
+expandTo t depth critDepth =
+  let newTree = decendUntil (fromTree t) 1 depth critDepth
+  in newTree
 
-decendUntil :: (Show a)
+decendUntil :: (Ord a, Show a, ZipTreeNode a)
             => TreePos Full a
-            -> MakeChildrenF a -> DeepDecentFilterF a
+            -> Int
             -> Int
             -> Int
             -> Tree a
-decendUntil z makeChildren decFilter curDepth goalDepth =
-    let tempLabel  = label z
-    -- if DeepDecentFilterF exists, decend deeper than the goal depth
-    -- but only for the (parent) nodes that pass the filter
-    in if curDepth >= goalDepth && checkDeepDecentParent decFilter curDepth tempLabel == False
-        then toTree z
-        else
-            let unfiltered = buildChildren z makeChildren decFilter curDepth goalDepth
-                theChildren =
-                    if curDepth >= goalDepth then
-                        filterDeepDecentChildren decFilter curDepth unfiltered
-                        -- let str = "Decending for parent (depth " ++ show curDepth ++ "): " ++ show (label z)
-                            -- filtered = filterDeepDecentChildren decFilter curDepth unfiltered
-                            -- str2 = List.intercalate ", " (show . rootLabel <$> filtered)
-                            -- in trace (str ++ "\n" ++ str2) filtered
-                    else unfiltered
-            in toTree $ modifyTree (\(Node x _) -> Node x theChildren) z
+-- decendUntil z curDepth goalDepth critDepth =
+--         if (curDepth > goalDepth && curDepth > critDepth)
+--               then toTree z
+--               else let unfiltered = buildChildren z curDepth goalDepth critDepth
+--                        !theChildren = if curDepth > goalDepth
+--                            then filterDeepDecentChildren unfiltered
+--                            else unfiltered
+--                    in (toTree $ modifyTree (\(Node x _) -> Node x theChildren) z)
+decendUntil z curDepth goalDepth critDepth
+    -- regular decent
+    | curDepth <= goalDepth =
+        let !theChildren = buildChildren z curDepth goalDepth critDepth
+        in (toTree $ modifyTree (\(Node x _) -> Node x theChildren) z)
+    -- past the goal depth and the parent isn't q crit -- stop
+    | curDepth > goalDepth
+    , ztnDeepDecend (label z) == False = toTree z
+    -- past the goal depth and the crit depth -- stop
+    | curDepth > goalDepth
+    , curDepth > critDepth = toTree z
+    -- crits only
+    | otherwise = -- crits only...
+        let unfiltered = buildChildren z curDepth goalDepth critDepth
+            !theChildren = filterDeepDecentChildren unfiltered
+        in (toTree $ modifyTree (\(Node x _) -> Node x theChildren) z)
 
+filterDeepDecentChildren :: ZipTreeNode a => [Tree a] -> [Tree a]
+filterDeepDecentChildren xs = filter (\t -> ztnDeepDecend (rootLabel t)) xs
 
-checkDeepDecentParent :: forall a. DeepDecentFilterF a -> Int -> a -> Bool
-checkDeepDecentParent Nothing _ _ = False
-checkDeepDecentParent (Just f) depth x  = f depth x
-
-filterDeepDecentChildren :: DeepDecentFilterF a -> Int -> [Tree a] -> [Tree a]
-filterDeepDecentChildren Nothing _ xs = xs
-filterDeepDecentChildren (Just f) d xs = filter (\t -> (f d) (rootLabel t)) xs
-
-buildChildren :: forall a. (Show a)
+buildChildren :: forall a. (Ord a, Show a, ZipTreeNode a)
               => TreePos Full a
-              -> MakeChildrenF a -> DeepDecentFilterF a
-              -> Int -> Int
+              -> Int
+              -> Int
+              -> Int
               -> [Tree a]
-buildChildren z makeChildren decFilter curDepth goalDepth =
+buildChildren z curDepth goalDepth critDepth =
     let tempLabel = label z
-        tempForest = toForest $ children z
-        theChildren = if length tempForest == 0
+        tempForest = subForest $ toTree z
+        theChildren = if length tempForest /= 0
             then tempForest
-            else makeChildren tempLabel
-
-        f :: (Tree a -> ([Tree a], TreePos Empty a) -> ([Tree a], TreePos Empty a))
-        f t (xs, childPos) =
-            let zippedChild = fromTree t
-                t' = decendUntil zippedChild makeChildren decFilter (curDepth + 1) goalDepth
-                tmp = insert t childPos
-                nextChildPos = nextSpace tmp
-            in (t' : xs, nextChildPos)
-        (results, _) = zipFoldR f ([], children z) theChildren
+            else ztnMakeChildren tempLabel
+        (results, _) = zipFoldR (zipFoldFn curDepth goalDepth critDepth)
+                       ([], children z) theChildren
     in results
 
-zipFoldR :: forall a. (Tree a -> ([Tree a], TreePos Empty a) -> ([Tree a], TreePos Empty a))
+zipFoldFn :: (Ord a, Show a, ZipTreeNode a)
+  => Int -> Int -> Int
+  -> Tree a
+  -> ([Tree a], TreePos Empty a)
+  -> ([Tree a], TreePos Empty a)
+zipFoldFn curDepth goalDepth critDepth t (xs, childPos) =
+    let zippedChild = fromTree t
+        newT = decendUntil zippedChild (curDepth + 1) goalDepth critDepth
+        tmp = insert newT childPos
+        nextChildPos = nextSpace tmp
+    in (newT : xs, nextChildPos)
+
+zipFoldR :: forall a. Show a
+         => ( Tree a
+              -> ([Tree a], TreePos Empty a)
+              -> ([Tree a], TreePos Empty a) )
          -> ([Tree a], TreePos Empty a)
          -> [Tree a]
          -> ([Tree a], TreePos Empty a)
 zipFoldR f = loop
   where
-    loop :: ([Tree a], TreePos Empty a) -> [Tree a ] -> ([Tree a], TreePos Empty a)
-    loop (acc, z) [] = (acc, z)
+    loop :: ([Tree a], TreePos Empty a)
+         -> [Tree a]
+         -> ([Tree a], TreePos Empty a)
+    loop (acc, z ) [] = (acc, z)
     loop (acc, z) (x : xs) =
         let (ys, z') = f x (acc, z)
         in loop (ys, z') xs
 
-negaMax :: (Ord a, Show a) => Tree a -> Sign -> NegaResult a
-negaMax t sign =
-  let (theBest, traceCmps) = negaLoop t [] sign
-      noDup = List.delete theBest traceCmps
-      -- revTraceCmps = fmap (\(TraceCmp (tc, tcs)) -> TraceCmp (tc, reverse tcs)) noDup
+-- alpha-beta comparison
+-- A return value of True means the rest of the tree can be pruned
+canPrune :: (Show a) => AlphaBeta -> a -> Bool -> Bool
+canPrune AlphaBeta{..} _x enablePruning =
+    enablePruning && (alpha >= beta)
+
+updateAlphaBeta :: Show a => Sign -> AlphaBeta -> Float -> a -> AlphaBeta
+updateAlphaBeta Pos alpBet newAlpha _x =
+    let oldAlpha = alpha alpBet
+        maybeUpdated = max oldAlpha newAlpha
+    in if maybeUpdated == oldAlpha
+           then alpBet
+           else alpBet {alpha = maybeUpdated }
+updateAlphaBeta Neg alpBet newBeta _x =
+    let oldBeta = beta alpBet
+        maybeUpdated = min oldBeta newBeta
+    in if maybeUpdated == oldBeta
+           then alpBet
+           else alpBet {beta = maybeUpdated }
+
+negaMax :: (Ord a, Show a, ZipTreeNode a) => Tree a -> Bool -> NegaResult a
+negaMax t enablePruning =
+  let sign = ztnSign $ rootLabel t
+      alphaBeta = initAlphaBeta
+      (theBest, _traceCmps, ec) = alphaBetaPrune t [] alphaBeta sign enablePruning 0 0
+      -- noDup = List.delete theBest traceCmps
   in NegaResult { best = toNegaMoves (revTraceCmps theBest)
-                , alternatives = toNegaMoves . revTraceCmps <$> noDup }
+                -- , alternatives = toNegaMoves . revTraceCmps <$> noDup
+                , alternatives = []
+                , evalCount = ec }
 
-negaLoop :: forall a. (Ord a, Show a) => Tree a -> [a] -> Sign -> (TraceCmp a, [TraceCmp a])
-negaLoop t cmpList sign =
-    let xs = subForest t
-    in if null xs then (TraceCmp (rootLabel t, cmpList), [])
-        else let traceCmps = foldr f [] xs
-                   where
-                   f :: (Ord a, Show a) => Tree a -> [TraceCmp a] -> [TraceCmp a]
-                   f t' acc =
-                     let (tc, _tcs) = negaLoop t' (rootLabel t' : cmpList) (flipSign sign)
-                     in tc : acc
-             in findBest traceCmps sign
+alphaBetaPrune :: forall a. (Ord a, Show a, ZipTreeNode a)
+         => Tree a -> [a] -> AlphaBeta -> Sign -> Bool -> Int -> Int
+         -> (TraceCmp a, [TraceCmp a], Int)
+alphaBetaPrune t cmpList alphaBeta sign enablePruning ec lvl =
+    let x = rootLabel t
+        xs = reverse $ subForest t
+    in if null xs then
+        (TraceCmp (x, cmpList, ztnEvaluate x), [], ec)
+    else
+        case sign of
+            Pos -> maxLoop x xs cmpList Min [] alphaBeta enablePruning ec (lvl + 1)
+            Neg -> minLoop x xs cmpList Max [] alphaBeta enablePruning ec (lvl + 1)
 
-findBest :: (Ord a, Show a) => [TraceCmp a] -> Sign -> (TraceCmp a, [TraceCmp a])
-findBest theList (Sign 1) = (maximum theList, theList)
-findBest theList _ = (minimum theList, theList)
+maxLoop :: forall a. (Ord a, Show a, ZipTreeNode a)
+         => a -> [Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool -> Int -> Int
+         -> (TraceCmp a, [TraceCmp a], Int)
+-- maxLoop _ [] _cmpList tcCurrentBest tcAltsAcc _ _ ec lvl = (tcCurrentBest, tcAltsAcc, ec)
+maxLoop _ [] _cmpList tcCurrentBest tcAltsAcc _ _ ec lvl =
+     let TraceCmp (_z, _zs, zVal) = tcCurrentBest
+         str = printf "maxLoop - done (end of list) - level: %d, currentBest: %s, value: %f"
+                      lvl (showMoveSeq tcCurrentBest) zVal
+         !temp = trace str (tcCurrentBest, tcAltsAcc, ec)
+     in temp
+--
+maxLoop parTemp (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta enablePruning ec lvl =
 
-flipSign :: Sign -> Sign
-flipSign (Sign 1) = Sign (-1)
-flipSign _ = Sign 1
+    let (tcPossibleBest, _, ec')
+            = alphaBetaPrune t (rootLabel t : cmpList) alphaBeta Neg enablePruning ec lvl
+        (tcNewBest, ec'') = (max tcCurrentBest tcPossibleBest, ec' + 1)
+        TraceCmp(z, _zs, zVal) = tcNewBest
+        newAlphaBeta = updateAlphaBeta Pos alphaBeta zVal z
+    in if canPrune newAlphaBeta z enablePruning
+       -- then (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
+       then let str = printf "maxLoop - done (PRUNING) - level: %d, currentBest: %s, value: %f"
+                      lvl (showMoveSeq tcNewBest) zVal
+                !temp = trace str (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
+            in temp
+       --
+       else maxLoop parTemp ts cmpList tcNewBest (tcPossibleBest : tcAltsAcc) newAlphaBeta enablePruning ec'' lvl
 
-negaRnd :: (Ord a, Show a, RandomGen g) => Tree a -> Sign -> g -> (a -> Float) -> Float -> NegaResult a
-negaRnd t sign gen toFloat percentVar =
-  let (theBest, traceCmps) = negaLoop t [] sign
-      noDup = List.delete theBest traceCmps
-      close = filter (\x -> isWithin x theBest toFloat percentVar) noDup
-      pickedTC@(TraceCmp (picked, pickedPath)) = pickOne gen (theBest : close)
-      notPicked = List.delete pickedTC close
-      revNotPicked = fmap (\(TraceCmp (tc, tcs)) -> TraceCmp (tc, reverse tcs)) notPicked
-  in NegaResult { best = toNegaMoves (TraceCmp (picked, reverse pickedPath))
-                , alternatives = toNegaMoves <$> revNotPicked }
+minLoop :: forall a. (Ord a, Show a, ZipTreeNode a)
+         => a -> [Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool -> Int -> Int
+         -> (TraceCmp a, [TraceCmp a], Int)
+-- minLoop _ [] _cmpList tcCurrentBest tcAltsAcc _ _ ec _lvl = (tcCurrentBest, tcAltsAcc, ec)
+minLoop _ [] _cmpList tcCurrentBest tcAltsAcc _ _ ec lvl =
+     let TraceCmp (_z, _zs, zVal) = tcCurrentBest
+         str = printf "minLoop - done (end of list) - level: %d, currentBest: %s, value: %f"
+                      lvl (showMoveSeq tcCurrentBest) zVal
+         !temp = trace str (tcCurrentBest, tcAltsAcc, ec)
+     in temp
+--
+minLoop parTemp (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta enablePruning ec lvl =
+    let (tcPossibleBest, _, ec')
+             = alphaBetaPrune t (rootLabel t : cmpList) alphaBeta Pos enablePruning ec lvl
+        (tcNewBest, ec'') = (min tcCurrentBest tcPossibleBest, ec' + 1)
+        TraceCmp(z, _zs, zVal) = tcNewBest
+        newAlphaBeta = updateAlphaBeta Neg alphaBeta zVal z
+        -- newAlphaBeta = case tcCurrentBest of
+        --     Max -> updateAlphaBeta Neg alphaBeta zVal z
+        --     _ ->
+        --         let TraceCmp (_, _, tcCurVal) = tcCurrentBest
+        --             str = "\n" ++ printf "minLoop - |%s|" (showTC tcNewBest)
+        --                 -- ++ "\n" ++ printf "chosen as MIN of tcCurrentBest = %s" (showTC tcCurrentBest)
+        --                 ++ "\n" ++ printf "chosen as MIN of tcCurrentBest (%f)" tcCurVal
+        --                 ++ "\n" ++ printf "and tcPossibleBest = %s" (showTC tcPossibleBest)
+        --                 ++ "\n" ++ printf " - length of tcNewBest = ***%d***" (length zs)
+        --             !temp = trace str updateAlphaBeta Neg alphaBeta zVal z
+        --             in temp
+        --
+    in if canPrune newAlphaBeta z enablePruning
+        -- then (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
+       then let str = printf "minLoop - done (PRUNING) - level: %d, currentBest: %s, value: %f"
+                      lvl (showMoveSeq tcNewBest) zVal
+                !temp = trace str (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
+            in temp
+       --
+       else minLoop parTemp ts cmpList tcNewBest (tcPossibleBest : tcAltsAcc) newAlphaBeta enablePruning ec'' lvl
+
+negaRnd :: (Ord a, Show a, ZipTreeNode a, RandomGen g)
+        => Tree a -> g -> Float -> Bool -> NegaResult a
+negaRnd t gen percentVar enablePruning =
+    let sign = ztnSign (rootLabel t)
+        alphaBeta = initAlphaBeta
+        (theBest, traceCmps, ec) = alphaBetaPrune t [] alphaBeta sign enablePruning 0 0
+        noDup = List.delete theBest traceCmps
+        close = filter (\x -> isWithin x theBest percentVar) noDup
+        pickedTC@(TraceCmp (picked, pickedPath, pickedVal)) = pickOne gen (theBest : close)
+        notPicked = List.delete pickedTC close
+        revNotPicked = fmap (\(TraceCmp (tc, tcs, z)) -> TraceCmp (tc, reverse tcs, z)) notPicked
+    in NegaResult { best = toNegaMoves (TraceCmp (picked, reverse pickedPath, pickedVal))
+                  , alternatives = toNegaMoves <$> revNotPicked
+                  , evalCount = ec}
 
 pickOne :: RandomGen g => g -> [TraceCmp a] -> TraceCmp a
 pickOne gen choices =
-  let (r, _g) = randomR (0, length choices - 1) gen
-  in choices !! r
+    let (r, _g) = randomR (0, length choices - 1) gen
+    in choices !! r
 
-isWithin :: TraceCmp a -> TraceCmp a -> (a -> Float) -> Float -> Bool
-isWithin (TraceCmp (bst, _)) (TraceCmp (possible, _)) toFloat percentVar =
-    let ratio = toFloat possible / toFloat bst
+isWithin :: ZipTreeNode a => TraceCmp a -> TraceCmp a -> Float -> Bool
+isWithin (TraceCmp (_, _, bst)) (TraceCmp (_, _, possible)) percentVar =
+    let ratio = possible / bst
     in (ratio <= (1 + percentVar)) && (ratio >= (1 - percentVar))
-
---------------------------------------------------------------------------------
--- Replace findBest with this version for detailed negamax output
---------------------------------------------------------------------------------
-_findBest :: (Ord a, Show a) => [TraceCmp a] -> Sign -> (TraceCmp a, [TraceCmp a])
-_findBest theList (Sign 1) =
-    let listStr = List.intercalate ", " (showTCs theList)
-        maxStr = showTC (maximum theList)
-        str = "\nfindBest (+):\n" ++ maxStr ++ "\nis the max of:[\n" ++ listStr ++ " ]"
-    in trace str (maximum theList, theList)
-_findBest theList _ =
-    let listStr = List.intercalate ", " (showTCs theList)
-        minStr = showTC (minimum theList)
-        str = "\nfindBest (-)\n" ++ minStr ++ "\nis the min of:[\n" ++ listStr ++ " ]"
-    in trace str (minimum theList, theList)
+isWithin _ _ _ = error "'Min' or 'Max' passed to isWithin?"
 
 showTC :: (Show a) => TraceCmp a -> String
-showTC (TraceCmp (_x, xs)) =
-    "\n[ " ++ List.intercalate ", " (fmap show (reverse xs)) ++ " ]"
+showTC Max = "<Max>"
+showTC Min = "<Min>"
+showTC (TraceCmp (x, xs, v)) =
+    let midStr =
+          if length xs == 1 then "."
+          else "\n[ " ++ List.intercalate ",\n\t" (fmap show (reverse xs)) ++ " ]"
+    in "x: " ++ show x ++ "\n"
+      ++ "xs: " ++ midStr ++ "\n"
+      ++ "v: " ++ show v
 
-showTCs :: (Show a) => [TraceCmp a] -> [String]
-showTCs = fmap showTC
+showMoveSeq :: (Show a) => TraceCmp a -> String
+showMoveSeq Max = "<Max>"
+showMoveSeq Min = "<Min>"
+showMoveSeq (TraceCmp (_x, xs, _v)) =
+    let strs = fmap show (reverse xs)
+        str = List.intercalate ", " strs
+    in "[" ++ str ++ "]"
 
 --------------------------------------------------------------------------------
 --gets the number of elements at each level of the tree plus the total size
 --for debugging / analysis only
+--------------------------------------------------------------------------------
 treeSize :: Tree t -> (Int, [Int])
 treeSize t = let levelTotals = fmap length (levels t)
-                in (sum levelTotals, levelTotals)
+             in (sum levelTotals, levelTotals)

@@ -59,10 +59,11 @@ makeLenses ''TTNode
 instance Mutable s TTNode where
 
 instance Eval TTNode where
-    toFloat tn =
+    evaluate tn =
       let asInt = (tn ^. (ttValue . theVal)) :: Int
           asFloat = fromIntegral asInt :: Float
       in asFloat
+    isEvaluated _ = True
     setFloat tn x = tn & (ttValue . theVal) .~ (round x)
 
 instance TreeNode TTNode IntMove where
