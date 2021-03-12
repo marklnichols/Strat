@@ -114,18 +114,18 @@ instance Show CkEval where
 showScoreDetails :: CkEval -> String
 showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
 
-evalCkNode :: CkNode -> Float
-evalCkNode ckn = ckn ^. (ckValue . total)
+evaluateCkNode :: CkNode -> Float
+evaluateCkNode ckn = ckn ^. (ckValue . total)
 
 instance Move CkMove
 
 instance Eval CkNode where
-    evaluate = evalCkNode
+    evaluate = evaluateCkNode
     isEvaluated ckn = ckn ^. ckIsEvaluated
     setFloat ckn x = ckn & (ckValue . total) .~ x
 
 instance ZipTreeNode CkNode where
-  ztnEvaluate = evalCkNode
+  ztnEvaluate = evaluateCkNode
   ztnMakeChildren = makeChildren
   ztnSign cn = clrToSign (cn ^. (ckPosition . clr))
   ztnDeepDecend = critsOnly
@@ -294,7 +294,7 @@ calcNewNode node mv =
     let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
         clrFlipped = set (ckPosition . clr) (negate (captured ^. (ckPosition . clr))) captured
-        (eval, finalSt) = evalNode clrFlipped
+        (eval, finalSt) = evalCkNode clrFlipped
         errEval = errorEvalNode clrFlipped
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue eval finSet
@@ -350,8 +350,8 @@ finalValW =  1000.0
 finalValB = -1000.0
 drawVal   =  0.0
 
-evalNode :: CkNode -> (CkEval, FinalState)
-evalNode n =
+evalCkNode :: CkNode -> (CkEval, FinalState)
+evalCkNode n =
     let g = n ^. (ckPosition . grid)
         mat = fromIntegral $ totalKingCount g * kingVal + totalPieceCount g * pieceVal
         mob = fromIntegral $ mobility n * mobilityVal
@@ -393,7 +393,7 @@ colorToWinState 1 = WWins
 colorToWinState _ = BWins
 
 errorEvalNode :: CkNode -> CkEval
-errorEvalNode n = fst $ evalNode n
+errorEvalNode n = fst $ evalCkNode n
 
 totalPieceCount :: V.Vector Int -> Int
 totalPieceCount grd = pieceCount grd 1 - pieceCount grd (-1)

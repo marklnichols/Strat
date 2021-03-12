@@ -17,23 +17,6 @@ instance ZipTreeNode NodeVal where
   ztnMakeChildren _ = []
   ztnSign = sign
 
-{-
-data NegaMoves a = NegaMoves
-  { branchScore :: a
-  , moveSeq :: [a] }
-  deriving (Show, Eq)
-
-toNegaMoves :: TraceCmp a -> NegaMoves a
-toNegaMoves (TraceCmp (x, xs)) =
-    NegaMoves { branchScore = x
-              , moveSeq = xs }
-
-data NegaResult a = NegaResult
-  { best :: NegaMoves a
-  , alternatives :: [NegaMoves a] }
-  deriving (Show, Eq)
--}
-
 stratTreeTest :: SpecWith ()
 stratTreeTest = do
     describe "negaMax" $
@@ -44,14 +27,14 @@ stratTreeTest = do
             --               , NodeVal {nvalToInt = -20}
             --               , NodeVal {nvalToInt = 14} ]
             let NegaResult{..} = negaMax negaMaxTree False
-            branchScore best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
+            evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
             moveSeq best `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
                                     , NodeVal {nvalToInt = -20, sign = Neg}
                                     , NodeVal {nvalToInt = 14, sign = Pos} ]
     describe "negaMax-b" $
         it "same as the previous, but if black moved next" $ do
             let NegaResult{..} = negaMax negaMaxTree False
-            branchScore best `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
+            evalNode best `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
             moveSeq best `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}
                                     , NodeVal {nvalToInt = 35, sign = Neg}
                                     , NodeVal {nvalToInt = 12, sign = Pos} ]

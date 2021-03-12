@@ -44,7 +44,7 @@ printMoveChoiceInfo tree result verbose = do
     putStrLn ("Computer's move: " ++ showNegaMoves (best result))
     when verbose $ do
         putStrLn ("score details: \n"
-                 ++ showScoreDetails (_chessVal (branchScore (best result))))
+                 ++ showScoreDetails (_chessVal (evalNode (best result))))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
                  (showNegaMoves <$> alternatives result))
         putStrLn ""

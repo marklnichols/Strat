@@ -94,9 +94,9 @@ computerMove t gen = do
 
     let res@NegaResult{..} = negaRnd newTree gen (ceEquivThreshold gameEnv) True
 
-    let bestMv = getMove $ head $ moveSeq best
+    let bestMv = getMove $ moveNode best
 
-    let moveScores = mkMoveScores (branchScore best : (branchScore <$> alternatives))
+    let moveScores = mkMoveScores (evalNode best : (evalNode <$> alternatives))
     return $ Right ( MoveResults
       { mrResult = res
       , mrMoveScores = moveScores

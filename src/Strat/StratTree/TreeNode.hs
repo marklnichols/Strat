@@ -89,7 +89,8 @@ mkMoveScore = MoveScore
 
 showNegaMoves :: (TreeNode n m, Eval n) => (NegaMoves n) -> String
 showNegaMoves NegaMoves{..} =
-        ("score: " ++ show (evaluate branchScore) ++
+        ("score: " ++ show (evaluate evalNode) ++
+        " - move: " ++ (showMove moveNode) ++
         " - move sequence: " ++ intercalate ", " (showMove <$> moveSeq))
            where
              showMove x = show $ getMove x
