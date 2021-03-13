@@ -162,7 +162,7 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with incremental decent and sorting
             ----------------------------------------------------------------------------------
-            let (newIncWikiTree, result8) = runIncremental rootWikiTree rnd 0.0 4 4
+            let (newIncWikiTree, result8) = incrementalSearchTo rootWikiTree rnd 0.0 4 4
             let theBest8 = best result8
             evalNode theBest8 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
@@ -179,7 +179,7 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with incremental decent and sorting AND crit processing only for the important nodes at the bottom two levels
             ----------------------------------------------------------------------------------
-            let (_, result9) = runIncremental rootWikiTree rnd 0.0 2 4
+            let (_, result9) = incrementalSearchTo rootWikiTree rnd 0.0 2 4
             let theBest9 = best result9
             evalNode theBest9 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}

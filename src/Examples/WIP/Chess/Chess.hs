@@ -78,7 +78,7 @@ import Text.Printf
 import qualified CkParser as Parser
 import Strat.Helpers
 import Strat.StratTree.TreeNode
-import Strat.ZipTree
+import qualified Strat.ZipTree as Z
 import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
@@ -153,15 +153,15 @@ cnShowMoveOnly cn = show (cn ^. chessMv)
 evalChessNode :: ChessNode -> Float
 evalChessNode cn = cn ^. (chessVal . total)
 
-instance ZipTreeNode ChessNode where
+instance Z.ZipTreeNode ChessNode where
   ztnEvaluate = evalChessNode
   ztnMakeChildren = makeChildren
   ztnSign cn = colorToSign (cn ^. (chessPos . cpColor))
   ztnDeepDecend = critsOnly
 
-colorToSign :: Color -> Sign
-colorToSign White = Pos
-colorToSign _ = Neg
+colorToSign :: Color -> Z.Sign
+colorToSign White = Z.Pos
+colorToSign _ = Z.Neg
 
 critsOnly :: TreeNode n m => n -> Bool
 critsOnly = critical
@@ -292,7 +292,7 @@ pieceVal piece@(MkChessPiece c _) =
     Unknown -> 0.0
 
 pieceAbsVal :: ChessPiece (k :: SomeSing Piece) -> Float
-pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = 100.0
+pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = Z.maxValue
 pieceAbsVal (MkChessPiece _c (SomeSing SQueen)) = 9.0
 pieceAbsVal (MkChessPiece _c (SomeSing SRook)) = 5.0
 pieceAbsVal (MkChessPiece _c (SomeSing SKnight)) = 3.0

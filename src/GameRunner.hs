@@ -9,16 +9,19 @@
 
 module GameRunner
  ( expandTree
- , runIncremental
+ , incrementalSearchTo
+ , preSort
+ , searchTo
  , startGame
  ) where
 
+import Data.List
 import Data.Tree
 import Strat.Helpers
 import Strat.ZipTree
 import Strat.StratTree.TreeNode
 import System.Random hiding (next)
--- import System.Time.Extra (duration, showDuration)
+import System.Time.Extra (duration, showDuration)
 
 gameEnv :: Env
 gameEnv = Env { equivThreshold = 0.05, p1Comp = False, p2Comp = True }
@@ -60,17 +63,44 @@ playerMove o tree _depth _critDepth = do
     mv <- getPlayerMove o tree
     return (findMove tree mv)
 
+-- computerMove :: (Output o n m, TreeNode n m, ZipTreeNode n, RandomGen g, Ord n, Eval n)
+--              => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
+-- computerMove gen o t maxDepth maxCritDepth = do
+--     let (newRoot, res@NegaResult{..}) = incrementalSearchTo t gen (equivThreshold gameEnv) maxDepth maxCritDepth
+--     let nextMove = getMove $ moveNode best
+--     putStrLn "\n--------------------------------------------------\n"
+--     putStrLn "Computer move:"
+--     showCompMove o newRoot res True
+--     return (findMove newRoot nextMove)
+
+sortDepth :: Int
+sortDepth = 2
+
 computerMove :: (Output o n m, TreeNode n m, ZipTreeNode n, RandomGen g, Ord n, Eval n)
              => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
 computerMove gen o t maxDepth maxCritDepth = do
-    let (newRoot, res@NegaResult{..}) = runIncremental t gen (equivThreshold gameEnv) maxDepth maxCritDepth
-    -- (newRoot, res@NegaResult{..}) <- runNonIncremental t gen (equivThreshold gameEnv) maxDepth maxCritDepth
-
+    (sec, (newRoot, res@NegaResult{..})) <- duration $ do
+        (preSortT, preSortResult) <- preSort t sortDepth
+        putStrLn ("result values used in pre-sorting\n" ++ showResultMoves preSortResult)
+        (expanded, !result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
+        return (expanded, result)
     let nextMove = getMove $ moveNode best
     putStrLn "\n--------------------------------------------------\n"
-    putStrLn "Computer move:"
+    putStrLn $ "Computer move (time: " ++ showDuration sec ++ "):"
     showCompMove o newRoot res True
     return (findMove newRoot nextMove)
+
+--TODO remove this:
+showResultMoves :: (TreeNode n m ) => NegaResult n -> String
+showResultMoves NegaResult{..} =
+    let strs = showNegaMovesBrief <$> allMoves
+    in intercalate ", " strs
+
+--TODO remove this:
+showNegaMovesBrief :: (TreeNode n m) => NegaMoves n -> String
+showNegaMovesBrief NegaMoves{..} =
+    let mv = getMove moveNode
+    in (show mv) ++ ":" ++ (show evalScore)
 
 expandTree :: (ZipTreeNode n, Ord n, Show n) => Tree n -> Int -> Int -> Tree n
 expandTree t depth critDepth = expandTo t depth critDepth
@@ -81,26 +111,27 @@ isCompTurn sign =
         p2 = p2Comp gameEnv
     in if sign == Pos then p1 else p2
 
-_runNonIncremental :: (ZipTreeNode n, Ord n, Show n, Eval n, RandomGen g)
-                   => Tree n
-                   -> g
-                   -> Float
-                   -> Int
-                   -> Int
+preSort :: (ZipTreeNode n, Ord n, Show n, Eval n)
+                   => Tree n -> Int
                    -> IO (Tree n, NegaResult n)
-_runNonIncremental t gen percentVar maxDepth maxCritDepth = do
+preSort t maxDepth = do
+    let expanded = expandTree t maxDepth maxDepth
+    let res = negaMax expanded True
+    let sorted = sortFromResult expanded res
+    return (sorted, res)
+
+searchTo :: (ZipTreeNode n, Ord n, Show n, Eval n, RandomGen g)
+                   => Tree n -> g -> Float -> Int -> Int
+                   -> IO (Tree n, NegaResult n)
+searchTo t gen percentVar maxDepth maxCritDepth = do
     let expanded = expandTree t maxDepth maxCritDepth
     let res = negaRnd expanded gen percentVar True
     return (expanded, res)
 
-runIncremental :: (ZipTreeNode n, Ord n, Show n, RandomGen g)
-               => Tree n
-               -> g
-               -> Float
-               -> Int
-               -> Int
+incrementalSearchTo :: (ZipTreeNode n, Ord n, Show n, RandomGen g)
+               => Tree n -> g -> Float -> Int -> Int
                -> (Tree n, NegaResult n)
-runIncremental t gen percentVar maxDepth maxCritDepth =
+incrementalSearchTo t gen percentVar maxDepth maxCritDepth =
     incrementalDecent t gen percentVar 1 1 maxDepth maxCritDepth
 
 incrementalDecent :: (ZipTreeNode n, Ord n, Show n, RandomGen g)
