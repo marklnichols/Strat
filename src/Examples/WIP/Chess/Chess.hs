@@ -727,10 +727,13 @@ flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
 --TODO: set the FinalState appropriately
+-- Determinig of mate (also mate in n)
 {-  TODO add scores for
       outposts
       half-empty, empty file rooks
       doubled rooks
+      center pawns (e3 < e4 for example)
+      knight loc squares that control the center
       doubled pawns
       having both bishops
       castled King pawn protection
@@ -748,12 +751,12 @@ evalPos pos =
          development = calcDevelopment pos
          centerPawns = calcCenterPawns pos
          t = (material * 20.0 ) + mobility + (castling * 10.0)
-           + (development * 5.0) + (centerPawns * 10)
+           + (development * 5.0) + (centerPawns * 5)
          detailsStr = "\n\tMaterial (x 20.0): " ++ show (material * 20.0)
                 ++ "\n\tMobility (x 1): " ++ show mobility
                 ++ "\n\tCastling (x 10): " ++ show (castling * 10.0)
                 ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
-                ++ "\n\tCenterPawns (x 10): " ++ show (centerPawns * 10.0)
+                ++ "\n\tCenterPawns (x 5): " ++ show (centerPawns * 5.0)
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -916,7 +919,7 @@ legalMoves node =
 
 ---------------------------------------------------------------------------------------------------
 -- filter out moves that result in the moving player's king being in check
--- TODO: this needs some serious optimizing
+-- TODO: this needs some serious optimizing 58.8% (cumulative)
 --------------------------------------------------------------------------------------------------
 filterKingInCheck :: ChessPos -> [ChessMove] -> [ChessMove]
 filterKingInCheck pos xs =
@@ -934,7 +937,7 @@ filterKingInCheck pos xs =
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for a given color from a board
--- This still needs more optimizing:
+-- TODO: This still needs more optimizing:
 -- TODO: replace the zip with
 --       indexed :: Vector a -> Vector (Int, a)
 -- and try: imap :: (Int -> a -> b) -> Vector a -> Vector b
@@ -1116,6 +1119,7 @@ singleMoveMobility pieceDirs g idx =
         let count = dirLocsSingleCount g idx x
         in count + r
 
+-- This needs optimizing (4.2)
 singleMoveCaptureLocs :: [Dir] -> Vector Char -> Int -> [Int]
 singleMoveCaptureLocs pieceDirs g idx =
   foldl' (f (indexToColor g idx)) [] pieceDirs
@@ -1169,6 +1173,7 @@ allowableKnightMoves = allowableSingleMoves knightDirs
 knightMobility :: Vector Char -> Int -> Int
 knightMobility = singleMoveMobility knightDirs
 
+-- TODO: This needs optimizing!
 allowablePawnMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowablePawnMoves g idx =
    let (_, enemies) = allowablePawnCaptures g idx
@@ -1246,6 +1251,7 @@ data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
 -- find the allowable destination locs for a piece, given a specified direction to move.
 -- this function is appropriate for queens, rooks, and bishops
 -- the search short-circuits when hitting a friendly or enemy pieces
+-- TODO: This needs optimizing
 dirLocs :: Vector Char -> Int -> Dir ->([ChessMove], [ChessMove])
 dirLocs g idx dir =
     loop (apply dir idx) ([], [])
@@ -1263,6 +1269,7 @@ dirLocs g idx dir =
                 Empty -> loop (apply dir x) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
+-- TODO: this needs optimizing (10.1 indiv)
 dirCaptureLoc :: Vector Char -> Int -> Dir -> Maybe Int
 dirCaptureLoc g x dir =
     let c = indexToColor g x
@@ -1302,6 +1309,7 @@ dirLocsSingleCount g idx dir =
       else if isEmptyGrid g x then 1
       else 0
 
+-- This needs optimizing (4.2)
 dirCaptureLocSingle :: Vector Char -> Int -> Color -> Dir -> Maybe Int
 dirCaptureLocSingle g idx c dir =
     case apply dir idx of
