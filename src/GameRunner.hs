@@ -79,16 +79,16 @@ sortDepth = 2
 computerMove :: (Output o n m, TreeNode n m, ZipTreeNode n, RandomGen g, Ord n, Eval n)
              => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
 computerMove gen o t maxDepth maxCritDepth = do
-    (sec, (newRoot, res@NegaResult{..})) <- duration $ do
+    (sec, newRoot) <- duration $ do
         (preSortT, preSortResult) <- preSort t sortDepth
         putStrLn ("result values used in pre-sorting\n" ++ showResultMoves preSortResult)
-        (expanded, !result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
-        return (expanded, result)
-    let nextMove = getMove $ moveNode best
-    putStrLn "\n--------------------------------------------------\n"
+        (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
+        putStrLn "\n--------------------------------------------------\n"
+        showCompMove o expandedT result True
+        let nextMove = getMove $ moveNode (best result)
+        return (findMove expandedT nextMove)
     putStrLn $ "Computer move (time: " ++ showDuration sec ++ "):"
-    showCompMove o newRoot res True
-    return (findMove newRoot nextMove)
+    return newRoot
 
 --TODO remove this:
 showResultMoves :: (TreeNode n m ) => NegaResult n -> String
