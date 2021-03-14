@@ -12,8 +12,10 @@ import Strat.StratTree.TreeNode
 -- import Debug.Trace
 -- import Text.Printf
 
-isLegal :: TreeNode t m => Tree t -> m -> Bool
-isLegal t mv = mv `elem` possibleMoves (rootLabel t)
+isLegal :: TreeNode t m => Tree t -> m -> [m] -> Bool
+isLegal t mv exclusions =
+  mv `notElem` exclusions &&
+  mv `elem` possibleMoves (rootLabel t)
 
 findMove :: TreeNode t m => Tree t -> m -> Tree t
 findMove t mv =

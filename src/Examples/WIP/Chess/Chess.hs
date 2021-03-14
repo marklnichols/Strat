@@ -914,26 +914,27 @@ legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
     let pos = node ^. chessPos
         moves = calcMoveLists pos
-        initialList = _cmEmpty moves ++ _cmEnemy moves
-    in filterKingInCheck pos initialList
+    --     initialList = _cmEmpty moves ++ _cmEnemy moves
+    -- in filterKingInCheck pos initialList
+    in _cmEmpty moves ++ _cmEnemy moves
 
 ---------------------------------------------------------------------------------------------------
 -- filter out moves that result in the moving player's king being in check
 -- TODO: this needs some serious optimizing 58.8% (cumulative)
 --------------------------------------------------------------------------------------------------
-filterKingInCheck :: ChessPos -> [ChessMove] -> [ChessMove]
-filterKingInCheck pos xs =
-    let g = pos ^. cpGrid
-        c = pos ^. cpColor
-        kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
-        foldf mv r =
-            let (tempG, _, _) = case mv of
-                  StdMove _isExch start end _s -> (movePiece' g start end, start, end)
-                  cm@CastlingMove{..} -> (castle' g cm, _kingStartIdx, _kingEndIdx)
-            in case inCheck tempG c kingLoc of
-             True -> r
-             False -> mv : r
-        in foldr foldf [] xs
+-- filterKingInCheck :: ChessPos -> [ChessMove] -> [ChessMove]
+-- filterKingInCheck pos xs =
+--     let g = pos ^. cpGrid
+--         c = pos ^. cpColor
+--         kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
+--         foldf mv r =
+--             let (tempG, _, _) = case mv of
+--                   StdMove _isExch start end _s -> (movePiece' g start end, start, end)
+--                   cm@CastlingMove{..} -> (castle' g cm, _kingStartIdx, _kingEndIdx)
+--             in case inCheck tempG c kingLoc of
+--              True -> r
+--              False -> mv : r
+--         in foldr foldf [] xs
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for a given color from a board
