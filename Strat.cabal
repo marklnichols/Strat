@@ -45,6 +45,7 @@ library
     , random
     , rosezipper
     , safe
+    , singletons
     , sort
   default-language: Haskell2010
 
@@ -136,7 +137,7 @@ executable test-as-exe
     , safe
     , sort
     , text
-    , singletons
+    , singletons == 2.7
     , unordered-containers
     , vector
     , yesod == 1.6.0.2

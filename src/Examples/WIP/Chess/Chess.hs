@@ -78,7 +78,7 @@ import Text.Printf
 import qualified CkParser as Parser
 import Strat.Helpers
 import Strat.StratTree.TreeNode
-import Strat.ZipTree
+import qualified Strat.ZipTree as Z
 import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
@@ -153,15 +153,15 @@ cnShowMoveOnly cn = show (cn ^. chessMv)
 evalChessNode :: ChessNode -> Float
 evalChessNode cn = cn ^. (chessVal . total)
 
-instance ZipTreeNode ChessNode where
+instance Z.ZipTreeNode ChessNode where
   ztnEvaluate = evalChessNode
   ztnMakeChildren = makeChildren
   ztnSign cn = colorToSign (cn ^. (chessPos . cpColor))
   ztnDeepDecend = critsOnly
 
-colorToSign :: Color -> Sign
-colorToSign White = Pos
-colorToSign _ = Neg
+colorToSign :: Color -> Z.Sign
+colorToSign White = Z.Pos
+colorToSign _ = Z.Neg
 
 critsOnly :: TreeNode n m => n -> Bool
 critsOnly = critical
@@ -292,7 +292,7 @@ pieceVal piece@(MkChessPiece c _) =
     Unknown -> 0.0
 
 pieceAbsVal :: ChessPiece (k :: SomeSing Piece) -> Float
-pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = 100.0
+pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = Z.maxValue
 pieceAbsVal (MkChessPiece _c (SomeSing SQueen)) = 9.0
 pieceAbsVal (MkChessPiece _c (SomeSing SRook)) = 5.0
 pieceAbsVal (MkChessPiece _c (SomeSing SKnight)) = 3.0
@@ -727,10 +727,13 @@ flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
 --TODO: set the FinalState appropriately
+-- Determinig of mate (also mate in n)
 {-  TODO add scores for
       outposts
       half-empty, empty file rooks
       doubled rooks
+      center pawns (e3 < e4 for example)
+      knight loc squares that control the center
       doubled pawns
       having both bishops
       castled King pawn protection
@@ -748,12 +751,12 @@ evalPos pos =
          development = calcDevelopment pos
          centerPawns = calcCenterPawns pos
          t = (material * 20.0 ) + mobility + (castling * 10.0)
-           + (development * 5.0) + (centerPawns * 10)
+           + (development * 5.0) + (centerPawns * 5)
          detailsStr = "\n\tMaterial (x 20.0): " ++ show (material * 20.0)
                 ++ "\n\tMobility (x 1): " ++ show mobility
                 ++ "\n\tCastling (x 10): " ++ show (castling * 10.0)
                 ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
-                ++ "\n\tCenterPawns (x 10): " ++ show (centerPawns * 10.0)
+                ++ "\n\tCenterPawns (x 5): " ++ show (centerPawns * 5.0)
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -911,30 +914,13 @@ legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
     let pos = node ^. chessPos
         moves = calcMoveLists pos
-        initialList = _cmEmpty moves ++ _cmEnemy moves
-    in filterKingInCheck pos initialList
-
----------------------------------------------------------------------------------------------------
--- filter out moves that result in the moving player's king being in check
--- TODO: this needs some serious optimizing
---------------------------------------------------------------------------------------------------
-filterKingInCheck :: ChessPos -> [ChessMove] -> [ChessMove]
-filterKingInCheck pos xs =
-    let g = pos ^. cpGrid
-        c = pos ^. cpColor
-        kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
-        foldf mv r =
-            let (tempG, _, _) = case mv of
-                  StdMove _isExch start end _s -> (movePiece' g start end, start, end)
-                  cm@CastlingMove{..} -> (castle' g cm, _kingStartIdx, _kingEndIdx)
-            in case inCheck tempG c kingLoc of
-             True -> r
-             False -> mv : r
-        in foldr foldf [] xs
+    --     initialList = _cmEmpty moves ++ _cmEnemy moves
+    -- in filterKingInCheck pos initialList
+    in _cmEmpty moves ++ _cmEnemy moves
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for a given color from a board
--- This still needs more optimizing:
+-- TODO: This still needs more optimizing:
 -- TODO: replace the zip with
 --       indexed :: Vector a -> Vector (Int, a)
 -- and try: imap :: (Int -> a -> b) -> Vector a -> Vector b
@@ -1116,6 +1102,7 @@ singleMoveMobility pieceDirs g idx =
         let count = dirLocsSingleCount g idx x
         in count + r
 
+-- This needs optimizing (4.2)
 singleMoveCaptureLocs :: [Dir] -> Vector Char -> Int -> [Int]
 singleMoveCaptureLocs pieceDirs g idx =
   foldl' (f (indexToColor g idx)) [] pieceDirs
@@ -1169,6 +1156,7 @@ allowableKnightMoves = allowableSingleMoves knightDirs
 knightMobility :: Vector Char -> Int -> Int
 knightMobility = singleMoveMobility knightDirs
 
+-- TODO: This needs optimizing!
 allowablePawnMoves :: Vector Char -> Int -> ([ChessMove], [ChessMove])
 allowablePawnMoves g idx =
    let (_, enemies) = allowablePawnCaptures g idx
@@ -1246,6 +1234,7 @@ data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
 -- find the allowable destination locs for a piece, given a specified direction to move.
 -- this function is appropriate for queens, rooks, and bishops
 -- the search short-circuits when hitting a friendly or enemy pieces
+-- TODO: This needs optimizing
 dirLocs :: Vector Char -> Int -> Dir ->([ChessMove], [ChessMove])
 dirLocs g idx dir =
     loop (apply dir idx) ([], [])
@@ -1263,6 +1252,7 @@ dirLocs g idx dir =
                 Empty -> loop (apply dir x) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
+-- TODO: this needs optimizing (10.1 indiv)
 dirCaptureLoc :: Vector Char -> Int -> Dir -> Maybe Int
 dirCaptureLoc g x dir =
     let c = indexToColor g x
@@ -1302,6 +1292,7 @@ dirLocsSingleCount g idx dir =
       else if isEmptyGrid g x then 1
       else 0
 
+-- This needs optimizing (4.2)
 dirCaptureLocSingle :: Vector Char -> Int -> Color -> Dir -> Maybe Int
 dirCaptureLocSingle g idx c dir =
     case apply dir idx of

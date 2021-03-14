@@ -78,7 +78,7 @@ class Output o n m | o -> n, n -> m where
     out :: o -> String -> IO ()
     updateBoard :: o -> n -> IO ()
     showCompMove :: o -> Tree n -> NegaResult n -> Bool -> IO ()
-    getPlayerMove :: o -> Tree n -> IO m
+    getPlayerMove :: o -> Tree n -> [m] -> IO m
     gameError :: o -> String -> IO ()
 
 mkMoveScores :: (TreeNode n m, Eval n) => [n] -> [MoveScore m n]

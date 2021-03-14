@@ -53,20 +53,20 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
-playerMove :: Tree CkNode -> IO CkMove
-playerMove tree = do
+playerMove :: Tree CkNode -> [CkMove] -> IO CkMove
+playerMove tree exclusions = do
     putStrLn ("Enter player's move:")
     line <- getLine
     putStrLn ""
     case parseMove (rootLabel tree) line of
         Left err -> do
             putStrLn err
-            playerMove tree
+            playerMove tree exclusions
         Right mv ->
-            if not (isLegal tree mv)
+            if not (isLegal tree mv exclusions)
                 then do
                     putStrLn "Not a legal move."
-                    playerMove tree
+                    playerMove tree exclusions
                 else return mv
 
 ---------------------------------------------------------------------------------------------------

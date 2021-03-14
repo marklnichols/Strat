@@ -13,6 +13,8 @@
 module Strat.ZipTree
   ( expandTo
   , decendUntil
+  , maxValue
+  , minValue
   , negaMax
   , negaRnd
   , NegaResult(..)
