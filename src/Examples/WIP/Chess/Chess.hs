@@ -64,6 +64,8 @@ import Data.Char
 import Data.List (foldl')
 import Data.List.Extra (replace)
 import Data.Kind
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Mutable
 import Data.Set (Set, member, notMember)
@@ -727,7 +729,8 @@ flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
 --TODO: set the FinalState appropriately
--- Determinig of mate (also mate in n)
+-- Determine mate (also mate in n)
+-- add notation for check
 {-  TODO add scores for
       outposts
       half-empty, empty file rooks
@@ -736,7 +739,8 @@ flipPieceColor Unknown = Unknown
       knight loc squares that control the center
       doubled pawns
       having both bishops
-      castled King pawn protection
+      castled King pawn protection...small penalty moving pawns at a, c, g, h
+          and maybe b, and g to 4 (or 7)
       slight pref. to kingside castle over queenside
       pawn advancement
 -}
@@ -749,14 +753,14 @@ evalPos pos =
          mobility = calcMobility pos
          castling = calcCastling pos
          development = calcDevelopment pos
-         centerPawns = calcCenterPawns pos
+         pawnPositionScore = calcPawnPositionScore pos
          t = (material * 20.0 ) + mobility + (castling * 10.0)
-           + (development * 5.0) + (centerPawns * 5)
+           + (development * 5.0) + (pawnPositionScore * 2)
          detailsStr = "\n\tMaterial (x 20.0): " ++ show (material * 20.0)
                 ++ "\n\tMobility (x 1): " ++ show mobility
                 ++ "\n\tCastling (x 10): " ++ show (castling * 10.0)
                 ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
-                ++ "\n\tCenterPawns (x 5): " ++ show (centerPawns * 5.0)
+                ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -776,17 +780,35 @@ blackDev :: ChessPos -> Float
 blackDev cp = 4.0 - (fromIntegral $ S.size (cp ^. (cpHasMoved . _2 . unMovedDev))) :: Float
 
 ---------------------------------------------------------------------------------------------------
--- Calculate a score for pawn control for the center by checking whether KP and QP have
--- move for each side
+-- Calculate a score for pawn positioning
 --------------------------------------------------------------------------------------------------
-calcCenterPawns:: ChessPos -> Float
-calcCenterPawns cp = whiteCenterPawns cp - blackCenterPawns cp
+calcPawnPositionScore :: ChessPos -> Float
+calcPawnPositionScore cp =
+    let g = cp ^. cpGrid
+        (wLocs, bLocs) = locsForColor g
+        wPawns = filter (filterF g) wLocs
+        bPawns = filter (filterF g) bLocs
+        bPawns' = invertY <$> bPawns -- invert the black pawn pos vert. and use the white lookup
+        wTotal = foldr foldF 0 wPawns
+        bTotal = foldr foldF 0 bPawns'
+  in wTotal - bTotal
+    where
+      invertY n = 10 * (9 - (n `div` 10)) + n `mod` 10
+      filterF g loc =
+          case indexToPiece g loc of
+              MkChessPiece _c (SomeSing SPawn) -> True
+              MkChessPiece _c (SomeSing _)     -> False
+      foldF x r = (M.findWithDefault 0 x pawnAdjustments) + r
 
-whiteCenterPawns :: ChessPos -> Float
-whiteCenterPawns cp = 2.0 - (fromIntegral $ S.size (cp ^. (cpHasMoved . _1 . unMovedCenterPawns))) :: Float
-
-blackCenterPawns :: ChessPos -> Float
-blackCenterPawns cp = 2.0 - (fromIntegral $ S.size (cp ^. (cpHasMoved . _2 . unMovedCenterPawns))) :: Float
+pawnAdjustments :: Map Int Float
+pawnAdjustments = M.fromList
+    -- KP, QP
+    [ (24, 0.0), (34, 2.0), (44, 4.0), (25, 0.0), (35, 2.0), (45, 4.0)
+    -- KRP, QRP, KBP, QBP
+    , (21, 0.0), (31, -1.0), (41, -2.0), (28, 0.0), (38, -1.0), (48, -2.0)
+    , (23, 0.0), (33, -1.0), (43, -2.0), (26, 0.0), (36, -1.0), (46, -2.0)
+    -- KNP, QNP
+    , (22, 0.0), (32, 0.0), (42, -2.0), (27, 0.0), (37, 0.0), (47, -2.0) ]
 
 ---------------------------------------------------------------------------------------------------
 -- Count the 'material' score for the pieces on the board

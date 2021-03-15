@@ -12,6 +12,7 @@ module GameRunner
  , incrementalSearchTo
  , preSort
  , searchTo
+ , showResultMoves
  , startGame
  ) where
 
@@ -77,8 +78,8 @@ computerMove :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g, Ord n
              => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
 computerMove gen o t maxDepth maxCritDepth = do
     (sec, newRoot) <- duration $ do
-        (preSortT, preSortResult) <- preSort t sortDepth
-        putStrLn ("result values used in pre-sorting\n" ++ showResultMoves preSortResult)
+        (preSortT, _preSortResult) <- preSort t sortDepth
+        -- putStrLn ("result values used in pre-sorting\n" ++ showResultMoves preSortResult)
         (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
         putStrLn "\n--------------------------------------------------\n"
         showCompMove o expandedT result True
