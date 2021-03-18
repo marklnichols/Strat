@@ -754,13 +754,15 @@ evalPos pos =
          castling = calcCastling pos
          development = calcDevelopment pos
          pawnPositionScore = calcPawnPositionScore pos
-         t = (material * 20.0 ) + mobility + (castling * 10.0)
-           + (development * 5.0) + (pawnPositionScore * 2)
-         detailsStr = "\n\tMaterial (x 20.0): " ++ show (material * 20.0)
+         knightPositionScore = calcKnightPositionScore pos
+         t = (material * 30.0 ) + mobility + (castling * 10.0)
+           + (development * 5.0) + (pawnPositionScore * 2) + (knightPositionScore)
+         detailsStr = "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
                 ++ "\n\tMobility (x 1): " ++ show mobility
                 ++ "\n\tCastling (x 10): " ++ show (castling * 10.0)
                 ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
                 ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
+                ++ "\n\tKnight position score (x 1): " ++ show (knightPositionScore)
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -798,17 +800,43 @@ calcPawnPositionScore cp =
           case indexToPiece g loc of
               MkChessPiece _c (SomeSing SPawn) -> True
               MkChessPiece _c (SomeSing _)     -> False
-      foldF x r = (M.findWithDefault 0 x pawnAdjustments) + r
+      foldF x r = M.findWithDefault 0 x pawnAdjustments + r
 
 pawnAdjustments :: Map Int Float
 pawnAdjustments = M.fromList
     -- KP, QP
-    [ (24, 0.0), (34, 2.0), (44, 4.0), (25, 0.0), (35, 2.0), (45, 4.0)
+    [ (24, 0.0), (34, 2.0), (44, 8.0), (25, 0.0), (35, 2.0), (45, 8.0)
     -- KRP, QRP, KBP, QBP
     , (21, 0.0), (31, -1.0), (41, -2.0), (28, 0.0), (38, -1.0), (48, -2.0)
     , (23, 0.0), (33, -1.0), (43, -2.0), (26, 0.0), (36, -1.0), (46, -2.0)
     -- KNP, QNP
     , (22, 0.0), (32, 0.0), (42, -2.0), (27, 0.0), (37, 0.0), (47, -2.0) ]
+
+---------------------------------------------------------------------------------------------------
+-- Calculate a score for Knight positioning
+--------------------------------------------------------------------------------------------------
+calcKnightPositionScore :: ChessPos -> Float
+calcKnightPositionScore cp =
+    let g = cp ^. cpGrid
+        (wLocs, bLocs) = locsForColor g
+        wKnights = filter (filterF g) wLocs
+        bKnights = filter (filterF g) bLocs
+        wTotal = foldr foldF 0 wKnights
+        bTotal = foldr foldF 0 bKnights
+   in wTotal - bTotal
+     where
+       filterF g loc =
+           case indexToPiece g loc of
+              MkChessPiece _c (SomeSing SKnight) -> True
+              MkChessPiece _c (SomeSing _)     -> False
+       foldF x r = M.findWithDefault 0 x knightAdjustments + r
+
+knightAdjustments :: Map Int Float
+knightAdjustments = M.fromList
+    [ (23, 4.0), (32, 4.0), (52, 4.0), (63, 4.0), (65, 4.0), (56, 4.0), (36, 4.0), (25, 4.0)
+    , (24, 4.0), (33, 4.0), (53, 4.0), (64, 4.0), (66, 4.0), (57, 4.0), (37, 4.0), (26, 4.0)
+    , (33, 4.0), (42, 4.0), (62, 4.0), (73, 4.0), (75, 4.0), (66, 4.0), (46, 4.0), (35, 4.0)
+    , (34, 4.0), (43, 4.0), (63, 4.0), (74, 4.0), (76, 4.0), (67, 4.0), (47, 4.0), (36, 4.0) ]
 
 ---------------------------------------------------------------------------------------------------
 -- Count the 'material' score for the pieces on the board
