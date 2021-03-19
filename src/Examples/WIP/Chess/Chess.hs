@@ -731,6 +731,8 @@ flipPieceColor Unknown = Unknown
 --TODO: set the FinalState appropriately
 -- Determine mate (also mate in n)
 -- add notation for check
+-- Add parallel processing
+-- Various command line debug tools
 {-  TODO add scores for
       outposts
       half-empty, empty file rooks
@@ -970,21 +972,16 @@ legalMoves node =
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for a given color from a board
--- TODO: This still needs more optimizing:
--- TODO: replace the zip with
---       indexed :: Vector a -> Vector (Int, a)
--- and try: imap :: (Int -> a -> b) -> Vector a -> Vector b
 --------------------------------------------------------------------------------------------------
 locsForColor :: Vector Char -> ([Int], [Int])
 locsForColor locs =
-    let pairs = V.zip indexRange locs
-    in V.foldr f ([], []) pairs where
-        f :: (Int, Char) -> ([Int], [Int]) -> ([Int], [Int])
-        f (n, c) (wLocs, bLocs) =
+    V.ifoldr f ([], []) locs where
+        f :: Int -> Char -> ([Int], [Int]) -> ([Int], [Int])
+        f n c (wLocs, bLocs) =
             case charToColor c of
-              White -> (n : wLocs, bLocs)
-              Black -> (wLocs, n : bLocs)
-              _     -> (wLocs, bLocs)
+                White -> (n : wLocs, bLocs)
+                Black -> (wLocs, n : bLocs)
+                _     -> (wLocs, bLocs)
 
 charToColor :: Char -> Color
 charToColor c

@@ -45,7 +45,7 @@ library
     , random
     , rosezipper
     , safe
-    , singletons
+    , singletons == 2.7
     , sort
   default-language: Haskell2010
 
@@ -75,7 +75,7 @@ executable strat-exe
     , random
     , rosezipper
     , safe
-    , singletons
+    , singletons == 2.7
     , sort
     , text
     , vector
@@ -188,7 +188,7 @@ test-suite StratTreeTest
     , rosezipper
     , safe
     , sort
-    , singletons
+    , singletons == 2.7
     , unordered-containers
     , vector
   default-language: Haskell2010
