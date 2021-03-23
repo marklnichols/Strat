@@ -737,12 +737,8 @@ flipPieceColor Unknown = Unknown
       outposts
       half-empty, empty file rooks
       doubled rooks
-      center pawns (e3 < e4 for example)
-      knight loc squares that control the center
       doubled pawns
       having both bishops
-      castled King pawn protection...small penalty moving pawns at a, c, g, h
-          and maybe b, and g to 4 (or 7)
       slight pref. to kingside castle over queenside
       pawn advancement
 -}

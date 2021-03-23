@@ -102,6 +102,7 @@ executable test-as-exe
       TicTacTest
       CkParser
       GameRunner
+      ParallelEvalTest
       PruningTest
       StratTreeTest
       Strat.Helpers
@@ -156,6 +157,7 @@ test-suite StratTreeTest
       ChessTest
       CkParser
       GameRunner
+      ParallelEvalTest
       PruningTest
       Strat.Helpers
       StratTreeTest
@@ -189,6 +191,41 @@ test-suite StratTreeTest
     , safe
     , sort
     , singletons == 2.7
+    , unordered-containers
+    , vector
+  default-language: Haskell2010
+
+executable ParallelEvalTest
+  main-is: ParallelEvalTest.hs
+  other-modules:
+      Chess
+      CkParser
+      GameRunner
+      Strat.Helpers
+      Strat.ZipTree
+      Strat.StratTree.TreeNode
+  hs-source-dirs:
+      src
+      test
+      src/Examples/Checkers
+      src/Examples/WIP/Chess
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -main-is ParallelEvalTest
+  build-depends:
+      Strat
+    , base
+    , aeson
+    , containers
+    , extra
+    , hashmap
+    , lens
+    , mtl
+    , mutable
+    , parsec
+    , random
+    , rosezipper
+    , safe
+    , singletons == 2.7
+    , sort
     , unordered-containers
     , vector
   default-language: Haskell2010
