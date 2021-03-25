@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -6,11 +8,13 @@ module StratTreeTest (stratTreeTest) where
 
 import Data.Tree
 import Test.Hspec
+import Control.DeepSeq
+import GHC.Generics
 
 import Strat.ZipTree
 
 data NodeVal = NodeVal { nvalToInt :: Int, sign :: Sign }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show)
 
 instance ZipTreeNode NodeVal where
   ztnEvaluate = fromIntegral . nvalToInt

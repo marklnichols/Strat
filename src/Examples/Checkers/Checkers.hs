@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -52,21 +54,24 @@ import Safe
 import qualified CkParser as Parser
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
+import Control.DeepSeq
+import GHC.Generics
+
 import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
 data CkPosition = CkPosition {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState}
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Generic, NFData, Ord, Show)
 makeLenses ''CkPosition
 
 data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int], _removedIdxs :: [Int]}
-    deriving (Eq, Ord)
+    deriving (Eq, Generic, NFData, Ord)
 makeLenses ''CkMove
 
 data CkEval = CkEval {_total :: Float, _details :: String}
-    deriving (Eq, Ord)
+    deriving (Eq, Generic, NFData, Ord)
 makeLenses ''CkEval
 
 data CkNode = CkNode
@@ -75,7 +80,7 @@ data CkNode = CkNode
   , _ckErrorValue :: CkEval
   , _ckPosition :: CkPosition
   , _ckIsEvaluated :: Bool }
-    deriving (Eq)
+    deriving (Eq, Generic, NFData)
 makeLenses ''CkNode
 
 instance Mutable s CkNode where

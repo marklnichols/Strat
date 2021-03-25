@@ -1,6 +1,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -27,14 +29,16 @@ module Strat.ZipTree
   , ZipTreeNode(..)
   ) where
 
+import Control.DeepSeq
 import qualified Data.List as List
 import Data.Sort
 import Data.Tree
 import Data.Tree.Zipper
+import GHC.Generics
 import System.Random
 
 data Sign = Pos | Neg
-  deriving (Eq, Ord, Show)
+  deriving (Generic, Eq, NFData, Ord, Show)
 
 data AlphaBeta = AlphaBeta
   { alpha :: Float
@@ -78,7 +82,7 @@ initAlphaBeta = AlphaBeta
   { alpha = minValue
   , beta = maxValue }
 
-class ZipTreeNode a where
+class NFData a => ZipTreeNode a where
   ztnEvaluate :: a -> Float
   ztnMakeChildren :: a -> [Tree a]
   ztnSign :: a -> Sign

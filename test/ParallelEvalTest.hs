@@ -1,14 +1,18 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module ParallelEvalTest where
 
+import Control.DeepSeq
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HM
 import Data.List
 import Data.Tree
+import GHC.Generics
 import System.Time.Extra (duration, showDuration)
 import Text.Printf
 import Debug.Trace
@@ -23,7 +27,11 @@ data TestNode = TestNode
   , tnSign :: Sign
   , isCrit :: Bool
   }
-  deriving Eq
+  deriving (Generic, Eq, NFData)
+
+-- instance NFData TestNode where
+  -- rnf tn =
+
 
 instance Show TestNode where
   show tn = printf "TestNode %d (%s), type = %d, sign = %s, val = %s, isCrit = %s"

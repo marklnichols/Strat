@@ -38,6 +38,7 @@ library
   build-depends:
       base
     , containers
+    , deepseq
     , hashmap
     , lens
     , mtl
@@ -66,6 +67,7 @@ executable strat-exe
     , Cabal
     , cmdargs
     , containers
+    , deepseq
     , extra
     , hashmap
     , lens
@@ -125,6 +127,7 @@ executable test-as-exe
     , Cabal
     , cmdargs
     , containers
+    , deepseq
     , extra
     , hashmap
     , hspec
@@ -178,6 +181,7 @@ test-suite StratTreeTest
     , base
     , bytestring
     , containers
+    , deepseq
     , extra
     , hashmap
     , hspec
@@ -215,6 +219,7 @@ executable ParallelEvalTest
     , base
     , aeson
     , containers
+    , deepseq
     , extra
     , hashmap
     , lens

@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -33,13 +36,15 @@ import Control.Monad.State.Strict
 import Data.List
 import Data.Mutable
 import Data.Tree
+import Control.DeepSeq
+import GHC.Generics
 import Strat.ZipTree (NegaResult(..), NegaMoves(..))
 
 ----------------------------------------------------------------------------------------------------
 -- Data types
 ----------------------------------------------------------------------------------------------------
 data FinalState = WWins | BWins | Draw | NotFinal
-    deriving (Enum, Show, Eq, Ord)
+    deriving (Enum, Eq, Generic, NFData, Ord, Show)
 
 data Env = Env
     { equivThreshold :: Float, p1Comp :: Bool ,p2Comp :: Bool } deriving (Show)
@@ -104,4 +109,4 @@ wrapRST :: a -> RSTransformer a
 wrapRST = return
 
 newtype RST a = RST { unRST :: RSTransformer a }
-  deriving (Monad, Applicative, Functor, MonadReader Env, MonadState GameState)
+  deriving newtype (Monad, MonadReader Env, Applicative, Functor, MonadState GameState)

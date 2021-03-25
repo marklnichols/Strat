@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -75,6 +77,8 @@ import Data.Singletons.TH
 import Data.Tree
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
+import Control.DeepSeq
+import GHC.Generics
 import Text.Printf
 
 import qualified CkParser as Parser
@@ -94,28 +98,28 @@ data Castling = Castled
               | QueenSideOnlyAvailable
               | BothAvailable
               | Unavailable
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Generic, NFData, Ord, Show)
 
 data HasMoved = HasMoved
   { _unMovedDev :: Set Int
   , _unMovedCenterPawns :: Set Int
   , _unMovedCastling :: Set Int
   , _castlingState :: Castling }
-  deriving (Show, Eq, Ord)
+  deriving (Eq, Generic, NFData, Ord, Show)
 
 makeLenses ''HasMoved
 
 data Color = Black | White | Unknown
-    deriving (Show, Eq, Ord)
+    deriving (Eq, Generic, NFData, Ord, Show)
 
 data Castle = QueenSide | KingSide
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show)
 
 data ChessMove
   = StdMove { _isExchange :: Bool, _startIdx :: Int, _endIdx :: Int, _stdNote :: String }
   | CastlingMove { _castle :: Castle, _kingStartIdx :: Int, _kingEndIdx :: Int
                  , _rookStartIdx :: Int, _rookEndIdx :: Int, _castleNote :: String }
-  deriving (Eq, Ord)
+  deriving (Eq, Generic, NFData, Ord)
 makeLenses ''ChessMove
 
 data ChessPos = ChessPos
@@ -125,11 +129,11 @@ data ChessPos = ChessPos
   , _cpKingLoc :: (Int, Int)
   , _cpInCheck :: (Bool, Bool)
   , _cpFin :: FinalState }
-  deriving (Show, Eq, Ord)
+  deriving (Eq, Generic, NFData, Ord, Show)
 makeLenses ''ChessPos
 
 data ChessEval = ChessEval {_total :: Float, _details :: String}
-    deriving (Eq, Ord)
+    deriving (Eq, Generic, NFData, Ord)
 makeLenses ''ChessEval
 
 instance Show ChessEval where
@@ -141,7 +145,7 @@ showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
 data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval, _chessErrorVal :: ChessEval
                            , _chessPos :: ChessPos, _chessMvSeq :: [ChessMove]
                            , _chessIsEvaluated :: Bool}
-    deriving (Eq)
+    deriving (Generic, Eq, NFData)
 makeLenses ''ChessNode
 
 instance Show ChessNode where

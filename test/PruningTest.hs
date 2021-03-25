@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -11,6 +13,8 @@ import Data.Tree
 import System.Random hiding (next)
 import Test.Hspec
 import Text.Printf
+import Control.DeepSeq
+import GHC.Generics
 
 import Strat.ZipTree
 import GameRunner
@@ -23,7 +27,7 @@ data TestNode = TestNode
   , tnSign :: Sign
   , isCrit :: Bool
   }
-  deriving Eq
+  deriving (Eq, Generic, NFData)
 
 instance Show TestNode where
   show tn = printf "TestNode %d (%s), type = %d, sign = %s, val = %s, isCrit = %s"
