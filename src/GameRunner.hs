@@ -39,7 +39,7 @@ loop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g , Ord n, Eval 
 loop gen o node depth critDepth = do
     let label = rootLabel node
     updateBoard o label
-    theNext <- case final $ label of
+    theNext <- case final label of
         WWins -> do
             out o "White wins."
             return Nothing
@@ -64,7 +64,6 @@ playerMove o tree = do
     (_preSortT, preSortResult) <- preSort tree sortDepth
     let allMvs = Z.allMoves preSortResult
     let exclusions = foldr f [] allMvs where
-          -- f :: forall n m. Z.NegaMoves n -> [m] -> [m]
           f nm acc = if Z.evalScore nm == Z.maxValue || Z.evalScore nm == Z.minValue
                          then getMove (Z.moveNode nm) : acc
                          else acc
@@ -101,7 +100,7 @@ showNegaMovesBrief Z.NegaMoves{..} =
     in (show mv) ++ ":" ++ (show evalScore)
 
 expandTree :: (Z.ZipTreeNode n, Ord n, Show n) => Tree n -> Int -> Int -> Tree n
-expandTree t depth critDepth = Z.expandTo t depth critDepth
+expandTree = Z.expandToPar
 
 isCompTurn :: Z.Sign -> Bool
 isCompTurn sign =

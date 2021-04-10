@@ -14,6 +14,7 @@
 
 module Strat.ZipTree
   ( expandTo
+  , expandToPar
   , decendUntil
   , maxValue
   , minValue
@@ -30,6 +31,7 @@ module Strat.ZipTree
   ) where
 
 import Control.DeepSeq
+import Control.Parallel.Strategies hiding (Eval)
 import qualified Data.List as List
 import Data.Sort
 import Data.Tree
@@ -124,6 +126,27 @@ expandTo :: (Ord a, Show a, ZipTreeNode a)
 expandTo t depth critDepth =
   let newTree = decendUntil (fromTree t) 1 depth critDepth
   in newTree
+
+--TODO: expand one level, take the first level children and decend the list of children in parallel to
+-- the required depth.
+-- Reassemble the top tree with the resulting expanded children trees
+expandToPar :: forall a. (Ord a, Show a, ZipTreeNode a)
+            => Tree a
+            -> Int
+            -> Int
+            -> Tree a
+expandToPar t depth critDepth =
+    let t1 = decendUntil (fromTree t) 1 1 1
+        t1Children = subForest t1
+        expandedChildren = parDecend depth critDepth <$> t1Children `using` parList rdeepseq
+    in toTree $ modifyTree (\(Node x _)  -> Node x expandedChildren) (fromTree t)
+
+parDecend :: (Ord a, Show a, ZipTreeNode a)
+          => Int
+          -> Int
+          -> Tree a
+          -> Tree a
+parDecend depth critDepth t = decendUntil (fromTree t) 1 depth critDepth
 
 sortFromResult :: forall a. (Ord a, Show a, ZipTreeNode a)
          => Tree a

@@ -44,6 +44,7 @@ library
     , mtl
     , mutable
     , random
+    , parallel
     , rosezipper
     , safe
     , singletons == 2.7
@@ -60,6 +61,7 @@ executable strat-exe
       src/Examples/Checkers
       src/Examples/WIP/Chess
   ghc-options: -Wall
+  ghc-options: -threaded -rtsopts -O2 -Wall
   build-depends:
       aeson
     , base
@@ -75,6 +77,7 @@ executable strat-exe
     , mutable
     , parsec
     , random
+    , parallel
     , rosezipper
     , safe
     , singletons == 2.7
@@ -137,6 +140,7 @@ executable test-as-exe
     , mutable
     , parsec
     , random
+    , parallel
     , rosezipper
     , safe
     , sort
@@ -191,6 +195,7 @@ test-suite StratTreeTest
     , mutable
     , parsec
     , random
+    , parallel
     , rosezipper
     , safe
     , sort
@@ -213,7 +218,7 @@ executable ParallelEvalTest
       test
       src/Examples/Checkers
       src/Examples/WIP/Chess
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall -main-is ParallelEvalTest
+  ghc-options: -threaded -rtsopts -O2 -Wall -main-is ParallelEvalTest
   build-depends:
       Strat
     , base
@@ -227,6 +232,7 @@ executable ParallelEvalTest
     , mutable
     , parsec
     , random
+    , parallel
     , rosezipper
     , safe
     , singletons == 2.7

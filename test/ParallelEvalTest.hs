@@ -8,6 +8,7 @@
 module ParallelEvalTest where
 
 import Control.DeepSeq
+import Control.Parallel.Strategies
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HM
 import Data.List
@@ -28,10 +29,6 @@ data TestNode = TestNode
   , isCrit :: Bool
   }
   deriving (Generic, Eq, NFData)
-
--- instance NFData TestNode where
-  -- rnf tn =
-
 
 instance Show TestNode where
   show tn = printf "TestNode %d (%s), type = %d, sign = %s, val = %s, isCrit = %s"
@@ -54,6 +51,13 @@ main = do
         putStrLn $ showResultsBrief res
         return ()
     putStrLn $ "Time for single threaded tree expansion: " ++ showDuration sec ++ "):"
+
+    -- (sec, _) <- duration $ do
+    --     let newWikiTree = expandToPar rootWikiTree 4 4 `using` parTraversable rdeepseq
+    --     let res = negaMax newWikiTree False
+    --     putStrLn $ showResultsBrief res
+    --     return ()
+    -- putStrLn $ "Time for parallel tree expansion: " ++ showDuration sec ++ "):"
 
 showResultsBrief :: NegaResult TestNode -> String
 showResultsBrief res =
