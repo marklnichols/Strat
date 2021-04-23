@@ -51,32 +51,32 @@ loop gen o node depth critDepth = do
             return Nothing
         _ -> do
             nextNode <- if isCompTurn (Z.ztnSign label)
-                  then computerMove gen o node depth critDepth
-                  else playerMove o node
+                  then computersTurn gen o node depth critDepth
+                  else playersTurn gen o node depth critDepth
             return (Just nextNode)
     case theNext of
         Nothing -> return ()
         Just next -> loop gen o next depth critDepth
 
-playerMove :: forall o n m. (Output o n m, TreeNode n m, Z.ZipTreeNode n)
-           => o -> Tree n -> IO (Tree n)
-playerMove o tree = do
-    (_preSortT, preSortResult) <- preSort tree sortDepth
-    let allMvs = Z.allMoves preSortResult
-    let exclusions = foldr f [] allMvs where
-          -- f :: forall n m. Z.NegaMoves n -> [m] -> [m]
-          f nm acc = if Z.evalScore nm == Z.maxValue || Z.evalScore nm == Z.minValue
-                         then getMove (Z.moveNode nm) : acc
-                         else acc
-    mv <- getPlayerMove o tree exclusions
-    return (findMove tree mv)
+playersTurn :: forall o n m g. (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g)
+           => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
+playersTurn gen o t maxDepth maxCritDepth = do
+    (preSortT, _preSortResult) <- preSort t sortDepth
+    (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
+    let allMvs = Z.allMoves result
+    let f nm acc = if Z.evalScore nm >= Z.maxValue || Z.evalScore nm <= Z.minValue
+                       then getMove (Z.moveNode nm) : acc
+                       else acc
+    !exclusions <- return $ foldr f [] allMvs
+    mv <- getPlayerMove o expandedT exclusions
+    return (findMove expandedT mv)
 
 sortDepth :: Int
 sortDepth = 2
 
-computerMove :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g, Ord n, Eval n)
+computersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g, Ord n, Eval n)
              => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
-computerMove gen o t maxDepth maxCritDepth = do
+computersTurn gen o t maxDepth maxCritDepth = do
     (sec, newRoot) <- duration $ do
         (preSortT, _preSortResult) <- preSort t sortDepth
         -- putStrLn ("result values used in pre-sorting\n" ++ showResultMoves preSortResult)

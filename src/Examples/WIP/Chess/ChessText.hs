@@ -22,7 +22,7 @@ instance Output ChessText ChessNode ChessMove where
     out _ = printString
     updateBoard = showBoard
     showCompMove _ = printMoveChoiceInfo
-    getPlayerMove _ = playerMove
+    getPlayerMove _ = playerMoveText
     gameError = exitFail
 
 printString :: String -> IO ()
@@ -57,20 +57,20 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
-playerMove :: Tree ChessNode -> [ChessMove] -> IO ChessMove
-playerMove tree exclusions = do
+playerMoveText :: Tree ChessNode -> [ChessMove] -> IO ChessMove
+playerMoveText tree exclusions = do
     putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
     case parseMove (rootLabel tree) line of
         Left err -> do
             putStrLn err
-            playerMove tree exclusions
+            playerMoveText tree exclusions
         Right mv ->
             if not (isLegal tree mv exclusions)
                 then do
                     putStrLn "Not a legal move."
-                    playerMove tree exclusions
+                    playerMoveText tree exclusions
                 else return mv
 
 ---------------------------------------------------------------------------------------------------

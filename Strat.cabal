@@ -1,11 +1,5 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.2.
---
--- see: https://github.com/sol/hpack
---
--- hash: cbdb09e9e5a7ecca2aacfd4af66163303de0faddf3f24ca602e477a2aab24e20
-
 name:           Strat
 version:        0.1.0.0
 synopsis:       Haskell Strategy Game Library WIP
@@ -58,7 +52,7 @@ executable strat-exe
       src
       src/Examples/Checkers
       src/Examples/WIP/Chess
-  ghc-options: -Wall
+  ghc-options: -threaded -rtsopts -O2 -Wall
   build-depends:
       aeson
     , base
