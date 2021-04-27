@@ -42,6 +42,7 @@ printMoveChoiceInfo tree result verbose = do
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
     putStrLn ("Computer's move: " ++ showNegaMoves (best result))
+    -- TODO: print "(check)" when applicable
     when verbose $ do
         putStrLn ("score details: \n"
                  ++ showScoreDetails (_chessVal (evalNode (best result))))
@@ -59,10 +60,12 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 playerMoveText :: Tree ChessNode -> [ChessMove] -> IO ChessMove
 playerMoveText tree exclusions = do
+    let node = rootLabel tree
     putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
-    case parseMove (rootLabel tree) line of
+    -- case parseMove (rootLabel tree) line of
+    case parseMove node line of
         Left err -> do
             putStrLn err
             playerMoveText tree exclusions
@@ -71,7 +74,10 @@ playerMoveText tree exclusions = do
                 then do
                     putStrLn "Not a legal move."
                     playerMoveText tree exclusions
-                else return mv
+                else do
+                    when (moveIsCheck node mv) $ do
+                        putStrLn " (check)"
+                    return mv
 
 ---------------------------------------------------------------------------------------------------
 -- format position as a string

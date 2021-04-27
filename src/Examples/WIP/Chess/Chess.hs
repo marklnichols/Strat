@@ -49,8 +49,10 @@ module Chess
     , calcMoveLists
     , checkCastling
     , cnShowMoveOnly
+    , discoveredCheckNode
     , inCheck
     , locsForColor
+    , moveIsCheck
     , pairToIndexes
     , showScoreDetails
     , startingBoard
@@ -413,7 +415,7 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 getStartNode :: String -> Tree ChessNode
 getStartNode restoreGame =
     case restoreGame of
-      "new_game" ->
+      "newgame" ->
         let nextColor = White
             cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = nextColor
                         , _cpHasMoved = (startingHasMovedWhite, startingHasMovedBlack)
@@ -427,7 +429,7 @@ getStartNode restoreGame =
             , _chessPos = cPos
             , _chessMvSeq = []
             , _chessIsEvaluated = False } []
-      "alpha_beta" ->
+      "alphabeta" ->
         let cPos = ChessPos
               { _cpGrid = alphaBetaBoard, _cpColor = White
               , _cpHasMoved = (abHasMovedWhite, abHasMovedBlack)
@@ -452,7 +454,8 @@ getStartNode restoreGame =
                 , _unMovedCenterPawns = S.empty
                 , _unMovedCastling = S.empty
                 , _castlingState = Castled }
-      _ -> error "unknown restore game string - choices are:\n new_game, alpha_beta"
+      "discovered" -> Node discoveredCheckNode []
+      _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> V.Vector Char
@@ -550,7 +553,9 @@ calcNewNode node mv =
         -- after applying the current move, is the side to play next (w/ color 'clrFlipped')
         -- in check?
         inCheckPair = curPos ^. cpInCheck
+
         isInCheck = inCheck newGrid clrFlipped (colorToTupleElem clrFlipped kingLocs)
+
         inCheckPair' = colorToTuple clrFlipped inCheckPair isInCheck
 
         newPos = curPos { _cpGrid = newGrid
@@ -565,6 +570,23 @@ calcNewNode node mv =
                  , _chessPos = updatedPos
                  , _chessMvSeq = mv : curMoveSeq
                  , _chessIsEvaluated = False }
+
+---------------------------------------------------------------------------------------------------
+-- Calulate if applying the given move results in a check on the king
+---------------------------------------------------------------------------------------------------
+moveIsCheck :: ChessNode -> ChessMove -> Bool
+moveIsCheck node mv =
+    let curPos = node ^. chessPos
+        curGrid = curPos ^. cpGrid
+        curColor = curPos ^. cpColor
+
+        (newGrid, mvStartIdx, mvEndIdx) = case mv of
+            StdMove _isExch start end _s -> (movePiece' curGrid start end, start, end)
+            cm@CastlingMove{..} -> (castle' curGrid cm, _kingStartIdx, _kingEndIdx)
+
+        clrFlipped = flipPieceColor curColor
+        kingLocs = curPos ^. cpKingLoc
+     in inCheck newGrid clrFlipped (colorToTupleElem clrFlipped kingLocs)
 
 ---------------------------------------------------------------------------------------------------
 -- Calulate if the king at the given location is in check
@@ -1511,6 +1533,7 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 
 ----------------------------------------------------------------------------------------------------
 -- Some special starting positions for evaluating certain features....
+-- TODO: Eventually delete these or move to the ChessTest module
 ----------------------------------------------------------------------------------------------------
 alphaBetaBoard :: V.Vector Char
 alphaBetaBoard = V.fromList
@@ -1569,3 +1592,61 @@ Q   B   -   -   -   -   P   -          2| (20)  21   22   23   24   25   26   27
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+
+discoveredCheckBoard :: V.Vector Char
+discoveredCheckBoard = V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'B',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'b',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+-- Moves to verify:
+-- (W) E5-C5 (discovered) check
+-- (b) D6 x C5 (discovered) check
+-   -   -   r   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   k   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   b   -   R   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   B   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   K   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
+discoveredCheckNode :: ChessNode
+discoveredCheckNode =
+    let cPos = ChessPos
+          { _cpGrid = discoveredCheckBoard, _cpColor = White
+          , _cpHasMoved = (kcHasMovedWhite, kcHasMovedBlack)
+          , _cpKingLoc = (15, 85)
+          , _cpInCheck = (False, False)
+          , _cpFin = NotFinal }
+    in ChessNode
+        { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+        , _chessVal = ChessEval { _total = 0.0, _details = "" }
+        , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+        , _chessPos = cPos
+        , _chessMvSeq = []
+        , _chessIsEvaluated = False }
+      where
+        kcHasMovedWhite = HasMoved
+            { _unMovedDev = S.empty
+            , _unMovedCenterPawns = S.empty
+            , _unMovedCastling = S.empty
+            , _castlingState = Castled }
+        kcHasMovedBlack = HasMoved
+            { _unMovedDev = S.empty
+            , _unMovedCenterPawns = S.empty
+            , _unMovedCastling = S.empty
+            , _castlingState = Castled }

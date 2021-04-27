@@ -93,7 +93,6 @@ chessTest = do
             f <$> allowablePawnNonCaptures board01 33 `shouldMatchList` []
             f <$> allowablePawnNonCaptures board01 61 `shouldMatchList` [(61, 51)]
             f <$> allowablePawnNonCaptures startingBoard 25 `shouldMatchList` [(25, 35), (25, 45)]
-
     describe "allowablePawnCaptures" $
         it "Gets the allowable capturing moves for a pawn" $ do
             let (empties, enemies) = pairToIndexes
@@ -107,7 +106,6 @@ chessTest = do
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $
             _endIdx <$> allowableEnPassant board01 78 `shouldMatchList` [57]
-
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
@@ -119,7 +117,6 @@ chessTest = do
                , (14,47), (14,58), (15,24), (15,25), (16,25), (17,25), (17,36), (17,38), (21,31)
                , (21,41), (22,32), (22,42), (34,44), (34,45), (26,36), (26,46), (27,37), (27,47)
                , (28,38), (28,48), (33,12), (33,41), (33,52), (33,54), (33,45), (33,25) ]
-
     describe "checkCastling" $
         it ("Checks and possibly updates the castling state and the set of unmoved pieces tracked"
            ++ "for castling purposes") $ do
@@ -153,11 +150,17 @@ chessTest = do
           inCheck board03 White 15 `shouldBe` False
           inCheck board04 Black 85 `shouldBe` False
           inCheck board04 White 45 `shouldBe` True
+
+    describe "moveIsCheck" $
+      it "Determines if a move results in the opposing King being in check" $ do
+          let mv = StdMove { _isExchange = True, _startIdx = 55, _endIdx = 53, _stdNote = "" }
+          moveIsCheck discoveredCheckNode mv `shouldBe` True
+
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           -- startingBoard :: V.Vector Char
-          let t = getStartNode "new_game"
+          let t = getStartNode "newgame"
           let newTree = expandTree t 2 2
           let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           let t' = findMove newTree mv
