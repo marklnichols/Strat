@@ -42,7 +42,12 @@ printMoveChoiceInfo tree result verbose = do
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
     putStrLn ("Computer's move: " ++ showNegaMoves (best result))
+
     -- TODO: print "(check)" when applicable
+    let mv = getMove (moveNode(best result))
+    let node = rootLabel tree
+    when (moveIsCheck node mv) $ do
+        putStrLn " (check)"
     when verbose $ do
         putStrLn ("score details: \n"
                  ++ showScoreDetails (_chessVal (evalNode (best result))))

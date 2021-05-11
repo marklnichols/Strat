@@ -50,6 +50,8 @@ module Chess
     , checkCastling
     , cnShowMoveOnly
     , discoveredCheckNode
+    , checkMateExampleNode
+    , castlingNode
     , inCheck
     , locsForColor
     , moveIsCheck
@@ -77,13 +79,13 @@ import Data.Singletons.TH
 import Data.Tree
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
-import Text.Printf
+-- import Text.Printf
+-- import Debug.Trace
 
 import qualified CkParser as Parser
 import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
-import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -455,7 +457,9 @@ getStartNode restoreGame =
                 , _unMovedCastling = S.empty
                 , _castlingState = Castled }
       "discovered" -> Node discoveredCheckNode []
-      _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered"
+      "checkmate" -> Node checkMateExampleNode []
+      "castling" -> Node castlingNode []
+      _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered, checkmate, castling"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> V.Vector Char
@@ -693,6 +697,7 @@ updateCenterPawns prevHasMoved start =
   let prevSet = _unMovedCenterPawns prevHasMoved
   in S.delete start prevSet
 
+-- TODO: prevent Castling while in check & king moving though attacked squares
 checkCastling
   :: Color
   -> Vector Char
@@ -1397,14 +1402,10 @@ indexesToMove node [fromLoc, toLoc] =
                 removed = case isExch of
                     True -> toLoc
                     False -> -1
-                ret = Right $ StdMove { _isExchange = isExch
-                                      , _startIdx = fromLoc
-                                      , _endIdx = toLoc
-                                      , _stdNote = ""}
-            in if isExch then
-                   let str = printf "indexesToMove - isExchange is True for (%d, %d)" fromLoc toLoc
-                   in trace str ret
-               else ret
+            in Right $ StdMove { _isExchange = isExch
+                               , _startIdx = fromLoc
+                               , _endIdx = toLoc
+                               , _stdNote = ""}
 indexesToMove _ _ = Left "IndexesToMove - expected 2 element list as input, e.g. [E2, E4]"
 
 -- Looking for king moves: 15->17(KS-W), 85->87(KS-B), 15->13(QS-W), or 85->83(QS-B)
@@ -1623,13 +1624,85 @@ discoveredCheckBoard = V.fromList
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+checkMateExampleBoard :: V.Vector Char
+checkMateExampleBoard = V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  'B',  'Q',  'K',  ' ',  ' ',  'R',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'q',  ' ',  'P',  ' ',  ' ',  'b',  ' ',  '+',
+                             '+',  ' ',  'B',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'n',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  ' ',  'p',  'p',  'p',  'p',  '+',
+                             '+',  'r',  ' ',  ' ',  ' ',  'k',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+r   -   -   -   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   -   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   n   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   B   -   -   N   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   q   -   P   -   -   b   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   B   Q   K   -   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+Moves to verify (run with -d2 -c6):
+(W) D1-G4
+(b) Avoid G4-D7 mate...
+-}
+castlingBoard :: V.Vector Char
+castlingBoard = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  'R',  ' ',  'B',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                              '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'K',  'P',  '+',
+                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  'Q',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  'p',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                              '+',  'p',  ' ',  'p',  ' ',  'p',  'p',  'p',  'p',  '+',
+                              '+',  'r',  ' ',  ' ',  ' ',  'k',  'b',  ' ',  'r',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   -   -   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   -   p   -   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   p   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   Q   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   K   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   B   -   R   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+Moves to verify (run with -d2 -c6):
+(W) F3-C6
+(b) No weird king-side castle that makes the bishop dissappear...
+START HERE - make a test for this, its repeatable
+-}
+
 
 discoveredCheckNode :: ChessNode
-discoveredCheckNode =
+discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
+
+checkMateExampleNode :: ChessNode
+checkMateExampleNode = preCastlingGameNode checkMateExampleBoard White (15, 85)
+
+castlingNode :: ChessNode
+castlingNode = preCastlingGameNode castlingBoard White (27, 85)
+
+preCastlingGameNode :: Vector Char -> Color -> (Int, Int) -> ChessNode
+preCastlingGameNode grid the_color kingLocs =
     let cPos = ChessPos
-          { _cpGrid = discoveredCheckBoard, _cpColor = White
-          , _cpHasMoved = (kcHasMovedWhite, kcHasMovedBlack)
-          , _cpKingLoc = (15, 85)
+          { _cpGrid = grid
+          , _cpColor = the_color
+          , _cpHasMoved = (pcgnHasMovedWhite, pcgnHasMovedBlack)
+          , _cpKingLoc = kingLocs
           , _cpInCheck = (False, False)
           , _cpFin = NotFinal }
     in ChessNode
@@ -1640,13 +1713,13 @@ discoveredCheckNode =
         , _chessMvSeq = []
         , _chessIsEvaluated = False }
       where
-        kcHasMovedWhite = HasMoved
+        pcgnHasMovedWhite = HasMoved
             { _unMovedDev = S.empty
             , _unMovedCenterPawns = S.empty
             , _unMovedCastling = S.empty
-            , _castlingState = Castled }
-        kcHasMovedBlack = HasMoved
+            , _castlingState = BothAvailable }
+        pcgnHasMovedBlack = HasMoved
             { _unMovedDev = S.empty
             , _unMovedCenterPawns = S.empty
             , _unMovedCastling = S.empty
-            , _castlingState = Castled }
+            , _castlingState = BothAvailable }
