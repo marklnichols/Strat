@@ -47,6 +47,7 @@ module Chess
     , allowableRookMoves
     , calcDevelopment
     , calcMoveLists
+    , castleMoves
     , checkCastling
     , cnShowMoveOnly
     , discoveredCheckNode
@@ -698,6 +699,7 @@ updateCenterPawns prevHasMoved start =
   in S.delete start prevSet
 
 -- TODO: prevent Castling while in check & king moving though attacked squares
+--       & make sure friendly pieces between king and rook prevent castling
 checkCastling
   :: Color
   -> Vector Char
@@ -1058,10 +1060,10 @@ kingSideCastlingMove pos _ =
 
 queenSideCastlingMove :: ChessPos -> Color -> [ChessMove]
 queenSideCastlingMove pos White =
-  if isEmpty pos 13 && isEmpty pos 14 then [mkCastleMove White QueenSide]
+  if isEmpty pos 12 && isEmpty pos 13 && isEmpty pos 14 then [mkCastleMove White QueenSide]
   else []
 queenSideCastlingMove pos _ =
-  if isEmpty pos 83 && isEmpty pos 84 then [mkCastleMove Black KingSide]
+  if isEmpty pos 82 && isEmpty pos 83 && isEmpty pos 84 then [mkCastleMove Black QueenSide]
   else []
 
 hasFriendly :: Vector Char -> Color -> Int -> Bool
@@ -1071,7 +1073,7 @@ hasEnemy :: Vector Char -> Color -> Int -> Bool
 hasEnemy g c idx = indexToColor g idx == enemyColor c
 
 isEmpty :: ChessPos -> Int -> Bool
-isEmpty pos idx = fromMaybe empty (_cpGrid pos ^? ix idx) == empty
+isEmpty pos idx = fromMaybe empty (pos ^. cpGrid ^? ix idx) == empty
 
 isEmpty' :: ChessNode -> Int -> Bool
 isEmpty' node = isEmpty (_chessPos node )
@@ -1663,17 +1665,17 @@ castlingBoard = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+'
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                               '+',  ' ',  ' ',  'p',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
                               '+',  'p',  ' ',  'p',  ' ',  'p',  'p',  'p',  'p',  '+',
-                              '+',  'r',  ' ',  ' ',  ' ',  'k',  'b',  ' ',  'r',  '+',
+                              '+',  ' ',  'r',  ' ',  ' ',  'k',  'b',  ' ',  'r',  '+',
                               '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
-r   -   -   -   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   r   -   -   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
 p   -   p   -   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
--   -   p   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   Q   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
 -   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   -   P   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
--   -   N   -   -   Q   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
 P   P   P   -   -   P   K   P          2| (20)  21   22   23   24   25   26   27   28  (29)
 R   -   B   -   R   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
 
@@ -1681,11 +1683,9 @@ R   -   B   -   R   -   -   -          1| (10)  11   12   13   14   15   16   17
                                            -------------------------------------------------
                                                  A    B    C    D    E    F    G    H
 Moves to verify (run with -d2 -c6):
-(W) F3-C6
-(b) No weird king-side castle that makes the bishop dissappear...
-START HERE - make a test for this, its repeatable
+<<(W) F3-C6 most recent >>
+No weird king-side castle that makes the bishop dissappear...
 -}
-
 
 discoveredCheckNode :: ChessNode
 discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
@@ -1694,8 +1694,9 @@ checkMateExampleNode :: ChessNode
 checkMateExampleNode = preCastlingGameNode checkMateExampleBoard White (15, 85)
 
 castlingNode :: ChessNode
-castlingNode = preCastlingGameNode castlingBoard White (27, 85)
+castlingNode = preCastlingGameNode castlingBoard Black (27, 85)
 
+-- White has K and Q side castling available, Black has King side only
 preCastlingGameNode :: Vector Char -> Color -> (Int, Int) -> ChessNode
 preCastlingGameNode grid the_color kingLocs =
     let cPos = ChessPos
@@ -1722,4 +1723,4 @@ preCastlingGameNode grid the_color kingLocs =
             { _unMovedDev = S.empty
             , _unMovedCenterPawns = S.empty
             , _unMovedCastling = S.empty
-            , _castlingState = BothAvailable }
+            , _castlingState = KingSideOnlyAvailable }

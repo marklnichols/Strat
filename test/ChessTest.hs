@@ -1,7 +1,11 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module ChessTest (chessTest) where
 
 import Test.Hspec
+import Data.List
 import qualified Data.Set as S
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
@@ -34,6 +38,20 @@ chessTest = do
                       ( posFromGrid board01 Black (12, 87) (False, False) (board01HasMovedW, board01HasMovedB) ) 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
+    describe "castleMoves" $ do
+        it "Gets the possible castling moves" $do
+          let pos = _chessPos castlingNode
+              moves = castleMoves pos
+              hasCastlingMove mvs =
+                  case find (\case
+                                StdMove{} -> False
+                                CastlingMove{} -> True) mvs of
+                  Just _ -> True
+                  Nothing -> False
+
+          hasCastlingMove moves `shouldBe` False
+
+
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
             let (empties, enemies) =  pairToIndexes
