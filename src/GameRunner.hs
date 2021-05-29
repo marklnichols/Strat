@@ -25,7 +25,7 @@ import System.Random hiding (next)
 import System.Time.Extra (duration, showDuration)
 
 gameEnv :: Env
-gameEnv = Env { equivThreshold = 0.05, p1Comp = False, p2Comp = True }
+gameEnv = Env { equivThreshold = 0.1, p1Comp = False, p2Comp = True }
 
 startGame :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n)
           => o -> Tree n -> Int -> Int -> IO ()
@@ -58,18 +58,23 @@ loop gen o node depth critDepth = do
         Nothing -> return ()
         Just next -> loop gen o next depth critDepth
 
+-- TODO: remove gen, maxDepth,  and maxCritDepth params once its clear that 'exclusions'
+-- list is not needed
 playersTurn :: forall o n m g. (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g)
            => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
-playersTurn gen o t maxDepth maxCritDepth = do
-    (preSortT, _preSortResult) <- preSort t sortDepth
-    (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
-    let allMvs = Z.allMoves result
-    let f nm acc = if Z.evalScore nm >= Z.maxValue || Z.evalScore nm <= Z.minValue
-                       then getMove (Z.moveNode nm) : acc
-                       else acc
-    !exclusions <- return $ foldr f [] allMvs
-    mv <- getPlayerMove o expandedT exclusions
-    return (findMove expandedT mv)
+playersTurn _gen o t _maxDepth _maxCritDepth = do
+    -- (preSortT, _preSortResult) <- preSort t sortDepth
+    -- (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
+    -- let allMvs = Z.allMoves result
+    -- let f nm acc = if Z.evalScore nm >= Z.maxValue || Z.evalScore nm <= Z.minValue
+    --                    then getMove (Z.moveNode nm) : acc
+    --                    else acc
+    -- !exclusions <- return $ foldr f [] allMvs
+    -- mv <- getPlayerMove o expandedT exclusions
+
+    -- TODO: remove this exclusions parameter once its clear it is not needed
+    mv <- getPlayerMove o t []
+    return (findMove t mv)
 
 sortDepth :: Int
 sortDepth = 2
@@ -79,7 +84,6 @@ computersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g, Ord 
 computersTurn gen o t maxDepth maxCritDepth = do
     (sec, newRoot) <- duration $ do
         (preSortT, _preSortResult) <- preSort t sortDepth
-        -- putStrLn ("result values used in pre-sorting\n" ++ showResultMoves preSortResult)
         (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
         putStrLn "\n--------------------------------------------------\n"
         showCompMove o expandedT result True

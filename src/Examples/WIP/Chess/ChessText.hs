@@ -43,10 +43,9 @@ printMoveChoiceInfo tree result verbose = do
                       evaluated percentSaved
     putStrLn ("Computer's move: " ++ showNegaMoves (best result))
 
-    -- TODO: print "(check)" when applicable
     let mv = getMove (moveNode(best result))
     let node = rootLabel tree
-    when (moveIsCheck node mv) $ do
+    when (moveChecksOpponent node mv) $ do
         putStrLn " (check)"
     when verbose $ do
         putStrLn ("score details: \n"
@@ -80,7 +79,7 @@ playerMoveText tree exclusions = do
                     putStrLn "Not a legal move."
                     playerMoveText tree exclusions
                 else do
-                    when (moveIsCheck node mv) $ do
+                    when (moveChecksOpponent node mv) $ do
                         putStrLn " (check)"
                     return mv
 

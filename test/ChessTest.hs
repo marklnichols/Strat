@@ -169,10 +169,10 @@ chessTest = do
           inCheck board04 Black 85 `shouldBe` False
           inCheck board04 White 45 `shouldBe` True
 
-    describe "moveIsCheck" $
+    describe "moveChecksOpponent" $
       it "Determines if a move results in the opposing King being in check" $ do
           let mv = StdMove { _isExchange = True, _startIdx = 55, _endIdx = 53, _stdNote = "" }
-          moveIsCheck discoveredCheckNode mv `shouldBe` True
+          moveChecksOpponent discoveredCheckNode mv `shouldBe` True
 
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
@@ -245,14 +245,16 @@ board01HasMovedW = HasMoved
   { _unMovedDev = S.fromList []
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList []
-  , _castlingState = Castled }
+  , _castlingState = Castled
+  , _unMovedQueen = False }
 
 board01HasMovedB :: HasMoved
 board01HasMovedB = HasMoved
   { _unMovedDev = S.fromList []
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList []
-  , _castlingState = Castled }
+  , _castlingState = Castled
+  , _unMovedQueen = False }
 
 ----------------------------------------------------------------------------------------------------
 board02 :: V.Vector Char
@@ -287,14 +289,16 @@ board02HasMovedW = HasMoved
   { _unMovedDev = S.fromList [wKB, wQB, wQN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling = S.fromList [wK, wKR, wQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 board02HasMovedB :: HasMoved
 board02HasMovedB = HasMoved
   { _unMovedDev = S.fromList [bKN, bKB, bQB, bQN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList [bK, bKR, bQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 ----------------------------------------------------------------------------------------------------
 board03 :: V.Vector Char
@@ -329,14 +333,16 @@ board03HasMovedW = HasMoved
   { _unMovedDev = S.fromList [wKB, wKN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling = S.fromList [wK, wKR, wQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 board03HasMovedB :: HasMoved
 board03HasMovedB = HasMoved
   { _unMovedDev = S.fromList [bKB, bQB, bQN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList [bK, bKR, bQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 board03Move :: ChessMove
 board03Move = StdMove { _isExchange = False, _startIdx = 11, _endIdx = 12, _stdNote = ""}
