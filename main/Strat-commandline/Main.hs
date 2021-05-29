@@ -38,4 +38,4 @@ stratArgs = StratArgs
   { exampleName = "chess" &= name "n" &= help "The example to run"
   , depth = 4 &= help "Tree search depth"
   , critDepth = 7 &= help "Tree search depth for critical moves"
-  , restoreGame = "new_game" &= help "Game name to restore"}
+  , restoreGame = "newgame" &= help "Game name to restore"}

@@ -1,7 +1,11 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module ChessTest (chessTest) where
 
 import Test.Hspec
+import Data.List
 import qualified Data.Set as S
 import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
@@ -34,6 +38,20 @@ chessTest = do
                       ( posFromGrid board01 Black (12, 87) (False, False) (board01HasMovedW, board01HasMovedB) ) 87
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
+    describe "castleMoves" $ do
+        it "Gets the possible castling moves" $do
+          let pos = _chessPos castlingNode
+              moves = castleMoves pos
+              hasCastlingMove mvs =
+                  case find (\case
+                                StdMove{} -> False
+                                CastlingMove{} -> True) mvs of
+                  Just _ -> True
+                  Nothing -> False
+
+          hasCastlingMove moves `shouldBe` False
+
+
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
             let (empties, enemies) =  pairToIndexes
@@ -93,7 +111,6 @@ chessTest = do
             f <$> allowablePawnNonCaptures board01 33 `shouldMatchList` []
             f <$> allowablePawnNonCaptures board01 61 `shouldMatchList` [(61, 51)]
             f <$> allowablePawnNonCaptures startingBoard 25 `shouldMatchList` [(25, 35), (25, 45)]
-
     describe "allowablePawnCaptures" $
         it "Gets the allowable capturing moves for a pawn" $ do
             let (empties, enemies) = pairToIndexes
@@ -107,7 +124,6 @@ chessTest = do
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $
             _endIdx <$> allowableEnPassant board01 78 `shouldMatchList` [57]
-
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
@@ -119,7 +135,6 @@ chessTest = do
                , (14,47), (14,58), (15,24), (15,25), (16,25), (17,25), (17,36), (17,38), (21,31)
                , (21,41), (22,32), (22,42), (34,44), (34,45), (26,36), (26,46), (27,37), (27,47)
                , (28,38), (28,48), (33,12), (33,41), (33,52), (33,54), (33,45), (33,25) ]
-
     describe "checkCastling" $
         it ("Checks and possibly updates the castling state and the set of unmoved pieces tracked"
            ++ "for castling purposes") $ do
@@ -153,11 +168,17 @@ chessTest = do
           inCheck board03 White 15 `shouldBe` False
           inCheck board04 Black 85 `shouldBe` False
           inCheck board04 White 45 `shouldBe` True
+
+    describe "moveChecksOpponent" $
+      it "Determines if a move results in the opposing King being in check" $ do
+          let mv = StdMove { _isExchange = True, _startIdx = 55, _endIdx = 53, _stdNote = "" }
+          moveChecksOpponent discoveredCheckNode mv `shouldBe` True
+
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           -- startingBoard :: V.Vector Char
-          let t = getStartNode "new_game"
+          let t = getStartNode "newgame"
           let newTree = expandTree t 2 2
           let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           let t' = findMove newTree mv
@@ -224,14 +245,16 @@ board01HasMovedW = HasMoved
   { _unMovedDev = S.fromList []
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList []
-  , _castlingState = Castled }
+  , _castlingState = Castled
+  , _unMovedQueen = False }
 
 board01HasMovedB :: HasMoved
 board01HasMovedB = HasMoved
   { _unMovedDev = S.fromList []
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList []
-  , _castlingState = Castled }
+  , _castlingState = Castled
+  , _unMovedQueen = False }
 
 ----------------------------------------------------------------------------------------------------
 board02 :: V.Vector Char
@@ -266,14 +289,16 @@ board02HasMovedW = HasMoved
   { _unMovedDev = S.fromList [wKB, wQB, wQN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling = S.fromList [wK, wKR, wQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 board02HasMovedB :: HasMoved
 board02HasMovedB = HasMoved
   { _unMovedDev = S.fromList [bKN, bKB, bQB, bQN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList [bK, bKR, bQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 ----------------------------------------------------------------------------------------------------
 board03 :: V.Vector Char
@@ -308,14 +333,16 @@ board03HasMovedW = HasMoved
   { _unMovedDev = S.fromList [wKB, wKN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling = S.fromList [wK, wKR, wQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 board03HasMovedB :: HasMoved
 board03HasMovedB = HasMoved
   { _unMovedDev = S.fromList [bKB, bQB, bQN]
   , _unMovedCenterPawns = S.fromList []
   , _unMovedCastling =  S.fromList [bK, bKR, bQR]
-  , _castlingState = BothAvailable}
+  , _castlingState = BothAvailable
+  , _unMovedQueen = False }
 
 board03Move :: ChessMove
 board03Move = StdMove { _isExchange = False, _startIdx = 11, _endIdx = 12, _stdNote = ""}

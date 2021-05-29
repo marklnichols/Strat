@@ -32,6 +32,8 @@ import Data.Sort
 import Data.Tree
 import Data.Tree.Zipper
 import System.Random
+-- import Text.Printf
+-- import Debug.Trace
 
 data Sign = Pos | Neg
   deriving (Eq, Ord, Show)
@@ -245,12 +247,15 @@ alphaBetaPrune :: forall a. (Ord a, Show a, ZipTreeNode a)
 alphaBetaPrune t cmpList alphaBeta sign enablePruning ec lvl =
     let x = rootLabel t
         xs = reverse $ subForest t
-    in if null xs then
+    in if null xs || kingCaptureRisk x then
         (TraceCmp (x, cmpList, ztnEvaluate x), [], ec)
     else
         case sign of
             Pos -> maxLoop x xs cmpList Min [] alphaBeta enablePruning ec (lvl + 1)
             Neg -> minLoop x xs cmpList Max [] alphaBeta enablePruning ec (lvl + 1)
+
+kingCaptureRisk :: (Ord a, Show a, ZipTreeNode a) => a -> Bool
+kingCaptureRisk n = ztnEvaluate n >= maxValue || ztnEvaluate n <= minValue
 
 maxLoop :: forall a. (Ord a, Show a, ZipTreeNode a)
          => a -> [Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool -> Int -> Int

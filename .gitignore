@@ -1,5 +1,5 @@
 dist
-dist-newstyle
+dist-newstyle/**
 cabal-dev
 profiling
 *.o

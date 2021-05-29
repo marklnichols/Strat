@@ -22,7 +22,7 @@ instance Output ChessText ChessNode ChessMove where
     out _ = printString
     updateBoard = showBoard
     showCompMove _ = printMoveChoiceInfo
-    getPlayerMove _ = playerMove
+    getPlayerMove _ = playerMoveText
     gameError = exitFail
 
 printString :: String -> IO ()
@@ -42,6 +42,11 @@ printMoveChoiceInfo tree result verbose = do
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
     putStrLn ("Computer's move: " ++ showNegaMoves (best result))
+
+    let mv = getMove (moveNode(best result))
+    let node = rootLabel tree
+    when (moveChecksOpponent node mv) $ do
+        putStrLn " (check)"
     when verbose $ do
         putStrLn ("score details: \n"
                  ++ showScoreDetails (_chessVal (evalNode (best result))))
@@ -57,21 +62,26 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
-playerMove :: Tree ChessNode -> [ChessMove] -> IO ChessMove
-playerMove tree exclusions = do
+playerMoveText :: Tree ChessNode -> [ChessMove] -> IO ChessMove
+playerMoveText tree exclusions = do
+    let node = rootLabel tree
     putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
-    case parseMove (rootLabel tree) line of
+    -- case parseMove (rootLabel tree) line of
+    case parseMove node line of
         Left err -> do
             putStrLn err
-            playerMove tree exclusions
+            playerMoveText tree exclusions
         Right mv ->
             if not (isLegal tree mv exclusions)
                 then do
                     putStrLn "Not a legal move."
-                    playerMove tree exclusions
-                else return mv
+                    playerMoveText tree exclusions
+                else do
+                    when (moveChecksOpponent node mv) $ do
+                        putStrLn " (check)"
+                    return mv
 
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
