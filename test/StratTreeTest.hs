@@ -16,6 +16,7 @@ instance ZipTreeNode NodeVal where
   ztnEvaluate = fromIntegral . nvalToInt
   ztnMakeChildren _ = []
   ztnSign = sign
+  ztnFinal _ = False
 
 stratTreeTest :: SpecWith ()
 stratTreeTest = do

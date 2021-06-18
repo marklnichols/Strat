@@ -129,6 +129,7 @@ instance ZipTreeNode CkNode where
   ztnMakeChildren = makeChildren
   ztnSign cn = clrToSign (cn ^. (ckPosition . clr))
   ztnDeepDecend = critsOnly
+  ztnFinal cn = cn ^. (ckPosition . fin) /= NotFinal
 
 clrToSign :: Int -> Sign
 clrToSign 1 = Pos

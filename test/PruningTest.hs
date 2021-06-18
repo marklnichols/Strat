@@ -37,6 +37,7 @@ instance ZipTreeNode TestNode where
   ztnMakeChildren = makeTestChildren
   ztnSign = tnSign
   ztnDeepDecend = isCrit
+  ztnFinal _ = False
 
 pruningTest :: SpecWith ()
 pruningTest = do

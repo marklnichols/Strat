@@ -13,6 +13,7 @@ module GameRunner
  , preSort
  , searchTo
  , showResultMoves
+ , showResultMovesFull
  , startGame
  ) where
 
@@ -44,7 +45,7 @@ loop gen o node depth critDepth = do
             out o "White wins."
             return Nothing
         BWins -> do
-            out o "White wins."
+            out o "Black wins."
             return Nothing
         Draw -> do
             out o "Draw."
@@ -63,15 +64,6 @@ loop gen o node depth critDepth = do
 playersTurn :: forall o n m g. (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g)
            => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
 playersTurn _gen o t _maxDepth _maxCritDepth = do
-    -- (preSortT, _preSortResult) <- preSort t sortDepth
-    -- (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) maxDepth maxCritDepth
-    -- let allMvs = Z.allMoves result
-    -- let f nm acc = if Z.evalScore nm >= Z.maxValue || Z.evalScore nm <= Z.minValue
-    --                    then getMove (Z.moveNode nm) : acc
-    --                    else acc
-    -- !exclusions <- return $ foldr f [] allMvs
-    -- mv <- getPlayerMove o expandedT exclusions
-
     -- TODO: remove this exclusions parameter once its clear it is not needed
     mv <- getPlayerMove o t []
     return (findMove t mv)
@@ -99,10 +91,25 @@ showResultMoves Z.NegaResult{..} =
     in intercalate ", " strs
 
 --TODO remove this:
+showResultMovesFull :: (TreeNode n m ) => Z.NegaResult n -> String
+showResultMovesFull Z.NegaResult{..} =
+    let strs = showNegaMovesFull <$> allMoves
+    in intercalate ", " strs
+
+--TODO remove this:
 showNegaMovesBrief :: (TreeNode n m) => Z.NegaMoves n -> String
 showNegaMovesBrief Z.NegaMoves{..} =
     let mv = getMove moveNode
     in (show mv) ++ ":" ++ (show evalScore)
+
+--TODO remove this:
+showNegaMovesFull :: (TreeNode n m) => Z.NegaMoves n -> String
+showNegaMovesFull Z.NegaMoves{..} =
+    let mv = getMove moveNode
+        mvStr = "Move: " ++ (show mv) ++ ":" ++ (show evalScore)
+        seqStrs = show <$> moveSeq
+        seqStr = intercalate ", " seqStrs
+    in mvStr ++ " - Sequence:" ++ seqStr ++ "\n"
 
 expandTree :: (Z.ZipTreeNode n, Ord n, Show n) => Tree n -> Int -> Int -> Tree n
 expandTree t depth critDepth = Z.expandTo t depth critDepth

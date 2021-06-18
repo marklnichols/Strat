@@ -20,7 +20,8 @@ chessTest :: SpecWith ()
 chessTest = do
     describe "locsForColor" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
-            let (wLocs, bLocs) = locsForColor board01
+            let (wLocs, bLocs) = locsForColor (posFromGrid board01 White (12, 87) (False, False)
+                                              (board01HasMovedW, board01HasMovedB))
             wLocs `shouldMatchList`
               [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
             bLocs `shouldMatchList`
@@ -188,12 +189,16 @@ chessTest = do
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
 posFromGrid :: Vector Char -> Color -> (Int, Int) -> (Bool, Bool) -> (HasMoved, HasMoved) -> ChessPos
-posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) (hasMovedW, hasMovedB) = ChessPos
-  { _cpGrid = g, _cpColor = c
-  , _cpHasMoved = (hasMovedW, hasMovedB)
-  , _cpKingLoc = (kingLocW, kingLocB)
-  , _cpInCheck = (inCheckW, inCheckB)
-  , _cpFin = NotFinal }
+posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) (hasMovedW, hasMovedB) =
+  let (wLocs, bLocs) = calcLocsForColor g
+  in ChessPos
+    { _cpGrid = g, _cpColor = c
+    , _cpHasMoved = (hasMovedW, hasMovedB)
+    , _cpKingLoc = (kingLocW, kingLocB)
+    , _cpInCheck = (inCheckW, inCheckB)
+    , _cpWhitePieceLocs = wLocs
+    , _cpBlackPieceLocs = bLocs
+    , _cpFin = NotFinal }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions
