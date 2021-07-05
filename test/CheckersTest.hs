@@ -11,6 +11,11 @@ import Test.Hspec
 import qualified CheckersJson as J
 import qualified Data.Vector.Unboxed as V
 
+
+-- dummy value of TreeLocation, used for most tests
+tl0 :: TreeLocation
+tl0 = TreeLocation {tlDepth = 0, tlIndexForDepth = 0}
+
 checkersTest :: SpecWith ()
 checkersTest = do
     describe "getAllowedMoves" $
@@ -29,9 +34,9 @@ checkersTest = do
                 (parseCkMove (nodeFromGridW board07)) ["C1-A3-C5", "C1-E3-C5", "C1-E3-G5-E7"]))
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
-            calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) ^. (ckPosition . grid) `shouldBe` board01_m1
-            calcNewNode (nodeFromGridB board02) (mkSimpleCkJump m2) ^. (ckPosition . grid) `shouldBe` board02_m2
-            calcNewNode (nodeFromGridW board03) (mkMultiCkJump m3) ^. (ckPosition . grid) `shouldBe` board03_m3
+            calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) tl0 ^. (ckPosition . grid) `shouldBe` board01_m1
+            calcNewNode (nodeFromGridB board02) (mkSimpleCkJump m2) tl0 ^. (ckPosition . grid) `shouldBe` board02_m2
+            calcNewNode (nodeFromGridW board03) (mkMultiCkJump m3) tl0 ^. (ckPosition . grid) `shouldBe` board03_m3
     describe "pieceCount" $
         it "Counts the number of white regular pieces minus the black regular pieces" $
             totalPieceCount board04 `shouldBe` -2
@@ -110,7 +115,9 @@ blackFirstStartNode = rootLabel (getStartNode "new_game") & ckPosition.clr .~ (-
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
 treeFromGridW g = Node CkNode
-    { _ckMove = mkSimpleCkMove (-1)
+    { _ckId = 0
+    , _ckTreeLoc = TreeLocation {tlDepth  = 0, tlIndexForDepth = 0}
+    , _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
     , _ckPosition = CkPosition {_grid = g, _clr = 1, _fin = NotFinal}
@@ -118,7 +125,9 @@ treeFromGridW g = Node CkNode
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
 treeFromGridB g = Node CkNode
-    { _ckMove = mkSimpleCkMove (-1)
+    { _ckId = 0
+    , _ckTreeLoc = TreeLocation {tlDepth  = 0, tlIndexForDepth = 0}
+    , _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
     , _ckPosition = CkPosition {_grid = g, _clr = -1, _fin = NotFinal}

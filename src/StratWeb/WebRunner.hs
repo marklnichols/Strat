@@ -57,16 +57,20 @@ processComputerMove tree gen = do
 --player move (web request) received
 processPlayerMove :: RandomGen g => Tree Ck.CkNode -> Ck.CkMove -> Bool -> g -> IO NodeWrapper
 processPlayerMove tree mv bComputerResponse gen = do
-    let processed = findMove tree mv
-    let done = checkGameOver processed
-    if fst done
-        then return $ createMessage (snd done) processed
-        else if bComputerResponse
-            then do
-                let posColor = color $ rootLabel processed
-                liftIO $ putStrLn $ "Computer move (In processPlayerMove), turn = " ++ show (colorToTurn posColor)
-                computerResponse processed gen
-            else return $ createUpdate "No computer move" processed processed Nothing
+    -- let processed = findMove tree mv
+    case (findMove tree mv) of
+        Left s -> error s -- this shouldn't happen
+        Right processed -> do
+            let done = checkGameOver processed
+            if fst done
+                then return $ createMessage (snd done) processed
+                else if bComputerResponse
+                    then do
+                        let posColor = color $ rootLabel processed
+                        liftIO $ putStrLn $ "Computer move (In processPlayerMove), turn = "
+                                          ++ show (colorToTurn posColor)
+                        computerResponse processed gen
+                    else return $ createUpdate "No computer move" processed processed Nothing
 
 ----------------------------------------------------------------------------------------------------
  -- Internal functions

@@ -23,6 +23,7 @@ module Strat.StratTree.TreeNode
     , RSTransformer
     , score
     , showNegaMoves
+    , TreeLocation(..)
     , TreeNode (..)
     , wrapRST
     ) where
@@ -55,6 +56,9 @@ data MoveResults t m = MoveResults
 
 newtype GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
 
+data TreeLocation  = TreeLocation { tlDepth :: Int, tlIndexForDepth :: Int }
+  deriving (Show, Eq)
+
 ----------------------------------------------------------------------------------------------------
 -- Type classes
 ----------------------------------------------------------------------------------------------------
@@ -66,13 +70,15 @@ class (Show e, Eq e, Ord e) => Eval e where
     setFloat :: e -> Float -> e
 
 class (forall s. Mutable s t, Move m, Eval t) => TreeNode t m | t -> m where
-    newNode :: t -> m -> t
+    newNode :: t -> m -> TreeLocation -> t
     color :: t -> Int
     possibleMoves :: t -> [m]
     final :: t -> FinalState
     critical :: t -> Bool
     parseMove :: t -> String -> Either String m
     getMove :: t -> m
+    nodeId :: t -> Int
+    treeLoc :: t -> TreeLocation
 
 class Output o n m | o -> n, n -> m where
     out :: o -> String -> IO ()

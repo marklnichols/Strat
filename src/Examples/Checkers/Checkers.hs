@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Checkers
@@ -12,6 +13,7 @@ module Checkers
     , CkEval(..)
     , CkMove(..)
     , CkNode(..)
+    , ckTreeLoc
     , ckPosition
     , CkPosition(..)
     , ckValue
@@ -52,7 +54,6 @@ import Safe
 import qualified CkParser as Parser
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
-import Debug.Trace
 
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
@@ -70,7 +71,9 @@ data CkEval = CkEval {_total :: Float, _details :: String}
 makeLenses ''CkEval
 
 data CkNode = CkNode
-  { _ckMove :: CkMove
+  { _ckId :: Int
+  , _ckTreeLoc :: TreeLocation
+  , _ckMove :: CkMove
   , _ckValue :: CkEval
   , _ckErrorValue :: CkEval
   , _ckPosition :: CkPosition
@@ -95,6 +98,8 @@ instance TreeNode CkNode CkMove where
     critical  = isCritical
     parseMove = parseCkMove
     getMove = _ckMove
+    nodeId = _ckId
+    treeLoc = _ckTreeLoc
 
 instance Show CkMove where
     show mv = show $ toParserMove mv
@@ -151,7 +156,9 @@ parseCkMove n s
 getStartNode :: String -> Tree CkNode
 getStartNode _restoreGame =
     Node CkNode
-        { _ckMove = CkMove
+        { _ckId = 0
+        , _ckTreeLoc = TreeLocation {tlDepth = 0, tlIndexForDepth  = 0}
+        , _ckMove = CkMove
           { _isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [], _removedIdxs = [] }
           , _ckValue = CkEval {_total = 0, _details = ""}
           , _ckErrorValue = CkEval {_total = 0, _details = ""}
@@ -290,9 +297,10 @@ boardAsPieceList node =
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
-calcNewNode :: CkNode -> CkMove -> CkNode
-calcNewNode node mv =
-    let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
+calcNewNode :: CkNode -> CkMove -> TreeLocation -> CkNode
+calcNewNode node mv TreeLocation{..} =
+    let newId = tlDepth * 1000 + tlIndexForDepth
+        moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
         clrFlipped = set (ckPosition . clr) (negate (captured ^. (ckPosition . clr))) captured
         (eval, finalSt) = evalCkNode clrFlipped
@@ -300,10 +308,11 @@ calcNewNode node mv =
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue eval finSet
         errScoreSet = set ckErrorValue errEval scoreSet
-        pMv = toParserMove mv
-        str = ("calcNewNode - move: " ++ show pMv ++ ", eval: " ++ show eval
-             ++ " (" ++ show (mv ^.startIdx) ++ "-" ++ show (mv^.endIdx) ++ ")")
-    in trace str (set ckMove mv errScoreSet)
+        idSet = set ckId newId errScoreSet
+        -- pMv = toParserMove mv
+        -- str = ("calcNewNode - move: " ++ show pMv ++ ", eval: " ++ show eval
+        --      ++ " (" ++ show (mv ^.startIdx) ++ "-" ++ show (mv^.endIdx) ++ ")")
+    in set ckMove mv idSet
 
 removePiece :: CkNode -> Int -> CkNode
 removePiece node idx = set (ckPosition . grid . ix idx) 0 node

@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Strat.Helpers
     ( isLegal
@@ -17,16 +19,38 @@ isLegal t mv exclusions =
   mv `notElem` exclusions &&
   mv `elem` possibleMoves (rootLabel t)
 
-findMove :: TreeNode t m => Tree t -> m -> Tree t
-findMove t mv =
-    case find (\ x -> mv == getMove (rootLabel x)) (subForest t) of
-        Nothing -> error ("findMoved failed for move: " ++ show mv
-                         ++ "(treesize: " ++ show (treeSize t) ++ ")") -- this should not happen
-        Just !t' -> t'
+findMove :: forall t m. (TreeNode t m, Move m) => Tree t -> m -> Either String (Tree t)
+findMove tree mv =
+    let parentDepth = tlDepth $ treeLoc $ rootLabel tree
+
+    in case find (\ x ->
+                     let n = rootLabel x
+                     in tlDepth (treeLoc n) == parentDepth + 1
+                        && mv == getMove (rootLabel x)
+                 ) (subForest tree) of
+
+        Nothing ->
+            let f x acc =
+                    let dpthStr = show $tlDepth $treeLoc $rootLabel x
+                        moveStr = show $ getMove $rootLabel x
+                    in "|<" ++ moveStr ++ " (depth: " ++ dpthStr ++ ")>|, " ++ acc
+                str = foldr f "" (subForest tree)
+            in Left ("findMoved failed for move: " ++ show mv
+                     ++ "(depth: " ++ show (parentDepth + 1) ++ ")"
+                     ++ "(treesize: " ++ show (treeSize tree) ++ ")\n" ++ str) -- this should not happen
+        Just !t' -> Right t'
 
 makeChildren :: TreeNode n m => n -> [Tree n]
 makeChildren n =
-    let ns = map (newNode n) (possibleMoves n)
+    let tloc = treeLoc n
+        parentDepth = tlDepth tloc
+        startingIndex = tlIndexForDepth tloc
+        mvs = possibleMoves n
+        nMvs = length mvs
+        indies = [startingIndex..(nMvs + startingIndex)]
+        treeLocs = fmap (\z -> TreeLocation {tlDepth = parentDepth + 1, tlIndexForDepth = z}) indies
+        zipped = zip mvs treeLocs
+        ns = map (\(m, tl) -> (newNode n m tl)) zipped
         ts = map (\x -> Node x []) ns
     in ts
 

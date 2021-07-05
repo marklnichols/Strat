@@ -63,10 +63,16 @@ loop gen o node depth critDepth = do
 -- list is not needed
 playersTurn :: forall o n m g. (Output o n m, TreeNode n m, Z.ZipTreeNode n, RandomGen g)
            => g -> o -> Tree n -> Int -> Int -> IO (Tree n)
-playersTurn _gen o t _maxDepth _maxCritDepth = do
+playersTurn gen o t maxDepth maxCritDepth = do
     -- TODO: remove this exclusions parameter once its clear it is not needed
     mv <- getPlayerMove o t []
-    return (findMove t mv)
+    case (findMove t mv) of
+      Right newTree -> return newTree
+      Left s ->  do
+          putStrLn s
+          let newNodeMoves = possibleMoves $ rootLabel t
+          putStrLn $ "Available moves:" ++ show newNodeMoves
+          playersTurn gen o t maxDepth maxCritDepth
 
 sortDepth :: Int
 sortDepth = 2
@@ -82,7 +88,13 @@ computersTurn gen o t maxDepth maxCritDepth = do
         let nextMove = getMove $ Z.moveNode (Z.best result)
         return (findMove expandedT nextMove)
     putStrLn $ "Computer move (time: " ++ showDuration sec ++ "):"
-    return newRoot
+    case newRoot of
+        Right r -> return r
+        Left s -> do
+          let newNodeMoves = possibleMoves $ rootLabel t
+          putStrLn $ "Available moves:" ++ show newNodeMoves
+          error s
+
 
 --TODO remove this:
 showResultMoves :: (TreeNode n m ) => Z.NegaResult n -> String

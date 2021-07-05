@@ -149,9 +149,9 @@ instance Show ChessEval where
 showScoreDetails :: ChessEval -> String
 showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
 
-data ChessNode = ChessNode {_chessMv :: ChessMove, _chessVal :: ChessEval, _chessErrorVal :: ChessEval
-                           , _chessPos :: ChessPos, _chessMvSeq :: [ChessMove]
-                           , _chessIsEvaluated :: Bool}
+data ChessNode = ChessNode { _chessId :: Int, _chessTreeLoc :: TreeLocation, _chessMv :: ChessMove
+                           , _chessVal :: ChessEval , _chessErrorVal :: ChessEval , _chessPos :: ChessPos
+                           , _chessMvSeq :: [ChessMove] , _chessIsEvaluated :: Bool }
     deriving (Eq)
 makeLenses ''ChessNode
 
@@ -324,6 +324,8 @@ instance TreeNode ChessNode ChessMove where
     critical = isCritical
     parseMove = parseChessMove
     getMove = _chessMv
+    nodeId = _chessId
+    treeLoc = _chessTreeLoc
 
 instance Mutable s ChessNode where
 
@@ -437,7 +439,9 @@ getStartNode restoreGame =
                         , _cpBlackPieceLocs = bLocs
                         , _cpFin = NotFinal }
         in Node ChessNode
-            { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+            { _chessId = 0
+            , _chessTreeLoc = TreeLocation {tlDepth = 0, tlIndexForDepth  = 0}
+            , _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
             , _chessVal = ChessEval { _total = 0.0, _details = "" }
             , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
             , _chessPos = cPos
@@ -454,7 +458,9 @@ getStartNode restoreGame =
               , _cpBlackPieceLocs = bLocs
               , _cpFin = NotFinal }
         in Node ChessNode
-            { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+            { _chessId = 0
+            , _chessTreeLoc = TreeLocation {tlDepth = 0, tlIndexForDepth  = 0}
+            , _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
             , _chessVal = ChessEval { _total = 0.0, _details = "" }
             , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
             , _chessPos = cPos
@@ -555,9 +561,10 @@ noDirs = []
 ---------------------------------------------------------------------------------------------------
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
-calcNewNode :: ChessNode -> ChessMove -> ChessNode
-calcNewNode node mv =
-    let curPos = node ^. chessPos
+calcNewNode :: ChessNode -> ChessMove -> TreeLocation -> ChessNode
+calcNewNode node mv tLoc@TreeLocation{..} =
+    let newId = tlDepth * 1000 + tlIndexForDepth
+        curPos = node ^. chessPos
         curMoveSeq = node ^. chessMvSeq
         curGrid = curPos ^. cpGrid
         curColor = curPos ^. cpColor
@@ -585,11 +592,14 @@ calcNewNode node mv =
                          , _cpHasMoved = newHasMoved }
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
-    in ChessNode { _chessMv = mv , _chessVal = eval
-                 , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
-                 , _chessPos = updatedPos
-                 , _chessMvSeq = mv : curMoveSeq
-                 , _chessIsEvaluated = False }
+    in ChessNode
+        { _chessId = newId
+        , _chessTreeLoc = tLoc
+        , _chessMv = mv , _chessVal = eval
+        , _chessErrorVal = ChessEval {_total = 0, _details = "not implemented"}
+        , _chessPos = updatedPos
+        , _chessMvSeq = mv : curMoveSeq
+        , _chessIsEvaluated = False }
 
 ---------------------------------------------------------------------------------------------------
 -- Update the kingLocs pair given the destination square of the move being applied
@@ -613,7 +623,12 @@ moveChecksOpponent node mv =
 ---------------------------------------------------------------------------------------------------
 moveExposesKing :: ChessNode -> ChessMove -> Bool
 moveExposesKing node mv =
-  moveIsCheckAgainst node mv (node ^. (chessPos . cpColor))
+    let pos = node ^. chessPos
+    in moveExposesKing' pos mv
+
+moveExposesKing' :: ChessPos -> ChessMove -> Bool
+moveExposesKing' pos mv =
+  moveIsCheckAgainst' pos mv (pos ^. cpColor)
 
 ---------------------------------------------------------------------------------------------------
 -- Is the side with the given color in check after a move is applied?
@@ -621,7 +636,11 @@ moveExposesKing node mv =
 moveIsCheckAgainst :: ChessNode -> ChessMove -> Color -> Bool
 moveIsCheckAgainst node mv kingsColor =
     let curPos = node ^. chessPos
-        curGrid = curPos ^. cpGrid
+    in moveIsCheckAgainst' curPos mv kingsColor
+
+moveIsCheckAgainst' :: ChessPos -> ChessMove -> Color -> Bool
+moveIsCheckAgainst' curPos mv kingsColor =
+    let curGrid = curPos ^. cpGrid
         kingLocs = curPos ^. cpKingLoc
         (newGrid, mvStartIdx, mvEndIdx) = case mv of
             StdMove _isExch start end _s -> (movePiece' curGrid start end, start, end)
@@ -840,7 +859,14 @@ flipPieceColor Unknown = Unknown
 --------------------------------------------------------------------------------------------------
 evalPos :: ChessPos -> (ChessEval, FinalState)
 evalPos pos =
-     let material = countMaterial (pos ^. cpGrid)
+     let finalState = checkFinal' pos
+         finalScore =
+           if finalState == NotFinal
+             then 0
+             else
+               let colorMult = fromIntegral (colorToInt (_cpColor pos)) :: Float
+               in Z.maxValue * colorMult
+         material = countMaterial (pos ^. cpGrid)
          mobility = calcMobility pos
          castling = calcCastling pos
          development = calcDevelopment pos
@@ -849,7 +875,7 @@ evalPos pos =
          knightPositionScore = calcKnightPositionScore pos
          t = (material * 30.0 ) + mobility + (castling * 10.0)
            + (development * 5.0) + (earlyQueen * 15.0) + (pawnPositionScore * 2)
-           + knightPositionScore
+           + knightPositionScore + finalScore
          detailsStr = "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
                 ++ "\n\tMobility (x 1): " ++ show mobility
                 ++ "\n\tCastling (x 10): " ++ show (castling * 10.0)
@@ -857,10 +883,10 @@ evalPos pos =
                 ++ "\n\tQueen dev. early (x 15): " ++ show (earlyQueen * 15.0)
                 ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
                 ++ "\n\tKnight position score (x 1): " ++ show knightPositionScore
+                ++ "\n\tThe position is final (x 1): " ++ show finalScore
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
-         finalState = NotFinal
      in (eval, finalState)
 
 ---------------------------------------------------------------------------------------------------
@@ -1070,12 +1096,15 @@ checkPromote _g chPiece _toLoc = chPiece
 checkFinal :: ChessNode -> FinalState
 checkFinal cn =
     let cp = _chessPos cn
-        c = _cpColor cp
+    in checkFinal' cp
+
+checkFinal' :: ChessPos -> FinalState
+checkFinal' cp =
+    let c = _cpColor cp
         inCheckStatus = colorToTupleElem c (_cpInCheck cp)
         iLose = colorToTupleElem c (BWins, WWins)
         -- ^ e.g. colorToTupleElem White (BWins, WWins) = BWins -- White loses
-        mvs = legalMoves cn
-
+        mvs = legalMoves' cp
     in if notNull mvs
            then NotFinal
            else if inCheckStatus then iLose else Draw
@@ -1086,18 +1115,26 @@ checkFinal cn =
 legalMoves :: ChessNode -> [ChessMove]
 legalMoves node =
     let pos = node ^. chessPos
-        moves = calcMoveLists pos
+    in  legalMoves' pos
+
+legalMoves' :: ChessPos -> [ChessMove]
+legalMoves' pos =
+    let moves = calcMoveLists pos
         initialList = _cmEmpty moves ++ _cmEnemy moves
-    in  filterKingInCheck node initialList
+    in  filterKingInCheck' pos initialList
 
 filterKingInCheck :: ChessNode -> [ChessMove] -> [ChessMove]
 filterKingInCheck node xs =
     let pos = node ^. chessPos
-        g = pos ^. cpGrid
+    in filterKingInCheck' pos xs
+
+filterKingInCheck' :: ChessPos -> [ChessMove] -> [ChessMove]
+filterKingInCheck' pos xs =
+    let g = pos ^. cpGrid
         c = pos ^. cpColor
         kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
         foldf mv r =
-            if moveExposesKing node mv
+            if moveExposesKing' pos mv
                then r
                else mv : r
         in foldr foldf [] xs
@@ -1990,7 +2027,9 @@ preCastlingGameNode grid the_color kingLocs =
           , _cpBlackPieceLocs = bLocs
           , _cpFin = NotFinal }
     in ChessNode
-        { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+        { _chessId = 0
+        , _chessTreeLoc = TreeLocation {tlDepth = 0, tlIndexForDepth  = 0}
+        , _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
         , _chessVal = ChessEval { _total = 0.0, _details = "" }
         , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
         , _chessPos = cPos
@@ -2024,7 +2063,9 @@ postCastlingGameNode grid the_color kingLocs =
           , _cpBlackPieceLocs = bLocs
           , _cpFin = NotFinal }
     in ChessNode
-        { _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+        { _chessId = 0
+        , _chessTreeLoc = TreeLocation {tlDepth = 0, tlIndexForDepth  = 0}
+        , _chessMv = StdMove {_isExchange = False, _startIdx = -1, _endIdx = -1, _stdNote = ""}
         , _chessVal = ChessEval { _total = 0.0, _details = "" }
         , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
         , _chessPos = cPos

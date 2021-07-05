@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
-
+{-# LANGUAGE ScopedTypeVariables #-}
 module ChessTest (chessTest) where
 
 import Test.Hspec
@@ -182,8 +182,9 @@ chessTest = do
           let t = getStartNode "newgame"
           let newTree = expandTree t 2 2
           let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
-          let t' = findMove newTree mv
-          (t /= t') `shouldBe` True
+          case findMove newTree mv of
+            Right t' -> (t /= t') `shouldBe` True
+            Left s -> error s
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions

@@ -67,13 +67,19 @@ instance Eval TTNode where
     setFloat tn x = tn & (ttValue . theVal) .~ (round x)
 
 instance TreeNode TTNode IntMove where
+    nodeId  _ = 0
+    treeLoc _ = tl0
     getMove t = t ^. ttMove
-    newNode = calcNewNode
+    newNode n mv _ = calcNewNode n mv
     possibleMoves = getPossibleMoves
     color n = n ^. (ttPosition . clr)
     final n = n ^. (ttPosition . fin)
     critical _ = False
     parseMove n s = strToMove s (color n)
+
+-- dummy value of TreeLocation, as its not used in this example
+tl0 :: TreeLocation
+tl0 = TreeLocation {tlDepth = 0, tlIndexForDepth = 0}
 
 ---------------------------------------------------------
 -- starting position,
