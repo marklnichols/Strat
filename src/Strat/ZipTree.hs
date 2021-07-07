@@ -85,8 +85,6 @@ class ZipTreeNode a where
   ztnMakeChildren :: a -> [Tree a]
   ztnSign :: a -> Sign
   ztnFinal :: a -> Bool
-  ztnDeepDecend :: a -> Bool
-  ztnDeepDecend _ = False
 
 instance Ord a => Ord (Tree a) where
    (<=) (Node x _xs) (Node y _ys) = x <= y
@@ -117,10 +115,10 @@ data NegaResult a = NegaResult
 expandTo :: (Ord a, Show a, ZipTreeNode a)
          => Tree a
          -> Int
-         -> Int
          -> Tree a
-expandTo t depth critDepth =
-  let newTree = decendUntil (fromTree t) 1 depth critDepth
+expandTo t depth =
+
+  let newTree = decendUntil (fromTree t) 1 depth
   in newTree
 
 sortFromResult :: forall a. (Ord a, Show a, ZipTreeNode a)
@@ -144,52 +142,36 @@ decendUntil :: (Ord a, Show a, ZipTreeNode a)
             => TreePos Full a
             -> Int
             -> Int
-            -> Int
             -> Tree a
-decendUntil z curDepth goalDepth critDepth
-    -- regular decent
+decendUntil z curDepth goalDepth
     | curDepth <= goalDepth =
-        let !theChildren = buildChildren z curDepth goalDepth critDepth
+        let !theChildren = buildChildren z curDepth goalDepth
         in (toTree $ modifyTree (\(Node x _) -> Node x theChildren) z)
-    -- past the goal depth and the parent isn't q crit -- stop
-    | curDepth > goalDepth
-    , ztnDeepDecend (label z) == False = toTree z
-    -- past the goal depth and the crit depth -- stop
-    | curDepth > goalDepth
-    , curDepth > critDepth = toTree z
-    -- crits only
-    | otherwise = -- crits only...
-        let unfiltered = buildChildren z curDepth goalDepth critDepth
-            !theChildren = filterDeepDecentChildren unfiltered
-        in (toTree $ modifyTree (\(Node x _) -> Node x theChildren) z)
-
-filterDeepDecentChildren :: ZipTreeNode a => [Tree a] -> [Tree a]
-filterDeepDecentChildren xs = filter (\t -> ztnDeepDecend (rootLabel t)) xs
+    | otherwise = toTree z
 
 buildChildren :: forall a. (Ord a, Show a, ZipTreeNode a)
               => TreePos Full a
               -> Int
               -> Int
-              -> Int
               -> [Tree a]
-buildChildren z curDepth goalDepth critDepth =
+buildChildren z curDepth goalDepth =
     let tempLabel = label z
         tempForest = subForest $ toTree z
         theChildren = if length tempForest /= 0
             then tempForest
             else ztnMakeChildren tempLabel
-        (results, _) = zipFoldR (zipFoldFn curDepth goalDepth critDepth)
+        (results, _) = zipFoldR (zipFoldFn curDepth goalDepth)
                        ([], children z) theChildren
     in results
 
 zipFoldFn :: (Ord a, Show a, ZipTreeNode a)
-  => Int -> Int -> Int
+  => Int -> Int
   -> Tree a
   -> ([Tree a], TreePos Empty a)
   -> ([Tree a], TreePos Empty a)
-zipFoldFn curDepth goalDepth critDepth t (xs, childPos) =
+zipFoldFn curDepth goalDepth t (xs, childPos) =
     let zippedChild = fromTree t
-        newT = decendUntil zippedChild (curDepth + 1) goalDepth critDepth
+        newT = decendUntil zippedChild (curDepth + 1) goalDepth
         tmp = insert newT childPos
         nextChildPos = nextSpace tmp
     in (newT : xs, nextChildPos)

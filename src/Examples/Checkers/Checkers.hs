@@ -95,7 +95,6 @@ instance TreeNode CkNode CkMove where
     possibleMoves = getAllowedMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
-    critical  = isCritical
     parseMove = parseCkMove
     getMove = _ckMove
     nodeId = _ckId
@@ -133,7 +132,6 @@ instance ZipTreeNode CkNode where
   ztnEvaluate = evaluateCkNode
   ztnMakeChildren = makeChildren
   ztnSign cn = clrToSign (cn ^. (ckPosition . clr))
-  ztnDeepDecend = critsOnly
   ztnFinal cn = cn ^. (ckPosition . fin) /= NotFinal
 
 clrToSign :: Int -> Sign
@@ -395,9 +393,6 @@ checkFinal n
             numPieces = pieceCount g colr + kingCount g colr
             colr = n ^. (ckPosition . clr)
 
-isCritical :: CkNode -> Bool
-isCritical cn = _isJump $ _ckMove cn
-
 colorToWinState :: Int -> FinalState
 colorToWinState 1 = WWins
 colorToWinState _ = BWins
@@ -458,9 +453,6 @@ pieceProgress xs colr =
 
 setColor :: CkNode -> Int -> CkNode
 setColor node colr = node & ckPosition.clr .~ colr
-
-critsOnly :: TreeNode n m => n -> Bool
-critsOnly = critical
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position

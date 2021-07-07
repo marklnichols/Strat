@@ -180,7 +180,7 @@ chessTest = do
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           -- startingBoard :: V.Vector Char
           let t = getStartNode "newgame"
-          let newTree = expandTree t 2 2
+          let newTree = expandTree t 2
           let mv = StdMove { _isExchange = False, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True

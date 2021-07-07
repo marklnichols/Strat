@@ -171,14 +171,10 @@ instance Z.ZipTreeNode ChessNode where
   ztnMakeChildren = makeChildren
   ztnSign cn = colorToSign (cn ^. (chessPos . cpColor))
   ztnFinal cn = cn ^. (chessPos . cpFin) /= NotFinal
-  ztnDeepDecend = critsOnly
 
 colorToSign :: Color -> Z.Sign
 colorToSign White = Z.Pos
 colorToSign _ = Z.Neg
-
-critsOnly :: TreeNode n m => n -> Bool
-critsOnly = critical
 
 toParserMove :: ChessMove -> Parser.Move
 toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
@@ -321,7 +317,6 @@ instance TreeNode ChessNode ChessMove where
     color = colorToInt . view (chessPos . cpColor)
     -- final = view (chessPos . cpFin)
     final = checkFinal
-    critical = isCritical
     parseMove = parseChessMove
     getMove = _chessMv
     nodeId = _chessId
@@ -840,11 +835,13 @@ flipPieceColor White = Black
 flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
+{- TODOs:
 -- Try running 'stan': https://hackage.haskell.org/package/stan
+-- Add pawn promotion
 -- Determine mate in n
 -- Add parallel processing
 -- Various command line debug tools
-{-  TODO add scores for
+-- And add evaluation scores for:
       outposts
       half-empty, empty file rooks
       doubled rooks

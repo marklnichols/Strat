@@ -74,7 +74,6 @@ class (forall s. Mutable s t, Move m, Eval t) => TreeNode t m | t -> m where
     color :: t -> Int
     possibleMoves :: t -> [m]
     final :: t -> FinalState
-    critical :: t -> Bool
     parseMove :: t -> String -> Either String m
     getMove :: t -> m
     nodeId :: t -> Int

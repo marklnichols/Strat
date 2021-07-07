@@ -94,7 +94,7 @@ computerResponse prevNode gen = do
 computerMove :: (RandomGen g) => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-    let newTree = expandTo t (ceDepth gameEnv) (ceCritDepth gameEnv)
+    let newTree = expandTo t (ceDepth gameEnv)
 
     let res@NegaResult{..} = negaRnd newTree gen (ceEquivThreshold gameEnv) True
 

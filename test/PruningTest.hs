@@ -36,7 +36,6 @@ instance ZipTreeNode TestNode where
   ztnEvaluate = tnValue
   ztnMakeChildren = makeTestChildren
   ztnSign = tnSign
-  ztnDeepDecend = isCrit
   ztnFinal _ = False
 
 pruningTest :: SpecWith ()
@@ -52,7 +51,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 1
             --------------------------------------------------
-            let wikiTreeD1 = expandTo rootWikiTree 1 1
+            let wikiTreeD1 = expandTo rootWikiTree 1
             let result1 = negaMax wikiTreeD1 False
             let theBest1 = best result1
             evalNode theBest1 `shouldBe`
@@ -64,7 +63,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 2
             --------------------------------------------------
-            let wikiTreeD2 = expandTo rootWikiTree 2 2
+            let wikiTreeD2 = expandTo rootWikiTree 2
             let result2 = negaMax wikiTreeD2 False
             let theBest2 = best result2
             evalNode theBest2 `shouldBe`
@@ -77,7 +76,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 3
             --------------------------------------------------
-            let wikiTreeD3 = expandTo rootWikiTree 3 3
+            let wikiTreeD3 = expandTo rootWikiTree 3
             let result3 = negaMax wikiTreeD3 False
             let theBest3 = best result3
             evalNode theBest3 `shouldBe`
@@ -91,7 +90,7 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- testing the complete tree
             ----------------------------------------------------------------------------------
-            let newWikiTree = expandTo rootWikiTree 4 4
+            let newWikiTree = expandTo rootWikiTree 4
 
             -- first without pruning
             let result4 = negaMax newWikiTree False
@@ -145,25 +144,9 @@ pruningTest = do
             evalCount result6 `shouldBe` (33-8-1) -- 8===nodes skipped from pruning, 1===root node not counted
 
             ----------------------------------------------------------------------------------
-            -- with crit processing only for the important nodes at the bottom two levels
-            ----------------------------------------------------------------------------------
-            let newCritWikiTree = expandTo rootWikiTree 2 4
-            let result7 = negaMax newCritWikiTree True
-            let theBest7 = best result7
-            evalNode theBest7 `shouldBe`
-                TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-
-            moveSeq theBest7 `shouldBe`
-              [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
-              , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 15, name = "01-03-07-15 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              ]
-
-            ----------------------------------------------------------------------------------
             -- with incremental decent and sorting
             ----------------------------------------------------------------------------------
-            let (newIncWikiTree, result8) = incrementalSearchTo rootWikiTree rnd 0.0 4 4
+            let (newIncWikiTree, result8) = incrementalSearchTo rootWikiTree rnd 0.0 4
             let theBest8 = best result8
             evalNode theBest8 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
@@ -176,20 +159,6 @@ pruningTest = do
 
             treeSize newIncWikiTree `shouldBe` (33, [1, 3, 6, 9, 14])
             evalCount result8 `shouldBe` 21 -- reduced count due to sorting
-
-            ----------------------------------------------------------------------------------
-            -- with incremental decent and sorting AND crit processing only for the important nodes at the bottom two levels
-            ----------------------------------------------------------------------------------
-            let (_, result9) = incrementalSearchTo rootWikiTree rnd 0.0 2 4
-            let theBest9 = best result9
-            evalNode theBest9 `shouldBe`
-                TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-            moveSeq theBest9 `shouldBe`
-              [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
-              , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              ]
 
 rootWikiTree :: Tree TestNode
 rootWikiTree = Node TestNode { typ = 1, nid = 01, name = "01 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = False} []
