@@ -29,11 +29,14 @@ module Strat.ZipTree
 
 import qualified Data.List as List
 import Data.Sort
-import Data.Tree
+import qualified Data.Tree as T
 import Data.Tree.Zipper
 import System.Random
 -- import Text.Printf
 -- import Debug.Trace
+
+newtype  ZipTree a = ZipTree {unZipTree :: T.Tree a}
+  deriving Eq
 
 data Sign = Pos | Neg
   deriving (Eq, Ord, Show)
@@ -82,12 +85,15 @@ initAlphaBeta = AlphaBeta
 
 class ZipTreeNode a where
   ztnEvaluate :: a -> Float
-  ztnMakeChildren :: a -> [Tree a]
+  ztnMakeChildren :: a -> [T.Tree a]
   ztnSign :: a -> Sign
   ztnFinal :: a -> Bool
 
-instance Ord a => Ord (Tree a) where
-   (<=) (Node x _xs) (Node y _ys) = x <= y
+instance forall a. Ord a => Ord (ZipTree a) where
+   (<=) r s =
+     let x = unZipTree r
+         y = unZipTree s
+     in x <= y
 
 -- TODO: Can probably get rid of NegaMoves now
 data NegaMoves a = NegaMoves
@@ -112,51 +118,49 @@ data NegaResult a = NegaResult
   , allMoves :: [NegaMoves a]
   , evalCount :: Int }
 
-expandTo :: (Ord a, Show a, ZipTreeNode a)
-         => Tree a
+expandTo :: forall a. (Ord a, Show a, ZipTreeNode a)
+         => T.Tree a
          -> Int
-         -> Tree a
+         -> T.Tree a
 expandTo t depth =
-
-  let newTree = decendUntil (fromTree t) 1 depth
-  in newTree
+  decendUntil (fromTree t) 1 depth
 
 sortFromResult :: forall a. (Ord a, Show a, ZipTreeNode a)
-         => Tree a
+         => T.Tree a
          -> NegaResult a
-         -> Tree a
+         -> T.Tree a
 sortFromResult treeRoot prevResult =
     let tpos = fromTree treeRoot
-        theChildren = subForest treeRoot
+        theChildren = T.subForest treeRoot
         moves = allMoves prevResult
         pairs = foldr f [] moves where
             f nmv acc =
-                case List.find (\t -> rootLabel t == moveNode nmv ) theChildren of
+                case List.find (\t -> T.rootLabel t == moveNode nmv ) theChildren of
                     Nothing -> error $ "sorting error: couldn't find: " ++ show (moveNode nmv)
                     Just tMatch -> (tMatch, evalScore nmv) : acc
         sorted = sortOn (\(_, x) -> -x) pairs
         sortedChildren = fst <$> sorted
-    in toTree $ modifyTree (\(Node x _) -> Node x sortedChildren) tpos
+    in toTree $ modifyTree (\(T.Node x _) -> T.Node x sortedChildren) tpos
 
 decendUntil :: (Ord a, Show a, ZipTreeNode a)
             => TreePos Full a
             -> Int
             -> Int
-            -> Tree a
+            -> T.Tree a
 decendUntil z curDepth goalDepth
     | curDepth <= goalDepth =
         let !theChildren = buildChildren z curDepth goalDepth
-        in (toTree $ modifyTree (\(Node x _) -> Node x theChildren) z)
+        in toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z
     | otherwise = toTree z
 
 buildChildren :: forall a. (Ord a, Show a, ZipTreeNode a)
               => TreePos Full a
               -> Int
               -> Int
-              -> [Tree a]
+              -> [T.Tree a]
 buildChildren z curDepth goalDepth =
     let tempLabel = label z
-        tempForest = subForest $ toTree z
+        tempForest = T.subForest $ toTree z
         theChildren = if length tempForest /= 0
             then tempForest
             else ztnMakeChildren tempLabel
@@ -166,9 +170,9 @@ buildChildren z curDepth goalDepth =
 
 zipFoldFn :: (Ord a, Show a, ZipTreeNode a)
   => Int -> Int
-  -> Tree a
-  -> ([Tree a], TreePos Empty a)
-  -> ([Tree a], TreePos Empty a)
+  -> T.Tree a
+  -> ([T.Tree a], TreePos Empty a)
+  -> ([T.Tree a], TreePos Empty a)
 zipFoldFn curDepth goalDepth t (xs, childPos) =
     let zippedChild = fromTree t
         newT = decendUntil zippedChild (curDepth + 1) goalDepth
@@ -177,17 +181,17 @@ zipFoldFn curDepth goalDepth t (xs, childPos) =
     in (newT : xs, nextChildPos)
 
 zipFoldR :: forall a. Show a
-         => ( Tree a
-              -> ([Tree a], TreePos Empty a)
-              -> ([Tree a], TreePos Empty a) )
-         -> ([Tree a], TreePos Empty a)
-         -> [Tree a]
-         -> ([Tree a], TreePos Empty a)
+         => ( T.Tree a
+              -> ([T.Tree a], TreePos Empty a)
+              -> ([T.Tree a], TreePos Empty a) )
+         -> ([T.Tree a], TreePos Empty a)
+         -> [T.Tree a]
+         -> ([T.Tree a], TreePos Empty a)
 zipFoldR f = loop
   where
-    loop :: ([Tree a], TreePos Empty a)
-         -> [Tree a]
-         -> ([Tree a], TreePos Empty a)
+    loop :: ([T.Tree a], TreePos Empty a)
+         -> [T.Tree a]
+         -> ([T.Tree a], TreePos Empty a)
     loop (acc, z ) [] = (acc, z)
     loop (acc, z) (x : xs) =
         let (ys, z') = f x (acc, z)
@@ -213,9 +217,9 @@ updateAlphaBeta Neg alpBet newBeta _x =
            then alpBet
            else alpBet {beta = maybeUpdated }
 
-negaMax :: (Ord a, Show a, ZipTreeNode a) => Tree a -> Bool -> NegaResult a
+negaMax :: (Ord a, Show a, ZipTreeNode a) => T.Tree a -> Bool -> NegaResult a
 negaMax t enablePruning =
-  let sign = ztnSign $ rootLabel t
+  let sign = ztnSign $ T.rootLabel t
       alphaBeta = initAlphaBeta
       (theBest, traceCmps, ec) = alphaBetaPrune t [] alphaBeta sign enablePruning 0 0
   in NegaResult { best = toNegaMoves (revTraceCmp theBest)
@@ -224,11 +228,11 @@ negaMax t enablePruning =
                 , evalCount = ec }
 
 alphaBetaPrune :: forall a. (Ord a, Show a, ZipTreeNode a)
-         => Tree a -> [a] -> AlphaBeta -> Sign -> Bool -> Int -> Int
+         => T.Tree a -> [a] -> AlphaBeta -> Sign -> Bool -> Int -> Int
          -> (TraceCmp a, [TraceCmp a], Int)
 alphaBetaPrune t cmpList alphaBeta sign enablePruning ec lvl =
-    let x = rootLabel t
-        xs = reverse $ subForest t
+    let x = T.rootLabel t
+        xs = reverse $ T.subForest t
     in if null xs || kingCaptureRisk x then
         (TraceCmp (x, cmpList, ztnEvaluate x), [], ec)
     else
@@ -243,37 +247,65 @@ kingCaptureRisk _n = False
 
 
 maxLoop :: forall a. (Ord a, Show a, ZipTreeNode a)
-         => a -> [Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool -> Int -> Int
+         => a -> [T.Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool -> Int -> Int
          -> (TraceCmp a, [TraceCmp a], Int)
 maxLoop _ [] _cmpList tcCurrentBest tcAltsAcc _ _ ec _lvl = (tcCurrentBest, tcAltsAcc, ec)
 maxLoop parTemp (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta enablePruning ec lvl =
     let (tcPossibleBest, _, ec')
-            = alphaBetaPrune t (rootLabel t : cmpList) alphaBeta Neg enablePruning ec lvl
+            = alphaBetaPrune t (T.rootLabel t : cmpList) alphaBeta Neg enablePruning ec lvl
         (tcNewBest, ec'') = (max tcCurrentBest tcPossibleBest, ec' + 1)
+        --
         TraceCmp(z, _zs, zVal) = tcNewBest
         newAlphaBeta = updateAlphaBeta Pos alphaBeta zVal z
+        -- Keep for now, debug output:
+        -- TraceCmp(z, zs, zVal) = tcNewBest
+        -- newAlphaBeta = case tcCurrentBest of
+        --     Min -> updateAlphaBeta Pos alphaBeta zVal z
+        --     _ ->
+        --         let TraceCmp (_, _, tcCurVal) = tcCurrentBest
+        --             str = "\n" ++ printf "maxLoop - %s" (showTC tcNewBest)
+        --                 ++ printf "chosen as MAX of tcCurrentBest = (%f)" tcCurVal
+        --                 ++ "\n" ++ printf "and tcPossibleBest = %s" (showTC tcPossibleBest)
+        --                 ++ printf " - length of tcNewBest = ***%d***" (length zs)
+        --             !temp = trace str updateAlphaBeta Pos alphaBeta zVal z
+        --         in temp
+        --
     in if canPrune newAlphaBeta z enablePruning
        then (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
        else maxLoop parTemp ts cmpList tcNewBest (tcPossibleBest : tcAltsAcc) newAlphaBeta enablePruning ec'' lvl
 
 minLoop :: forall a. (Ord a, Show a, ZipTreeNode a)
-         => a -> [Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool -> Int -> Int
+         => a -> [T.Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool -> Int -> Int
          -> (TraceCmp a, [TraceCmp a], Int)
 minLoop _ [] _cmpList tcCurrentBest tcAltsAcc _ _ ec _lvl = (tcCurrentBest, tcAltsAcc, ec)
 minLoop parTemp (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta enablePruning ec lvl =
     let (tcPossibleBest, _, ec')
-             = alphaBetaPrune t (rootLabel t : cmpList) alphaBeta Pos enablePruning ec lvl
+             = alphaBetaPrune t (T.rootLabel t : cmpList) alphaBeta Pos enablePruning ec lvl
         (tcNewBest, ec'') = (min tcCurrentBest tcPossibleBest, ec' + 1)
+        --
         TraceCmp(z, _zs, zVal) = tcNewBest
         newAlphaBeta = updateAlphaBeta Neg alphaBeta zVal z
+        -- Keep for now, debug output:
+        -- TraceCmp(z, zs, zVal) = tcNewBest
+        -- newAlphaBeta = case tcCurrentBest of
+        --     Max -> updateAlphaBeta Neg alphaBeta zVal z
+        --     _ ->
+        --         let TraceCmp (_, _, tcCurVal) = tcCurrentBest
+        --             str = "\n" ++ printf "minLoop - %s" (showTC tcNewBest)
+        --                 ++ printf "chosen as MIN of tcCurrentBest = (%f)" tcCurVal
+        --                 ++ "\n" ++ printf "and tcPossibleBest = %s" (showTC tcPossibleBest)
+        --                 ++ printf " - length of tcNewBest = ***%d***" (length zs)
+        --             !temp = trace str updateAlphaBeta Neg alphaBeta zVal z
+        --             in temp
+        --
     in if canPrune newAlphaBeta z enablePruning
            then (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
            else minLoop parTemp ts cmpList tcNewBest (tcPossibleBest : tcAltsAcc) newAlphaBeta enablePruning ec'' lvl
 
 negaRnd :: (Ord a, Show a, ZipTreeNode a, RandomGen g)
-        => Tree a -> g -> Float -> Bool -> NegaResult a
+        => T.Tree a -> g -> Float -> Bool -> NegaResult a
 negaRnd t gen percentVar enablePruning =
-    let sign = ztnSign (rootLabel t)
+    let sign = ztnSign (T.rootLabel t)
         alphaBeta = initAlphaBeta
         (theBest, traceCmps, ec) = alphaBetaPrune t [] alphaBeta sign enablePruning 0 0
         noDup = List.delete theBest traceCmps
@@ -303,10 +335,11 @@ showTC Min = "<Min>"
 showTC (TraceCmp (x, xs, v)) =
     let midStr =
           if length xs == 1 then "."
-          else "\n[ " ++ List.intercalate ",\n\t" (fmap show (reverse xs)) ++ " ]"
+          else "[ " ++ List.intercalate ", " (fmap show (reverse xs)) ++ " ]"
     in "x: " ++ show x ++ "\n"
       ++ "xs: " ++ midStr ++ "\n"
       ++ "v: " ++ show v
+      ++ "\n"
 
 showMoveSeq :: (Show a) => TraceCmp a -> String
 showMoveSeq Max = "<Max>"
@@ -320,6 +353,7 @@ showMoveSeq (TraceCmp (_x, xs, _v)) =
 --gets the number of elements at each level of the tree plus the total size
 --for debugging / analysis only
 --------------------------------------------------------------------------------
-treeSize :: Tree t -> (Int, [Int])
-treeSize t = let levelTotals = fmap length (levels t)
-             in (sum levelTotals, levelTotals)
+treeSize :: T.Tree t -> (Int, [Int])
+treeSize t =
+    let levelTotals = fmap length (T.levels t)
+    in (sum levelTotals, levelTotals)

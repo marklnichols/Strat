@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
@@ -8,7 +9,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Strat.StratTree.TreeNode
-    ( Env (..)
+    (
+      Entry(..)
+    , Env (..)
     , Eval (..)
     , FinalState (..)
     , GameState(..)
@@ -32,7 +35,6 @@ import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.List
-import Data.Mutable
 import Data.Tree
 import Strat.ZipTree (NegaResult(..), NegaMoves(..))
 
@@ -43,7 +45,7 @@ data FinalState = WWins | BWins | Draw | NotFinal
     deriving (Enum, Show, Eq, Ord)
 
 data Env = Env
-    { equivThreshold :: Float, p1Comp :: Bool ,p2Comp :: Bool } deriving (Show)
+    { equivThreshold :: Float } deriving (Show)
 
 data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Show, Eq)
 $(makeLenses ''MoveScore)
@@ -56,8 +58,22 @@ data MoveResults t m = MoveResults
 
 newtype GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
 
-data TreeLocation  = TreeLocation { tlDepth :: Int, tlIndexForDepth :: Int }
+newtype TreeLocation  = TreeLocation { tlDepth :: Int }
   deriving (Show, Eq)
+
+data Entry m s where
+  MoveEntry :: (Move m) => m -> Entry m s
+  CmdEntry :: String-> Entry m s
+
+instance Show m => Show (Entry m s) where
+  show (MoveEntry m) = show m
+  show (CmdEntry s) = s
+
+instance Eq m => Eq (Entry m s) where
+  (==) (MoveEntry m1) (MoveEntry m2) = m1 == m2
+  (==) (CmdEntry s1) (CmdEntry s2) = s1 == s2
+  (==) (MoveEntry _) (CmdEntry _) = False
+  (==) (CmdEntry _) (MoveEntry _) = False
 
 ----------------------------------------------------------------------------------------------------
 -- Type classes
@@ -69,21 +85,21 @@ class (Show e, Eq e, Ord e) => Eval e where
     isEvaluated :: e -> Bool
     setFloat :: e -> Float -> e
 
-class (forall s. Mutable s t, Move m, Eval t) => TreeNode t m | t -> m where
+class (Move m, Eval t) => TreeNode t m | t -> m where
     newNode :: t -> m -> TreeLocation -> t
     color :: t -> Int
     possibleMoves :: t -> [m]
     final :: t -> FinalState
-    parseMove :: t -> String -> Either String m
+    parseEntry :: t -> String -> Either String (Entry m s)
     getMove :: t -> m
-    nodeId :: t -> Int
     treeLoc :: t -> TreeLocation
+    undoMove :: t -> m -> t
 
 class Output o n m | o -> n, n -> m where
     out :: o -> String -> IO ()
     updateBoard :: o -> n -> IO ()
     showCompMove :: o -> Tree n -> NegaResult n -> Bool -> IO ()
-    getPlayerMove :: o -> Tree n -> [m] -> IO m
+    getPlayerEntry :: o -> Tree n -> [m] -> IO (Entry m s)
     gameError :: o -> String -> IO ()
 
 mkMoveScores :: (TreeNode n m, Eval n) => [n] -> [MoveScore m n]

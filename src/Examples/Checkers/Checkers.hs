@@ -51,7 +51,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode hiding (MoveScore)
 import Strat.ZipTree
 import Safe
-import qualified CkParser as Parser
+import qualified Parser8By8 as Parser
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
 
@@ -71,8 +71,7 @@ data CkEval = CkEval {_total :: Float, _details :: String}
 makeLenses ''CkEval
 
 data CkNode = CkNode
-  { _ckId :: Int
-  , _ckTreeLoc :: TreeLocation
+  { _ckTreeLoc :: TreeLocation
   , _ckMove :: CkMove
   , _ckValue :: CkEval
   , _ckErrorValue :: CkEval
@@ -95,24 +94,21 @@ instance TreeNode CkNode CkMove where
     possibleMoves = getAllowedMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
-    parseMove = parseCkMove
+    parseEntry = parseCkMove
     getMove = _ckMove
-    nodeId = _ckId
     treeLoc = _ckTreeLoc
+    undoMove = undoCkMove
 
 instance Show CkMove where
     show mv = show $ toParserMove mv
 
 instance Show CkNode where
-    -- show n = "move: " ++ show (n ^. ckMove) ++ " value: " ++ show (n ^. ckValue) ++ " errorValue: "
-    --          ++ show (n ^. ckErrorValue) ++ " position: " ++ show (n ^. ckPosition)
     show n = "move: " ++ show (n ^. ckMove) ++ ", value: " ++ show (n ^. ckValue)
 
 instance Ord CkNode where
     (<=) ckn1 ckn2 = evaluate ckn1 <= evaluate ckn2
 
 instance Show CkEval where
-    -- show e = "Total = " ++ show (e ^. total) ++ "<br>" ++ (e ^. details)
     show e = show (e ^. total)
 
 showScoreDetails :: CkEval -> String
@@ -141,12 +137,14 @@ clrToSign _ = Neg
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------------------------------------------------
-parseCkMove :: CkNode -> String -> Either String CkMove
-parseCkMove n s
-    | Left err <- pMove   = Left err
-    | Right x  <- pMove   = toCkMove n x
-        where
-        pMove = Parser.run s
+parseCkMove :: CkNode -> String -> Either String (Entry CkMove s)
+parseCkMove n s =
+    case Parser.run s of
+      Left err -> Left err
+      Right entry ->
+        case toCkMove n entry of
+          Left e -> Left e
+          Right mv -> Right $ MoveEntry mv
 
 ---------------------------------------------------------------------------------------------------
 -- starting or other test position
@@ -154,8 +152,7 @@ parseCkMove n s
 getStartNode :: String -> Tree CkNode
 getStartNode _restoreGame =
     Node CkNode
-        { _ckId = 0
-        , _ckTreeLoc = TreeLocation {tlDepth = 0, tlIndexForDepth  = 0}
+        { _ckTreeLoc = TreeLocation {tlDepth = 0}
         , _ckMove = CkMove
           { _isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [], _removedIdxs = [] }
           , _ckValue = CkEval {_total = 0, _details = ""}
@@ -206,18 +203,20 @@ indexToValue bottomColor idx
 ---------------------------------------------------------------------------------------------------
 --supports infering move from single loc if there is a unique one
 --TODO fix: one move + one jump should == unique jump
-toCkMove :: CkNode -> Parser.Move -> Either String CkMove
+toCkMove :: CkNode -> Parser.Entry -> Either String CkMove
 toCkMove node (Parser.Move xs) =     --parser guarentees at least one item in list. TODO: move to non-empty list
     let xs' = fmap locToInt xs
     in case length xs' of
         1 -> fromSingleLoc node (head xs')
         _ -> Right $ fromMultLoc xs'
+toCkMove _ (Parser.Cmd s) = Left $ "Unexpected cmd where move was expected: " ++ s
 
 --This variant doesnt require CkNode, but doesn't support inferring move from a single loc
-parserToCkMove :: Parser.Move -> Maybe CkMove
+parserToCkMove :: Parser.Entry -> Maybe CkMove
 parserToCkMove (Parser.Move xs)
     | length xs < 2     = Nothing
     | otherwise         = Just $ fromMultLoc $ fmap locToInt xs
+parserToCkMove (Parser.Cmd _) = Nothing
 
 fromSingleLoc :: CkNode -> Int -> Either String CkMove
 fromSingleLoc node x
@@ -257,10 +256,11 @@ rowIndexes = Map.fromList [(1, 5), (2, 10), (3, 14), (4, 19), (5, 23), (6, 28), 
 ---------------------------------------------------------------------------------------------------
 -- Convert CkMove to Parser Move
 ---------------------------------------------------------------------------------------------------
-toParserMove :: CkMove -> Parser.Move
+toParserMove :: CkMove -> Parser.Entry
 toParserMove mv =
     let mAll = intToLoc (mv^.startIdx) : fmap intToLoc (mv^.middleIdxs) ++ [intToLoc (mv^.endIdx)]
     in Parser.Move mAll
+
 
 intToLoc :: Int -> Parser.Loc
 intToLoc n =
@@ -296,9 +296,8 @@ boardAsPieceList node =
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: CkNode -> CkMove -> TreeLocation -> CkNode
-calcNewNode node mv TreeLocation{..} =
-    let newId = tlDepth * 1000 + tlIndexForDepth
-        moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
+calcNewNode node mv _tl =
+    let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
         clrFlipped = set (ckPosition . clr) (negate (captured ^. (ckPosition . clr))) captured
         (eval, finalSt) = evalCkNode clrFlipped
@@ -306,11 +305,7 @@ calcNewNode node mv TreeLocation{..} =
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue eval finSet
         errScoreSet = set ckErrorValue errEval scoreSet
-        idSet = set ckId newId errScoreSet
-        -- pMv = toParserMove mv
-        -- str = ("calcNewNode - move: " ++ show pMv ++ ", eval: " ++ show eval
-        --      ++ " (" ++ show (mv ^.startIdx) ++ "-" ++ show (mv^.endIdx) ++ ")")
-    in set ckMove mv idSet
+    in set ckMove mv errScoreSet
 
 removePiece :: CkNode -> Int -> CkNode
 removePiece node idx = set (ckPosition . grid . ix idx) 0 node
@@ -453,6 +448,13 @@ pieceProgress xs colr =
 
 setColor :: CkNode -> Int -> CkNode
 setColor node colr = node & ckPosition.clr .~ colr
+
+---------------------------------------------------------------------------------------------------
+-- undo move
+-- TODO: not yet implemented
+---------------------------------------------------------------------------------------------------
+undoCkMove :: CkNode -> CkMove -> CkNode
+undoCkMove cn _undoMove = cn
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a given position

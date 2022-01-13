@@ -67,18 +67,18 @@ instance Eval TTNode where
     setFloat tn x = tn & (ttValue . theVal) .~ (round x)
 
 instance TreeNode TTNode IntMove where
-    nodeId  _ = 0
     treeLoc _ = tl0
     getMove t = t ^. ttMove
     newNode n mv _ = calcNewNode n mv
     possibleMoves = getPossibleMoves
     color n = n ^. (ttPosition . clr)
     final n = n ^. (ttPosition . fin)
-    parseMove n s = strToMove s (color n)
+    parseEntry n s = strToMove s (color n)
+    undoMove = undoTTMove
 
 -- dummy value of TreeLocation, as its not used in this example
 tl0 :: TreeLocation
-tl0 = TreeLocation {tlDepth = 0, tlIndexForDepth = 0}
+tl0 = TreeLocation {tlDepth = 0}
 
 ---------------------------------------------------------
 -- starting position,
@@ -91,12 +91,12 @@ _getStartNode = Node TTNode { _ttMove = IntMove (-1), _ttValue = IntEval 0
 ---------------------------------------------------------
 -- parse string input to move
 ---------------------------------------------------------
-strToMove :: String -> Int -> Either String IntMove
+strToMove :: String -> Int -> Either String (Entry IntMove s)
 strToMove str colr =
     let x = Parser.run str
     in case x of
         Left err -> Left err
-        Right n -> Right $ IntMove (colr * n)
+        Right n -> Right $ MoveEntry $ IntMove (colr * n)
 
 --------------------------------------------------------
 -- format position as a string
@@ -133,6 +133,13 @@ calcNewNode node mv =
 ----------------------------------------------------------
 mvToGridIx :: IntMove -> Int
 mvToGridIx mv = abs (theInt mv) -1     --moves are (+/-) 1-9 vs indexes 0-8
+
+---------------------------------------------------------------------------------------------------
+-- undo move
+-- TODO: not yet implemented
+---------------------------------------------------------------------------------------------------
+undoTTMove :: TTNode -> IntMove -> TTNode
+undoTTMove cn _undoMove = cn
 
 ---------------------------------------------------------
 -- get list of possible moves from a given position

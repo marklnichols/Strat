@@ -47,8 +47,8 @@ ticTacTest = do
             format (TTNode (IntMove 0) (IntEval 0) (TTPosition aPos 1 NotFinal)) `shouldBe` "X X O \nX O - \nX - O \n"
     describe "strToMove" $
         it "parses move input into an IntMove" $ do
-            strToMove "2" 1 `shouldBe` Right (IntMove 2)
-            strToMove "3" (-1) `shouldBe` Right (IntMove (-3))
+            strToMove "2" 1 `shouldBe` Right (MoveEntry (IntMove 2))
+            strToMove "3" (-1) `shouldBe` Right (MoveEntry (IntMove (-3)))
 
 -------------------------------------------------
 -- Sample test data

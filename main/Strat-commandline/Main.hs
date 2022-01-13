@@ -17,23 +17,33 @@ main = do
     theArgs@StratArgs{..} <- cmdArgs stratArgs
     case exampleName of
       "chess" -> do
-          let start = Chess.getStartNode restoreGame
-          GameRunner.startGame ChessText start depth
+          let start = Chess.getStartNode restoreGame nextMoveColor
+          GameRunner.startGame ChessText start depth aiPlaysWhite aiPlaysBlack (not noRandom)
       "checkers" -> do
           let start = Checkers.getStartNode restoreGame
-          GameRunner.startGame CheckersText start depth
+          GameRunner.startGame CheckersText start depth aiPlaysWhite aiPlaysBlack (not noRandom)
 
       "checkersWeb" -> webInit
       _ -> print theArgs
 
+-- START HERE -- add arg for useRandom, pass to getStartNode
 data StratArgs = StratArgs
   { exampleName :: String
   , depth :: Int
-  , restoreGame :: String }
+  , noRandom :: Bool
+  , restoreGame :: String
+  , nextMoveColor :: Color }
   deriving (Show, Data, Typeable)
 
 stratArgs :: StratArgs
 stratArgs = StratArgs
   { exampleName = "chess" &= name "n" &= help "The example to run"
   , depth = 4 &= help "Tree search depth"
-  , restoreGame = "newgame" &= help "Game name to restore"}
+  , noRandom = True &= name "nr" &= help "Turn off randomness used in the computer's move selection"
+  , restoreGame = "newgame" &= help "Game name to restore"
+  , nextMoveColor = White &= name "c" &= help "Color to move next (White | Black)"}
+
+--TODO: make this configurable
+aiPlaysWhite, aiPlaysBlack :: Bool
+aiPlaysWhite = False
+aiPlaysBlack = True

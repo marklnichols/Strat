@@ -1,4 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+
 module ChessText
     ( ChessText(..)
     ) where
@@ -22,7 +26,7 @@ instance Output ChessText ChessNode ChessMove where
     out _ = printString
     updateBoard = showBoard
     showCompMove _ = printMoveChoiceInfo
-    getPlayerMove _ = playerMoveText
+    getPlayerEntry _ = playerEntryText
     gameError = exitFail
 
 printString :: String -> IO ()
@@ -62,26 +66,26 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
-playerMoveText :: Tree ChessNode -> [ChessMove] -> IO ChessMove
-playerMoveText tree exclusions = do
+playerEntryText :: Tree ChessNode -> [ChessMove] -> IO (Entry ChessMove s)
+playerEntryText tree exclusions = do
     let node = rootLabel tree
     putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
-    -- case parseMove (rootLabel tree) line of
-    case parseMove node line of
+    case parseEntry node line of
         Left err -> do
             putStrLn err
-            playerMoveText tree exclusions
-        Right mv ->
+            playerEntryText tree exclusions
+        Right ce@(CmdEntry _) -> return ce
+        Right me@(MoveEntry mv) ->
             if not (isLegal tree mv exclusions)
                 then do
                     putStrLn "Not a legal move."
-                    playerMoveText tree exclusions
+                    playerEntryText tree exclusions
                 else do
-                    when (moveChecksOpponent node mv) $ do
+                    when (moveChecksOpponent node mv) $
                         putStrLn " (check)"
-                    return mv
+                    return me
 
 ---------------------------------------------------------------------------------------------------
 -- format position as a string

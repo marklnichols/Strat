@@ -22,7 +22,6 @@ isLegal t mv exclusions =
 findMove :: forall t m. (TreeNode t m, Move m) => Tree t -> m -> Either String (Tree t)
 findMove tree mv =
     let parentDepth = tlDepth $ treeLoc $ rootLabel tree
-
     in case find (\ x ->
                      let n = rootLabel x
                      in tlDepth (treeLoc n) == parentDepth + 1
@@ -44,13 +43,9 @@ makeChildren :: TreeNode n m => n -> [Tree n]
 makeChildren n =
     let tloc = treeLoc n
         parentDepth = tlDepth tloc
-        startingIndex = tlIndexForDepth tloc
+        tl = TreeLocation (parentDepth + 1)
         mvs = possibleMoves n
-        nMvs = length mvs
-        indies = [startingIndex..(nMvs + startingIndex)]
-        treeLocs = fmap (\z -> TreeLocation {tlDepth = parentDepth + 1, tlIndexForDepth = z}) indies
-        zipped = zip mvs treeLocs
-        ns = map (\(m, tl) -> (newNode n m tl)) zipped
+        ns = map (\m -> (newNode n m tl)) mvs
         ts = map (\x -> Node x []) ns
     in ts
 

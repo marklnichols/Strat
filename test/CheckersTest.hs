@@ -2,7 +2,7 @@
 module CheckersTest (checkersTest) where
 
 import Checkers
-import CkParser
+import Parser8By8
 import Control.Lens
 import Data.Either
 import Data.Tree
@@ -14,7 +14,7 @@ import qualified Data.Vector.Unboxed as V
 
 -- dummy value of TreeLocation, used for most tests
 tl0 :: TreeLocation
-tl0 = TreeLocation {tlDepth = 0, tlIndexForDepth = 0}
+tl0 = TreeLocation {tlDepth = 0}
 
 checkersTest :: SpecWith ()
 checkersTest = do
@@ -29,9 +29,9 @@ checkersTest = do
 
             getAllowedMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
             getAllowedMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
-
-            getAllowedMoves (nodeFromGridW board07) `shouldMatchList` snd (partitionEithers (fmap
-                (parseCkMove (nodeFromGridW board07)) ["C1-A3-C5", "C1-E3-C5", "C1-E3-G5-E7"]))
+            MoveEntry <$> getAllowedMoves (nodeFromGridW board07) `shouldMatchList`
+              snd (partitionEithers (fmap (parseCkMove (nodeFromGridW board07))
+                                          ["C1-A3-C5", "C1-E3-C5", "C1-E3-G5-E7"]))
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) tl0 ^. (ckPosition . grid) `shouldBe` board01_m1
@@ -45,10 +45,10 @@ checkersTest = do
             totalKingCount board04 `shouldBe` 4
     describe "parseCkMove" $
         it "parses move input into a CkMove" $ do
-            parseCkMove (nodeFromGridW board01) "A1 B2" `shouldBe` Right (mkSimpleCkMove 510)
-            parseCkMove (nodeFromGridW board01) "A1-b2" `shouldBe` Right (mkSimpleCkMove 510)
-            parseCkMove (nodeFromGridW board02) "E1 G3" `shouldBe` Right (mkSimpleCkJump (0717, 12))
-            parseCkMove (nodeFromGridW board03) "E5 G3 E1" `shouldBe` Right (mkMultiCkJump m3)
+            parseCkMove (nodeFromGridW board01) "A1 B2" `shouldBe` Right (MoveEntry (mkSimpleCkMove 510))
+            parseCkMove (nodeFromGridW board01) "A1-b2" `shouldBe` Right (MoveEntry (mkSimpleCkMove 510))
+            parseCkMove (nodeFromGridW board02) "E1 G3" `shouldBe` Right (MoveEntry (mkSimpleCkJump (0717, 12)))
+            parseCkMove (nodeFromGridW board03) "E5 G3 E1" `shouldBe` Right (MoveEntry (mkMultiCkJump m3))
     describe "toParserMove" $
         it "converts a CkMove to a Parser Move (for display)" $ do
             toParserMove (mkSimpleCkMove 510) `shouldBe` Move [Loc 'A' 1,  Loc 'B' 2]
@@ -115,8 +115,7 @@ blackFirstStartNode = rootLabel (getStartNode "new_game") & ckPosition.clr .~ (-
 
 treeFromGridW :: V.Vector Int -> Tree CkNode
 treeFromGridW g = Node CkNode
-    { _ckId = 0
-    , _ckTreeLoc = TreeLocation {tlDepth  = 0, tlIndexForDepth = 0}
+    { _ckTreeLoc = TreeLocation {tlDepth  = 0}
     , _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
@@ -125,8 +124,7 @@ treeFromGridW g = Node CkNode
 
 treeFromGridB :: V.Vector Int -> Tree CkNode
 treeFromGridB g = Node CkNode
-    { _ckId = 0
-    , _ckTreeLoc = TreeLocation {tlDepth  = 0, tlIndexForDepth = 0}
+    { _ckTreeLoc = TreeLocation {tlDepth  = 0}
     , _ckMove = mkSimpleCkMove (-1)
     , _ckValue = CkEval {_total = 0, _details = ""}
     , _ckErrorValue = CkEval {_total = 0, _details = ""}
@@ -156,13 +154,6 @@ mkMultiCkJump (mv, middle, removed) = CkMove {_isJump = True, _startIdx = mv `di
 
 mkMultiJsonJump :: (Int, [Int], [Int]) -> String
 mkMultiJsonJump (mv, middle, removed) = J.jsonFromCkMove (mkMultiCkJump (mv, middle, removed))
-
----------------------------------------------------------------------------------------------------
--- Test Reader environments
----------------------------------------------------------------------------------------------------
--- _envDepth6 :: Env
--- _envDepth6 = Env { depth =6, critDepth = 10, equivThreshold = 0
---                  , p1Comp = False, p2Comp = True }
 
 ---------------------------------------------------------------------------------------------------
 -- Test board positions

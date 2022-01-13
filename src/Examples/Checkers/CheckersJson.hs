@@ -15,9 +15,10 @@ import Data.Char
 import GHC.Generics
 import Strat.StratTree.TreeNode (MoveScore(..))
 import qualified Checkers as Ck
-import qualified CkParser as P
+import qualified Parser8By8 as P
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Lazy.Char8 as B8
+import Data.Maybe (fromMaybe, mapMaybe)
 
 ----------------------------------------------------------------------------------------------------
 -- Data types and instances
@@ -135,21 +136,23 @@ jsonMoveToCkMove jMove = Ck.parserToCkMove $ jsonToParserMove jMove
 jsonFromCkMove :: Ck.CkMove -> String
 jsonFromCkMove mv = (bsToStr . encode . jsonFromParserMove) (Ck.toParserMove mv)
 
-jsonFromMoveScore :: MoveScore Ck.CkMove Ck.CkNode -> JsonMoveScore
+jsonFromMoveScore :: MoveScore Ck.CkMove Ck.CkNode -> Maybe JsonMoveScore
 jsonFromMoveScore ms =
-    let jMove = jsonFromParserMove $ Ck.toParserMove $_move ms
-        eval = _score ms
-        jEval = JsonEval {total = Ck._total (Ck._ckValue eval), details = Ck._details (Ck._ckValue eval) }
-    in  JsonMoveScore {move = jMove, score = jEval}
+    case jsonFromParserMove $ Ck.toParserMove $_move ms of
+        Nothing -> Nothing
+        Just jMove ->
+            let eval = _score ms
+                jEval = JsonEval {total = Ck._total (Ck._ckValue eval), details = Ck._details (Ck._ckValue eval) }
+            in Just $ JsonMoveScore {move = jMove, score = jEval}
+
 
 jsonFromMoveScore' :: Maybe (MoveScore Ck.CkMove Ck.CkNode) -> JsonMoveScore
-jsonFromMoveScore' (Just ms) = jsonFromMoveScore ms
-jsonFromMoveScore' Nothing = emptyJMS
+jsonFromMoveScore' ms = fromMaybe emptyJMS (ms >>= jsonFromMoveScore)
 
 jsonUpdate :: String -> Ck.CkNode -> Ck.CkNode -> [Ck.CkMove] -> Maybe (MoveScore Ck.CkMove Ck.CkNode) -> FullUpdate
 jsonUpdate str prevN newN ckMoves moveScoreM =
     let parserMoves = fmap Ck.toParserMove ckMoves
-        legals = LegalMoves {moves = fmap jsonFromParserMove parserMoves}
+        legals = LegalMoves {moves = mapMaybe jsonFromParserMove parserMoves}
         latest = jsonFromMoveScore' moveScoreM
     in  FullUpdate {msg = str, prevBoard = boardToJson prevN, board = boardToJson newN,
                     legalMoves = legals, latestMove = latest}
@@ -185,8 +188,9 @@ bsToStr = map (chr . fromEnum) . B.unpack
 strToBs :: String -> B.ByteString
 strToBs = B8.pack
 
-jsonFromParserMove :: P.Move -> JsonMove
-jsonFromParserMove (P.Move xs) = JsonMove {locs = fmap fromParserLoc xs}
+jsonFromParserMove :: P.Entry -> Maybe JsonMove
+jsonFromParserMove (P.Move xs) = Just $ JsonMove {locs = fmap fromParserLoc xs}
+jsonFromParserMove (P.Cmd _) = Nothing
 
-jsonToParserMove :: JsonMove -> P.Move
+jsonToParserMove :: JsonMove -> P.Entry
 jsonToParserMove jMv = P.Move (fmap toParserLoc (locs jMv))

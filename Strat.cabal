@@ -49,10 +49,11 @@ library
 executable strat-exe
   main-is: Main.hs
   other-modules:
-      Checkers CheckersJson CheckersText Chess ChessText CkParser GameRunner Strat.Helpers Strat.StratIO Strat.ZipTree Strat.StratTree.TreeNode StratWeb.WebRunner StratWeb.YesodMain
+      Checkers CheckersJson CheckersText Chess  ChessText Parser8By8 GameRunner Strat.Helpers Strat.StratIO Strat.ZipTree Strat.StratTree.TreeNode StratWeb.WebRunner StratWeb.YesodMain
   hs-source-dirs:
       main/Strat-commandline
       src
+      src/Examples/Utils
       src/Examples/Checkers
       src/Examples/WIP/Chess
   ghc-options: -threaded -rtsopts -O2 -Wall
@@ -89,15 +90,14 @@ executable test-as-exe
       CheckersTest
       CheckersText
       Chess
-      Chess
       ChessText
       ChessTest
-      CkParser
+      Parser8By8
       TicTac.TTParser
       TicTac.TTGame
       TicTac.TTParser
       TicTacTest
-      CkParser
+      Parser8By8
       GameRunner
       PruningTest
       StratTreeTest
@@ -110,6 +110,7 @@ executable test-as-exe
   hs-source-dirs:
       main/Strat-commandline
       src
+      src/Examples/Utils
       src/Examples/Checkers
       src/Examples/WIP/Chess
       test
@@ -151,7 +152,7 @@ test-suite StratTreeTest
       CheckersTest
       Chess
       ChessTest
-      CkParser
+      Parser8By8
       GameRunner
       PruningTest
       Strat.Helpers
@@ -164,6 +165,7 @@ test-suite StratTreeTest
   hs-source-dirs:
       test
       src
+      src/Examples/Utils
       src/Examples/Checkers
       src/Examples/WIP/Chess
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
@@ -172,6 +174,7 @@ test-suite StratTreeTest
     , aeson
     , base
     , bytestring
+    , cmdargs
     , containers
     , extra
     , hashmap

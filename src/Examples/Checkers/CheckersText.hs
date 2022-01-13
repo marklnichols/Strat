@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module CheckersText
     ( CheckersText(..)
@@ -21,7 +22,7 @@ instance Output CheckersText CkNode CkMove where
     out _ = printString
     updateBoard = showBoard
     showCompMove _ = printMoveChoiceInfo
-    getPlayerMove _ = playerMove
+    getPlayerEntry _ = playerEntry
     gameError = exitFail
 
 printString :: String -> IO ()
@@ -53,21 +54,25 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
 ---------------------------------------------------------------------------------------------------
-playerMove :: Tree CkNode -> [CkMove] -> IO CkMove
-playerMove tree exclusions = do
+playerEntry :: Tree CkNode -> [CkMove] -> IO (Entry CkMove s)
+playerEntry tree exclusions = do
+    let node = rootLabel tree
     putStrLn ("Enter player's move:")
     line <- getLine
     putStrLn ""
-    case parseMove (rootLabel tree) line of
+    case parseEntry node line of
         Left err -> do
             putStrLn err
-            playerMove tree exclusions
-        Right mv ->
+            playerEntry tree exclusions
+        Right (CmdEntry s) -> do
+                    putStrLn ("Command!: " ++ s)
+                    playerEntry tree exclusions
+        Right me@(MoveEntry mv) ->
             if not (isLegal tree mv exclusions)
                 then do
                     putStrLn "Not a legal move."
-                    playerMove tree exclusions
-                else return mv
+                    playerEntry tree exclusions
+                else return me
 
 ---------------------------------------------------------------------------------------------------
 -- format position as a string
