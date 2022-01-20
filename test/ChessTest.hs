@@ -228,7 +228,11 @@ chessTest = do
       it "finds the best move from the tree of possible moves" $ do
         matchStdMove mateInTwo01TestData `shouldBe` True
         matchStdMove mateInTwo02TestData `shouldBe` True
-
+        matchStdMove promotion01TestData `shouldBe` True
+    describe "checkPromote" $
+      it "checks for pawn promotion" $ do
+          checkPromote 'P' 82 `shouldBe` 'Q'
+          checkPromote 'p' 12 `shouldBe` 'q'
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions / datatypes

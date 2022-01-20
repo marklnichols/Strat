@@ -52,6 +52,7 @@ module Chess
     , castleMoves
     , castlingAvailable
     , castlingStatus
+    , checkPromote
     , cnShowMoveOnly
     , discoveredCheckNode
     , checkFinal'
@@ -64,6 +65,7 @@ module Chess
     , mateInTwo02TestData
     , moveChecksOpponent
     , pairToIndexes
+    , promotion01TestData
     , showScoreDetails
     , startingBoard
     , wK, wKB, wKN, wKR, wQB, wQN, wQR
@@ -472,12 +474,13 @@ getStartNode restoreGame nextColorToMove =
       "mateInTwo01" -> Node mateInTwoExampleNode01 []
       "mateInTwo02" -> Node mateInTwoExampleNode02 []
       "mateInTwo02b" -> Node mateInTwoExampleNode02b []
+      "promotion01" -> Node promotionNode01 []
       "debug"       -> Node debugExampleNode []
       "draw"       -> Node drawnExampleNode []
       "castling"   -> Node castlingNode []
       _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered, \
                  \ checkmate, checkmate2, checkmate3 ,checkmate4 ,mateInTwo01, mateInTwo02, mateInTwo02b \
-                 \ debug, draw, castling"
+                 \ promotion01 debug, draw, castling"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> V.Vector Char
@@ -1064,7 +1067,7 @@ movePiece' g pFrom pTo =
     let pieceChar = g ^? ix pFrom
     in case pieceChar of
         Nothing -> g
-        Just ch -> let z = checkPromote g ch pTo
+        Just ch -> let z = checkPromote ch pTo
                        p = set (ix pTo) z g
                    in removePiece' p pFrom
 
@@ -1107,9 +1110,29 @@ castle' g CastlingMove{..} =
 removePiece' :: Vector Char -> Int -> Vector Char
 removePiece' g idx = set (ix idx) empty g
 
--- TODO: currently not implemented
-checkPromote :: Vector Char -> Char -> Int -> Char
-checkPromote _g chPiece _toLoc = chPiece
+-- TODO: return different moves/positions for each possible promotion choice
+-- for the moment, just choosing a queen
+checkPromote :: Char -> Int -> Char
+checkPromote chPiece toLoc =
+    let c = charToColor chPiece
+        b = lastRank toLoc c
+    in if b then
+         case charToPiece chPiece of
+            MkChessPiece White (SomeSing SPawn) -> pieceToChar Queen White
+            MkChessPiece Black (SomeSing SPawn) -> pieceToChar Queen Black
+            _ -> chPiece
+       else chPiece
+
+lastRank :: Int -> Color -> Bool
+lastRank loc c
+    | c == White
+    , loc `div` 10 == 8
+      = True
+    | c == Black
+    , loc `div` 10 == 1
+      = True
+    | otherwise
+      = False
 
 ---------------------------------------------------------------------------------------------------
 -- check for checkmate / stalemate
@@ -1455,6 +1478,16 @@ allowablePawnMoves g loc =
    let (_, enemies) = allowablePawnCaptures g loc
    in (allowablePawnNonCaptures g loc, enemies)
 
+-- EnPassant captures are handled elsewhere and are not included here
+allowablePawnCaptures :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowablePawnCaptures g loc@(_, _, clr) =
+      let dirs = case clr of
+              White -> whitePawnCaptureDirs
+              Black -> blackPawnCaptureDirs
+              Unknown -> []
+          (empties, enemies) = allowableSingleMoves dirs g loc
+      in (empties, enemies)
+
 -- find the allowable destination locs for a pawn (non-capturing moves)
 allowablePawnNonCaptures :: Vector Char -> (Int, Char, Color) -> [ChessMove]
 allowablePawnNonCaptures g loc@(_, _, clr) =
@@ -1482,21 +1515,6 @@ hasPawnMoved :: (Int, Char, Color) -> Bool
 hasPawnMoved (_, _, Unknown) = False
 hasPawnMoved (idx, _, White) = idx > 28
 hasPawnMoved (idx, _, Black) = idx < 71
-
--- find the allowable destination capture locs for a pawn (enPassant are not included here and
--- are handled elsewhere)
-allowablePawnCaptures :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
-allowablePawnCaptures = pawnCaptures
-
--- EnPassant captures are handled elsewhere and are not included here
-pawnCaptures :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
-pawnCaptures g loc@(_, _, clr) =
-      let dirs = case clr of
-              White -> whitePawnCaptureDirs
-              Black -> blackPawnCaptureDirs
-              Unknown -> []
-          (empties, enemies) = allowableSingleMoves dirs g loc
-      in (empties, enemies)
 
 -- TODO: not currently called
 -- find the allowable enPassant destination capture locs for a pawn
@@ -2075,6 +2093,48 @@ mate in 1: (b) C5-D4
 -}
 
 ----------------------------------------------------------------------------------------------------
+-- Boards to check pawn promotion
+----------------------------------------------------------------------------------------------------
+promotionBoard01 :: V.Vector Char
+promotionBoard01 = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  '+',
+                                '+',  ' ',  'r',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  'R',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  '+',
+                                '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   -   k   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   R   P   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   r   -   p   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   K   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+Moves to verify
+mate in 1: (W) D7-D8
+or (b) D1-D1
+-}
+promotion01TestData :: StdMoveTestData
+promotion01TestData = StdMoveTestData
+    { smtdBoardName = "promotion01"
+    , colorToMoveNext = White
+    , smtdDepth = 4
+    , smtdStartIdx = 74
+    , smtdEndIdx = 84 }
+
+
+----------------------------------------------------------------------------------------------------
 -- Board to check handling of drawn game
 ----------------------------------------------------------------------------------------------------
 drawnBoard :: V.Vector Char
@@ -2235,6 +2295,9 @@ mateInTwoExampleNode02 = preCastlingGameNode mateInTwoBoard02 Black (21, 23)
 
 mateInTwoExampleNode02b :: ChessNode
 mateInTwoExampleNode02b = preCastlingGameNode mateInTwoBoard02b Black (11, 23)
+
+promotionNode01 :: ChessNode
+promotionNode01 = postCastlingGameNode promotionBoard01 White (16, 86)
 
 drawnExampleNode :: ChessNode
 drawnExampleNode = preCastlingGameNode drawnBoard White (68, 88)
