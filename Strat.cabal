@@ -31,20 +31,20 @@ library
   ghc-options: -Wall
   build-depends:
       base
-    , aeson
+    , aeson < 2.0
     , containers
     , extra
+    , hashable
     , hashmap
     , lens
     , mtl
-    , mutable
     , random
     , rosezipper
     , safe
     , singletons == 2.7
     , sort
+    , text
     , vector
-  default-language: Haskell2010
 
 executable strat-exe
   main-is: Main.hs
@@ -65,10 +65,10 @@ executable strat-exe
     , cmdargs
     , containers
     , extra
+    , hashable
     , hashmap
     , lens
     , mtl
-    , mutable
     , parsec
     , random
     , rosezipper
@@ -80,7 +80,6 @@ executable strat-exe
     , yesod
     , yesod-core
     , yesod-static
-  default-language: Haskell2010
 
 executable test-as-exe
   main-is: Main.hs
@@ -123,12 +122,12 @@ executable test-as-exe
     , cmdargs
     , containers
     , extra
+    , hashable
     , hashmap
     , hspec
     , hspec-expectations
     , lens
     , mtl
-    , mutable
     , parsec
     , random
     , rosezipper
@@ -138,10 +137,10 @@ executable test-as-exe
     , singletons == 2.7
     , unordered-containers
     , vector
-    , yesod == 1.6.0.2
+    -- , yesod == 1.6.0.2
+    , yesod
     , yesod-core
     , yesod-static
-  default-language: Haskell2010
 
 test-suite StratTreeTest
   type: exitcode-stdio-1.0
@@ -177,18 +176,18 @@ test-suite StratTreeTest
     , cmdargs
     , containers
     , extra
+    , hashable
     , hashmap
     , hspec
     , hspec-expectations
     , lens
     , mtl
-    , mutable
     , parsec
     , random
     , rosezipper
     , safe
     , sort
+    , text
     , singletons == 2.7
     , unordered-containers
     , vector
-  default-language: Haskell2010

@@ -1,3 +1,5 @@
+-- {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
@@ -7,6 +9,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
+
+-- {-# OPTIONS_GHC -Wno-deriving-defaults #-}
 
 module Strat.StratTree.TreeNode
     (
@@ -36,13 +40,18 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.List
 import Data.Tree
+import Data.Hashable
+import GHC.Generics
 import Strat.ZipTree (NegaResult(..), NegaMoves(..))
 
 ----------------------------------------------------------------------------------------------------
 -- Data types
 ----------------------------------------------------------------------------------------------------
 data FinalState = WWins | BWins | Draw | NotFinal
-    deriving (Enum, Show, Eq, Ord)
+    deriving (Generic, Enum, Show, Eq, Ord)
+
+instance Hashable FinalState where
+  -- hashWithSalt = hashWithSalt
 
 data Env = Env
     { equivThreshold :: Float } deriving (Show)
@@ -59,7 +68,7 @@ data MoveResults t m = MoveResults
 newtype GameState = GameState {_movesConsidered :: Integer} deriving (Show, Eq)
 
 newtype TreeLocation  = TreeLocation { tlDepth :: Int }
-  deriving (Show, Eq)
+  deriving (Generic, Hashable, Show, Eq)
 
 data Entry m s where
   MoveEntry :: (Move m) => m -> Entry m s

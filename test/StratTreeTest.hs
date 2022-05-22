@@ -1,16 +1,20 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module StratTreeTest (stratTreeTest) where
 
+import Data.Hashable
 import Data.Tree
+import GHC.Generics
 import Test.Hspec
 
 import Strat.ZipTree
 
 data NodeVal = NodeVal { nvalToInt :: Int, sign :: Sign }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Generic, Hashable, Ord, Show)
 
 instance ZipTreeNode NodeVal where
   ztnEvaluate = fromIntegral . nvalToInt
@@ -39,7 +43,6 @@ stratTreeTest = do
             moveSeq best `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}
                                     , NodeVal {nvalToInt = 35, sign = Neg}
                                     , NodeVal {nvalToInt = 12, sign = Pos} ]
-
 negaMaxTree :: Tree NodeVal
 negaMaxTree = Node (NodeVal 0 Neg)
   [ Node (NodeVal 1 Pos)

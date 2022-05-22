@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -25,6 +27,7 @@ module Chess
     ( Castle(..)
     , Castling(..)
     , ChessEval(..), total, details
+    , ChessGrid(..), unGrid
     , ChessMove(..), exchange, startIdx, endIdx
     , ChessMoves(..), cmEmpty, cmEnemy
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
@@ -63,6 +66,8 @@ module Chess
     , locsForColor
     , mateInTwo01TestData
     , mateInTwo02TestData
+    , mateInTwo03TestData
+    , mateInTwo03bTestData
     , moveChecksOpponent
     , pairToIndexes
     , promotion01TestData
@@ -81,7 +86,6 @@ import Data.Kind
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe
-import Data.Mutable
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Singletons
@@ -90,6 +94,8 @@ import Data.Tree
 import Data.Tuple.Extra (fst3)
 import Data.Vector.Unboxed (Vector, (!))
 import qualified Data.Vector.Unboxed as V
+import Data.Hashable
+import GHC.Generics
 import System.Console.CmdArgs.Implicit (Data, Typeable)
 -- import Text.Printf
 -- import Debug.Trace
@@ -113,16 +119,16 @@ data Castling = Castled
   deriving (Eq, Show, Ord)
 
 data Color = Black | White | Unknown
-    deriving (Show, Eq, Ord, Data, Typeable)
+    deriving (Generic, Hashable, Show, Eq, Ord, Data, Typeable)
 
 data Castle = QueenSide | KingSide
-  deriving (Eq, Ord, Show)
+  deriving (Generic, Hashable, Eq, Ord, Show)
 
 data ChessMove
   = StdMove { _exchange :: Maybe Char, _startIdx :: Int, _endIdx :: Int, _stdNote :: String }
   | CastlingMove { _castle :: Castle, _kingStartIdx :: Int, _kingEndIdx :: Int
                  , _rookStartIdx :: Int, _rookEndIdx :: Int, _castleNote :: String }
-  deriving (Eq, Ord)
+  deriving (Eq, Generic, Hashable, Ord)
 makeLenses ''ChessMove
 
 data UnChessMove
@@ -139,19 +145,30 @@ data StdMoveTestData = StdMoveTestData
   , smtdEndIdx :: Int }
   deriving (Eq, Ord)
 
+newtype ChessGrid = ChessGrid (Vector Char)
+  deriving (Generic, Eq, Show, Ord)
+
+-- instance Hashable (Vector Char) where
+--   hashWithSalt n (v) = hashWithSalt n (V.toList v)
+instance Hashable ChessGrid where
+  hashWithSalt n (ChessGrid v) = hashWithSalt n (V.toList v)
+
+unGrid :: ChessGrid -> Vector Char
+unGrid (ChessGrid x) = x
+
 data ChessPos = ChessPos
-  { _cpGrid :: Vector Char
+  { _cpGrid :: ChessGrid
   , _cpWhitePieceLocs :: [(Int, Char, Color)]
   , _cpBlackPieceLocs :: [(Int, Char, Color)]
   , _cpColor :: Color
   , _cpKingLoc :: (Int, Int)
   , _cpInCheck :: (Bool, Bool)
   , _cpFin :: FinalState }
-  deriving (Show, Eq, Ord)
+  deriving (Generic, Hashable, Show, Eq, Ord)
 makeLenses ''ChessPos
 
 data ChessEval = ChessEval {_total :: Float, _details :: String}
-    deriving (Eq, Ord)
+    deriving (Eq, Generic, Hashable, Ord)
 makeLenses ''ChessEval
 
 instance Show ChessEval where
@@ -163,7 +180,7 @@ showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
 data ChessNode = ChessNode { _chessTreeLoc :: TreeLocation, _chessMv :: ChessMove
                            , _chessVal :: ChessEval , _chessErrorVal :: ChessEval , _chessPos :: ChessPos
                            , _chessMvSeq :: [ChessMove] , _chessIsEvaluated :: Bool }
-    deriving (Eq)
+    deriving (Eq, GHC.Generics.Generic, Hashable)
 makeLenses ''ChessNode
 
 instance Show ChessNode where
@@ -291,16 +308,21 @@ charToPiece ' ' = MkChessPiece Unknown (SomeSing SNone)
 charToPiece '+' = MkChessPiece Unknown (SomeSing SOffBoardNone)
 charToPiece ch = error $ "charToPiece not implemented for the value " ++ show ch
 
-indexToColor2 :: Vector Char -> Int -> Color
-indexToColor2 g idx = charToColor (g ! idx)
+indexToColor2 :: ChessGrid -> Int -> Color
+indexToColor2 g idx =
+  let g' = unGrid g
+  in charToColor (g' ! idx)
 
-indexToPiece :: Vector Char -> Int -> ChessPiece (k :: SomeSing Piece)
+indexToPiece :: ChessGrid -> Int -> ChessPiece (k :: SomeSing Piece)
 indexToPiece g idx =
-    let gridVal =  fromMaybe ' ' (g ^? ix idx)
+    let g' = unGrid g
+        gridVal =  fromMaybe ' ' (g' ^? ix idx)
     in charToPiece gridVal
 
-indexToChar :: Vector Char -> Int -> Char
-indexToChar g idx = fromMaybe ' ' (g ^? ix idx)
+indexToChar :: ChessGrid -> Int -> Char
+indexToChar g idx =
+  let g' = unGrid g
+  in fromMaybe ' ' (g' ^? ix idx)
 
 pieceVal :: ChessPiece (k :: SomeSing Piece) -> Float
 pieceVal piece@(MkChessPiece c _) =
@@ -311,7 +333,7 @@ pieceVal piece@(MkChessPiece c _) =
     Unknown -> 0.0
 
 pieceAbsVal :: ChessPiece (k :: SomeSing Piece) -> Float
-pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = Z.maxValue
+pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = Z.maxScore
 pieceAbsVal (MkChessPiece _c (SomeSing SQueen)) = 9.0
 pieceAbsVal (MkChessPiece _c (SomeSing SRook)) = 5.0
 pieceAbsVal (MkChessPiece _c (SomeSing SKnight)) = 3.0
@@ -330,8 +352,6 @@ instance TreeNode ChessNode ChessMove where
     getMove = _chessMv
     treeLoc = _chessTreeLoc
     undoMove = undoChessMove
-
-instance Mutable s ChessNode where
 
 instance Move ChessMove
 
@@ -397,8 +417,8 @@ Piece representation as integers:
 ----------------------------------------------------------------------------------------------------
 -- starting position, white at the 'bottom'
 ----------------------------------------------------------------------------------------------------
-startingBoard :: V.Vector Char
-startingBoard = V.fromList
+startingBoard :: ChessGrid
+startingBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  'N',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  'P',  'P',  'P',  'P',  'P',  '+',
@@ -474,19 +494,25 @@ getStartNode restoreGame nextColorToMove =
       "mateInTwo01" -> Node mateInTwoExampleNode01 []
       "mateInTwo02" -> Node mateInTwoExampleNode02 []
       "mateInTwo02b" -> Node mateInTwoExampleNode02b []
+      "mateInTwo03" -> Node mateInTwoExampleNode03 []
+      "mateInTwo03b" -> Node mateInTwoExampleNode03b []
       "promotion01" -> Node promotionNode01 []
       "debug"       -> Node debugExampleNode []
+      "debug02"     -> Node debugExampleNode02 []
+      "debug03"     -> Node debugExampleNode03 []
       "draw"       -> Node drawnExampleNode []
       "castling"   -> Node castlingNode []
       _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered, \
                  \ checkmate, checkmate2, checkmate3 ,checkmate4 ,mateInTwo01, mateInTwo02, mateInTwo02b \
-                 \ promotion01 debug, draw, castling"
+                 \ mateInTwo03, mateInTwo03b, promotion01 debug, debug02, debug03, draw, castling"
 
 -- Color represents the color at the 'bottom' of the board
-mkStartGrid :: Color -> V.Vector Char
+mkStartGrid :: Color -> ChessGrid
 mkStartGrid White = startingBoard
-mkStartGrid Black = V.reverse startingBoard
-mkStartGrid Unknown = V.empty
+mkStartGrid Black =
+  let g' = unGrid startingBoard
+  in ChessGrid $ V.reverse g'
+mkStartGrid Unknown = ChessGrid V.empty
 
 ---------------------------------------------------------------------------------------------------}
 -- TODO: revert this eventually...
@@ -594,7 +620,7 @@ calcNewNode node mv tLoc =
 ---------------------------------------------------------------------------------------------------
 -- Update the kingLocs pair given the destination square of the move being applied
 ---------------------------------------------------------------------------------------------------
-updateKingLocs :: Vector Char -> (Int, Int) -> Int -> (Int, Int)
+updateKingLocs :: ChessGrid -> (Int, Int) -> Int -> (Int, Int)
 updateKingLocs grid kingLocs mvEndIdx =
     case indexToPiece grid mvEndIdx of
         MkChessPiece c (SomeSing SKing) -> colorToTuple c kingLocs mvEndIdx
@@ -641,7 +667,7 @@ moveIsCheckAgainst' curPos mv kingsColor =
 ---------------------------------------------------------------------------------------------------
 -- Calulate if the king at the given location is in check
 ---------------------------------------------------------------------------------------------------
-inCheck :: Vector Char -> Color -> Int -> Bool
+inCheck :: ChessGrid -> Color -> Int -> Bool
 inCheck g c kingLoc =
    let ch = if c == White then 'K' else 'k'
        bLocs = multiMoveCaptureLocs bishopDirs g (kingLoc, ch, c)
@@ -660,14 +686,14 @@ inCheck g c kingLoc =
           || matchesChar g (pieceToChar Pawn ec) pLocs
           || matchesChar g (pieceToChar Queen ec) (bLocs ++ rLocs)
 
-matchesChar :: Vector Char -> Char -> [Int] -> Bool
+matchesChar :: ChessGrid -> Char -> [Int] -> Bool
 matchesChar g ch xs = foldr f False xs
   where
     f x r = if indexToChar g x == ch then True else r
 
 ---------------------------------------------------------------------------------------------------
 checkQueen
-  :: Vector Char
+  :: ChessGrid
   -> Bool
   -> ChessMove
   -> Bool
@@ -702,10 +728,12 @@ flipPieceColor White = Black
 flipPieceColor Black = White
 flipPieceColor Unknown = Unknown
 
+
 {- TODOs:
 -- Try running 'stan': https://hackage.haskell.org/package/stan
--- Add pawn promotion
--- Add mate in n tests
+-- Add pawn promotion other than queen
+-- Add / fix enpassant
+-- Add more mate in n tests
 -- Determine mate in n and display
 -- Add parallel processing
 -- Various command line debug tools
@@ -743,12 +771,12 @@ evalPos pos =
                 let finalScore = finalStateToScore finalState
                 in (finalScore, "\n\tThe position is final: " ++ show finalScore )
             else
-              ( (material * 30.0 ) + mobility + (castling * 10.0)
+              ( (material * 30.0 ) + mobility + (castling * 9.0)
               + (development * 5.0) + (earlyQueen * 15.0) + (pawnPositionScore * 2)
               + knightPositionScore
               ,  "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
                   ++ "\n\tMobility (x 1): " ++ show mobility
-                  ++ "\n\tCastling (x 10): " ++ show (castling * 10.0)
+                  ++ "\n\tCastling (x 9): " ++ show (castling * 9.0)
                   ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
                   ++ "\n\tQueen dev. early (x 15): " ++ show (earlyQueen * 15.0)
                   ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
@@ -759,8 +787,8 @@ evalPos pos =
      in (eval, finalState)
 
 finalStateToScore :: FinalState -> Float
-finalStateToScore WWins = Z.maxValue
-finalStateToScore BWins = - Z.maxValue
+finalStateToScore WWins = Z.maxScore
+finalStateToScore BWins = Z.minScore
 finalStateToScore _ = 0.0
 
 ---------------------------------------------------------------------------------------------------
@@ -846,7 +874,7 @@ calcPawnPositionScore cp =
 pawnAdjustments :: Map Int Float
 pawnAdjustments = M.fromList
     -- KP, QP
-    [ (24, 0.0), (34, 2.0), (44, 8.0), (25, 0.0), (35, 2.0), (45, 8.0)
+    [ (24, 0.0), (34, 3.0), (44, 9.0), (25, 0.0), (35, 3.0), (45, 9.0)
     -- KRP, QRP, KBP, QBP
     , (21, 0.0), (31, -1.0), (41, -2.0), (28, 0.0), (38, -1.0), (48, -2.0)
     , (23, 0.0), (33, -1.0), (43, -2.0), (26, 0.0), (36, -1.0), (46, -2.0)
@@ -892,8 +920,10 @@ filterLocsByChar (wLocs, bLocs) charToMatch =
 ---------------------------------------------------------------------------------------------------
 -- Count the 'material' score for the pieces on the board
 --------------------------------------------------------------------------------------------------
-countMaterial :: Vector Char -> Float
-countMaterial = V.foldr f 0
+countMaterial :: ChessGrid -> Float
+countMaterial g =
+  let g' = unGrid g
+  in V.foldr f 0 g'
   where
     f ch theTotal =
         if ch == empty
@@ -1062,13 +1092,14 @@ movePiece node pFrom pTo =
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the grid vector, removing any captured piece.  Returns the updated grid
 --------------------------------------------------------------------------------------------------
-movePiece' :: Vector Char -> Int -> Int -> Vector Char
+movePiece' :: ChessGrid -> Int -> Int -> ChessGrid
 movePiece' g pFrom pTo =
-    let pieceChar = g ^? ix pFrom
+    let g' = unGrid g
+        pieceChar = g' ^? ix pFrom
     in case pieceChar of
-        Nothing -> g
+        Nothing -> ChessGrid g'
         Just ch -> let z = checkPromote ch pTo
-                       p = set (ix pTo) z g
+                       p = ChessGrid $ set (ix pTo) z g'
                    in removePiece' p pFrom
 
 mkCastleMove :: Color -> Castle -> ChessMove
@@ -1101,14 +1132,16 @@ mkCastleMove _ QueenSide = CastlingMove
   , _rookEndIdx = 84
   , _castleNote = "O-O-O" }
 
-castle' :: Vector Char -> ChessMove -> Vector Char
+castle' :: ChessGrid -> ChessMove -> ChessGrid
 castle' _g StdMove{} = error "This shouldn't happen..."
 castle' g CastlingMove{..} =
   let gTemp = movePiece' g _kingStartIdx _kingEndIdx
   in movePiece' gTemp _rookStartIdx _rookEndIdx
 
-removePiece' :: Vector Char -> Int -> Vector Char
-removePiece' g idx = set (ix idx) empty g
+removePiece' :: ChessGrid -> Int -> ChessGrid
+removePiece' g idx =
+  let g' = unGrid g
+  in ChessGrid $ set (ix idx) empty g'
 
 -- TODO: return different moves/positions for each possible promotion choice
 -- for the moment, just choosing a queen
@@ -1224,9 +1257,10 @@ filterKingInCheck' pos xs =
 locsForColor :: ChessPos -> ([(Int, Char, Color)], [(Int, Char, Color)])
 locsForColor cp = (_cpWhitePieceLocs cp, _cpBlackPieceLocs cp)
 
-calcLocsForColor :: Vector Char -> ([(Int, Char, Color)], [(Int, Char, Color)])
-calcLocsForColor locs =
-    V.ifoldr f ([], []) locs where
+calcLocsForColor :: ChessGrid -> ([(Int, Char, Color)], [(Int, Char, Color)])
+calcLocsForColor locs' =
+    let locs = unGrid locs'
+    in V.ifoldr f ([], []) locs where
         f :: Int -> Char -> ([(Int, Char, Color)], [(Int, Char, Color)])
                          -> ([(Int, Char, Color)], [(Int, Char, Color)])
         f n c (wLocs, bLocs) =
@@ -1322,8 +1356,10 @@ isEmpty pos = isEmptyGrid (_cpGrid pos)
 isEmpty' :: ChessNode -> Int -> Bool
 isEmpty' node = isEmptyGrid (_cpGrid (_chessPos node))
 
-isEmptyGrid :: Vector Char -> Int -> Bool
-isEmptyGrid g idx =  (g V.! idx) == empty
+isEmptyGrid :: ChessGrid -> Int -> Bool
+isEmptyGrid g idx =
+  let g' = unGrid g
+  in (g' V.! idx) == empty
 
 pairToIndexes :: ([ChessMove], [ChessMove]) -> ([Int], [Int])
 pairToIndexes (xs, ys) = ( fmap moveToIndex  xs
@@ -1373,7 +1409,7 @@ movesFromLoc pos loc@(idx, _, _) =
       MkChessPiece _c (SomeSing SPawn) -> allowablePawnMoves g loc
       MkChessPiece _c (SomeSing _) -> ([], [])
 
-allowableMultiMoves :: [Dir] -> Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowableMultiMoves :: [Dir] -> ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableMultiMoves pieceDirs g loc =
   foldl' f ([], []) pieceDirs
     where
@@ -1382,7 +1418,7 @@ allowableMultiMoves pieceDirs g loc =
         let (freeLocs, captureLocs) = dirLocs g loc x
         in (freeLocs ++ r, captureLocs ++ r')
 
-multiMoveMobility :: [Dir] -> Vector Char -> (Int, Char, Color) -> Int
+multiMoveMobility :: [Dir] -> ChessGrid -> (Int, Char, Color) -> Int
 multiMoveMobility pieceDirs g loc =
   foldl' f 0 pieceDirs
     where
@@ -1391,7 +1427,7 @@ multiMoveMobility pieceDirs g loc =
         let count = dirLocsCount g loc x
         in count + r
 
-multiMoveCaptureLocs :: [Dir] -> Vector Char -> (Int, Char, Color) -> [Int]
+multiMoveCaptureLocs :: [Dir] -> ChessGrid -> (Int, Char, Color) -> [Int]
 multiMoveCaptureLocs pieceDirs g loc =
   foldl' f [] pieceDirs
     where
@@ -1403,7 +1439,7 @@ multiMoveCaptureLocs pieceDirs g loc =
 
  -- find the destination locs for pieces that move one square in a given
 -- direction (i.e., King and Knight). See @allowableMultiMoves
-allowableSingleMoves :: [Dir] -> Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowableSingleMoves :: [Dir] -> ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableSingleMoves pieceDirs g loc =
   foldl' f ([], []) pieceDirs
     where
@@ -1412,7 +1448,7 @@ allowableSingleMoves pieceDirs g loc =
         let (freeLocs, captureLocs) = dirLocsSingle g loc x
         in (freeLocs ++ r, captureLocs ++ r')
 
-singleMoveMobility :: [Dir] -> Vector Char -> (Int, Char, Color) -> Int
+singleMoveMobility :: [Dir] -> ChessGrid -> (Int, Char, Color) -> Int
 singleMoveMobility pieceDirs g (idx, _, _clr) =
   foldl' f 0 pieceDirs
     where
@@ -1421,7 +1457,7 @@ singleMoveMobility pieceDirs g (idx, _, _clr) =
         let count = dirLocsSingleCount g idx x
         in count + r
 
-singleMoveCaptureLocs :: [Dir] -> Vector Char -> (Int, Char, Color) -> [Int]
+singleMoveCaptureLocs :: [Dir] -> ChessGrid -> (Int, Char, Color) -> [Int]
 singleMoveCaptureLocs pieceDirs g loc =
   foldl' f [] pieceDirs
     where
@@ -1432,7 +1468,7 @@ singleMoveCaptureLocs pieceDirs g loc =
             Nothing -> r
 
 -- find the allowable destination locs for a queen.
-allowableQueenMoves :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowableQueenMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableQueenMoves = allowableMultiMoves queenDirs
 
 -- Queen mobility is penalized for each undeveloped minor piece - to discourage
@@ -1453,33 +1489,33 @@ queenMobility cp loc@(_, _, clr) =
     in minimum (qMobility - penalty, 0)
 
 -- find the allowable destination locs for a rook
-allowableRookMoves :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowableRookMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableRookMoves = allowableMultiMoves rookDirs
 
-rookMobility :: Vector Char -> (Int, Char, Color) -> Int
+rookMobility :: ChessGrid -> (Int, Char, Color) -> Int
 rookMobility = multiMoveMobility rookDirs
 
 -- find the allowable destination locs for a bishop
-allowableBishopMoves :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowableBishopMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableBishopMoves = allowableMultiMoves bishopDirs
 
-bishopMobility :: Vector Char -> (Int, Char, Color) -> Int
+bishopMobility :: ChessGrid -> (Int, Char, Color) -> Int
 bishopMobility = multiMoveMobility bishopDirs
 
 -- find the possible destination locs for a knight
-allowableKnightMoves :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowableKnightMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableKnightMoves = allowableSingleMoves knightDirs
 
-knightMobility :: Vector Char -> (Int, Char, Color) -> Int
+knightMobility :: ChessGrid -> (Int, Char, Color) -> Int
 knightMobility = singleMoveMobility knightDirs
 
-allowablePawnMoves :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowablePawnMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowablePawnMoves g loc =
    let (_, enemies) = allowablePawnCaptures g loc
    in (allowablePawnNonCaptures g loc, enemies)
 
 -- EnPassant captures are handled elsewhere and are not included here
-allowablePawnCaptures :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowablePawnCaptures :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowablePawnCaptures g loc@(_, _, clr) =
       let dirs = case clr of
               White -> whitePawnCaptureDirs
@@ -1489,7 +1525,7 @@ allowablePawnCaptures g loc@(_, _, clr) =
       in (empties, enemies)
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
-allowablePawnNonCaptures :: Vector Char -> (Int, Char, Color) -> [ChessMove]
+allowablePawnNonCaptures :: ChessGrid -> (Int, Char, Color) -> [ChessMove]
 allowablePawnNonCaptures g loc@(_, _, clr) =
     let hasMoved = hasPawnMoved loc
     in case clr of
@@ -1497,7 +1533,7 @@ allowablePawnNonCaptures g loc@(_, _, clr) =
         White -> pawnMoves g whitePawnDir hasMoved loc
         Black -> pawnMoves g blackPawnDir hasMoved loc
 
-pawnMoves :: Vector Char -> Dir -> Bool -> (Int, Char, Color) -> [ChessMove]
+pawnMoves :: ChessGrid -> Dir -> Bool -> (Int, Char, Color) -> [ChessMove]
 pawnMoves g dir hasMoved loc@(_, ch, clr) =
     case dirLocsSingle g loc dir of
         ([], _) -> []
@@ -1519,10 +1555,10 @@ hasPawnMoved (idx, _, Black) = idx < 71
 -- TODO: not currently called
 -- find the allowable enPassant destination capture locs for a pawn
 -- only enemy squares containing pawns are returned
-allowableEnPassant :: Vector Char -> (Int, Char, Color) -> [ChessMove]
+allowableEnPassant :: ChessGrid -> (Int, Char, Color) -> [ChessMove]
 allowableEnPassant = enPassantCaptures
 
-enPassantCaptures :: Vector Char -> (Int, Char, Color) -> [ChessMove]
+enPassantCaptures :: ChessGrid -> (Int, Char, Color) -> [ChessMove]
 enPassantCaptures g loc@(idx, _, clr) =
     if hasPawnMoved loc then []
     else
@@ -1538,7 +1574,7 @@ enPassantCaptures g loc@(idx, _, clr) =
 data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
    deriving Show
 
-dirLocs :: Vector Char -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
+dirLocs :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocs g (idx0, _, c0) dir =
     loop (apply dir idx0) ([], [])
       where
@@ -1558,7 +1594,7 @@ dirLocs g (idx0, _, c0) dir =
 
 
 
-dirCaptureLoc :: Vector Char -> (Int, Char, Color) -> Dir -> Maybe Int
+dirCaptureLoc :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLoc g (idx0, _, clr0) dir =
    let clr0Enemy = enemyColor clr0
        loop idx =
@@ -1571,7 +1607,7 @@ dirCaptureLoc g (idx0, _, clr0) dir =
                      | otherwise -> Nothing
    in loop (apply dir idx0)
 
-dirLocsCount :: Vector Char -> (Int, Char, Color) -> Dir -> Int
+dirLocsCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
 dirLocsCount g (idx, _, _) dir =
     loop (apply dir idx) 0
       where
@@ -1582,7 +1618,7 @@ dirLocsCount g (idx, _, _) dir =
 
 -- Same as dirLocs, but for pieces that move only one square in a given "direction"
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
-dirLocsSingle :: Vector Char -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
+dirLocsSingle :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocsSingle g (idx0, _, c0) dir =
     let x = apply dir idx0
         cx = indexToColor2 g x
@@ -1593,7 +1629,7 @@ dirLocsSingle g (idx0, _, c0) dir =
       else if cx == c0 then ([], [])
       else ([StdMove Nothing idx0 x ""],[]) -- empty square
 
-dirLocsSingleCount :: Vector Char -> Int -> Dir -> Int
+dirLocsSingleCount :: ChessGrid -> Int -> Dir -> Int
 dirLocsSingleCount g idx dir =
     let x = apply dir idx
     in
@@ -1601,7 +1637,7 @@ dirLocsSingleCount g idx dir =
       else if isEmptyGrid g x then 1
       else 0
 
-dirCaptureLocSingle :: Vector Char -> (Int, Char, Color) -> Dir -> Maybe Int
+dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
     let enemyClr = enemyColor clr
     in case apply dir idx of
@@ -1772,8 +1808,8 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 -- Some special starting positions for evaluating certain features....
 -- TODO: Eventually delete these or move to the ChessTest module
 ----------------------------------------------------------------------------------------------------
-alphaBetaBoard :: V.Vector Char
-alphaBetaBoard = V.fromList
+alphaBetaBoard :: ChessGrid
+alphaBetaBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -1801,8 +1837,8 @@ p   p   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77
                                                 A    B    C    D    E    F    G    H
 -}
 
-alphaBetaBoard2 :: V.Vector Char
-alphaBetaBoard2 = V.fromList
+alphaBetaBoard2 :: ChessGrid
+alphaBetaBoard2 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'K',  '+',
                              '+',  'Q',  'B',  ' ',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
@@ -1830,8 +1866,8 @@ Q   B   -   -   -   -   P   -          2| (20)  21   22   23   24   25   26   27
                                                 A    B    C    D    E    F    G    H
 -}
 
-discoveredCheckBoard :: V.Vector Char
-discoveredCheckBoard = V.fromList
+discoveredCheckBoard :: ChessGrid
+discoveredCheckBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -1860,8 +1896,8 @@ discoveredCheckBoard = V.fromList
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
-checkMateExampleBoard :: V.Vector Char
-checkMateExampleBoard = V.fromList
+checkMateExampleBoard :: ChessGrid
+checkMateExampleBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  ' ',  'B',  ' ',  'K',  ' ',  ' ',  'R',  '+',
                              '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
@@ -1890,8 +1926,8 @@ Move to verify
 (W) G4-D7 mate
 -}
 
-checkMateExampleBoard2 :: V.Vector Char
-checkMateExampleBoard2 = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+checkMateExampleBoard2 :: ChessGrid
+checkMateExampleBoard2 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                       '+',  'R',  ' ',  'B',  'Q',  'K',  ' ',  ' ',  'R',  '+',
                                       '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
                                       '+',  ' ',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -1924,8 +1960,8 @@ Moves to verify (run with -d2 -c6):
 
 
 
-checkMateExampleBoard3 :: V.Vector Char
-checkMateExampleBoard3 = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+checkMateExampleBoard3 :: ChessGrid
+checkMateExampleBoard3 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                       '+',  'R',  ' ',  ' ',  'Q',  'K',  'B',  'N',  'R',  '+',
                                       '+',  'P',  ' ',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
                                       '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -1955,8 +1991,8 @@ Moves to verify (run with -d3):
 (b) Avoid G5xH4 leads to mate
 -}
 
-checkMateExampleBoard4 :: V.Vector Char
-checkMateExampleBoard4 = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+checkMateExampleBoard4 :: ChessGrid
+checkMateExampleBoard4 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                       '+',  'R',  ' ',  ' ',  ' ',  'K',  'B',  'N',  'R',  '+',
                                       '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
                                       '+',  ' ',  ' ',  'Q',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -1987,8 +2023,8 @@ Moves to verify (run with -d4):
     The only saving move is (maybe) F6-E4
 -}
 
-mateInTwoBoard01:: V.Vector Char
-mateInTwoBoard01 = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+mateInTwoBoard01:: ChessGrid
+mateInTwoBoard01 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                 '+',  'K',  'B',  'k',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  'P',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -2024,8 +2060,8 @@ mateInTwo01TestData = StdMoveTestData
     , smtdStartIdx = 81
     , smtdEndIdx = 31 }
 
-mateInTwoBoard02:: V.Vector Char
-mateInTwoBoard02 = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+mateInTwoBoard02:: ChessGrid
+mateInTwoBoard02 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                 '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  'K',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -2061,8 +2097,8 @@ mateInTwo02TestData = StdMoveTestData
     , smtdStartIdx = 42
     , smtdEndIdx = 32 }
 
-mateInTwoBoard02b:: V.Vector Char
-mateInTwoBoard02b = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+mateInTwoBoard02b:: ChessGrid
+mateInTwoBoard02b = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                 '+',  'K',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -2092,11 +2128,86 @@ Moves to verify
 mate in 1: (b) C5-D4
 -}
 
+mateInTwoBoard03:: ChessGrid
+mateInTwoBoard03 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  'P',  ' ',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  '+',
+                                '+',  'q',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  'P',  ' ',  'K',  'b',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   r   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   k   -   -   -   -   n   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   P   -   K   b   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   p   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+q   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   -   -   -   -   P   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+Moves to verify (run with -d4),
+mate in 2: (b) F7-F3, (W)D5-E4 (or others), (b) A3-A8
+-}
+mateInTwo03TestData :: StdMoveTestData
+mateInTwo03TestData = StdMoveTestData
+    { smtdBoardName = "mateInTwo03"
+    , colorToMoveNext = Black
+    , smtdDepth = 4
+    , smtdStartIdx = 76
+    , smtdEndIdx = 36 }
+
+mateInTwoBoard03b:: ChessGrid
+mateInTwoBoard03b = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  'P',  ' ',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  '+',
+                                '+',  'q',  ' ',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  'p',  'K',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  'P',  ' ',  ' ',  'b',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   k   -   -   -   -   n   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   P   -   -   b   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   p   K   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+q   -   -   -   -   r   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   -   -   -   -   P   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+Previous position with first move taken by each side
+Moves to verify (run with -d4),
+mate in 1: (b) A3-A8
+-}
+mateInTwo03bTestData :: StdMoveTestData
+mateInTwo03bTestData = StdMoveTestData
+    { smtdBoardName = "mateInTwo03b"
+    , colorToMoveNext = Black
+    , smtdDepth = 4
+    , smtdStartIdx = 31
+    , smtdEndIdx = 81 }
+
 ----------------------------------------------------------------------------------------------------
 -- Boards to check pawn promotion
 ----------------------------------------------------------------------------------------------------
-promotionBoard01 :: V.Vector Char
-promotionBoard01 = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+promotionBoard01 :: ChessGrid
+promotionBoard01 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                 '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  '+',
                                 '+',  ' ',  'r',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -2137,8 +2248,8 @@ promotion01TestData = StdMoveTestData
 ----------------------------------------------------------------------------------------------------
 -- Board to check handling of drawn game
 ----------------------------------------------------------------------------------------------------
-drawnBoard :: V.Vector Char
-drawnBoard = V.fromList
+drawnBoard :: ChessGrid
+drawnBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -2171,10 +2282,10 @@ or
 -}
 
 ----------------------------------------------------------------------------------------------------
--- Board for debugging
+-- Misc additional boards for debugging
 ----------------------------------------------------------------------------------------------------
-debugBoard :: V.Vector Char
-debugBoard = V.fromList
+debugBoard :: ChessGrid
+debugBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  ' ',  ' ',  'Q',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  'N',  ' ',  ' ',  'P',  'P',  '+',
@@ -2205,8 +2316,8 @@ W: F4-F5
 B: C8xF5 ?? (for some reason missing white's pawn capture)
 -}
 
-debugBoard_2 :: V.Vector Char
-debugBoard_2 = V.fromList
+debugBoard_2 :: ChessGrid
+debugBoard_2 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  'N',  ' ',  ' ',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
@@ -2237,11 +2348,82 @@ W: D4-D1
 B: F6xE4 ??? i.e. 66 x 45
 -}
 
+debugBoard02 :: ChessGrid
+debugBoard02 =  ChessGrid $ V.fromList  [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  'R',  ' ',  ' ',  'Q',  'K',  'B',  'N',  'R',  '+',
+                              '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  'b',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'B',  ' ',  '+',
+                              '+',  'p',  ' ',  'n',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                              '+',  ' ',  'p',  'p',  'p',  ' ',  'p',  'p',  'p',  '+',
+                              '+',  'r',  ' ',  'b',  'q',  ' ',  'r',  'k',  ' ',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   b   q   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   p   p   p   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+p   -   n   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   B   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   b   -   -   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+White: A2-A3
+Black shouldn't need to lose material
+-}
+
+debugBoard03 :: ChessGrid
+debugBoard03 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  ' ',  'Q',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  'P',  'B',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  'p',  'p',  'p',  'p',  'p',  '+',
+                             '+',  'r',  'n',  'b',  'q',  'k',  'b',  ' ',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   q   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   n   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   P   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   P   B   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+Black: E6-F4 ???
+  look into the sequence:
+  E6-F4
+  E3xF4
+  or the resulting hash
+  9088222571369637754
+
+  after E6-F4, Board hash: 4913391084627495306
+  and then after E3xE4: -3107579353474362187
+
+
+-}
 
 
 
-castlingBoard :: V.Vector Char
-castlingBoard = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+
+castlingBoard :: ChessGrid
+castlingBoard = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                               '+',  'R',  ' ',  'B',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
                               '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'K',  'P',  '+',
                               '+',  ' ',  ' ',  'N',  ' ',  ' ',  'Q',  ' ',  ' ',  '+',
@@ -2296,6 +2478,12 @@ mateInTwoExampleNode02 = preCastlingGameNode mateInTwoBoard02 Black (21, 23)
 mateInTwoExampleNode02b :: ChessNode
 mateInTwoExampleNode02b = preCastlingGameNode mateInTwoBoard02b Black (11, 23)
 
+mateInTwoExampleNode03 :: ChessNode
+mateInTwoExampleNode03 = postCastlingGameNode mateInTwoBoard03 Black (54, 62)
+
+mateInTwoExampleNode03b :: ChessNode
+mateInTwoExampleNode03b = postCastlingGameNode mateInTwoBoard03b Black (45, 62)
+
 promotionNode01 :: ChessNode
 promotionNode01 = postCastlingGameNode promotionBoard01 White (16, 86)
 
@@ -2305,11 +2493,17 @@ drawnExampleNode = preCastlingGameNode drawnBoard White (68, 88)
 debugExampleNode :: ChessNode
 debugExampleNode = preCastlingGameNode debugBoard White (15, 85)
 
+debugExampleNode02 :: ChessNode
+debugExampleNode02 = preCastlingGameNode debugBoard02 White (15, 85)
+
+debugExampleNode03 :: ChessNode
+debugExampleNode03 = preCastlingGameNode debugBoard03 Black (15, 85)
+
 castlingNode :: ChessNode
 castlingNode = preCastlingGameNode castlingBoard Black (27, 85)
 
 -- White has K and Q side castling available, Black has King side only
-preCastlingGameNode :: Vector Char -> Color -> (Int, Int) -> ChessNode
+preCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
 preCastlingGameNode grid the_color kingLocs =
     let (wLocs, bLocs) = calcLocsForColor grid
         cPos = ChessPos
@@ -2330,7 +2524,7 @@ preCastlingGameNode grid the_color kingLocs =
         , _chessIsEvaluated = False }
 
 -- No castling available
-postCastlingGameNode :: Vector Char -> Color -> (Int, Int) -> ChessNode
+postCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
 postCastlingGameNode grid the_color kingLocs =
     let (wLocs, bLocs) = calcLocsForColor grid
         cPos = ChessPos

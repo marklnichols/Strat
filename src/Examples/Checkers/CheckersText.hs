@@ -78,7 +78,7 @@ playerEntry tree exclusions = do
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
 formatBoard :: CkNode -> String
-formatBoard node = loop (node ^. (ckPosition . grid)) 40 "" where
+formatBoard node = loop (unGrid (node ^. (ckPosition . grid))) 40 "" where
     loop _ 4 result = result ++ "\n" ++ colLabels
     loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
         (newIdx, spaces) = case n `mod` 9 of

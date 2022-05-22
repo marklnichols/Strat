@@ -32,3 +32,4 @@ node_modules
 client_session_key.aes
 **/*_flymake.hs*
 TAGS
+output.file

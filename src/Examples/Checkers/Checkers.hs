@@ -1,4 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -11,6 +13,7 @@ module Checkers
     , checkFinal
     , checkPromote
     , CkEval(..)
+    , CkGrid(..), unGrid
     , CkMove(..)
     , CkNode(..)
     , ckTreeLoc
@@ -43,9 +46,10 @@ module Checkers
 import Control.Lens
 import Control.Monad
 import Data.Char
+import Data.Hashable
 import Data.Maybe
-import Data.Mutable
 import Data.Tree
+import GHC.Generics
 import Prelude hiding (lookup)
 import Strat.Helpers
 import Strat.StratTree.TreeNode hiding (MoveScore)
@@ -58,16 +62,25 @@ import qualified Data.Map as Map
 ---------------------------------------------------------------------------------------------------
 -- Data types, type classes
 ---------------------------------------------------------------------------------------------------
-data CkPosition = CkPosition {_grid :: V.Vector Int, _clr :: Int, _fin :: FinalState}
-    deriving (Eq, Ord, Show)
+newtype CkGrid = CkGrid (V.Vector Int)
+  deriving (Generic, Eq, Show, Ord)
+
+unGrid :: CkGrid -> V.Vector Int
+unGrid (CkGrid x) = x
+
+instance Hashable CkGrid where
+  hashWithSalt n (CkGrid v) = hashWithSalt n (V.toList v)
+
+data CkPosition = CkPosition {_grid :: CkGrid, _clr :: Int, _fin :: FinalState}
+    deriving (Eq, Ord, Show, Generic, Hashable)
 makeLenses ''CkPosition
 
 data CkMove = CkMove {_isJump :: Bool, _startIdx :: Int, _endIdx :: Int, _middleIdxs :: [Int], _removedIdxs :: [Int]}
-    deriving (Eq, Ord)
+    deriving (Eq, Generic, Hashable, Ord)
 makeLenses ''CkMove
 
 data CkEval = CkEval {_total :: Float, _details :: String}
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Generic, Hashable)
 makeLenses ''CkEval
 
 data CkNode = CkNode
@@ -77,10 +90,8 @@ data CkNode = CkNode
   , _ckErrorValue :: CkEval
   , _ckPosition :: CkPosition
   , _ckIsEvaluated :: Bool }
-    deriving (Eq)
+    deriving (Eq, Generic, Hashable)
 makeLenses ''CkNode
-
-instance Mutable s CkNode where
 
 data JumpOff = JumpOff {_jmpOver :: Int, _land :: Int}
 makeLenses ''JumpOff
@@ -186,8 +197,8 @@ getStartNode _restoreGame =
 ---------------------------------------------------------------------------------------------------
 -- Initial board position
 ---------------------------------------------------------------------------------------------------
-mkStartGrid :: Int -> V.Vector Int
-mkStartGrid bottomColor =  V.map (indexToValue bottomColor) (V.fromList [0..45])
+mkStartGrid :: Int -> CkGrid
+mkStartGrid bottomColor =  CkGrid $ V.map (indexToValue bottomColor) (V.fromList [0..45])
 
 indexToValue :: Int -> Int -> Int
 indexToValue bottomColor idx
@@ -283,8 +294,9 @@ rowNum n = ((n-5) `div` 9) * 2 + ((n-5) `mod` 9) `div` 5 + 1
 boardAsPieceList :: CkNode -> PieceList
 boardAsPieceList node =
     let g = node ^. (ckPosition . grid)
+        g' = unGrid g
         range = V.fromList [0..45] :: V.Vector Int
-        pairs = V.zip range g :: V.Vector (Int, Int)
+        pairs = V.zip range g' :: V.Vector (Int, Int)
         filtrd = V.filter pMatch pairs :: V.Vector (Int, Int) where
             pMatch pair = (abs (snd pair) > 0 && abs (snd pair) < 3)
         pLocs = V.foldr f z0 filtrd where
@@ -308,20 +320,39 @@ calcNewNode node mv _tl =
     in set ckMove mv errScoreSet
 
 removePiece :: CkNode -> Int -> CkNode
-removePiece node idx = set (ckPosition . grid . ix idx) 0 node
+-- removePiece node idx = set (ckPosition . grid . ix idx) 0 node
+removePiece node idx =
+     let g = node ^. (ckPosition . grid)
+         g' = unGrid g
+         newG' = set (ix idx) 0 g'
+         newG = CkGrid newG'
+     in set (ckPosition . grid ) newG node
 
 removeMultiple :: CkNode -> [Int] -> CkNode
 removeMultiple = foldr (flip removePiece)
 
+-- movePiece :: CkNode -> Int -> Int -> CkNode
+-- movePiece node pFrom pTo =
+--     let value = node ^? (ckPosition . grid . ix pFrom)
+--         valid = value >>= validPiece node
+--     in case valid of
+--         Nothing -> node
+--         Just x -> let z = checkPromote node x pTo
+--                       p = set (ckPosition . grid . ix pTo) z node
+--                   in removePiece p pFrom
 movePiece :: CkNode -> Int -> Int -> CkNode
 movePiece node pFrom pTo =
-    let value = node ^? (ckPosition . grid . ix pFrom)
+    let pos = _ckPosition node;
+        g' = unGrid $ _grid pos;
+        value = g' ^? ix pFrom
         valid = value >>= validPiece node
     in case valid of
         Nothing -> node
         Just x -> let z = checkPromote node x pTo
-                      p = set (ckPosition . grid . ix pTo) z node
-                  in removePiece p pFrom
+                      newG = CkGrid (set (ix pTo) z g')
+                      newP = pos {_grid = newG }
+                      newN = node {_ckPosition = newP}
+                  in removePiece newN pFrom
 
 validPiece :: CkNode -> Int -> Maybe Int
 validPiece _ x = if x /= 0 && abs x < 3 then Just x else Nothing
@@ -356,9 +387,10 @@ drawVal   =  0.0
 evalCkNode :: CkNode -> (CkEval, FinalState)
 evalCkNode n =
     let g = n ^. (ckPosition . grid)
-        mat = fromIntegral $ totalKingCount g * kingVal + totalPieceCount g * pieceVal
+        g' = unGrid g
+        mat = fromIntegral $ totalKingCount g' * kingVal + totalPieceCount g' * pieceVal
         mob = fromIntegral $ mobility n * mobilityVal
-        home = fromIntegral $ homeRow g
+        home = fromIntegral $ homeRow g'
         prog = fromIntegral $ progress n * progressVal
         kProximity = fromIntegral $ (kingProximity n * kProximityVal) :: Int
         finl = checkFinal n
@@ -385,7 +417,8 @@ checkFinal n
     | otherwise         = NotFinal
         where
             g = n ^. (ckPosition . grid)
-            numPieces = pieceCount g colr + kingCount g colr
+            g' = unGrid g
+            numPieces = pieceCount g' colr + kingCount g' colr
             colr = n ^. (ckPosition . clr)
 
 colorToWinState :: Int -> FinalState
@@ -475,8 +508,9 @@ getPieceLocs :: CkNode -> [Int]
 getPieceLocs node =
     let pos = node ^. ckPosition
         c = pos ^. clr
+        g' = unGrid (pos ^. grid)
         range = V.fromList [0..45] :: V.Vector Int
-        pairs = V.zip range (pos ^. grid) :: V.Vector (Int, Int)
+        pairs = V.zip range g' :: V.Vector (Int, Int)
         filtrd = V.filter (pMatch c) pairs :: V.Vector (Int, Int)
         first = V.map fst filtrd :: V.Vector Int
     in V.toList first
@@ -494,7 +528,8 @@ getKingLocs node = filterLocs node isKing
 filterLocs :: CkNode -> (Int -> Bool) -> [Int]
 filterLocs node test = filter f (getPieceLocs node) where
     g =  node ^. (ckPosition . grid)
-    f idx = case g ^? ix idx of
+    g' = unGrid g;
+    f idx = case g' ^? ix idx of
                     Nothing     -> False
                     (Just val)  -> test val
 
@@ -514,9 +549,10 @@ pieceMoves :: CkNode -> Int -> [CkMove]
 pieceMoves node idx =
     let pos = node ^. ckPosition
         g = pos ^. grid
-    in case g ^? ix idx of
+        g' = unGrid g
+    in case g' ^? ix idx of
         Nothing -> []
-        Just val -> if isKing val then kingMoves g idx else forwardMoves g idx (pos ^. clr)
+        Just val -> if isKing val then kingMoves g' idx else forwardMoves g' idx (pos ^. clr)
 
 forwardMoves :: V.Vector Int -> Int -> Int -> [CkMove]
 forwardMoves g indx colr =
@@ -537,10 +573,12 @@ pieceJumps :: CkNode -> Int -> [CkMove]
 pieceJumps node idx =
     let pos = node ^. ckPosition
         grd = pos ^. grid
+        g' = unGrid grd
         colr = pos ^. clr
-    in case grd ^? ix idx of
+
+    in case g' ^? ix idx of
         Nothing -> []
-        Just val -> multiJumps grd colr (offsets val) idx where
+        Just val -> multiJumps g' colr (offsets val) idx where
             offsets x
                 | isKing x = [JumpOff 4 8, JumpOff 5 10, JumpOff (-4) (-8), JumpOff (-5) (-10)]
                 | otherwise  = [JumpOff (4 * colr) (8 * colr), JumpOff (5 * colr) (10 * colr)]

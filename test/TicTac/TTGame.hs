@@ -16,7 +16,6 @@ module TicTac.TTGame
     ) where
 
 import Control.Lens
-import Data.Mutable
 import Data.Tree
 import Strat.StratTree.TreeNode hiding (MoveScore)
 import qualified TicTac.TTParser as Parser
@@ -55,8 +54,6 @@ instance Ord IntEval where
 
 data TTNode = TTNode {_ttMove :: IntMove, _ttValue :: IntEval, _ttPosition :: TTPosition} deriving (Show, Eq, Ord)
 makeLenses ''TTNode
-
-instance Mutable s TTNode where
 
 instance Eval TTNode where
     evaluate tn =

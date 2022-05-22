@@ -1,13 +1,17 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module PruningTest (pruningTest) where
 
+import Data.Hashable
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HM
 import Data.Tree
+import GHC.Generics
 import System.Random hiding (next)
 import Test.Hspec
 import Text.Printf
@@ -23,7 +27,7 @@ data TestNode = TestNode
   , tnSign :: Sign
   , isCrit :: Bool
   }
-  deriving Eq
+  deriving (Eq, Generic, Hashable)
 
 instance Show TestNode where
   show tn = printf "TestNode %d (%s), type = %d, sign = %s, val = %s, isCrit = %s"
@@ -80,11 +84,11 @@ pruningTest = do
             let result3 = negaMax wikiTreeD3 False
             let theBest3 = best result3
             evalNode theBest3 `shouldBe`
-                TestNode { typ = 1, nid = 15, name = "01-03-07-15 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
+                TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
             moveSeq theBest3 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 15, name = "01-03-07-15 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
               ]
 
             ----------------------------------------------------------------------------------
@@ -96,13 +100,13 @@ pruningTest = do
             let result4 = negaMax newWikiTree False
             let theBest4 = best result4
             evalNode theBest4 `shouldBe`
-                TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+                TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
             moveSeq theBest4 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 15, name = "01-03-07-15 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               ]
 
             treeSize newWikiTree `shouldBe` (33, [1, 3, 6, 9, 14])
@@ -114,13 +118,13 @@ pruningTest = do
             let result5 = negaMax newWikiTree True
             let theBest5 = best result5
             evalNode theBest5 `shouldBe`
-                TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+                TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
             moveSeq theBest5 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 15, name = "01-03-07-15 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               ]
 
             evalCount result5 `shouldBe` (33-8-1) -- 8===nodes skipped from pruning, 1===root node not counted
@@ -132,13 +136,13 @@ pruningTest = do
             let result6 = negaRnd newWikiTree rnd 0.0 True
             let theBest6 = best result6
             evalNode theBest6 `shouldBe`
-                TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+                TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
             moveSeq theBest6 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 15, name = "01-03-07-15 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               ]
 
             evalCount result6 `shouldBe` (33-8-1) -- 8===nodes skipped from pruning, 1===root node not counted
@@ -149,12 +153,12 @@ pruningTest = do
             let (newIncWikiTree, result8) = incrementalSearchTo rootWikiTree rnd 0.0 4
             let theBest8 = best result8
             evalNode theBest8 `shouldBe`
-                TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+                TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
             moveSeq theBest8 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-              , TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 15, name = "01-03-07-15 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               ]
 
             treeSize newIncWikiTree `shouldBe` (33, [1, 3, 6, 9, 14])

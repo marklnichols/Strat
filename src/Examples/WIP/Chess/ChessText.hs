@@ -35,6 +35,7 @@ printString = putStrLn
 showBoard :: ChessText -> ChessNode -> IO ()
 showBoard _ node = do
     putStrLn $ formatBoard node
+    putStrLn ("Board hash: " ++ show (nodeHash node))
     putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal node))
 
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
@@ -93,7 +94,8 @@ playerEntryText tree exclusions = do
 formatBoard :: ChessNode -> String
 formatBoard node =
     let g = node ^. (chessPos . cpGrid)
-    in "\n" ++ (colLabels ++ loop g 11 8 "") ++ "\n"
+        g' = unGrid g
+    in "\n" ++ (colLabels ++ loop g' 11 8 "") ++ "\n"
   where
     loop :: V.Vector Char -> Int -> Int -> String -> String
     loop _ _ 0 dest = dest

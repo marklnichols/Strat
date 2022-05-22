@@ -7,7 +7,7 @@ module ChessTest (chessTest) where
 import Test.Hspec
 import Data.List
 import Data.Tuple.Extra (fst3)
-import Data.Vector.Unboxed (Vector)
+-- import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
 import Chess
@@ -51,7 +51,7 @@ chessTest = do
 
           hasCastlingMove moves `shouldBe` False
 
--- allowableQueenMoves :: Vector Char -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+-- allowableQueenMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
@@ -190,9 +190,9 @@ chessTest = do
     describe "calcPawnPositionScore" $
       it ("Calculates a score for the position based on pawn positioning"
           ++ " for each side") $ do
-          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 16
+          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 18
 
-          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-16)
+          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-18)
 
     describe "inCheck" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
@@ -209,7 +209,7 @@ chessTest = do
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
-          -- startingBoard :: V.Vector Char
+          -- startingBoard :: ChessGrid
           let t = getStartNode "newgame" White
           let newTree = expandTree t 2
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
@@ -228,11 +228,32 @@ chessTest = do
       it "finds the best move from the tree of possible moves" $ do
         matchStdMove mateInTwo01TestData `shouldBe` True
         matchStdMove mateInTwo02TestData `shouldBe` True
+        matchStdMove mateInTwo03bTestData `shouldBe` True
+        matchStdMove mateInTwo03TestData `shouldBe` True
         matchStdMove promotion01TestData `shouldBe` True
     describe "checkPromote" $
       it "checks for pawn promotion" $ do
           checkPromote 'P' 82 `shouldBe` 'Q'
           checkPromote 'p' 12 `shouldBe` 'q'
+    describe "Z.mateInCompare" $
+      it "handles the comparison of two moves containing one or two 'mate in N moves'" $ do
+        let no = Z.MateIn Nothing
+        let whiteThree = Z.MateIn (Just (3, Z.Pos))
+        let blackThree = Z.MateIn (Just (3, Z.Neg))
+        let whiteTwo = Z.MateIn (Just (2, Z.Pos))
+        let blackTwo = Z.MateIn (Just (2, Z.Neg))
+
+        Z.mateInCompare whiteThree no `shouldBe` False
+        Z.mateInCompare no whiteThree `shouldBe` True
+
+        Z.mateInCompare no blackThree `shouldBe` False
+        Z.mateInCompare blackThree no `shouldBe` True
+
+        Z.mateInCompare whiteTwo whiteThree `shouldBe` False
+        Z.mateInCompare blackTwo blackThree `shouldBe` True
+
+        Z.mateInCompare whiteTwo blackTwo `shouldBe` False
+        Z.mateInCompare blackThree whiteTwo `shouldBe` True
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions / datatypes
@@ -253,7 +274,7 @@ matchStdMove StdMoveTestData{..} =
                     end == smtdEndIdx
             CastlingMove {} -> False
 
-posFromGrid :: Vector Char -> Color -> (Int, Int) -> (Bool, Bool) -> ChessPos
+posFromGrid :: ChessGrid -> Color -> (Int, Int) -> (Bool, Bool) -> ChessPos
 posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) =
   let (wLocs, bLocs) = calcLocsForColor g
   in ChessPos
@@ -281,8 +302,8 @@ posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) =
 -}
 
 ---------------------------------------------------------------------------------------------------
-board01 :: V.Vector Char
-board01 = V.fromList
+board01 :: ChessGrid
+board01 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  'K',  'R',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  'P',  'P',  ' ',  ' ',  'B',  'R',  ' ',  ' ',  '+',
@@ -311,8 +332,8 @@ P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27
 -}
 
 ----------------------------------------------------------------------------------------------------
-board02 :: V.Vector Char
-board02 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board02 :: ChessGrid
+board02 = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  ' ',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
                              '+',  ' ',  ' ',  'N',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -340,8 +361,8 @@ R   -   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 -}
 
 ----------------------------------------------------------------------------------------------------
-board03a :: V.Vector Char
-board03a = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board03a :: ChessGrid
+board03a = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  'R',  ' ',  ' ',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  ' ',  'Q',  'P',  'P',  'P',  '+',
                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -368,8 +389,8 @@ _   R   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17
                                                  A    B    C    D    E    F    G    H
 -}
 
-board03b :: V.Vector Char
-board03b = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board03b :: ChessGrid
+board03b = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  ' ',  ' ',  ' ',  ' ',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  'K',  'Q',  'P',  'P',  'P',  '+',
                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -396,8 +417,8 @@ R   -   -   -   -   B   N   R          1| (10)  11   12   13   14   15   16   17
                                                  A    B    C    D    E    F    G    H
 -}
 
-board03c :: V.Vector Char
-board03c = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board03c :: ChessGrid
+board03c = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  ' ',  ' ',  ' ',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  ' ',  'Q',  'P',  'P',  'P',  '+',
                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -438,8 +459,8 @@ R   -   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 --                            , _rookStartIdx = 11, _rookEndIdx = 15, _castleNote = "O-O-O"}
 
 ----------------------------------------------------------------------------------------------------
-board04 :: V.Vector Char
-board04 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board04 :: ChessGrid
+board04 = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -466,8 +487,8 @@ board04 = V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+'
                                                  A    B    C    D    E    F    G    H
 -}
 
-board05 :: V.Vector Char
-board05 = V.fromList
+board05 :: ChessGrid
+board05 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  'N',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
                              '+',  'P',  ' ',  'P',  ' ',  ' ',  'P',  ' ',  'P',  '+',
@@ -499,8 +520,8 @@ Black: -2, -1, -2, -1
 Total: + 16
 -}
 
-board06 :: V.Vector Char
-board06 = V.fromList
+board06 :: ChessGrid
+board06 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  'N',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
                              '+',  ' ',  'P',  ' ',  'P',  'P',  ' ',  'P',  ' ',  '+',
@@ -539,8 +560,8 @@ Total: - 16
 ----------------------------------------------------------------------------------------------------
 -- Boards to check checkmate, draw states
 ----------------------------------------------------------------------------------------------------
-board07 :: V.Vector Char
-board07 = V.fromList
+board07 :: ChessGrid
+board07 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -569,8 +590,8 @@ board07 = V.fromList
 (WWins)
 -}
 
-board07b :: V.Vector Char
-board07b = V.fromList
+board07b :: ChessGrid
+board07b = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  'K',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -599,8 +620,8 @@ board07b = V.fromList
 (BWins)
 -}
 
-board07c :: V.Vector Char
-board07c = V.fromList
+board07c :: ChessGrid
+board07c = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'k',  ' ',  'K',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  '+',
@@ -629,8 +650,8 @@ board07c = V.fromList
 (if White's turn, Draw)
 -}
 
-board07d:: V.Vector Char
-board07d = V.fromList         [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board07d:: ChessGrid
+board07d = ChessGrid $ V.fromList         [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                 '+',  'K',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -659,8 +680,8 @@ K   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17
 -}
 
 ----------------------------------------------------------------------------------------------------
-_boardTemplate :: V.Vector Char
-_boardTemplate = V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+_boardTemplate :: ChessGrid
+_boardTemplate = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
