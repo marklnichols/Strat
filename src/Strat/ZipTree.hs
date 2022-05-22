@@ -290,7 +290,7 @@ zipFoldR f = loop
 
 -- alpha-beta comparison
 -- A return value of (True, _) means the rest of the tree can be pruned
--- The string in the 2nd tuple component provides debug information
+-- The string in the 2nd tuple component provides debug info
 canPrune :: (Show a) => AlphaBeta -> TraceCmp a -> Bool -> String -> (Bool, String)
 canPrune AlphaBeta{..} tcNewBest enablePruning moreInfo =
     if not pruneTracing
