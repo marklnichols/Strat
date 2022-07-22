@@ -5,7 +5,9 @@
 module ChessTest (chessTest) where
 
 import Test.Hspec
+import Control.Monad.Reader
 import Data.List
+import qualified Data.Text as T
 import Data.Tuple.Extra (fst3)
 -- import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
@@ -15,6 +17,19 @@ import GameRunner
 import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
+
+--TODO: look into preSort problems -- disabled for now
+testEnv :: Z.ZipTreeEnv
+testEnv = Z.ZipTreeEnv
+        { enablePruneTracing = False
+        , enableCmpTracing = False
+        , enableRandom = False
+        , enablePreSort = False
+        , moveTraceStr = T.pack ""
+        , maxDepth = 5
+        , aiPlaysWhite = True
+        , aiPlaysBlack = True
+        }
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -209,9 +224,9 @@ chessTest = do
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
-          -- startingBoard :: ChessGrid
           let t = getStartNode "newgame" White
-          let newTree = expandTree t 2
+          -- let newTree = expandTree t 2
+          newTree <- runReaderT (expandTree t 2) testEnv
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True
@@ -226,11 +241,17 @@ chessTest = do
           checkFinal' (posFromGrid board07d White (11, 23) (True, False)) `shouldBe` BWins
     describe "negaMax" $
       it "finds the best move from the tree of possible moves" $ do
-        matchStdMove mateInTwo01TestData `shouldBe` True
-        matchStdMove mateInTwo02TestData `shouldBe` True
-        matchStdMove mateInTwo03bTestData `shouldBe` True
-        matchStdMove mateInTwo03TestData `shouldBe` True
-        matchStdMove promotion01TestData `shouldBe` True
+        r1 <- matchStdMove mateInTwo01TestData
+        r1 `shouldBe` True
+        r2 <- matchStdMove mateInTwo02TestData
+        r2 `shouldBe` True
+        r3b <- matchStdMove mateInTwo03bTestData
+        r3b `shouldBe` True
+        r3 <- matchStdMove mateInTwo03TestData
+        r3 `shouldBe` True
+        p1 <- matchStdMove promotion01TestData
+        p1 `shouldBe` True
+
     describe "checkPromote" $
       it "checks for pawn promotion" $ do
           checkPromote 'P' 82 `shouldBe` 'Q'
@@ -258,21 +279,25 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions / datatypes
 ---------------------------------------------------------------------------------------------------
-matchStdMove :: StdMoveTestData -> Bool
-matchStdMove StdMoveTestData{..} =
+matchStdMove :: StdMoveTestData -> IO Bool
+matchStdMove StdMoveTestData{..} = do
     let board = getStartNode smtdBoardName colorToMoveNext
-        tree = Z.expandTo board smtdDepth
-        result = Z.negaMax tree True
-        theBest = Z.best result
-        mvNode = Z.moveNode theBest
-        mv = _chessMv mvNode
-        in case mv of
-            StdMove {..} ->
-                let start = _startIdx
-                    end = _endIdx
-                in start == smtdStartIdx &&
-                    end == smtdEndIdx
-            CastlingMove {} -> False
+        -- tree = Z.expandTo board smtdDepth
+        -- result = Z.negaMax tree True
+    let f :: Z.ZipReaderT IO (Z.NegaResult ChessNode)
+        f = do
+            tree <- Z.expandTo board smtdDepth
+            Z.negaMax tree True
+    result <- runReaderT f testEnv
+    let theBest = Z.best result
+    let mvNode = Z.moveNode theBest
+    let mv = _chessMv mvNode
+    case mv of
+        StdMove {..} -> do
+            let start = _startIdx
+            let end = _endIdx
+            liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
+        CastlingMove {} -> liftIO $ return False
 
 posFromGrid :: ChessGrid -> Color -> (Int, Int) -> (Bool, Bool) -> ChessPos
 posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) =

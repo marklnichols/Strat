@@ -14,6 +14,7 @@ module StratWeb.WebRunner
 
 import Control.Monad.Reader
 import Data.Aeson
+import Data.Text (pack)
 import Data.Tree
 import Strat.Helpers
 import Strat.StratTree.TreeNode
@@ -74,7 +75,21 @@ processPlayerMove tree mv bComputerResponse gen = do
 
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
-----------------------------------------------------------------------------------------------------  11
+----------------------------------------------------------------------------------------------------
+
+-- TODO: move this
+testEnv :: ZipTreeEnv
+testEnv = ZipTreeEnv
+        { enablePruneTracing = False
+        , enableCmpTracing = False
+        , enableRandom = False
+        , enablePreSort = True
+        , moveTraceStr = pack ""
+        , maxDepth = 5
+        , aiPlaysWhite = True
+        , aiPlaysBlack = True
+        }
+
 computerResponse :: (RandomGen g) => Tree Ck.CkNode -> g -> IO NodeWrapper
 computerResponse prevNode gen = do
     eitherNode <- computerMove prevNode gen
@@ -94,14 +109,16 @@ computerResponse prevNode gen = do
 computerMove :: (RandomGen g) => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-    let newTree = expandTo t (ceDepth gameEnv)
+    -- let newTree = expandTo t (ceDepth gameEnv)
+    -- let res@NegaResult{..} = negaRnd newTree gen (ceEquivThreshold gameEnv) True
 
-    let res@NegaResult{..} = negaRnd newTree gen (ceEquivThreshold gameEnv) True
+   newTree <- runReaderT (expandTo t (ceDepth gameEnv)) testEnv
+   res@NegaResult{..} <- runReaderT (negaRnd newTree gen (ceEquivThreshold gameEnv) True) testEnv
 
-    let bestMv = getMove $ moveNode best
+   let bestMv = getMove $ moveNode best
 
-    let moveScores = mkMoveScores (evalNode best : (evalNode <$> alternatives))
-    return $ Right ( MoveResults
+   let moveScores = mkMoveScores (evalNode best : (evalNode <$> alternatives))
+   return $ Right ( MoveResults
       { mrResult = res
       , mrMoveScores = moveScores
       , mrMove = bestMv

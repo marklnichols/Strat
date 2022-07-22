@@ -500,11 +500,14 @@ getStartNode restoreGame nextColorToMove =
       "debug"       -> Node debugExampleNode []
       "debug02"     -> Node debugExampleNode02 []
       "debug03"     -> Node debugExampleNode03 []
+      "debug04"     -> Node debugExampleNode04 []
+      "debug05"     -> Node debugExampleNode05 []
       "draw"       -> Node drawnExampleNode []
       "castling"   -> Node castlingNode []
       _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered, \
                  \ checkmate, checkmate2, checkmate3 ,checkmate4 ,mateInTwo01, mateInTwo02, mateInTwo02b \
-                 \ mateInTwo03, mateInTwo03b, promotion01 debug, debug02, debug03, draw, castling"
+                 \ mateInTwo03, mateInTwo03b, promotion01 debug, debug02, debug03 \
+                 \ debug04, debug05, draw, castling"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> ChessGrid
@@ -2419,6 +2422,72 @@ Black: E6-F4 ???
 
 -}
 
+debugBoard04 :: ChessGrid
+debugBoard04 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  ' ',  'Q',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  'P',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'p',  ' ',  'B',  ' ',  '+',
+                             '+',  ' ',  ' ',  'n',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  'p',  ' ',  'p',  'p',  'p',  '+',
+                             '+',  'r',  ' ',  'b',  'q',  'k',  'b',  ' ',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   b   q   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   n   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   p   -   B   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+Black: D7-D5 ???
+-}
+
+debugBoard05 :: ChessGrid
+debugBoard05 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  'K',  ' ',  ' ',  'B',  ' ',  'R',  '+',
+                             '+',  'P',  ' ',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  ' ',  'R',  'B',  'N',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'b',  ' ',  '+',
+                             '+',  ' ',  'Q',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  'p',  '+',
+                             '+',  ' ',  ' ',  'p',  ' ',  'n',  'p',  'p',  ' ',  '+',
+                             '+',  'r',  ' ',  ' ',  'q',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   -   q   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   p   -   n   p   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   n   -   p          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   Q   -   P   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   b   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   R   B   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   -   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   K   -   -   B   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+Black: G4-H3 ???
+or
+Black: A8-A5 ???
+
+> cabal exec strat-exe -- -d4 -rdebug05 -cBlack --nopresort --ptracing --ctracing --tracestr="A8-A5, B5xA5"
+
+-}
 
 
 
@@ -2498,6 +2567,12 @@ debugExampleNode02 = preCastlingGameNode debugBoard02 White (15, 85)
 
 debugExampleNode03 :: ChessNode
 debugExampleNode03 = preCastlingGameNode debugBoard03 Black (15, 85)
+
+debugExampleNode04 :: ChessNode
+debugExampleNode04 = preCastlingGameNode debugBoard04 Black (15, 85)
+
+debugExampleNode05 :: ChessNode
+debugExampleNode05 = preCastlingGameNode debugBoard05 Black (13, 87)
 
 castlingNode :: ChessNode
 castlingNode = preCastlingGameNode castlingBoard Black (27, 85)

@@ -7,9 +7,11 @@
 
 module PruningTest (pruningTest) where
 
+import Control.Monad.Reader
 import Data.Hashable
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HM
+import Data.Text (pack)
 import Data.Tree
 import GHC.Generics
 import System.Random hiding (next)
@@ -42,6 +44,19 @@ instance ZipTreeNode TestNode where
   ztnSign = tnSign
   ztnFinal _ = False
 
+--TODO: look into preSort problems -- disabled for now
+testEnv :: ZipTreeEnv
+testEnv = ZipTreeEnv
+        { enablePruneTracing = False
+        , enableCmpTracing = False
+        , enableRandom = False
+        , enablePreSort = False
+        , moveTraceStr = pack ""
+        , maxDepth = 5
+        , aiPlaysWhite = True
+        , aiPlaysBlack = True
+        }
+
 pruningTest :: SpecWith ()
 pruningTest = do
     describe "expandTo" $
@@ -55,8 +70,14 @@ pruningTest = do
             --------------------------------------------------
             -- depth 1
             --------------------------------------------------
-            let wikiTreeD1 = expandTo rootWikiTree 1
-            let result1 = negaMax wikiTreeD1 False
+            -- let wikiTreeD1 = expandTo rootWikiTree 1
+            -- let result1 = negaMax wikiTreeD1 False
+            let f1 :: ZipReaderT IO (NegaResult TestNode)
+                f1 = do
+                  wikiTreeD1 <- expandTo rootWikiTree 1
+                  negaMax wikiTreeD1 False
+            result1 <- runReaderT f1 testEnv
+
             let theBest1 = best result1
             evalNode theBest1 `shouldBe`
                 TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
@@ -67,8 +88,14 @@ pruningTest = do
             --------------------------------------------------
             -- depth 2
             --------------------------------------------------
-            let wikiTreeD2 = expandTo rootWikiTree 2
-            let result2 = negaMax wikiTreeD2 False
+            -- let wikiTreeD2 = expandTo rootWikiTree 2
+            -- let result2 = negaMax wikiTreeD2 False
+            let f2 :: ZipReaderT IO (NegaResult TestNode)
+                f2 = do
+                  wikiTreeD2 <- expandTo rootWikiTree 2
+                  negaMax wikiTreeD2 False
+            result2 <- runReaderT f2 testEnv
+
             let theBest2 = best result2
             evalNode theBest2 `shouldBe`
                 TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
@@ -80,8 +107,13 @@ pruningTest = do
             --------------------------------------------------
             -- depth 3
             --------------------------------------------------
-            let wikiTreeD3 = expandTo rootWikiTree 3
-            let result3 = negaMax wikiTreeD3 False
+            -- let wikiTreeD3 = expandTo rootWikiTree 3
+            -- let result3 = negaMax wikiTreeD3 False
+            let f3 :: ZipReaderT IO (NegaResult TestNode)
+                f3 = do
+                  wikiTreeD3 <- expandTo rootWikiTree 3
+                  negaMax wikiTreeD3 False
+            result3 <- runReaderT f3 testEnv
             let theBest3 = best result3
             evalNode theBest3 `shouldBe`
                 TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -94,10 +126,13 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- testing the complete tree
             ----------------------------------------------------------------------------------
-            let newWikiTree = expandTo rootWikiTree 4
+            -- let newWikiTree = expandTo rootWikiTree 4
+            newWikiTree <- runReaderT (expandTo rootWikiTree 4) testEnv
 
             -- first without pruning
-            let result4 = negaMax newWikiTree False
+            -- let result4 = negaMax newWikiTree False
+            result4 <- runReaderT (negaMax newWikiTree False) testEnv
+
             let theBest4 = best result4
             evalNode theBest4 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
@@ -115,7 +150,9 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with pruning
             ----------------------------------------------------------------------------------
-            let result5 = negaMax newWikiTree True
+            -- let result5 = negaMax newWikiTree True
+            result5 <- runReaderT (negaMax newWikiTree True) testEnv
+
             let theBest5 = best result5
             evalNode theBest5 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
@@ -133,7 +170,9 @@ pruningTest = do
             -- negaRnd, but with the random tolerance at 0.0
             ----------------------------------------------------------------------------------
             rnd <- getStdGen
-            let result6 = negaRnd newWikiTree rnd 0.0 True
+            -- let result6 = negaRnd newWikiTree rnd 0.0 True
+            result6 <- runReaderT (negaRnd newWikiTree rnd 0.0 True) testEnv
+
             let theBest6 = best result6
             evalNode theBest6 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
@@ -150,7 +189,9 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with incremental decent and sorting
             ----------------------------------------------------------------------------------
-            let (newIncWikiTree, result8) = incrementalSearchTo rootWikiTree rnd 0.0 4
+            -- let (newIncWikiTree, result8) = incrementalSearchTo rootWikiTree rnd 0.0 4
+            (newIncWikiTree, result8) <- runReaderT (incrementalSearchTo rootWikiTree rnd 0.0 4) testEnv
+
             let theBest8 = best result8
             evalNode theBest8 `shouldBe`
                 TestNode { typ = 1, nid = 27, name = "01-03-07-15-27 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}

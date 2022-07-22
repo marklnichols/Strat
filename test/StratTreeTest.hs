@@ -6,7 +6,9 @@
 
 module StratTreeTest (stratTreeTest) where
 
+import Control.Monad.Reader
 import Data.Hashable
+import Data.Text (pack)
 import Data.Tree
 import GHC.Generics
 import Test.Hspec
@@ -22,23 +24,36 @@ instance ZipTreeNode NodeVal where
   ztnSign = sign
   ztnFinal _ = False
 
+--TODO: look into preSort problems -- disabled for now
+testEnv :: ZipTreeEnv
+testEnv = ZipTreeEnv
+        { enablePruneTracing = False
+        , enableCmpTracing = False
+        , enableRandom = False
+        , enablePreSort = False
+        , moveTraceStr = pack ""
+        , maxDepth = 5
+        , aiPlaysWhite = True
+        , aiPlaysBlack = True
+        }
+
 stratTreeTest :: SpecWith ()
 stratTreeTest = do
     describe "negaMax" $
         it "finds the best move from a tree of moves/opponent moves" $ do
-            -- let ((x, xs), _others) = negaMax negaMaxTree (Sign {signToInt = 1})
-            -- x `shouldBe` NodeVal {nvalToInt = 14}
-            -- xs `shouldBe` [ NodeVal {nvalToInt = 2}
-            --               , NodeVal {nvalToInt = -20}
-            --               , NodeVal {nvalToInt = 14} ]
-            let NegaResult{..} = negaMax negaMaxTree False
+            -- let NegaResult{..} = negaMax negaMaxTree False
+            -- evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
+            result1 <- runReaderT (negaMax negaMaxTree False) testEnv
+            let NegaResult{..} = result1
             evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
             moveSeq best `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
                                     , NodeVal {nvalToInt = -20, sign = Neg}
                                     , NodeVal {nvalToInt = 14, sign = Pos} ]
     describe "negaMax-b" $
         it "same as the previous, but if black moved next" $ do
-            let NegaResult{..} = negaMax negaMaxTree False
+            -- let NegaResult{..} = negaMax negaMaxTree False
+            result1 <- runReaderT (negaMax negaMaxTree False) testEnv
+            let NegaResult{..} = result1
             evalNode best `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
             moveSeq best `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}
                                     , NodeVal {nvalToInt = 35, sign = Neg}
