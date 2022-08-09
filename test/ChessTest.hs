@@ -18,7 +18,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 
---TODO: look into preSort problems -- disabled for now
+--TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
 testEnv = Z.ZipTreeEnv
         { enablePruneTracing = False

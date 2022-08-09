@@ -48,7 +48,7 @@ stratArgs :: StratArgs
 stratArgs = StratArgs
   { exampleName = "chess" &= name "n" &= help "The example to run"
   , depth = 4 &= help "Tree search depth"
-  , noRandom = False &= name "nr" &= help "Turn off randomness used in the computer's move selection"
+  , noRandom = True &= name "nr" &= help "Turn off randomness used in the computer's move selection"
   , noPruning = False &= name "p" &= help "Turn off alpha-beta pruning (just for debugging)"
   , restoreGame = "newgame" &= help "Game name to restore"
   , nextMoveColor = White &= name "c" &= help "Color to move next (White | Black)"

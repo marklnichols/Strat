@@ -502,12 +502,16 @@ getStartNode restoreGame nextColorToMove =
       "debug03"     -> Node debugExampleNode03 []
       "debug04"     -> Node debugExampleNode04 []
       "debug05"     -> Node debugExampleNode05 []
-      "draw"       -> Node drawnExampleNode []
-      "castling"   -> Node castlingNode []
+      "debug06"     -> Node debugExampleNode06 []
+      "debug06b"    -> Node debugExampleNode06b []
+      "debug06c"    -> Node debugExampleNode06c []
+      "debug07"     -> Node debugExampleNode07 []
+      "draw"        -> Node drawnExampleNode []
+      "castling"    -> Node castlingNode []
       _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered, \
                  \ checkmate, checkmate2, checkmate3 ,checkmate4 ,mateInTwo01, mateInTwo02, mateInTwo02b \
                  \ mateInTwo03, mateInTwo03b, promotion01 debug, debug02, debug03 \
-                 \ debug04, debug05, draw, castling"
+                 \ debug04, debug05, debug06, debug06b, debug06c, debug07, draw, castling"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> ChessGrid
@@ -733,7 +737,8 @@ flipPieceColor Unknown = Unknown
 
 
 {- TODOs:
--- Try running 'stan': https://hackage.haskell.org/package/stan
+-- Re-implement random move selection - the choice must have the same tree parent as the best move
+-- Implement FEN for positions
 -- Add pawn promotion other than queen
 -- Add / fix enpassant
 -- Add more mate in n tests
@@ -2490,18 +2495,167 @@ Black: A8-A5 ???
 -}
 
 
+debugBoard06 :: ChessGrid
+debugBoard06 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  ' ',  'Q',  ' ',  'R',  'K',  ' ',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  'B',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  'P',  'N',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  ' ',  'B',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  'n',  ' ',  'p',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'p',  'b',  ' ',  'p',  'p',  'p',  '+',
+                             '+',  'r',  ' ',  ' ',  'q',  'k',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   -   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   p   b   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   p   n   -   p   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+p   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   -   B   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   P   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   B   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+Black: ...D8-H4 ????? followed by F3xH4
+Black: ...F8-A3 ??? followed by B2xA3
+
+> cabal exec strat-exe -- -d4 -rdebug06 -cBlack --ctracing --tracestr="[ D8-H4,"
+
+-}
+
+debugBoard06b :: ChessGrid
+debugBoard06b = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  ' ',  'Q',  ' ',  'R',  'K',  ' ',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  'B',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  'P',  'N',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  ' ',  'B',  ' ',  'q',  '+',
+                             '+',  'p',  ' ',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  'n',  ' ',  'p',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'p',  'b',  ' ',  'p',  'p',  'p',  '+',
+                             '+',  'r',  ' ',  ' ',  ' ',  'k',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   -   -   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   p   b   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   p   n   -   p   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+p   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   -   B   -   q          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   P   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   B   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+Same as 6, but horrible more D8-H4 made already
+Test with the program playing white
+
+if not, W F3xH4, something really wrong
+
+> cabal exec strat-exe -- -d4 -rdebug06b --black-ai=False --white-ai=True  -- WRONG
+> cabal exec strat-exe -- -d4 -rdebug06b --black-ai=False --white-ai=True -p -- RIGHT
+The combination of pruning and random move variation is breaking something here...
+-}
+
+debugBoard06c :: ChessGrid
+debugBoard06c = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  ' ',  ' ',  'Q',  ' ',  'R',  'K',  ' ',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  'B',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  'P',  'N',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  ' ',  'B',  ' ',  'q',  '+',
+                             '+',  'p',  ' ',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  'n',  ' ',  'p',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'p',  'b',  ' ',  'p',  'p',  'p',  '+',
+                             '+',  'r',  ' ',  ' ',  ' ',  'k',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   -   -   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   p   b   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   p   n   -   p   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+p   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   -   B   -   q          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   P   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   B   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+Same as 6b, but with white making crazy D1-C1
+Test from here with the program playing Black
+Black must immed move the queen on H4, if not, something is really wrong
+
+> cabal exec strat-exe -- -d4 -rdebug06c
+> cabal exec strat-exe -- -d4 -rdebug06c --ctracing --tracestr="[ C6xD4"
+-}
+
+
+
+
+debugBoard07 :: ChessGrid
+debugBoard07 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  'K',  'R',  ' ',  'B',  'N',  'R',  '+',
+                             '+',  'P',  ' ',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'Q',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  ' ',  ' ',  'P',  ' ',  'P',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  'p',  'n',  'p',  'p',  'p',  '+',
+                             '+',  'r',  ' ',  'b',  'q',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   b   q   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   n   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+p   -   -   -   P   -   P   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+Q   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   P   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   -   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   K   R   -   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+Black:
+.... D7-D5 ??
+
+Why not move knight on F6?
+
+> cabal exec strat-exe -- -d4 -rdebug07
+-}
+
+
 
 castlingBoard :: ChessGrid
 castlingBoard = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
-                              '+',  'R',  ' ',  'B',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
-                              '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'K',  'P',  '+',
-                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  'Q',  ' ',  ' ',  '+',
-                              '+',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
-                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                              '+',  ' ',  ' ',  'p',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
-                              '+',  'p',  ' ',  'p',  ' ',  'p',  'p',  'p',  'p',  '+',
-                              '+',  ' ',  'r',  ' ',  ' ',  'k',  'b',  ' ',  'r',  '+',
-                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+                                         '+',  'R',  ' ',  'B',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                                         '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'K',  'P',  '+',
+                                         '+',  ' ',  ' ',  'N',  ' ',  ' ',  'Q',  ' ',  ' ',  '+',
+                                         '+',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
+                                         '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                                         '+',  ' ',  ' ',  'p',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                                         '+',  'p',  ' ',  'p',  ' ',  'p',  'p',  'p',  'p',  '+',
+                                         '+',  ' ',  'r',  ' ',  ' ',  'k',  'b',  ' ',  'r',  '+',
+                                         '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
@@ -2573,6 +2727,18 @@ debugExampleNode04 = preCastlingGameNode debugBoard04 Black (15, 85)
 
 debugExampleNode05 :: ChessNode
 debugExampleNode05 = preCastlingGameNode debugBoard05 Black (13, 87)
+
+debugExampleNode06 :: ChessNode
+debugExampleNode06 = preCastlingGameNode debugBoard06 Black (17, 85)
+
+debugExampleNode06b :: ChessNode
+debugExampleNode06b = preCastlingGameNode debugBoard06b White (17, 85)
+
+debugExampleNode06c :: ChessNode
+debugExampleNode06c = preCastlingGameNode debugBoard06c Black (17, 85)
+
+debugExampleNode07 :: ChessNode
+debugExampleNode07 = preCastlingGameNode debugBoard07 Black (13, 87)
 
 castlingNode :: ChessNode
 castlingNode = preCastlingGameNode castlingBoard Black (27, 85)
