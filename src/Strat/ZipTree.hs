@@ -109,7 +109,11 @@ minScore = - maxScore
 data MateIn = MateIn (Maybe (Int, Sign))
   deriving (Eq, Show)
 
-data TraceCmp a = Max | Min | TraceCmp (a, [a], Float, MateIn)
+-- data TraceCmp a = Max | Min | TraceCmp (a, [a], Float, MateIn)
+data TraceCmp a where
+  Max :: TraceCmp a
+  Min :: TraceCmp a
+  TraceCmp :: a -> [a] -> Float -> MateIn -> TraceCmp a
 
 instance (Show a) => Show (TraceCmp a) where
   show x = showTC x
@@ -121,11 +125,11 @@ instance Eq a => Eq (TraceCmp a) where
    (==) Min _ = False
    (==) _ Max = False
    (==) _ Min = False
-   (==) (TraceCmp (_, _, x, MateIn Nothing)) (TraceCmp (_, _, y, MateIn Nothing)) = x == y
-   (==) (TraceCmp (_, _, _, _)) (TraceCmp (_, _, _, MateIn Nothing)) = False
-   (==) (TraceCmp (_, _, _, MateIn Nothing)) (TraceCmp (_, _, _, _)) = False
-   (==) (TraceCmp (_, _, _, MateIn (Just (xMateIn, _xSgn))))
-            (TraceCmp (_, _, _, MateIn (Just (yMateIn, _ySgn)))) = xMateIn == yMateIn
+   (==) (TraceCmp _ _ x (MateIn Nothing)) (TraceCmp _ _ y (MateIn Nothing)) = x == y
+   (==) (TraceCmp _ _ _ _) (TraceCmp _ _ _ (MateIn Nothing)) = False
+   (==) (TraceCmp _ _ _ (MateIn Nothing)) (TraceCmp _ _ _ _) = False
+   (==) (TraceCmp _ _ _ (MateIn (Just (xMateIn, _xSgn))))
+            (TraceCmp _ _ _ (MateIn (Just (yMateIn, _ySgn)))) = xMateIn == yMateIn
 
 nodeHash :: (ZipTreeNode a, Hashable a) => a -> Int
 nodeHash n = hash n
@@ -140,12 +144,12 @@ cmpTC Max _   = False
 cmpTC Min _   = True
 cmpTC _   Max = True
 cmpTC _   Min = False
-cmpTC (TraceCmp (_, _, x, MateIn Nothing)) (TraceCmp (_, _, y, MateIn Nothing)) = x <= y
-cmpTC (TraceCmp (_, _, x, MateIn (Just pairX))) (TraceCmp (_, _, y, MateIn (Just pairY))) =
+cmpTC (TraceCmp _ _ x (MateIn Nothing)) (TraceCmp _ _ y (MateIn Nothing)) = x <= y
+cmpTC (TraceCmp _ _ x (MateIn (Just pairX))) (TraceCmp _ _ y (MateIn (Just pairY))) =
     if pairX == pairY
       then x <= y
       else mateInCompare (MateIn (Just pairX)) (MateIn (Just pairY))
-cmpTC (TraceCmp (_, _, _, maybeX)) (TraceCmp (_, _, _, maybeY)) =
+cmpTC (TraceCmp _ _ _ maybeX) (TraceCmp _ _ _ maybeY) =
      mateInCompare maybeX maybeY
 
 maxTC :: Eq a => TraceCmp a -> TraceCmp a -> TraceCmp a
@@ -186,7 +190,7 @@ mateInCompare (MateIn (Just (x, xSign))) (MateIn (Just (y,ySign))) =
 revTraceCmp :: TraceCmp a -> TraceCmp a
 revTraceCmp Max = Max
 revTraceCmp Min = Min
-revTraceCmp (TraceCmp (tc, tcs, x, xMateIn)) = TraceCmp (tc, reverse tcs, x, xMateIn)
+revTraceCmp (TraceCmp tc tcs x xMateIn) = TraceCmp tc (reverse tcs) x xMateIn
 
 initAlphaBeta :: AlphaBeta
 initAlphaBeta = AlphaBeta
@@ -215,7 +219,7 @@ data NegaMoves a = NegaMoves
   deriving (Eq)
 
 toNegaMoves :: TraceCmp a -> NegaMoves a
-toNegaMoves (TraceCmp (a, as, z, MateIn mi)) =
+toNegaMoves (TraceCmp a as z (MateIn mi)) =
     NegaMoves { evalScore = z
               , mateIn = mi
               , evalNode = a
@@ -401,7 +405,7 @@ tcFromT t cmpList lvl =
                then Just (lvl, Neg)
                else Nothing)
         in
-          TraceCmp (x, cmpList, xVal, mateIn)
+          TraceCmp x cmpList xVal mateIn
 
 
 -- TODO: remove this
@@ -416,7 +420,7 @@ maxLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
     env <- ask
     (tcPossibleBest, _, ec') <- alphaBetaPrune t (T.rootLabel t : cmpList) alphaBeta bPruning Neg ec lvl
     let (tcNewBest, ec'') = (maxTC tcCurrentBest tcPossibleBest, ec' + 1)
-    let zTC@(TraceCmp(_, zs, zVal, _)) = tcNewBest
+    let zTC@(TraceCmp _ zs zVal _) = tcNewBest
     let cmpTracing =  enableCmpTracing env
     let pruneTracing = enablePruneTracing env
     newAlphaBeta <-
@@ -425,8 +429,8 @@ maxLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
           else case tcCurrentBest of
             Min -> updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
             _   -> do
-                let TraceCmp (cb, _cbs, _tcCurVal, _) = tcCurrentBest
-                let TraceCmp(pb, _, _, _) = tcPossibleBest
+                let (TraceCmp cb _cbs _tcCurVal _) = tcCurrentBest
+                let (TraceCmp pb _ _ _) = tcPossibleBest
                 let newWinner = maxTC tcCurrentBest tcPossibleBest == tcPossibleBest
                 let (currentStar, newStar) =
                       if newWinner then ("     ", "*+*+*") else ("+++++", "     ")
@@ -446,7 +450,7 @@ maxLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
     if bCanPrune
       then if pruneTracing
         then do
-          let TraceCmp(_, _z: sharedCmpList, _, _) = tcNewBest
+          let (TraceCmp _ (_z: sharedCmpList) _ _) = tcNewBest
           strM <- tracePruned ts sharedCmpList "maxLoop" lvl pruneInfo
           case strM of
               Nothing -> return (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
@@ -462,7 +466,7 @@ minLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
     env <- ask
     (tcPossibleBest, _, ec') <- alphaBetaPrune t (T.rootLabel t : cmpList) alphaBeta bPruning Pos  ec lvl
     let (tcNewBest, ec'') = (minTC tcCurrentBest tcPossibleBest, ec' + 1)
-    let zTC@(TraceCmp(_, zs, zVal, _)) = tcNewBest
+    let zTC@(TraceCmp _ zs zVal _) = tcNewBest
     let cmpTracing = enableCmpTracing env
     let pruneTracing = enablePruneTracing env
     newAlphaBeta <-
@@ -471,8 +475,8 @@ minLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
           else case tcCurrentBest of
             Max -> updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
             _   -> do
-              let TraceCmp (cb, _cbs, _tcCurVal, _) = tcCurrentBest
-              let TraceCmp(pb, _, _, _) = tcPossibleBest
+              let (TraceCmp cb _cbs _tcCurVal _) = tcCurrentBest
+              let (TraceCmp pb _ _ _) = tcPossibleBest
               let newWinner = minTC tcCurrentBest tcPossibleBest == tcPossibleBest
               let (currentStar, newStar) =
                     if newWinner then ("     ", "*-*-*") else ("-----", "     ")
@@ -492,7 +496,7 @@ minLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
     if bCanPrune
       then if pruneTracing
         then do
-          let TraceCmp(_, _z: sharedCmpList, _, _) = tcNewBest
+          let (TraceCmp _ (_z: sharedCmpList) _ _) = tcNewBest
           strM <- tracePruned ts sharedCmpList "minLoop" lvl pruneInfo
           case strM of
               Nothing -> return (tcNewBest, tcPossibleBest : tcAltsAcc, ec'')
@@ -520,18 +524,18 @@ tracePruned tsPruned sharedCmpList srcStr lvl moreInfo = do
 
 negaRnd :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g, Monad m)
         => T.Tree a -> g -> Float -> Bool -> ZipReaderT m (NegaResult a)
-negaRnd t gen percentVar bPruning = do
+negaRnd t gen maxRandomChange bPruning = do
     let sign = ztnSign (T.rootLabel t)
     let alphaBeta = initAlphaBeta
-    (theBest, traceCmps, ec) <- alphaBetaPrune t [] alphaBeta bPruning sign 0 0
-    let noDup = List.delete theBest traceCmps
-    let close = filter (\x -> isWithin x theBest percentVar) noDup
-    let  pickedTC@(TraceCmp (picked, pickedPath, pickedVal, pickedMateIn)) = pickOne gen (theBest : close)
+    (theBest, alts, ec) <- alphaBetaPrune t [] alphaBeta bPruning sign 0 0
+    let noDup = List.delete theBest alts
+    let close = filter (\x -> isWithin x theBest maxRandomChange) noDup
+    let pickedTC@(TraceCmp picked pickedPath pickedVal pickedMateIn) = pickOne gen (theBest : close)
     let notPicked = List.delete pickedTC close
     let revNotPicked = revTraceCmp <$> notPicked
-    return NegaResult { best = toNegaMoves (TraceCmp (picked, reverse pickedPath, pickedVal, pickedMateIn))
+    return NegaResult { best = toNegaMoves (TraceCmp picked (reverse pickedPath) pickedVal pickedMateIn)
                       , alternatives = toNegaMoves <$> revNotPicked
-                      , allMoves = toNegaMoves . revTraceCmp <$> traceCmps
+                      , allMoves = toNegaMoves . revTraceCmp <$> alts
                       , evalCount = ec}
 
 pickOne :: RandomGen g => g -> [TraceCmp a] -> TraceCmp a
@@ -540,20 +544,14 @@ pickOne gen choices =
     in choices !! r
 
 isWithin :: (Show a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Float -> Bool
-isWithin (TraceCmp (_, _, _, MateIn (Just _))) (TraceCmp (_, _, _, MateIn (Nothing))) _percentVar = False
-isWithin (TraceCmp (_, _, _, MateIn Nothing)) (TraceCmp (_, _, _, MateIn (Just _))) _percentVar = False
-isWithin (TraceCmp (_, _, _, MateIn (Just bstMateIn))) (TraceCmp (_, _, _, MateIn (Just possMateIn ))) _percentVar =
+isWithin (TraceCmp _ _ _ (MateIn (Just _))) (TraceCmp _ _ _ (MateIn (Nothing))) _maxRandChg = False
+isWithin (TraceCmp _ _ _ (MateIn Nothing)) (TraceCmp _ _ _ (MateIn (Just _))) _maxRandChg = False
+isWithin (TraceCmp _ _ _ (MateIn (Just bstMateIn))) (TraceCmp _ _ _ (MateIn (Just possMateIn ))) _maxRandomChg =
     possMateIn == bstMateIn
-isWithin (TraceCmp (_, _, bst, MateIn Nothing)) (TraceCmp (_, _, possible, MateIn Nothing)) percentVar =
+isWithin (TraceCmp _ _ bst (MateIn Nothing)) (TraceCmp _ _ possible (MateIn Nothing)) maxRandomChg =
     if signum bst /= signum possible then False
     else
-      let ratio = possible / bst
-      in (ratio <= (1 + percentVar)) && (ratio >= (1 - percentVar))
-          -- str = printf "possible alt: %s (possible: %f, best: %f, ratio: %f)"
-          --              (showMoveSeq pos) possible bst ratio
-          -- !res = (ratio <= (1 + percentVar)) && (ratio >= (1 - percentVar))
-      -- in if res then trace str res
-      --    else res
+      abs (bst-possible) <= maxRandomChg
 isWithin _ _ _ = error "'Min' or 'Max' passed to isWithin?"
 
 showTC :: (Show a) => TraceCmp a -> String
@@ -566,7 +564,7 @@ showFilteredTC Max (Just _s) = ""
 showFilteredTC Min (Just _s) = ""
 showFilteredTC Max Nothing = "Max"
 showFilteredTC Min Nothing = "Min"
-showFilteredTC (TraceCmp (x, xs, v, mateIn)) filterStr =
+showFilteredTC (TraceCmp x xs v mateIn) filterStr =
     let showIt = case filterStr of
           Just str -> isInfixOf (pack str) (pack (show x))
           Nothing -> True
@@ -587,7 +585,7 @@ showFilteredTC (TraceCmp (x, xs, v, mateIn)) filterStr =
 showMoveSeq :: (Show a) => TraceCmp a -> String
 showMoveSeq Max = "<Max>"
 showMoveSeq Min = "<Min>"
-showMoveSeq (TraceCmp (_x, xs, _v, _)) =
+showMoveSeq (TraceCmp _x xs _v _) =
     let strs = fmap show (reverse xs)
         str = List.intercalate ", " strs
     in "[ " ++ str ++ " ]"
