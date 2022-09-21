@@ -30,21 +30,22 @@ library
       src
   ghc-options: -Wall
   build-depends:
-      base
-    , aeson < 2.0
-    , containers
-    , extra
-    , hashable
-    , hashmap
-    , lens
-    , mtl
-    , random
-    , rosezipper
-    , safe
-    , singletons == 2.7
-    , sort
-    , text
-    , vector
+                    base
+                , aeson < 2.0
+                , cmdargs >= 0.10.21
+                , containers
+                , extra
+                , hashable
+                , hashmap
+                , lens
+                , mtl
+                , random
+                , rosezipper
+                , safe
+                , singletons == 2.7
+                , sort
+                , text
+                , vector
 
 executable strat-exe
   main-is: Main.hs
@@ -58,28 +59,29 @@ executable strat-exe
       src/Examples/WIP/Chess
   ghc-options: -threaded -rtsopts -O2 -Wall
   build-depends:
-      aeson
-    , base
-    , bytestring
-    , Cabal
-    , cmdargs
-    , containers
-    , extra
-    , hashable
-    , hashmap
-    , lens
-    , mtl
-    , parsec
-    , random
-    , rosezipper
-    , safe
-    , singletons == 2.7
-    , sort
-    , text
-    , vector
-    , yesod
-    , yesod-core
-    , yesod-static
+                    aeson
+                , Cabal
+                , base
+                , bytestring
+                , cmdargs
+                , cmdargs >= 0.10.21
+                , containers
+                , extra
+                , hashable
+                , hashmap
+                , lens
+                , mtl
+                , parsec
+                , random
+                , rosezipper
+                , safe
+                , singletons == 2.7
+                , sort
+                , text
+                , vector
+                , yesod
+                , yesod-core
+                , yesod-static
 
 executable test-as-exe
   main-is: Main.hs
@@ -115,28 +117,29 @@ executable test-as-exe
       test
   ghc-options: -Wall
   build-depends:
-      aeson
-    , base
-    , bytestring
-    , Cabal
-    , cmdargs
-    , containers
-    , extra
-    , hashable
-    , hashmap
-    , hspec
-    , hspec-expectations
-    , lens
-    , mtl
-    , parsec
-    , random
-    , rosezipper
-    , safe
-    , sort
-    , text
-    , singletons == 2.7
-    , unordered-containers
-    , vector
+                    aeson
+                , Cabal
+                , base
+                , bytestring
+                , cmdargs
+                , cmdargs >= 0.10.21
+                , containers
+                , extra
+                , hashable
+                , hashmap
+                , hspec
+                , hspec-expectations
+                , lens
+                , mtl
+                , parsec
+                , random
+                , rosezipper
+                , safe
+                , singletons == 2.7
+                , sort
+                , text
+                , unordered-containers
+                , vector
     -- , yesod == 1.6.0.2
     , yesod
     , yesod-core
@@ -169,25 +172,26 @@ test-suite StratTreeTest
       src/Examples/WIP/Chess
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:
-      Strat
-    , aeson
-    , base
-    , bytestring
-    , cmdargs
-    , containers
-    , extra
-    , hashable
-    , hashmap
-    , hspec
-    , hspec-expectations
-    , lens
-    , mtl
-    , parsec
-    , random
-    , rosezipper
-    , safe
-    , sort
-    , text
-    , singletons == 2.7
-    , unordered-containers
-    , vector
+                    Strat
+                , aeson
+                , base
+                , bytestring
+                , cmdargs
+                , cmdargs >= 0.10.21
+                , containers
+                , extra
+                , hashable
+                , hashmap
+                , hspec
+                , hspec-expectations
+                , lens
+                , mtl
+                , parsec
+                , random
+                , rosezipper
+                , safe
+                , singletons == 2.7
+                , sort
+                , text
+                , unordered-containers
+                , vector

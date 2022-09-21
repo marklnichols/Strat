@@ -16,6 +16,8 @@ import Control.Monad.Reader
 import Data.Aeson
 import Data.Text (pack)
 import Data.Tree
+import Data.Vector (Vector)
+import qualified Data.Vector as V
 import Strat.Helpers
 import Strat.StratTree.TreeNode
 import Strat.ZipTree
@@ -36,28 +38,34 @@ data NodeWrapper = NodeWrapper { getNode :: Tree Ck.CkNode
                                    , getLastMove :: Maybe (MoveScore Ck.CkMove Ck.CkNode)
                                    , getJsonable :: Jsonable }
 
+--TODO: move these into the env
+maxRndPercent :: Float
+maxRndPercent = 0.05
+
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 ----------------------------------------------------------------------------------------------------
 --start game request received
-processStartGame :: Tree Ck.CkNode -> Bool -> IO (NodeWrapper, StdGen)
+processStartGame :: Tree Ck.CkNode -> Bool -> IO (NodeWrapper, Vector Float)
 processStartGame node bComputerResponse = do
     rnd <- getStdGen
+    let xs = randomRs (-maxRndPercent, maxRndPercent) rnd
+    let rnds = V.fromList xs
     if bComputerResponse
         then do
-            resp <- computerResponse node rnd
-            return (resp, rnd)
-        else return (createUpdate "Score for Player's position: 0"  node node Nothing, rnd)
+            resp <- computerResponse node rnds
+            return (resp, rnds)
+        else return (createUpdate "Score for Player's position: 0"  node node Nothing, rnds)
 
-processComputerMove :: (RandomGen g) => Tree Ck.CkNode -> g -> IO NodeWrapper
-processComputerMove tree gen = do
+processComputerMove :: Tree Ck.CkNode -> Vector Float -> IO NodeWrapper
+processComputerMove tree rnds = do
     let posColor = color $ rootLabel tree
     liftIO $ putStrLn $ "Computer move (In processComputerMove), turn = " ++ show (colorToTurn posColor)
-    computerResponse tree gen
+    computerResponse tree rnds
 
 --player move (web request) received
-processPlayerMove :: RandomGen g => Tree Ck.CkNode -> Ck.CkMove -> Bool -> g -> IO NodeWrapper
-processPlayerMove tree mv bComputerResponse gen = do
+processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> Bool -> Vector Float -> IO NodeWrapper
+processPlayerMove tree mv bComputerResponse rnds = do
     -- let processed = findMove tree mv
     case (findMove tree mv) of
         Left s -> error s -- this shouldn't happen
@@ -70,7 +78,7 @@ processPlayerMove tree mv bComputerResponse gen = do
                         let posColor = color $ rootLabel processed
                         liftIO $ putStrLn $ "Computer move (In processPlayerMove), turn = "
                                           ++ show (colorToTurn posColor)
-                        computerResponse processed gen
+                        computerResponse processed rnds
                     else return $ createUpdate "No computer move" processed processed Nothing
 
 ----------------------------------------------------------------------------------------------------
@@ -83,6 +91,7 @@ testEnv = ZipTreeEnv
         { enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
+        , maxRandomChange = 0.0
         , enablePreSort = True
         , moveTraceStr = pack ""
         , maxDepth = 5
@@ -90,9 +99,9 @@ testEnv = ZipTreeEnv
         , aiPlaysBlack = True
         }
 
-computerResponse :: (RandomGen g) => Tree Ck.CkNode -> g -> IO NodeWrapper
-computerResponse prevNode gen = do
-    eitherNode <- computerMove prevNode gen
+computerResponse :: Tree Ck.CkNode -> Vector Float -> IO NodeWrapper
+computerResponse prevNode rnds = do
+    eitherNode <- computerMove prevNode rnds
     case eitherNode of
         Left s -> return $ createError s prevNode
         Right MoveResults{..} ->
@@ -106,18 +115,13 @@ computerResponse prevNode gen = do
                   (x:_xs) -> Just x
             in return $ createUpdate (currentPosStr ++ "<br/><br/>" ++ bestScoreStr) prevNode mrNewTree ms
 
-computerMove :: (RandomGen g) => Tree Ck.CkNode -> g
+computerMove :: Tree Ck.CkNode -> Vector Float
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
-computerMove t gen = do
-    -- let newTree = expandTo t (ceDepth gameEnv)
-    -- let res@NegaResult{..} = negaRnd newTree gen (ceEquivThreshold gameEnv) True
-
+computerMove t rnds = do
    newTree <- runReaderT (expandTo t (ceDepth gameEnv)) testEnv
-   res@NegaResult{..} <- runReaderT (negaRnd newTree gen (ceEquivThreshold gameEnv) True) testEnv
-
-   let bestMv = getMove $ moveNode best
-
-   let moveScores = mkMoveScores (evalNode best : (evalNode <$> alternatives))
+   res@NegaResult{..} <- runReaderT (negaRnd newTree rnds True) testEnv
+   let bestMv = getMove $ moveNode picked
+   let moveScores = mkMoveScores (evalNode picked : (evalNode <$> alternatives))
    return $ Right ( MoveResults
       { mrResult = res
       , mrMoveScores = moveScores

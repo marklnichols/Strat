@@ -30,6 +30,7 @@ testEnv = ZipTreeEnv
         { enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
+        , maxRandomChange = 10.0
         , enablePreSort = False
         , moveTraceStr = pack ""
         , maxDepth = 5
@@ -45,8 +46,8 @@ stratTreeTest = do
             -- evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
             result1 <- runReaderT (negaMax negaMaxTree False) testEnv
             let NegaResult{..} = result1
-            evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
-            moveSeq best `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
+            evalNode picked `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
+            moveSeq picked `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
                                     , NodeVal {nvalToInt = -20, sign = Neg}
                                     , NodeVal {nvalToInt = 14, sign = Pos} ]
     describe "negaMax-b" $
@@ -54,8 +55,8 @@ stratTreeTest = do
             -- let NegaResult{..} = negaMax negaMaxTree False
             result1 <- runReaderT (negaMax negaMaxTree False) testEnv
             let NegaResult{..} = result1
-            evalNode best `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
-            moveSeq best `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}
+            evalNode picked `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
+            moveSeq picked `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}
                                     , NodeVal {nvalToInt = 35, sign = Neg}
                                     , NodeVal {nvalToInt = 12, sign = Pos} ]
 negaMaxTree :: Tree NodeVal

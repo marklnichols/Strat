@@ -1,0 +1,1 @@
+--command="cabal repl" --restart=Strat.cabal Strat:exe:test-as-exe

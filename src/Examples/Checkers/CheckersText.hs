@@ -38,10 +38,10 @@ showBoard _ node = do
 printMoveChoiceInfo :: Tree CkNode -> NegaResult CkNode -> Bool -> IO ()
 printMoveChoiceInfo tree result verbose = do
     putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Computer's move: " ++ showNegaMoves (best result))
+    putStrLn ("Computer's move: " ++ showNegaMoves (picked result))
     when verbose $ do
         putStrLn ("score details: \n"
-                 ++ showScoreDetails (_ckValue (evalNode (best result))))
+                 ++ showScoreDetails (_ckValue (evalNode (picked result))))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
                  (showNegaMoves <$> alternatives result))
         putStrLn ""

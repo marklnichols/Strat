@@ -24,6 +24,7 @@ testEnv = Z.ZipTreeEnv
         { enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
+        , maxRandomChange = 10.0
         , enablePreSort = False
         , moveTraceStr = T.pack ""
         , maxDepth = 5
@@ -209,6 +210,9 @@ chessTest = do
 
           calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-18)
 
+          calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) (False, False)) `shouldBe` 0
+          calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) (False, False)) `shouldBe` 0
+
     describe "inCheck" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
           inCheck board03a White 15 `shouldBe` False
@@ -289,7 +293,7 @@ matchStdMove StdMoveTestData{..} = do
             tree <- Z.expandTo board smtdDepth
             Z.negaMax tree True
     result <- runReaderT f testEnv
-    let theBest = Z.best result
+    let theBest = Z.picked result
     let mvNode = Z.moveNode theBest
     let mv = _chessMv mvNode
     case mv of
@@ -578,7 +582,34 @@ Black: +2, +8
 Total: - 16
 -}
 
+pQ4pQ4Board :: ChessGrid
+pQ4pQ4Board = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  'N',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  'P',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  'p',  'p',  ' ',  'p',  'p',  'p',  'p',  '+',
+                             '+',  'r',  'n',  'b',  'q',  'k',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   -   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
 
 
 

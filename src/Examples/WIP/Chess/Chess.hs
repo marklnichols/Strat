@@ -148,8 +148,6 @@ data StdMoveTestData = StdMoveTestData
 newtype ChessGrid = ChessGrid (Vector Char)
   deriving (Generic, Eq, Show, Ord)
 
--- instance Hashable (Vector Char) where
---   hashWithSalt n (v) = hashWithSalt n (V.toList v)
 instance Hashable ChessGrid where
   hashWithSalt n (ChessGrid v) = hashWithSalt n (V.toList v)
 
@@ -779,11 +777,11 @@ evalPos pos =
                 let finalScore = finalStateToScore finalState
                 in (finalScore, "\n\tThe position is final: " ++ show finalScore )
             else
-              ( (material * 30.0 ) + mobility + (castling * 9.0)
+              ( (material * 30.0 ) + (mobility * 1) + (castling * 9.0)
               + (development * 5.0) + (earlyQueen * 15.0) + (pawnPositionScore * 2)
               + knightPositionScore
               ,  "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
-                  ++ "\n\tMobility (x 1): " ++ show mobility
+                  ++ "\n\tMobility (x 1): " ++ show (mobility * 1)
                   ++ "\n\tCastling (x 9): " ++ show (castling * 9.0)
                   ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
                   ++ "\n\tQueen dev. early (x 15): " ++ show (earlyQueen * 15.0)
@@ -807,6 +805,7 @@ calcDevelopment cp = whiteDev cp - blackDev cp
 
 whiteDev :: ChessPos -> Float
 whiteDev cp =
+
   let (wKns, bKns) = filterLocsByChar (locsForColor cp) 'N'
       wKnLocs = map (\(loc, _, _) -> loc) wKns
       wKnTotal = calcPiecePositionScore wKnightInitialLocAdjustments wKnLocs
@@ -814,7 +813,16 @@ whiteDev cp =
       (wBs, bBs) = filterLocsByChar (locsForColor cp) 'B'
       wBLocs = map (\(loc, _, _) -> loc) wBs
       wBsTotal = calcPiecePositionScore wBishopInitialLocAdjustments wBLocs
-  in (4 - (wKnTotal + wBsTotal))
+
+      -- (wPawns, bPawns) = filterLocsByChar (locsForColor cp) 'P'
+      -- wCtrPawnLocs = map (\(loc, _, _) -> loc) wPawns
+      -- wCtrPawnTotal = calcPiecePositionScore wPawnInitialLocAdjustments wCtrPawnLocs
+
+  in  -- Negate the devlopment bonus untl the KP and QP have moved
+      -- if wCtrPawnTotal < 0
+      --   then 0
+      --   else (4 - (wKnTotal + wBsTotal))
+      (4 - (wKnTotal + wBsTotal))
 
 blackDev :: ChessPos -> Float
 blackDev cp =
@@ -825,7 +833,16 @@ blackDev cp =
       (wBs, bBs) = filterLocsByChar (locsForColor cp) 'B'
       bBLocs = map (\(loc, _, _) -> loc) bBs
       bBsTotal = calcPiecePositionScore bBishopInitialLocAdjustments bBLocs
-  in (4 - (bKnTotal + bBsTotal))
+
+      -- (wPawns, bPawns) = filterLocsByChar (locsForColor cp) 'P'
+      -- bCtrPawnLocs = map (\(loc, _, _) -> loc) bPawns
+      -- bCtrPawnTotal = calcPiecePositionScore bPawnInitialLocAdjustments bCtrPawnLocs
+
+  in -- Negate the devlopment bonus untl the KP and QP have moved
+     -- if bCtrPawnTotal < 0
+     --   then 0
+     --   else (4 - (bKnTotal + bBsTotal))
+     (4 - (bKnTotal + bBsTotal))
 
 wKnightInitialLocAdjustments :: Map Int Float
 wKnightInitialLocAdjustments = M.fromList [(12, 1.0), (17, 1.0)]
@@ -839,6 +856,11 @@ wBishopInitialLocAdjustments = M.fromList [(13, 1.0), (16, 1.0)]
 bBishopInitialLocAdjustments :: Map Int Float
 bBishopInitialLocAdjustments = M.fromList [(83, 1.0), (86, 1.0)]
 
+_wPawnInitialLocAdjustments :: Map Int Float
+_wPawnInitialLocAdjustments = M.fromList [(24, -1.0), (25, -1.0)]
+
+_bPawnInitialLocAdjustments :: Map Int Float
+_bPawnInitialLocAdjustments = M.fromList [(74, -1.0), (75, -1.0)]
 
 ---------------------------------------------------------------------------------------------------
 -- Calculate a penalty for developing the queen prematurely (White - Black)
