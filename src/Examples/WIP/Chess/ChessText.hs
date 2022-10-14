@@ -39,7 +39,7 @@ showBoard _ node = do
     putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal node))
 
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
-printMoveChoiceInfo tree result verbose = do
+printMoveChoiceInfo tree result loud = do
     let tSize = fst $ treeSize tree
     let evaluated = evalCount result
     let percentSaved = 1.0 - fromIntegral evaluated / fromIntegral (tSize-1) :: Float
@@ -52,7 +52,7 @@ printMoveChoiceInfo tree result verbose = do
     let node = rootLabel tree
     when (moveChecksOpponent node mv) $ do
         putStrLn " (check)"
-    when verbose $ do
+    when loud $ do
         putStrLn ("Score details: \n"
                  ++ showScoreDetails (_chessVal (evalNode (picked result))))
         putStrLn ("Move with best score: " ++ showNegaMoves (bestScore result))

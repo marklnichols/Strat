@@ -91,7 +91,7 @@ import qualified Data.Set as S
 import Data.Singletons
 import Data.Singletons.TH
 import Data.Tree
-import Data.Tuple.Extra (fst3)
+import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector, (!))
 import qualified Data.Vector.Unboxed as V
 import Data.Hashable
@@ -141,6 +141,7 @@ data StdMoveTestData = StdMoveTestData
   { smtdBoardName :: String
   , colorToMoveNext :: Color
   , smtdDepth :: Int
+  , smtdCritDepth :: Int
   , smtdStartIdx :: Int
   , smtdEndIdx :: Int }
   deriving (Eq, Ord)
@@ -197,10 +198,14 @@ instance Z.ZipTreeNode ChessNode where
   ztnMakeChildren = makeChildren
   ztnSign cn = colorToSign (cn ^. (chessPos . cpColor))
   ztnFinal cn = cn ^. (chessPos . cpFin) /= NotFinal
+  ztnDeepDescend = critsOnly
 
 colorToSign :: Color -> Z.Sign
 colorToSign White = Z.Pos
 colorToSign _ = Z.Neg
+
+critsOnly :: TreeNode n m => n -> Bool
+critsOnly = critical
 
 toParserMove :: ChessMove -> Parser.Entry
 toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
@@ -346,6 +351,7 @@ instance TreeNode ChessNode ChessMove where
     color = colorToInt . view (chessPos . cpColor)
     -- final = view (chessPos . cpFin)
     final = checkFinal
+    critical = isCritical
     parseEntry = parseChessEntry
     getMove = _chessMv
     treeLoc = _chessTreeLoc
@@ -725,6 +731,7 @@ isCritical cn =
     {- this turns out to be a bad idea...
          isInCheck = colorToTupleElem clr (pos ^. cpInCheck)
     in isAnExchange || isInCheck -}
+
     in isAnExchange
 
 ---------------------------------------------------------------------------------------------------
@@ -735,7 +742,9 @@ flipPieceColor Unknown = Unknown
 
 
 {- TODOs:
--- Re-implement random move selection - the choice must have the same tree parent as the best move
+-- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
+-- Add warning message if non-quiet move chosen, consider not picking those
+-- Another round of perfomance opt.
 -- Implement FEN for positions
 -- Add pawn promotion other than queen
 -- Add / fix enpassant
@@ -1622,8 +1631,6 @@ dirLocs g (idx0, _, c0) dir =
                 Empty -> loop (apply dir idx) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
-
-
 dirCaptureLoc :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLoc g (idx0, _, clr0) dir =
    let clr0Enemy = enemyColor clr0
@@ -2087,6 +2094,7 @@ mateInTwo01TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo01"
     , colorToMoveNext = Black
     , smtdDepth = 4
+    , smtdCritDepth = 4
     , smtdStartIdx = 81
     , smtdEndIdx = 31 }
 
@@ -2124,6 +2132,7 @@ mateInTwo02TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo02"
     , colorToMoveNext = Black
     , smtdDepth = 4
+    , smtdCritDepth = 4
     , smtdStartIdx = 42
     , smtdEndIdx = 32 }
 
@@ -2192,6 +2201,7 @@ mateInTwo03TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo03"
     , colorToMoveNext = Black
     , smtdDepth = 4
+    , smtdCritDepth = 4
     , smtdStartIdx = 76
     , smtdEndIdx = 36 }
 
@@ -2230,6 +2240,7 @@ mateInTwo03bTestData = StdMoveTestData
     { smtdBoardName = "mateInTwo03b"
     , colorToMoveNext = Black
     , smtdDepth = 4
+    , smtdCritDepth = 4
     , smtdStartIdx = 31
     , smtdEndIdx = 81 }
 
@@ -2271,6 +2282,7 @@ promotion01TestData = StdMoveTestData
     { smtdBoardName = "promotion01"
     , colorToMoveNext = White
     , smtdDepth = 4
+    , smtdCritDepth = 4
     , smtdStartIdx = 74
     , smtdEndIdx = 84 }
 

@@ -19,7 +19,6 @@ import Test.Hspec
 import Text.Printf
 
 import Strat.ZipTree
--- import GameRunner
 
 data TestNode = TestNode
   { typ :: Int
@@ -43,17 +42,20 @@ instance ZipTreeNode TestNode where
   ztnMakeChildren = makeTestChildren
   ztnSign = tnSign
   ztnFinal _ = False
+  ztnDeepDescend = isCrit
 
 --TODO: look into preSort problems -- disabled for now
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
-        { enablePruneTracing = False
+        { verbose = False
+        , enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
         , maxRandomChange = 0.0
         , enablePreSort = False
         , moveTraceStr = pack ""
         , maxDepth = 5
+        , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
         }
@@ -71,11 +73,9 @@ pruningTest = do
             --------------------------------------------------
             -- depth 1
             --------------------------------------------------
-            -- let wikiTreeD1 = expandTo rootWikiTree 1
-            -- let result1 = negaMax wikiTreeD1 False
             let f1 :: ZipReaderT IO (NegaResult TestNode)
                 f1 = do
-                  wikiTreeD1 <- expandTo rootWikiTree 1
+                  wikiTreeD1 <- expandTo rootWikiTree 1 1
                   negaMax wikiTreeD1 False
             result1 <- runReaderT f1 testEnv
 
@@ -89,11 +89,9 @@ pruningTest = do
             --------------------------------------------------
             -- depth 2
             --------------------------------------------------
-            -- let wikiTreeD2 = expandTo rootWikiTree 2
-            -- let result2 = negaMax wikiTreeD2 False
             let f2 :: ZipReaderT IO (NegaResult TestNode)
                 f2 = do
-                  wikiTreeD2 <- expandTo rootWikiTree 2
+                  wikiTreeD2 <- expandTo rootWikiTree 2 2
                   negaMax wikiTreeD2 False
             result2 <- runReaderT f2 testEnv
 
@@ -108,11 +106,9 @@ pruningTest = do
             --------------------------------------------------
             -- depth 3
             --------------------------------------------------
-            -- let wikiTreeD3 = expandTo rootWikiTree 3
-            -- let result3 = negaMax wikiTreeD3 False
             let f3 :: ZipReaderT IO (NegaResult TestNode)
                 f3 = do
-                  wikiTreeD3 <- expandTo rootWikiTree 3
+                  wikiTreeD3 <- expandTo rootWikiTree 3 3
                   negaMax wikiTreeD3 False
             result3 <- runReaderT f3 testEnv
             let theBest3 = picked result3
@@ -127,11 +123,9 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- testing the complete tree
             ----------------------------------------------------------------------------------
-            -- let newWikiTree = expandTo rootWikiTree 4
-            newWikiTree <- runReaderT (expandTo rootWikiTree 4) testEnv
+            newWikiTree <- runReaderT (expandTo rootWikiTree 4 4) testEnv
 
             -- first without pruning
-            -- let result4 = negaMax newWikiTree False
             result4 <- runReaderT (negaMax newWikiTree False) testEnv
 
             let theBest4 = picked result4
@@ -151,7 +145,6 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with pruning
             ----------------------------------------------------------------------------------
-            -- let result5 = negaMax newWikiTree True
             result5 <- runReaderT (negaMax newWikiTree True) testEnv
 
             let theBest5 = picked result5
@@ -170,7 +163,6 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- negaRnd, but with the random tolerance at 0.0
             ----------------------------------------------------------------------------------
-            -- rnd <- getStdGen
             result6 <- runReaderT (negaRnd newWikiTree V.empty True) testEnv
 
             let theBest6 = picked result6
@@ -185,6 +177,22 @@ pruningTest = do
               ]
 
             evalCount result6 `shouldBe` (33-8-1) -- 8===nodes skipped from pruning, 1===root node not counted
+
+            ----------------------------------------------------------------------------------
+            -- with crit processing only for the important nodes at the bottom two levels
+            ----------------------------------------------------------------------------------
+            newCritWikiTree <- runReaderT (expandTo rootWikiTree 2 4) testEnv
+            result7 <- runReaderT (negaMax newCritWikiTree True) testEnv
+            let theBest7 = picked result7
+            evalNode theBest7 `shouldBe`
+                TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+
+            moveSeq theBest7 `shouldBe`
+              [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
+              , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
+              , TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
+              ]
 
             ----------------------------------------------------------------------------------
             -- with incremental decent and sorting

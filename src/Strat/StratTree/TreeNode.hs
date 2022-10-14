@@ -99,6 +99,7 @@ class (Move m, Eval t) => TreeNode t m | t -> m where
     color :: t -> Int
     possibleMoves :: t -> [m]
     final :: t -> FinalState
+    critical :: t -> Bool
     parseEntry :: t -> String -> Either String (Entry m s)
     getMove :: t -> m
     treeLoc :: t -> TreeLocation

@@ -57,6 +57,7 @@ executable strat-exe
       src/Examples/Utils
       src/Examples/Checkers
       src/Examples/WIP/Chess
+      src/Strat
   ghc-options: -threaded -rtsopts -O2 -Wall
   build-depends:
                     aeson

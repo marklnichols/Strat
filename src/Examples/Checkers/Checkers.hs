@@ -105,6 +105,7 @@ instance TreeNode CkNode CkMove where
     possibleMoves = getAllowedMoves
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
+    critical = isCritical
     parseEntry = parseCkMove
     getMove = _ckMove
     treeLoc = _ckTreeLoc
@@ -121,6 +122,9 @@ instance Ord CkNode where
 
 instance Show CkEval where
     show e = show (e ^. total)
+
+isCritical :: CkNode -> Bool
+isCritical cn = _isJump $ _ckMove cn
 
 showScoreDetails :: CkEval -> String
 showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)

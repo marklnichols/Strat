@@ -27,13 +27,15 @@ instance ZipTreeNode NodeVal where
 --TODO: look into preSort problems -- disabled for now
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
-        { enablePruneTracing = False
+        { verbose = False
+        , enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
         , maxRandomChange = 10.0
         , enablePreSort = False
         , moveTraceStr = pack ""
         , maxDepth = 5
+        , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
         }

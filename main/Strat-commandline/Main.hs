@@ -10,27 +10,30 @@ import GameRunner
 import CheckersText
 import Data.Text(pack)
 import System.Console.CmdArgs.Implicit
--- import System.Environment
 import StratWeb.YesodMain
 
 main :: IO ()
 main = do
     theArgs@StratArgs{..} <- cmdArgs stratArgs
+    verbose <- isLoud
     case exampleName of
       "chess" -> do
           let start = Chess.getStartNode restoreGame nextMoveColor
-          GameRunner.startGame ChessText start depth aiPlaysWhite aiPlaysBlack preSortOn
-                         (not noRandom) (not noPruning) pruneTracing cmpTracing (pack traceStr)
+          GameRunner.startGame ChessText start depth critDepth aiPlaysWhite aiPlaysBlack preSortOn
+                         (not noRandom) (not noPruning) verbose pruneTracing cmpTracing (pack traceStr)
       "checkers" -> do
           let start = Checkers.getStartNode restoreGame
-          GameRunner.startGame CheckersText start depth aiPlaysWhite aiPlaysBlack preSortOn
-                         (not noRandom) (not noPruning) pruneTracing cmpTracing (pack traceStr)
+          GameRunner.startGame CheckersText start depth critDepth aiPlaysWhite aiPlaysBlack
+            preSortOn (not noRandom) (not noPruning) verbose pruneTracing cmpTracing (pack traceStr)
       "checkersWeb" -> webInit
       _ -> print theArgs
 
+
+-- TODO: remove pruneTracing and cmpTracing and implement via Verbosity
 data StratArgs = StratArgs
   { exampleName :: String
   , depth :: Int
+  , critDepth :: Int
   , noRandom :: Bool
   , noPruning :: Bool
   , restoreGame :: String
@@ -48,6 +51,7 @@ stratArgs :: StratArgs
 stratArgs = StratArgs
   { exampleName = "chess" &= name "n" &= help "The example to run"
   , depth = 4 &= help "Tree search depth"
+  , critDepth = 7 &= help "Tree search depth for critical moves"
   , noRandom = True &= name "nr" &= help "Turn off randomness used in the computer's move selection"
   , noPruning = False &= name "p" &= help "Turn off alpha-beta pruning (just for debugging)"
   , restoreGame = "newgame" &= help "Game name to restore"
@@ -58,4 +62,5 @@ stratArgs = StratArgs
   , pruneTracing = False &= name "ptracing" &= help "Output prune tracing if traceStr is found in the trace output"
   , cmpTracing = False &= name "ctracing" &= help "Output negaMax cmp tracing if traceStr is found in the trace output"
   , traceStr = "" &= name "tracestr" &= help "String to search for in trace output"
-  }
+  } &=
+    verbosity

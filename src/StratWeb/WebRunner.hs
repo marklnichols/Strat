@@ -88,13 +88,15 @@ processPlayerMove tree mv bComputerResponse rnds = do
 -- TODO: move this
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
-        { enablePruneTracing = False
+        { verbose = False
+        , enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
         , maxRandomChange = 0.0
         , enablePreSort = True
         , moveTraceStr = pack ""
         , maxDepth = 5
+        , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
         }
@@ -118,7 +120,7 @@ computerResponse prevNode rnds = do
 computerMove :: Tree Ck.CkNode -> Vector Float
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t rnds = do
-   newTree <- runReaderT (expandTo t (ceDepth gameEnv)) testEnv
+   newTree <- runReaderT (expandTo t (ceDepth gameEnv) (ceCritDepth gameEnv)) testEnv
    res@NegaResult{..} <- runReaderT (negaRnd newTree rnds True) testEnv
    let bestMv = getMove $ moveNode picked
    let moveScores = mkMoveScores (evalNode picked : (evalNode <$> alternatives))
