@@ -40,10 +40,11 @@ showBoard _ node = do
 
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
-    let tSize = fst $ treeSize tree
+    let (tSize, tLevels)  = treeSize tree
     let evaluated = evalCount result
     let percentSaved = 1.0 - fromIntegral evaluated / fromIntegral (tSize-1) :: Float
     putStrLn ("Tree size: " ++ show tSize)
+    putStrLn (show tLevels)
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
     putStrLn ("Computer's move: " ++ showNegaMoves (picked result))

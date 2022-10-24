@@ -157,8 +157,7 @@ cmpTC TraceCmp {mateIn = maybeX} TraceCmp { mateIn = maybeY} _rnds =
 fuzzyLTE :: (ZipTreeNode a , Hashable a) => Float -> Float -> a -> Vector Float -> Bool
 fuzzyLTE x y n rnds =
     if V.null rnds
-      then
-        x <= y
+      then x <= y
       else
         let size = length rnds
             h = nodeHash n
@@ -309,31 +308,15 @@ decendUntil z curDepth goalDepth critDepth
     | curDepth <= goalDepth = do
         !theChildren <- buildChildren z curDepth goalDepth critDepth
         return $ toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z
-    -- | otherwise = return $ toTree z
-
-    -- past the goal depth and the parent isn't a crit -- stop
     | curDepth > goalDepth
-    , ztnDeepDescend (label z) == False = return $ toTree z
-    -- , ztnDeepDescend (label z) == False = do
-    --   let !tmp = toTree z
-    --   let str = "Stopping cause my parent ait crit! depth: " ++ show curDepth
-    --   return (trace str tmp)
-
     -- past the goal depth and the crit depth -- stop
     | curDepth > goalDepth
     , curDepth > critDepth = return $ toTree z
-    -- , curDepth > critDepth = do
-    --   let !tmp = toTree z
-    --   let str = printf "Stopping cause I passed the crit! curDepth:%d critDept:%d" curDepth critDepth
-    --   return (trace str tmp)
     -- crits only
     | otherwise = do -- crits only...
         unfiltered <- buildChildren z curDepth goalDepth critDepth
         let !theChildren = filterDeepDecentChildren unfiltered
         return (toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z)
-        -- let str = printf "crits only! - depth: %d, number of children: %d, number unfiltered: %d"
-        --           curDepth (length theChildren) (length unfiltered)
-        -- return $ trace str (toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z)
 
 filterDeepDecentChildren :: ZipTreeNode a => [T.Tree a] -> [T.Tree a]
 filterDeepDecentChildren xs = filter (\t -> ztnDeepDescend (T.rootLabel t)) xs
@@ -347,12 +330,17 @@ buildChildren :: forall a m. (Ord a, Show a, ZipTreeNode a, Monad m)
 buildChildren z curDepth goalDepth critDepth = do
     let tempLabel = label z
     let tempForest = T.subForest $ toTree z
-    theChildren <- if length tempForest /= 0
-      then return tempForest
-      else return $ ztnMakeChildren tempLabel
+    theChildren <-
+        -- if only crits, assume non-crits were filtered out -- rebuild the list of moves
+        if null tempForest || critsOnly tempForest
+          then return $ ztnMakeChildren tempLabel
+          else return tempForest
     (results, _) <- zipFoldR (zipFoldFn curDepth goalDepth critDepth)
-                      ([], children z) theChildren
+                    ([], children z) theChildren
     return results
+
+critsOnly :: ZipTreeNode a => [T.Tree a] -> Bool
+critsOnly trees = all (\t -> ztnDeepDescend (T.rootLabel t)) trees
 
 zipFoldFn :: (Ord a, Show a, ZipTreeNode a, Monad m)
   => Int -> Int -> Int
