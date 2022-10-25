@@ -308,6 +308,12 @@ decendUntil z curDepth goalDepth critDepth
     | curDepth <= goalDepth = do
         !theChildren <- buildChildren z curDepth goalDepth critDepth
         return $ toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z
+<<<<<<< HEAD
+=======
+    -- past the goal depth and the parent isn't a crit -- stop
+    | curDepth > goalDepth
+    , ztnDeepDescend (label z) == False = return $ toTree z
+>>>>>>> mark-wip
     -- past the goal depth and the crit depth -- stop
     | curDepth > goalDepth
     , curDepth > critDepth = return $ toTree z
