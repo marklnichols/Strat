@@ -15,9 +15,9 @@ import Data.Aeson
 import Data.IORef
 import Data.Text (Text)
 import Data.Tree
-import Data.Vector (Vector)
 import qualified Strat.StratTree.TreeNode as TN
 import qualified StratWeb.WebRunner as WR
+import System.Random
 import Yesod hiding (insert)
 import Yesod.Static
 import qualified Data.Map.Strict as M
@@ -28,9 +28,9 @@ staticFilesList "src/StratWeb/Static" ["gameboard.html", "bundle.js", "checker_1
 
 data GameApp = GameApp { getStatic :: Static,
                          getCounter :: IORef Integer,
-                         getMap :: IORef (M.Map Text (Tree CkNode, Vector Float)) }
+                         getMap :: IORef (M.Map Text (Tree CkNode, StdGen)) }
 
-emptyMap :: M.Map Text (Tree CkNode, Vector Float)
+emptyMap :: M.Map Text (Tree CkNode, StdGen)
 emptyMap = M.empty
 
 mkYesod "GameApp" [parseRoutes|
@@ -54,7 +54,7 @@ getCounterR = do
 incCount :: Num a => IORef a -> IO a
 incCount counter = atomicModifyIORef counter (\c -> (c+1, c))
 
-updateMap :: IORef (M.Map Text (Tree CkNode, Vector Float)) -> Text -> (Tree CkNode, Vector Float) -> IO ()
+updateMap :: IORef (M.Map Text (Tree CkNode, StdGen)) -> Text -> (Tree CkNode, StdGen) -> IO ()
 updateMap mapRef key value = do
     theMap <- readIORef mapRef
     writeIORef mapRef (M.insert key value theMap)
@@ -91,11 +91,11 @@ getNewGameR :: Handler Value
 getNewGameR = do
     liftIO $ putStrLn "incoming new game request"
     uniqueId <- getGameSession
-    (wrapper, rnds) <- liftIO $ WR.processStartGame (getStartNode "new_game") False
+    (wrapper, gen) <- liftIO $ WR.processStartGame (getStartNode "new_game") False
     let node = WR.getNode wrapper
     let jAble = WR.getJsonable wrapper
     yesod <- getYesod
-    liftIO $ updateMap (getMap yesod) uniqueId (node, rnds)
+    liftIO $ updateMap (getMap yesod) uniqueId (node, gen)
     case jAble of
         WR.Jsonable j -> returnJson j
 

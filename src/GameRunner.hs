@@ -27,8 +27,6 @@ import Data.Hashable
 import Data.List
 import Data.Text (Text)
 import Data.Tree
-import Data.Vector (Vector)
-import qualified Data.Vector as V
 import Strat.Helpers
 import qualified Strat.ZipTree as Z
 import Strat.StratTree.TreeNode
@@ -41,13 +39,6 @@ import Strat.StratTree.TreeNode
 import System.Random hiding (next)
 import System.Time.Extra (duration, showDuration)
 -- import Debug.Trace
-
---TODO: move these into the env
-maxRndPercent :: Float
-maxRndPercent = 0.05
-
-rndListSize :: Int
-rndListSize = 1024
 
 -- TODO: make a type for all these flags...
 startGame :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
@@ -84,16 +75,14 @@ startGameLoop o node enablePruning = do
     if (Z.enableRandom env)
       then do
         rnd <- getStdGen
-        let xs = randomRs (-maxRndPercent, maxRndPercent) rnd
-        let rnds = V.fromList (take rndListSize xs)
-        loop rnds o newTree enablePruning []
+        loop (Just rnd) o newTree enablePruning []
       else do
         liftIO $ putStrLn "***** Random move selection: OFF *****"
-        loop V.empty o newTree enablePruning []
+        loop (Nothing :: Maybe StdGen)  o newTree enablePruning []
 
-loop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
-     => Vector Float -> o -> Tree n -> Bool -> [m] -> Z.ZipReaderT IO ()
-loop rnds o node enablePruning moveHistory = do
+loop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n, RandomGen g)
+     => Maybe g -> o -> Tree n -> Bool -> [m] -> Z.ZipReaderT IO ()
+loop gen o node enablePruning moveHistory = do
     env <- ask
     let label = rootLabel node
     liftIO $ updateBoard o label
@@ -109,12 +98,12 @@ loop rnds o node enablePruning moveHistory = do
             return (Nothing, moveHistory)
         _ -> do
             (nextNode, h) <- if isCompTurn (Z.ztnSign label) (Z.aiPlaysWhite env) (Z.aiPlaysBlack env)
-                  then computersTurn rnds o node enablePruning moveHistory
+                  then computersTurn gen o node enablePruning moveHistory
                   else playersTurn o node enablePruning moveHistory
             return (Just nextNode, h)
     case theNext of
         Nothing -> return ()
-        Just next -> loop rnds o next enablePruning updatedHistory
+        Just next -> loop gen o next enablePruning updatedHistory
 
 -- TODO: remove this exclusions parameter once its clear it is not needed
 -- TODO: remove maxDepth params once its clear that 'exclusions'list is not needed
@@ -123,7 +112,7 @@ playersTurn :: forall o n m. (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hasha
 playersTurn o t enablePruning moveHistory = do
     -- populate 1 deep just so findMove can work with player vs player games
 
-    (expandedT, _result) <- searchTo t V.empty 1 1 False
+    (expandedT, _result) <- searchTo t (Nothing :: Maybe StdGen) 1 1 False
     entry <- liftIO $ getPlayerEntry o expandedT []
     case entry of
       CmdEntry s -> do
@@ -141,20 +130,21 @@ playersTurn o t enablePruning moveHistory = do
 -- sortDepth :: Int
 -- sortDepth = 2
 
-computersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, Ord n, Eval n)
-             => Vector Float -> o -> Tree n -> Bool -> [m] -> Z.ZipReaderT IO (Tree n, [m])
-computersTurn rnds o t enablePruning moveHistory = do
+computersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, Ord n, Eval n, RandomGen g)
+             => Maybe g-> o -> Tree n -> Bool -> [m] -> Z.ZipReaderT IO (Tree n, [m])
+computersTurn gen o t enablePruning moveHistory = do
     env <- ask
-
     (sec, (newRoot, updatedHistory)) <- duration $ do
         --TODO: Look into: preSort is now OFF by default, it seemed to cause a problem with the AI's move,
         -- PLUS it wasn't reducing the evaluations??
         -- preSortT <- do
         --   if Z.enablePreSort env then fst <$> (preSort t sortDepth)
         --   else return t
+        -- (expandedT, result) <- searchTo preSortT etc...
 
-        -- (expandedT, result) <- searchTo preSortT gen (equivThreshold gameEnv) (Z.maxDepth env) enablePruning
-        (expandedT, result) <- searchTo t rnds (Z.maxDepth env) (Z.maxCritDepth env) enablePruning
+        (expandedT, result) <- searchTo t gen (Z.maxDepth env)
+                               (Z.maxCritDepth env) enablePruning
+
         liftIO $ putStrLn "\n--------------------------------------------------\n"
         liftIO $ showCompMove o expandedT result True
         let nextMove = getMove $ Z.moveNode (Z.picked result)
@@ -219,14 +209,15 @@ isCompTurn sign aiPlaysWhite aiPlaysBlack
 --     let sorted = Z.sortFromResult expanded res
 --     return (sorted, res)
 
-searchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n)
-         => Tree n -> Vector Float -> Int -> Int -> Bool -> Z.ZipReaderT IO (Tree n, Z.NegaResult n)
-searchTo t rnds maxDepth maxCritDepth enablePruning = do
+searchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
+         => Tree n -> Maybe g -> Int -> Int -> Bool -> Z.ZipReaderT IO (Tree n, Z.NegaResult n)
+searchTo t gen maxDepth maxCritDepth enablePruning = do
     expanded <- expandTree t maxDepth maxCritDepth
+    env <- ask
     res <-
-        if V.null rnds
-          then Z.negaMax expanded enablePruning
-          else Z.negaRnd expanded rnds enablePruning
+        case gen of
+            Just g -> Z.negaRnd expanded g (Z.maxRandomChange env) enablePruning
+            Nothing -> Z.negaMax expanded enablePruning
     return (expanded, res)
 
 -- incrementalSearchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, RandomGen g)

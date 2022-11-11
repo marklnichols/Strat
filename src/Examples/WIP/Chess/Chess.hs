@@ -50,6 +50,7 @@ module Chess
     , allowableRookMoves
     , calcDevelopment
     , calcLocsForColor
+    , calcMobility
     , calcMoveLists
     , calcPawnPositionScore
     , castleMoves
@@ -62,6 +63,10 @@ module Chess
     , checkMateExampleNode
     , checkMateExampleNode2
     , castlingNode
+    , dirLocsCount
+    , dirLocsSingleCount
+    , right, left, up, down, diagUL, diagDR, diagUR, diagDL
+    , knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL
     , inCheck
     , locsForColor
     , mateInTwo01TestData
@@ -71,6 +76,8 @@ module Chess
     , moveChecksOpponent
     , pairToIndexes
     , promotion01TestData
+    , rookMobility
+    , queenMobility
     , showScoreDetails
     , startingBoard
     , wK, wKB, wKN, wKR, wQB, wQN, wQR
@@ -507,6 +514,9 @@ getStartNode restoreGame nextColorToMove =
       "debug04"     -> Node debugExampleNode04 []
       "debug05"     -> Node debugExampleNode05 []
       "debug06"     -> Node debugExampleNode06 []
+      "draw"       -> Node drawnExampleNode []
+      "castling"   -> Node castlingNode []
+      "debug06"     -> Node debugExampleNode06 []
       "debug06b"    -> Node debugExampleNode06b []
       "debug06c"    -> Node debugExampleNode06c []
       "debug07"     -> Node debugExampleNode07 []
@@ -617,7 +627,6 @@ calcNewNode node mv tLoc =
                          , _cpWhitePieceLocs = whiteLocs
                          , _cpBlackPieceLocs = blackLocs
                          , _cpInCheck = inCheckPair' }
-                         -- , _cpHasMoved = newHasMoved }
         (eval, finalSt) = evalPos newPos
         updatedPos = newPos { _cpFin = finalSt }
     in ChessNode
@@ -822,11 +831,6 @@ whiteDev cp =
       (wBs, bBs) = filterLocsByChar (locsForColor cp) 'B'
       wBLocs = map (\(loc, _, _) -> loc) wBs
       wBsTotal = calcPiecePositionScore wBishopInitialLocAdjustments wBLocs
-
-      -- (wPawns, bPawns) = filterLocsByChar (locsForColor cp) 'P'
-      -- wCtrPawnLocs = map (\(loc, _, _) -> loc) wPawns
-      -- wCtrPawnTotal = calcPiecePositionScore wPawnInitialLocAdjustments wCtrPawnLocs
-
   in  -- Negate the devlopment bonus untl the KP and QP have moved
       -- if wCtrPawnTotal < 0
       --   then 0
@@ -842,11 +846,6 @@ blackDev cp =
       (wBs, bBs) = filterLocsByChar (locsForColor cp) 'B'
       bBLocs = map (\(loc, _, _) -> loc) bBs
       bBsTotal = calcPiecePositionScore bBishopInitialLocAdjustments bBLocs
-
-      -- (wPawns, bPawns) = filterLocsByChar (locsForColor cp) 'P'
-      -- bCtrPawnLocs = map (\(loc, _, _) -> loc) bPawns
-      -- bCtrPawnTotal = calcPiecePositionScore bPawnInitialLocAdjustments bCtrPawnLocs
-
   in -- Negate the devlopment bonus untl the KP and QP have moved
      -- if bCtrPawnTotal < 0
      --   then 0
@@ -976,20 +975,11 @@ calcMobility :: ChessPos -> Float
 calcMobility cp =
   let g = cp ^. cpGrid
       (wLocs, bLocs) = locsForColor cp
-      wCnt = moveCountFromLocs cp wLocs
-      bCnt = moveCountFromLocs cp bLocs
+      wCnt = mobilityCountFromLocs cp wLocs
+      bCnt = mobilityCountFromLocs cp bLocs
   in fromIntegral (wCnt - bCnt)
 
----------------------------------------------------------------------------------------------------
--- Calculate the castling score for the position
---------------------------------------------------------------------------------------------------
--- calcCastling :: ChessPos -> Float
--- calcCastling pos =
---     castlingToAbsVal (pos ^. (cpHasMoved . _1 . castlingState))
---     - castlingToAbsVal (pos ^. (cpHasMoved . _2 . castlingState))
 
-
--- TODO - Move this elsewhere
 ---------------------------------------------------------------------------------------------------
 -- Checks each sides castling status, then adds checking for the necessary empty squares
 -- between king and rook to determine which castling moves are available
@@ -1101,20 +1091,20 @@ castlingToAbsVal BothAvailable = 0.0
 castlingToAbsVal KingSideOnlyAvailable = -1.0
 castlingToAbsVal QueenSideOnlyAvailable = -1.0
 
-moveCountFromLocs :: ChessPos -> [(Int, Char, Color)] -> Int
-moveCountFromLocs cp =
+mobilityCountFromLocs :: ChessPos -> [(Int, Char, Color)] -> Int
+mobilityCountFromLocs cp =
   foldr f 0 where
     f :: (Int, Char, Color) -> Int -> Int
     f loc r =
-      let cnt = moveCountFromLoc cp loc
+      let cnt = mobilityCountFromLoc cp loc
       in cnt + r
 
-moveCountFromLoc :: ChessPos -> (Int, Char, Color) -> Int
-moveCountFromLoc cp loc@(idx, _, _) =
+mobilityCountFromLoc :: ChessPos -> (Int, Char, Color) -> Int
+mobilityCountFromLoc cp loc@(idx, _, _) =
   let g = cp ^. cpGrid
-      piece = indexToPiece g idx -- ChessPiece (k :: SomeSing Piece)
+      piece = indexToPiece g idx
   in case piece of
-      MkChessPiece _c (SomeSing SQueen) -> queenMobility cp loc
+      MkChessPiece _c (SomeSing SQueen) -> queenMobility g loc
       MkChessPiece _c (SomeSing SRook) -> rookMobility g loc
       MkChessPiece _c (SomeSing SKnight) -> knightMobility g loc
       MkChessPiece _c (SomeSing SBishop) -> bishopMobility g loc
@@ -1233,17 +1223,9 @@ undoChessMove cn mv =
     let unMove = createUndoMove mv
     in applyUndo cn unMove
 
--- START HERE
-{-
-data ChessNode = ChessNode { _chessTreeLoc :: TreeLocation, _chessMv :: ChessMove
-                           , _chessVal :: ChessEval , _chessErrorVal :: ChessEval , _chessPos :: ChessPos
-                           , _chessMvSeq :: [ChessMove] , _chessIsEvaluated :: Bool }
--}
+-- TODO: resume implementing undo:
 applyUndo :: ChessNode -> UnChessMove -> ChessNode
 applyUndo cn _unMove = cn
-
-
-
 
 createUndoMove :: ChessMove -> UnChessMove
 createUndoMove StdMove{..} =
@@ -1334,10 +1316,6 @@ castleMoves :: ChessPos -> [ChessMove]
 castleMoves pos =
   let c = pos ^. cpColor
       avail = castlingAvailable pos c
-      -- (wStatus, bStatus) = castlingStatus pos
-      -- castling = if c == White
-      --   then wStatus
-      --   else bStatus
   in case avail of
       Unavailable -> []
       Castled -> []
@@ -1437,7 +1415,7 @@ movesFromLocs pos =
 
 movesFromLoc :: ChessPos -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 movesFromLoc pos loc@(idx, _, _) =
-  let cp = indexToPiece g idx -- ChessPiece (k :: SomeSing Piece)
+  let cp = indexToPiece g idx
       g = _cpGrid pos
   in case cp of
       MkChessPiece _c (SomeSing SKing) -> allowableKingMoves pos loc
@@ -1488,12 +1466,12 @@ allowableSingleMoves pieceDirs g loc =
         in (freeLocs ++ r, captureLocs ++ r')
 
 singleMoveMobility :: [Dir] -> ChessGrid -> (Int, Char, Color) -> Int
-singleMoveMobility pieceDirs g (idx, _, _clr) =
+singleMoveMobility pieceDirs g (idx, _, clr) =
   foldl' f 0 pieceDirs
     where
       f :: Int -> Dir -> Int
       f r x =
-        let count = dirLocsSingleCount g idx x
+        let count = dirLocsSingleCount g idx x clr
         in count + r
 
 singleMoveCaptureLocs :: [Dir] -> ChessGrid -> (Int, Char, Color) -> [Int]
@@ -1506,26 +1484,18 @@ singleMoveCaptureLocs pieceDirs g loc =
             Just z -> z : r
             Nothing -> r
 
+kingMobility :: ChessPos -> (Int, Char, Color) -> Int
+kingMobility cp loc =
+    let g = cp ^. cpGrid
+    in singleMoveMobility queenDirs g loc
+
 -- find the allowable destination locs for a queen.
 allowableQueenMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableQueenMoves = allowableMultiMoves queenDirs
 
--- Queen mobility is penalized for each undeveloped minor piece - to discourage
--- bringing out the Queen too early...
-queenMobility :: ChessPos -> (Int, Char, Color) -> Int
-queenMobility cp loc@(_, _, clr) =
-    let g = cp ^. cpGrid
-        minorPieceDev = case clr of
-            White -> whiteDev cp
-            _ -> blackDev cp
-        penalty = case minorPieceDev of
-            4 -> 0
-            3 -> 3
-            2 -> 6
-            1 -> 9
-            _ -> 12
-        qMobility = multiMoveMobility queenDirs g loc
-    in minimum (qMobility - penalty, 0)
+queenMobility :: ChessGrid -> (Int, Char, Color) -> Int
+queenMobility g loc =
+    multiMoveMobility queenDirs g loc
 
 -- find the allowable destination locs for a rook
 allowableRookMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
@@ -1636,7 +1606,6 @@ dirCaptureLoc g (idx0, _, clr0) dir =
    let clr0Enemy = enemyColor clr0
        loop idx =
            let clr = indexToColor2 g idx
-           -- case hasEnemy g clr idx of
            in case clr == clr0Enemy of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
@@ -1645,13 +1614,17 @@ dirCaptureLoc g (idx0, _, clr0) dir =
    in loop (apply dir idx0)
 
 dirLocsCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
-dirLocsCount g (idx, _, _) dir =
-    loop (apply dir idx) 0
-      where
-        loop x count
-            | not (onBoard x) = count
-            | isEmptyGrid g x = loop (apply dir x) count+1
-            | otherwise = count
+dirLocsCount g (idx, _, clr0) dir =
+    let clr0Enemy = enemyColor clr0
+        loop x count =
+            if not (onBoard x) then count
+            else
+              let clr = indexToColor2 g x
+              in case clr == clr0Enemy of
+                True -> count + 1
+                False | isEmptyGrid g x -> loop (apply dir x) count+1
+                      | otherwise       -> count
+    in loop (apply dir idx) 0
 
 -- Same as dirLocs, but for pieces that move only one square in a given "direction"
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
@@ -1666,13 +1639,17 @@ dirLocsSingle g (idx0, _, c0) dir =
       else if cx == c0 then ([], [])
       else ([StdMove Nothing idx0 x ""],[]) -- empty square
 
-dirLocsSingleCount :: ChessGrid -> Int -> Dir -> Int
-dirLocsSingleCount g idx dir =
-    let x = apply dir idx
-    in
-      if not (onBoard x) then 0
-      else if isEmptyGrid g x then 1
-      else 0
+dirLocsSingleCount :: ChessGrid -> Int -> Dir -> Color -> Int
+dirLocsSingleCount g idx dir clr0 =
+    let clr0Enemy = enemyColor clr0
+        x = apply dir idx
+    in if not (onBoard x) then 0
+       else
+        let clr = indexToColor2 g x
+        in case clr == clr0Enemy of
+          True -> 1
+          False | isEmptyGrid g x -> 1
+                | otherwise -> 0
 
 dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
@@ -2528,7 +2505,6 @@ Black: A8-A5 ???
 
 -}
 
-
 debugBoard06 :: ChessGrid
 debugBoard06 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
@@ -2638,9 +2614,6 @@ Black must immed move the queen on H4, if not, something is really wrong
 > cabal exec strat-exe -- -d4 -rdebug06c --ctracing --tracestr="[ C6xD4"
 -}
 
-
-
-
 debugBoard07 :: ChessGrid
 debugBoard07 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
@@ -2676,8 +2649,6 @@ Why not move knight on F6?
 
 > cabal exec strat-exe -- -d4 -rdebug07
 -}
-
-
 
 castlingBoard :: ChessGrid
 castlingBoard = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',

@@ -69,8 +69,6 @@ chessTest = do
 
           hasCastlingMove moves `shouldBe` False
 
--- allowableQueenMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
-
     describe "allowableQueenMoves" $
         it "Gets the allowable moves for a queen" $ do
             let (empties, enemies) =  pairToIndexes
@@ -209,11 +207,47 @@ chessTest = do
       it ("Calculates a score for the position based on pawn positioning"
           ++ " for each side") $ do
           calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 18
-
           calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-18)
-
           calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) (False, False)) `shouldBe` 0
           calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) (False, False)) `shouldBe` 0
+
+    describe "dirLocsCount" $
+      it ("Counts the number of moves available for a given piece, in a"
+         ++ " given position, in a given direction") $ do
+        dirLocsCount board08 (81, 'r', Black) right `shouldBe` 1
+        dirLocsCount board08 (83, 'b', Black) diagDL `shouldBe` 1
+        dirLocsCount board08 (13, 'B', White) diagUR `shouldBe` 5
+        dirLocsCount board08 (14, 'Q', White) up `shouldBe` 2
+
+    describe "dirLocsSingleCount" $
+      it ("Is similar to dirLocsCount, but for only a single move in a given"
+         ++ " direction -- i.e. used for king and knignt and only returns 0 or 1") $ do
+         dirLocsSingleCount board08 15 up White `shouldBe` 1
+         dirLocsSingleCount board08 15 diagUL White `shouldBe` 1
+         dirLocsSingleCount board08 15 right White `shouldBe` 0
+         dirLocsSingleCount board08 85 down Black `shouldBe` 0
+         dirLocsSingleCount board08 61 knightUR Black `shouldBe` 1
+         dirLocsSingleCount board08 66 knightDL Black `shouldBe` 1
+
+    describe "queenMobility" $
+      it ("Calculates the number of moves available for a queen given"
+          ++ "a location on the board") $ do
+         queenMobility board08 (14, 'Q', White) `shouldBe` 6
+         queenMobility board08 (84, 'q', Black) `shouldBe` 0
+
+    describe "rookMobility" $
+      it ("Calculates the number of moves available for a rook given"
+          ++ "a location on the board") $ do
+         rookMobility board08 (12, 'R', White) `shouldBe` 1
+         rookMobility board08 (18, 'R', White) `shouldBe` 0
+         rookMobility board08 (81, 'r', Black) `shouldBe` 1
+         rookMobility board08 (88, 'r', Black) `shouldBe` 1
+
+    describe "calcMobility" $
+      it ("Calculates a score for the position based on the number of moves "
+          ++ "available to each side") $
+          calcMobility (posFromGrid board08 White (15, 85) (False, False)
+                           ) `shouldBe` 12  -- (23W - 11b = 12)
 
     describe "inCheck" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
@@ -723,7 +757,7 @@ board07d = ChessGrid $ V.fromList         [ '+',  '+',  '+',  '+',  '+',  '+',  
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 r   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
--   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+/
 -   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
 -   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   -   b   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
@@ -735,6 +769,35 @@ K   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17
                                            -------------------------------------------------
                                                  A    B    C    D    E    F    G    H
 (BWins)
+-}
+
+board08 :: ChessGrid
+board08 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  'R',  'B',  'Q',  'K',  'B',  'N',  'R',  '+',
+                             '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'P',  'P',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'n',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  'p',  'p',  'p',  'p',  'p',  'p',  '+',
+                             '+',  'r',  ' ',  'b',  'q',  'k',  'b',  ' ',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   b   q   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   -   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+n   -   -   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   p   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   R   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
 -}
 
 ----------------------------------------------------------------------------------------------------

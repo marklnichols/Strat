@@ -13,8 +13,8 @@ import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HM
 import Data.Text (pack)
 import Data.Tree
-import qualified Data.Vector as V
 import GHC.Generics
+import System.Random hiding (next)
 import Test.Hspec
 import Text.Printf
 
@@ -163,7 +163,8 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- negaRnd, but with the random tolerance at 0.0
             ----------------------------------------------------------------------------------
-            result6 <- runReaderT (negaRnd newWikiTree V.empty True) testEnv
+            rnd <- getStdGen
+            result6 <- runReaderT (negaRnd newWikiTree rnd 0.0 True) testEnv
 
             let theBest6 = picked result6
             evalNode theBest6 `shouldBe`

@@ -16,8 +16,6 @@ import Control.Monad.Reader
 import Data.Aeson
 import Data.Text (pack)
 import Data.Tree
-import Data.Vector (Vector)
-import qualified Data.Vector as V
 import Strat.Helpers
 import Strat.StratTree.TreeNode
 import Strat.ZipTree
@@ -29,7 +27,7 @@ data CheckersEnv = CheckersEnv
     { ceDepth :: Int, ceCritDepth ::Int,  ceEquivThreshold :: Float, ceP1Comp :: Bool ,ceP2Comp :: Bool } deriving (Show)
 
 gameEnv :: CheckersEnv
-gameEnv = CheckersEnv { ceDepth = 6, ceCritDepth = 10, ceEquivThreshold = 0.0
+gameEnv = CheckersEnv { ceDepth = 6, ceCritDepth = 10, ceEquivThreshold = 0.05
               , ceP1Comp = False, ceP2Comp = True }
 
 data Jsonable = forall j. ToJSON j => Jsonable j
@@ -38,33 +36,28 @@ data NodeWrapper = NodeWrapper { getNode :: Tree Ck.CkNode
                                    , getLastMove :: Maybe (MoveScore Ck.CkMove Ck.CkNode)
                                    , getJsonable :: Jsonable }
 
---TODO: move these into the env
-maxRndPercent :: Float
-maxRndPercent = 0.05
 
 ----------------------------------------------------------------------------------------------------
 -- Exported functions
 ----------------------------------------------------------------------------------------------------
 --start game request received
-processStartGame :: Tree Ck.CkNode -> Bool -> IO (NodeWrapper, Vector Float)
+processStartGame :: Tree Ck.CkNode -> Bool -> IO (NodeWrapper, StdGen)
 processStartGame node bComputerResponse = do
-    rnd <- getStdGen
-    let xs = randomRs (-maxRndPercent, maxRndPercent) rnd
-    let rnds = V.fromList xs
+    gen <- getStdGen
     if bComputerResponse
         then do
-            resp <- computerResponse node rnds
-            return (resp, rnds)
-        else return (createUpdate "Score for Player's position: 0"  node node Nothing, rnds)
+            resp <- computerResponse node gen
+            return (resp, gen)
+        else return (createUpdate "Score for Player's position: 0"  node node Nothing, gen)
 
-processComputerMove :: Tree Ck.CkNode -> Vector Float -> IO NodeWrapper
-processComputerMove tree rnds = do
+processComputerMove :: RandomGen g => Tree Ck.CkNode -> g -> IO NodeWrapper
+processComputerMove tree gen = do
     let posColor = color $ rootLabel tree
     liftIO $ putStrLn $ "Computer move (In processComputerMove), turn = " ++ show (colorToTurn posColor)
-    computerResponse tree rnds
+    computerResponse tree gen
 
 --player move (web request) received
-processPlayerMove :: Tree Ck.CkNode -> Ck.CkMove -> Bool -> Vector Float -> IO NodeWrapper
+processPlayerMove :: RandomGen g => Tree Ck.CkNode -> Ck.CkMove -> Bool -> g -> IO NodeWrapper
 processPlayerMove tree mv bComputerResponse rnds = do
     -- let processed = findMove tree mv
     case (findMove tree mv) of
@@ -101,9 +94,9 @@ testEnv = ZipTreeEnv
         , aiPlaysBlack = True
         }
 
-computerResponse :: Tree Ck.CkNode -> Vector Float -> IO NodeWrapper
-computerResponse prevNode rnds = do
-    eitherNode <- computerMove prevNode rnds
+computerResponse :: RandomGen g => Tree Ck.CkNode -> g -> IO NodeWrapper
+computerResponse prevNode gen = do
+    eitherNode <- computerMove prevNode gen
     case eitherNode of
         Left s -> return $ createError s prevNode
         Right MoveResults{..} ->
@@ -117,11 +110,11 @@ computerResponse prevNode rnds = do
                   (x:_xs) -> Just x
             in return $ createUpdate (currentPosStr ++ "<br/><br/>" ++ bestScoreStr) prevNode mrNewTree ms
 
-computerMove :: Tree Ck.CkNode -> Vector Float
+computerMove :: RandomGen g => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
-computerMove t rnds = do
+computerMove t gen = do
    newTree <- runReaderT (expandTo t (ceDepth gameEnv) (ceCritDepth gameEnv)) testEnv
-   res@NegaResult{..} <- runReaderT (negaRnd newTree rnds True) testEnv
+   res@NegaResult{..} <- runReaderT (negaRnd newTree gen (ceEquivThreshold gameEnv) True) testEnv
    let bestMv = getMove $ moveNode picked
    let moveScores = mkMoveScores (evalNode picked : (evalNode <$> alternatives))
    return $ Right ( MoveResults
