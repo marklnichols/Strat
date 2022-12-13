@@ -50,8 +50,8 @@ data StratArgs = StratArgs
 stratArgs :: StratArgs
 stratArgs = StratArgs
   { exampleName = "chess" &= name "n" &= help "The example to run"
-  , depth = 4 &= help "Tree search depth"
-  , critDepth = 6 &= help "Tree search depth for critical moves"
+  , depth = 3 &= help "Tree search depth"
+  , critDepth = 5 &= help "Tree search depth for critical moves"
   , noRandom = False &= name "nr" &= help "Turn off randomness used in the computer's move selection"
   , noPruning = False &= name "p" &= help "Turn off alpha-beta pruning (just for debugging)"
   , restoreGame = "newgame" &= help "Game name to restore"

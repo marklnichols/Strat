@@ -9,7 +9,6 @@ import Control.Monad.Reader
 import Data.List
 import qualified Data.Text as T
 import Data.Tuple.Extra (fst3)
--- import Data.Vector.Unboxed (Vector)
 import qualified Data.Vector.Unboxed as V
 
 import Chess
@@ -36,6 +35,10 @@ testEnv = Z.ZipTreeEnv
 
 chessTest :: SpecWith ()
 chessTest = do
+    describe "invertGrid" $
+      it "Inverts the rows of the grid" $ do
+        invertGrid board01 `shouldBe` invertedBoard01
+
     describe "locsForColor" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
             let (wLocs, bLocs) = locsForColor (posFromGrid board01 White (12, 87) (False, False))
@@ -203,11 +206,29 @@ chessTest = do
           calcDevelopment (posFromGrid board03a White (15, 85) (False, False)
                            ) `shouldBe` 1
 
+    describe "calcCenterPawnScore" $
+      it "Calculates a score for the two center pawns of each side" $ do
+        calcCenterPawnScore [24, 45] [34, 25] `shouldBe` 6.0
+        calcCenterPawnScore [34, 35] [44, 45] `shouldBe` -12.0
+
+    describe "calcNightPawnScore" $
+      it "Calculates a score tor the two knight pawns of each side" $
+        calcKnightPawnScore board09 [22, 27] [32, 37] `shouldBe` 3
+
+    describe "calcRookPawnScore" $
+      it "Calculates a score for the two rook pawns of each side" $
+        calcRookPawnScore board10 [41, 48] [31, 38] `shouldBe` 0
+
+    describe "bishopPawnScore" $
+      it "Calculates a score for the two bishop pawns of each side" $ do
+        calcBishopPawnScore [23, 26] [33, 46] `shouldBe` 3.0
+        calcBishopPawnScore [33, 36] [43, 46] `shouldBe` 2.0
+
     describe "calcPawnPositionScore" $
       it ("Calculates a score for the position based on pawn positioning"
           ++ " for each side") $ do
-          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 18
-          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-18)
+          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 16
+          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-16)
           calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) (False, False)) `shouldBe` 0
           calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) (False, False)) `shouldBe` 0
 
@@ -222,18 +243,18 @@ chessTest = do
     describe "dirLocsSingleCount" $
       it ("Is similar to dirLocsCount, but for only a single move in a given"
          ++ " direction -- i.e. used for king and knignt and only returns 0 or 1") $ do
-         dirLocsSingleCount board08 15 up White `shouldBe` 1
-         dirLocsSingleCount board08 15 diagUL White `shouldBe` 1
-         dirLocsSingleCount board08 15 right White `shouldBe` 0
-         dirLocsSingleCount board08 85 down Black `shouldBe` 0
-         dirLocsSingleCount board08 61 knightUR Black `shouldBe` 1
-         dirLocsSingleCount board08 66 knightDL Black `shouldBe` 1
+         dirLocsSingleCount board08 (15, 'K' ,White ) up `shouldBe` 1
+         dirLocsSingleCount board08 (15, 'K' ,White ) diagUL `shouldBe` 1
+         dirLocsSingleCount board08 (15, 'K' ,White ) right `shouldBe` 0
+         dirLocsSingleCount board08 (85, 'k' ,Black ) down `shouldBe` 0
+         dirLocsSingleCount board08 (61, 'n' ,Black ) knightUR `shouldBe` 1
+         dirLocsSingleCount board08 (66, 'n' ,Black ) knightDL `shouldBe` 1
 
     describe "queenMobility" $
       it ("Calculates the number of moves available for a queen given"
           ++ "a location on the board") $ do
-         queenMobility board08 (14, 'Q', White) `shouldBe` 6
-         queenMobility board08 (84, 'q', Black) `shouldBe` 0
+         queenMobility (posFromGrid board08 White (15, 85) (False, False)) (14, 'Q', White) `shouldBe` 6
+         queenMobility (posFromGrid board08 White (15, 85) (False, False)) (84, 'q', Black) `shouldBe` 0
 
     describe "rookMobility" $
       it ("Calculates the number of moves available for a rook given"
@@ -247,7 +268,7 @@ chessTest = do
       it ("Calculates a score for the position based on the number of moves "
           ++ "available to each side") $
           calcMobility (posFromGrid board08 White (15, 85) (False, False)
-                           ) `shouldBe` 12  -- (23W - 11b = 12)
+                           ) `shouldBe` 14  -- (25W - 11b = 14)
 
     describe "inCheck" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
@@ -396,6 +417,36 @@ P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27
                                                 A    B    C    D    E    F    G    H
 -}
 
+---------------------------------------------------------------------------------------------------
+invertedBoard01 :: ChessGrid
+invertedBoard01 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  'r',  ' ',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'b',  'p',  '+',
+                             '+',  'p',  'q',  ' ',  ' ',  'b',  'p',  'p',  ' ',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
+                             '+',  ' ',  ' ',  'B',  ' ',  'N',  'Q',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'P',  'P',  ' ',  ' ',  'B',  'R',  ' ',  ' ',  '+',
+                             '+',  ' ',  'K',  'R',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   K   R   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   P   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   B   -   N   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   -   P   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+p   q   -   -   b   p   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   b   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   r   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
 ----------------------------------------------------------------------------------------------------
 board02 :: ChessGrid
 board02 = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
@@ -510,19 +561,6 @@ R   -   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17
                                                  A    B    C    D    E    F    G    H
 -}
 
--- board03Move :: ChessMove
--- board03Move = StdMove { _exchange = Nothing, _startIdx = 11, _endIdx = 12, _stdNote = ""}
-
--- board03Move2 :: ChessMove
--- board03Move2 = StdMove { _exchange = Nothing, _startIdx = 88, _endIdx = 87, _stdNote = "" }
-
--- board03Move3 :: ChessMove
--- board03Move3 = StdMove { _exchange = Nothing, _startIdx = 15, _endIdx = 24, _stdNote = "" }
-
--- board03Move4 :: ChessMove
--- board03Move4 = CastlingMove { _castle = QueenSide, _kingStartIdx = 15, _kingEndIdx = 13
---                            , _rookStartIdx = 11, _rookEndIdx = 15, _castleNote = "O-O-O"}
-
 ----------------------------------------------------------------------------------------------------
 board04 :: ChessGrid
 board04 = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
@@ -579,10 +617,6 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
-For pawn position score
-White: +8, +2
-Black: -2, -1, -2, -1
-Total: + 16
 -}
 
 board06 :: ChessGrid
@@ -612,10 +646,6 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
-For pawn position score
-White: -2, -1, -2, -1
-Black: +2, +8
-Total: - 16
 -}
 
 pQ4pQ4Board :: ChessGrid
@@ -780,8 +810,8 @@ board08 = ChessGrid $ V.fromList
                              '+',  ' ',  ' ',  ' ',  'P',  'P',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                              '+',  'n',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
-                             '+',  'p',  ' ',  'p',  'p',  'p',  'p',  'p',  'p',  '+',
-                             '+',  'r',  ' ',  'b',  'q',  'k',  'b',  ' ',  'r',  '+',
+                             '+',  'p',  '-',  'p',  'p',  'p',  'p',  'p',  'p',  '+',
+                             '+',  'r',  '-',  'b',  'q',  'k',  'b',  '-',  'r',  '+',
                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
@@ -799,6 +829,65 @@ P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+
+board09 :: ChessGrid
+board09 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  'N',  'B',  'Q',  'K',  ' ',  'N',  'R',  '+',
+                             '+',  'P',  ' ',  'P',  ' ',  'B',  'P',  ' ',  'P',  '+',
+                             '+',  ' ',  'P',  ' ',  'P',  ' ',  ' ',  'P',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  ' ',  ' ',  'p',  ' ',  'p',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  'p',  'b',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  'p',  ' ',  ' ',  'p',  ' ',  'p',  '+',
+                             '+',  'r',  'n',  ' ',  'q',  'k',  'b',  'n',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   -   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   -   p   -   -   p   -   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   p   b   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   p   -   -   p   -   p   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   P   -   P   -   -   P   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   -   P   -   B   P   -   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   K   -   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
+board10 :: ChessGrid
+board10 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  'N',  'B',  'Q',  ' ',  'R',  'K',  ' ',  '+',
+                             '+',  ' ',  'P',  'P',  'P',  ' ',  'P',  'P',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'N',  ' ',  ' ',  '+',
+                             '+',  'P',  ' ',  'B',  ' ',  'P',  ' ',  ' ',  'P',  '+',
+                             '+',  ' ',  ' ',  'b',  ' ',  'p',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  'p',  '+',
+                             '+',  ' ',  'p',  'p',  'p',  ' ',  'p',  'p',  ' ',  '+',
+                             '+',  'r',  'n',  'b',  'q',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   q   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   p   p   p   -   p   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+p   -   -   -   -   n   -   p          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   b   -   p   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+P   -   B   -   P   -   -   P          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   P   P   P   -   P   P              2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
 
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: ChessGrid

@@ -27,7 +27,7 @@ module Chess
     ( Castle(..)
     , Castling(..)
     , ChessEval(..), total, details
-    , ChessGrid(..), unGrid
+    , ChessGrid(..)
     , ChessMove(..), exchange, startIdx, endIdx
     , ChessMoves(..), cmEmpty, cmEnemy
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
@@ -48,6 +48,10 @@ module Chess
     , allowablePawnCaptures
     , allowableQueenMoves
     , allowableRookMoves
+    , calcBishopPawnScore
+    , calcCenterPawnScore
+    , calcKnightPawnScore
+    , calcRookPawnScore
     , calcDevelopment
     , calcLocsForColor
     , calcMobility
@@ -68,6 +72,7 @@ module Chess
     , right, left, up, down, diagUL, diagDR, diagUR, diagDL
     , knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL
     , inCheck
+    , invertGrid
     , locsForColor
     , mateInTwo01TestData
     , mateInTwo02TestData
@@ -125,7 +130,7 @@ data Castling = Castled
               | Unavailable
   deriving (Eq, Show, Ord)
 
-data Color = Black | White | Unknown
+data Color = Black | White
     deriving (Generic, Hashable, Show, Eq, Ord, Data, Typeable)
 
 data Castle = QueenSide | KingSide
@@ -153,14 +158,11 @@ data StdMoveTestData = StdMoveTestData
   , smtdEndIdx :: Int }
   deriving (Eq, Ord)
 
-newtype ChessGrid = ChessGrid (Vector Char)
+newtype ChessGrid = ChessGrid { unGrid :: Vector Char }
   deriving (Generic, Eq, Show, Ord)
 
 instance Hashable ChessGrid where
   hashWithSalt n (ChessGrid v) = hashWithSalt n (V.toList v)
-
-unGrid :: ChessGrid -> Vector Char
-unGrid (ChessGrid x) = x
 
 data ChessPos = ChessPos
   { _cpGrid :: ChessGrid
@@ -247,17 +249,18 @@ instance Show ChessMoves where
 colorToInt :: Color -> Int
 colorToInt Black = -1
 colorToInt White = 1
-colorToInt Unknown = 0
 
 colorFromInt :: Int -> Color
 colorFromInt 1 = White
-colorFromInt (-1) = Black
-colorFromInt _n = Unknown
+colorFromInt _ = Black
 
 enemyColor :: Color -> Color
 enemyColor White = Black
 enemyColor Black = White
-enemyColor Unknown = Unknown
+
+enemyColorMay :: Maybe Color -> Maybe Color
+enemyColorMay Nothing = Nothing
+enemyColorMay (Just c) = Just (enemyColor c)
 
 colorToTupleElem :: Color -> (a, a) -> a
 colorToTupleElem White (x, _y) = x
@@ -285,7 +288,6 @@ pieceToInt :: Piece -> Color -> Int
 pieceToInt p c = ord $ pieceToChar p c
 
 pieceToChar :: Piece -> Color -> Char
-pieceToChar _ Unknown = ' '
 pieceToChar King White = 'K'
 pieceToChar King Black = 'k'
 pieceToChar Queen White = 'Q'
@@ -314,11 +316,11 @@ charToPiece 'r' = MkChessPiece Black (SomeSing SRook)
 charToPiece 'n' = MkChessPiece Black (SomeSing SKnight)
 charToPiece 'b' = MkChessPiece Black (SomeSing SBishop)
 charToPiece 'p' = MkChessPiece Black (SomeSing SPawn)
-charToPiece ' ' = MkChessPiece Unknown (SomeSing SNone)
-charToPiece '+' = MkChessPiece Unknown (SomeSing SOffBoardNone)
+charToPiece ' ' = MkChessPiece Black (SomeSing SNone)
+charToPiece '+' = MkChessPiece Black (SomeSing SOffBoardNone)
 charToPiece ch = error $ "charToPiece not implemented for the value " ++ show ch
 
-indexToColor2 :: ChessGrid -> Int -> Color
+indexToColor2 :: ChessGrid -> Int -> Maybe Color
 indexToColor2 g idx =
   let g' = unGrid g
   in charToColor (g' ! idx)
@@ -340,7 +342,6 @@ pieceVal piece@(MkChessPiece c _) =
   in case c of
     White -> absVal
     Black -> negate absVal
-    Unknown -> 0.0
 
 pieceAbsVal :: ChessPiece (k :: SomeSing Piece) -> Float
 pieceAbsVal (MkChessPiece _c (SomeSing SKing)) = Z.maxScore
@@ -533,7 +534,6 @@ mkStartGrid White = startingBoard
 mkStartGrid Black =
   let g' = unGrid startingBoard
   in ChessGrid $ V.reverse g'
-mkStartGrid Unknown = ChessGrid V.empty
 
 ---------------------------------------------------------------------------------------------------}
 -- TODO: revert this eventually...
@@ -747,13 +747,12 @@ isCritical cn =
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
-flipPieceColor Unknown = Unknown
 
 
 {- TODOs:
 -- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
 -- Add warning message if non-quiet move chosen, consider not picking those
--- Another round of perfomance opt.
+-- Another round of perfomance opt
 -- Implement FEN for positions
 -- Add pawn promotion other than queen
 -- Add / fix enpassant
@@ -823,19 +822,15 @@ calcDevelopment cp = whiteDev cp - blackDev cp
 
 whiteDev :: ChessPos -> Float
 whiteDev cp =
-
   let (wKns, bKns) = filterLocsByChar (locsForColor cp) 'N'
       wKnLocs = map (\(loc, _, _) -> loc) wKns
       wKnTotal = calcPiecePositionScore wKnightInitialLocAdjustments wKnLocs
 
+
       (wBs, bBs) = filterLocsByChar (locsForColor cp) 'B'
       wBLocs = map (\(loc, _, _) -> loc) wBs
       wBsTotal = calcPiecePositionScore wBishopInitialLocAdjustments wBLocs
-  in  -- Negate the devlopment bonus untl the KP and QP have moved
-      -- if wCtrPawnTotal < 0
-      --   then 0
-      --   else (4 - (wKnTotal + wBsTotal))
-      (4 - (wKnTotal + wBsTotal))
+   in (4 - (wKnTotal + wBsTotal))
 
 blackDev :: ChessPos -> Float
 blackDev cp =
@@ -846,11 +841,7 @@ blackDev cp =
       (wBs, bBs) = filterLocsByChar (locsForColor cp) 'B'
       bBLocs = map (\(loc, _, _) -> loc) bBs
       bBsTotal = calcPiecePositionScore bBishopInitialLocAdjustments bBLocs
-  in -- Negate the devlopment bonus untl the KP and QP have moved
-     -- if bCtrPawnTotal < 0
-     --   then 0
-     --   else (4 - (bKnTotal + bBsTotal))
-     (4 - (bKnTotal + bBsTotal))
+  in  (4 - (bKnTotal + bBsTotal))
 
 wKnightInitialLocAdjustments :: Map Int Float
 wKnightInitialLocAdjustments = M.fromList [(12, 1.0), (17, 1.0)]
@@ -863,12 +854,6 @@ wBishopInitialLocAdjustments = M.fromList [(13, 1.0), (16, 1.0)]
 
 bBishopInitialLocAdjustments :: Map Int Float
 bBishopInitialLocAdjustments = M.fromList [(83, 1.0), (86, 1.0)]
-
-_wPawnInitialLocAdjustments :: Map Int Float
-_wPawnInitialLocAdjustments = M.fromList [(24, -1.0), (25, -1.0)]
-
-_bPawnInitialLocAdjustments :: Map Int Float
-_bPawnInitialLocAdjustments = M.fromList [(74, -1.0), (75, -1.0)]
 
 ---------------------------------------------------------------------------------------------------
 -- Calculate a penalty for developing the queen prematurely (White - Black)
@@ -895,29 +880,176 @@ calcPawnPositionScore :: ChessPos -> Float
 calcPawnPositionScore cp =
     let g = cp ^. cpGrid
         (wLocs, bLocs) = locsForColor cp
-        wPawns = filter (filterF g) (fst3 <$> wLocs)
-        bPawns = filter (filterF g) (fst3 <$> bLocs)
+        invertedGrid = invertGrid g
+        filterF loc =
+            case indexToPiece g loc of
+                MkChessPiece _c (SomeSing SPawn) -> True
+                MkChessPiece _c (SomeSing _)     -> False
+        invertY n = 10 * (9 - (n `div` 10)) + n `mod` 10
+        wPawns = filter filterF (fst3 <$> wLocs)
+        bPawns = filter filterF (fst3 <$> bLocs)
         bPawns' = invertY <$> bPawns -- invert the black pawn pos vert. and use the white lookup
-        wTotal = foldr foldF 0 wPawns
-        bTotal = foldr foldF 0 bPawns'
-    in wTotal - bTotal
-    where
-      invertY n = 10 * (9 - (n `div` 10)) + n `mod` 10
-      filterF g loc =
-          case indexToPiece g loc of
-              MkChessPiece _c (SomeSing SPawn) -> True
-              MkChessPiece _c (SomeSing _)     -> False
-      foldF xLoc r = M.findWithDefault 0 xLoc pawnAdjustments + r
 
-pawnAdjustments :: Map Int Float
-pawnAdjustments = M.fromList
-    -- KP, QP
-    [ (24, 0.0), (34, 3.0), (44, 9.0), (25, 0.0), (35, 3.0), (45, 9.0)
-    -- KRP, QRP, KBP, QBP
-    , (21, 0.0), (31, -1.0), (41, -2.0), (28, 0.0), (38, -1.0), (48, -2.0)
-    , (23, 0.0), (33, -1.0), (43, -2.0), (26, 0.0), (36, -1.0), (46, -2.0)
-    -- KNP, QNP
-    , (22, 0.0), (32, 0.0), (42, -2.0), (27, 0.0), (37, 0.0), (47, -2.0) ]
+        centerScore = calcCenterPawnScore wPawns bPawns'
+        npScore = calcKnightPawnScore g wPawns bPawns'
+        rpScore = calcRookPawnScore g wPawns bPawns'
+        bpScore = calcBishopPawnScore wPawns bPawns'
+    in centerScore + npScore + rpScore + bpScore
+
+invertGrid :: ChessGrid -> ChessGrid
+invertGrid g =
+  let rows = asRows g
+  -- asRows has already reversed the rows...
+  in ChessGrid $ V.concat rows
+
+asRows :: ChessGrid -> [Vector Char]
+asRows g =
+  let v = unGrid g
+  in V.ifoldl' foldf [] v
+  where
+    foldf [] _ x = [V.singleton x]
+    foldf acc@(a:acc') n x =
+      case n of
+      n' | n' `div` 10 /= ((n' - 1) `div` 10) -> V.singleton x : acc
+         | otherwise -> (a `V.snoc` x) : acc'
+
+
+calcCenterPawnScore :: [Int] -> [Int] -> Float
+calcCenterPawnScore wPawns bPawns' =
+    let w = calcPawnAdjustments kpQpAdjustments wPawns
+        b = calcPawnAdjustments kpQpAdjustments bPawns'
+    in w - b
+
+calcKnightPawnScore :: ChessGrid -> [Int] -> [Int] -> Float
+calcKnightPawnScore grid wPawns bPawns' =
+    let w = calcNP White grid wPawns
+        b = calcNP Black grid bPawns'
+    in w - b
+  where
+    calcNP clr g pawns =
+      let prelim = calcPawnAdjustments knpQnpAdjustments pawns
+          -- remove penalty for pawn moves that setup fiancetto
+          kSideAdj = if knpSpaceForFianchetto clr g && kBishopAtHome clr g
+            then np3Value
+            else 0
+          qSideAdj = if qnpSpaceForFianchetto clr g && qBishopAtHome clr g
+            then np3Value
+            else 0
+      in prelim - kSideAdj - qSideAdj
+
+calcRookPawnScore :: ChessGrid -> [Int] -> [Int] -> Float
+calcRookPawnScore grid wPawns bPawns' =
+    let w = calcRP White grid wPawns
+        b = calcRP Black grid bPawns'
+    in w - b
+  where
+    calcRP clr g pawns =
+      let prelim = calcPawnAdjustments krpQrpAdjustments pawns
+          -- remove penalty for pawn move that opens space for rook
+          kSideAdj = if krpSpaceForRook clr g && kRookAtHome clr g
+            then rp4Value
+            else 0
+          qSideAdj = if qrpSpaceForRook clr g && qRookAtHome clr g
+            then rp4Value
+            else 0
+      in prelim - kSideAdj - qSideAdj
+
+calcBishopPawnScore :: [Int] -> [Int] -> Float
+calcBishopPawnScore wPawns bPawns' =
+    let wp = calcPawnAdjustments kbpQbpAdjustments wPawns
+        bp = calcPawnAdjustments kbpQbpAdjustments bPawns'
+    in wp - bp
+
+calcPawnAdjustments :: Map Int Float -> [Int] -> Float
+calcPawnAdjustments m pawns =
+    foldr foldF 0 pawns
+    where
+      foldF xLoc r = M.findWithDefault 0 xLoc m + r
+
+kRookAtHome :: Color -> ChessGrid -> Bool
+kRookAtHome White grid = case indexToPiece grid wKR of
+                          MkChessPiece White (SomeSing SRook) -> True
+                          _                                   -> False
+kRookAtHome Black grid = case indexToPiece grid bKR of
+                          MkChessPiece Black (SomeSing SRook) -> True
+                          _                                   -> False
+
+qRookAtHome :: Color -> ChessGrid -> Bool
+qRookAtHome White grid = case indexToPiece grid wQR of
+                          MkChessPiece White (SomeSing SRook) -> True
+                          _                                   -> False
+qRookAtHome Black grid = case indexToPiece grid bQR of
+                          MkChessPiece Black (SomeSing SRook) -> True
+                          _                                   -> False
+
+krpSpaceForRook :: Color -> ChessGrid -> Bool
+krpSpaceForRook White grid = case indexToPiece grid 48 of
+                          MkChessPiece White (SomeSing SPawn) -> True
+                          _                                   -> False
+krpSpaceForRook Black grid = case indexToPiece grid 58 of
+                          MkChessPiece Black (SomeSing SPawn) -> True
+                          _                                   -> False
+
+qrpSpaceForRook :: Color -> ChessGrid -> Bool
+qrpSpaceForRook White grid = case indexToPiece grid 41 of
+                          MkChessPiece White (SomeSing SPawn) -> True
+                          _                                   -> False
+qrpSpaceForRook Black grid = case indexToPiece grid 51 of
+                          MkChessPiece Black (SomeSing SPawn) -> True
+                          _                                   -> False
+
+kBishopAtHome :: Color -> ChessGrid -> Bool
+kBishopAtHome White grid = case indexToPiece grid wKB of
+                          MkChessPiece White (SomeSing SBishop) -> True
+                          _                                     -> False
+kBishopAtHome Black grid = case indexToPiece grid bQB of
+                          MkChessPiece Black (SomeSing SBishop) -> True
+                          _                                     -> False
+qBishopAtHome :: Color -> ChessGrid -> Bool
+qBishopAtHome White grid = case indexToPiece grid wQB of
+                          MkChessPiece White (SomeSing SBishop) -> True
+                          _                                     -> False
+qBishopAtHome Black grid = case indexToPiece grid bQB of
+                          MkChessPiece Black (SomeSing SBishop) -> True
+                          _                                     -> False
+
+knpSpaceForFianchetto :: Color -> ChessGrid -> Bool
+knpSpaceForFianchetto White grid = case indexToPiece grid 37 of
+                          MkChessPiece White (SomeSing SPawn) -> True
+                          _                                   -> False
+knpSpaceForFianchetto Black grid = case indexToPiece grid 67 of
+                          MkChessPiece Black (SomeSing SPawn) -> True
+                          _                                   -> False
+
+qnpSpaceForFianchetto :: Color -> ChessGrid -> Bool
+qnpSpaceForFianchetto White grid = case indexToPiece grid 32 of
+                          MkChessPiece White (SomeSing SPawn) -> True
+                          _                                   -> False
+qnpSpaceForFianchetto Black grid = case indexToPiece grid 62 of
+                          MkChessPiece Black (SomeSing SPawn) -> True
+                          _                                   -> False
+
+kpQpAdjustments :: Map Int Float
+kpQpAdjustments = M.fromList
+    [ (24, 0.0), (34, 3.0), (44, 9.0), (25, 0.0), (35, 3.0), (45, 9.0) ]
+
+np3Value :: Float
+np3Value = -1
+
+knpQnpAdjustments :: Map Int Float
+knpQnpAdjustments = M.fromList
+    [ (22, 0.0), (32, np3Value), (42, -2.0), (27, 0.0), (37, np3Value), (47, -2.0) ]
+
+rp4Value :: Float
+rp4Value = -2
+
+krpQrpAdjustments :: Map Int Float
+krpQrpAdjustments = M.fromList
+    [ (21, 0.0), (31, -1.0), (41, rp4Value), (28, 0.0), (38, -1.0), (48, rp4Value) ]
+
+kbpQbpAdjustments :: Map Int Float
+kbpQbpAdjustments = M.fromList
+    [ (23, 0.0), (33, -1.0), (43, -2.0), (26, 0.0), (36, -1.0), (46, -2.0) ]
 
 ---------------------------------------------------------------------------------------------------
 -- TODO: move this to the correctly commented section of this file
@@ -978,7 +1110,6 @@ calcMobility cp =
       wCnt = mobilityCountFromLocs cp wLocs
       bCnt = mobilityCountFromLocs cp bLocs
   in fromIntegral (wCnt - bCnt)
-
 
 ---------------------------------------------------------------------------------------------------
 -- Checks each sides castling status, then adds checking for the necessary empty squares
@@ -1104,7 +1235,8 @@ mobilityCountFromLoc cp loc@(idx, _, _) =
   let g = cp ^. cpGrid
       piece = indexToPiece g idx
   in case piece of
-      MkChessPiece _c (SomeSing SQueen) -> queenMobility g loc
+      MkChessPiece _c (SomeSing SKing) -> kingMobility cp loc
+      MkChessPiece _c (SomeSing SQueen) -> queenMobility cp loc
       MkChessPiece _c (SomeSing SRook) -> rookMobility g loc
       MkChessPiece _c (SomeSing SKnight) -> knightMobility g loc
       MkChessPiece _c (SomeSing SBishop) -> bishopMobility g loc
@@ -1185,12 +1317,12 @@ checkPromote chPiece toLoc =
             _ -> chPiece
        else chPiece
 
-lastRank :: Int -> Color -> Bool
+lastRank :: Int -> Maybe Color -> Bool
 lastRank loc c
-    | c == White
+    | c == Just White
     , loc `div` 10 == 8
       = True
-    | c == Black
+    | c == Just Black
     , loc `div` 10 == 1
       = True
     | otherwise
@@ -1286,24 +1418,24 @@ calcLocsForColor locs' =
                          -> ([(Int, Char, Color)], [(Int, Char, Color)])
         f n c (wLocs, bLocs) =
             case charToColor c of
-                White -> ((n, c, White) : wLocs, bLocs)
-                Black -> (wLocs, (n, c, Black) : bLocs)
-                _     -> (wLocs, bLocs)
+                (Just White) -> ((n, c, White) : wLocs, bLocs)
+                (Just Black) -> (wLocs, (n, c, Black) : bLocs)
+                Nothing    -> (wLocs, bLocs)
 
 
-charToColor :: Char -> Color
+charToColor :: Char -> Maybe Color
 charToColor c
-  | ord c > 64 && ord c < 91 = White  -- A - Z : 65 - 90
-  | ord c > 96 && ord c < 123 = Black -- a - z : 97 - 122
-  | otherwise = Unknown
+  | ord c > 64 && ord c < 91 = Just White  -- A - Z : 65 - 90
+  | ord c > 96 && ord c < 123 = Just Black -- | a - z : 97 - 122
+  | otherwise = Nothing
 
 -- r to R, B to b, etc.
 flipCharColor :: Char -> Char
 flipCharColor ch =
   case charToColor ch of
-    Black -> chr $ ord ch - 32
-    White -> chr $ ord ch + 32
-    Unknown -> ch
+    Just Black -> chr $ ord ch - 32
+    Just White -> chr $ ord ch + 32
+    Nothing -> ch
 
 allowableKingMoves :: ChessPos -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableKingMoves pos loc =
@@ -1466,12 +1598,12 @@ allowableSingleMoves pieceDirs g loc =
         in (freeLocs ++ r, captureLocs ++ r')
 
 singleMoveMobility :: [Dir] -> ChessGrid -> (Int, Char, Color) -> Int
-singleMoveMobility pieceDirs g (idx, _, clr) =
+singleMoveMobility pieceDirs g (idx, ch, clr) =
   foldl' f 0 pieceDirs
     where
       f :: Int -> Dir -> Int
       f r x =
-        let count = dirLocsSingleCount g idx x clr
+        let count = dirLocsSingleCount g (idx, ch, clr) x
         in count + r
 
 singleMoveCaptureLocs :: [Dir] -> ChessGrid -> (Int, Char, Color) -> [Int]
@@ -1493,9 +1625,10 @@ kingMobility cp loc =
 allowableQueenMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableQueenMoves = allowableMultiMoves queenDirs
 
-queenMobility :: ChessGrid -> (Int, Char, Color) -> Int
-queenMobility g loc =
-    multiMoveMobility queenDirs g loc
+queenMobility :: ChessPos -> (Int, Char, Color) -> Int
+queenMobility cp loc =
+    let g = cp ^. cpGrid
+    in multiMoveMobility queenDirs g loc
 
 -- find the allowable destination locs for a rook
 allowableRookMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
@@ -1529,7 +1662,6 @@ allowablePawnCaptures g loc@(_, _, clr) =
       let dirs = case clr of
               White -> whitePawnCaptureDirs
               Black -> blackPawnCaptureDirs
-              Unknown -> []
           (empties, enemies) = allowableSingleMoves dirs g loc
       in (empties, enemies)
 
@@ -1538,7 +1670,6 @@ allowablePawnNonCaptures :: ChessGrid -> (Int, Char, Color) -> [ChessMove]
 allowablePawnNonCaptures g loc@(_, _, clr) =
     let hasMoved = hasPawnMoved loc
     in case clr of
-        Unknown -> []
         White -> pawnMoves g whitePawnDir hasMoved loc
         Black -> pawnMoves g blackPawnDir hasMoved loc
 
@@ -1557,7 +1688,6 @@ pawnMoves g dir hasMoved loc@(_, ch, clr) =
             in firstMove : twoSpacer
 
 hasPawnMoved :: (Int, Char, Color) -> Bool
-hasPawnMoved (_, _, Unknown) = False
 hasPawnMoved (idx, _, White) = idx > 28
 hasPawnMoved (idx, _, Black) = idx < 71
 
@@ -1574,7 +1704,6 @@ enPassantCaptures g loc@(idx, _, clr) =
       let dirs = case clr of
             White -> whitePawnEnPassantDirs
             Black -> blackPawnEnPassantDirs
-            Unknown -> []
           enemies = snd $ allowableSingleMoves dirs g loc
           thisPawn = indexToChar g idx
       -- only pawns can be captured this way
@@ -1590,8 +1719,9 @@ dirLocs g (idx0, _, c0) dir =
         loop idx (empties, enemies) =
             let cx = indexToColor2 g idx
                 ob = onBoard idx
-                friendly = ob && c0 == cx
-                enemy = ob && (enemyColor c0) == cx
+                -- friendly = ob && c0 == cx
+                friendly = ob && isJust cx && fromJust cx == c0
+                enemy = ob && isJust cx  && fromJust cx == (enemyColor c0)
                 (sqState, (newEmpties, newEnemies))
                     | not ob = (OffBoard ,(empties, enemies))
                     | enemy = (HasEnemy, (empties, StdMove (Just (indexToChar g idx)) idx0 idx "": enemies))
@@ -1606,7 +1736,8 @@ dirCaptureLoc g (idx0, _, clr0) dir =
    let clr0Enemy = enemyColor clr0
        loop idx =
            let clr = indexToColor2 g idx
-           in case clr == clr0Enemy of
+           -- case hasEnemy g clr idx of
+           in case isJust clr && fromJust clr == clr0Enemy of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
                      | isEmptyGrid g idx -> loop (apply dir idx)
@@ -1614,17 +1745,9 @@ dirCaptureLoc g (idx0, _, clr0) dir =
    in loop (apply dir idx0)
 
 dirLocsCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
-dirLocsCount g (idx, _, clr0) dir =
-    let clr0Enemy = enemyColor clr0
-        loop x count =
-            if not (onBoard x) then count
-            else
-              let clr = indexToColor2 g x
-              in case clr == clr0Enemy of
-                True -> count + 1
-                False | isEmptyGrid g x -> loop (apply dir x) count+1
-                      | otherwise       -> count
-    in loop (apply dir idx) 0
+dirLocsCount g (idx, ch, clr0) dir =
+    let (enemies, empties) = dirLocs g (idx, ch, clr0) dir
+    in (length enemies) + (length empties)
 
 -- Same as dirLocs, but for pieces that move only one square in a given "direction"
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
@@ -1635,28 +1758,22 @@ dirLocsSingle g (idx0, _, c0) dir =
         cEnemy0 = enemyColor c0
     in
       if not (onBoard x) then ([], [])
-      else if cx == cEnemy0 then ([], [StdMove (Just (indexToChar g x)) idx0 x ""])
-      else if cx == c0 then ([], [])
+      else if isJust cx && fromJust cx == cEnemy0 then ([], [StdMove (Just (indexToChar g x)) idx0 x ""])
+      else if isJust cx && fromJust cx == c0 then ([], [])
       else ([StdMove Nothing idx0 x ""],[]) -- empty square
 
-dirLocsSingleCount :: ChessGrid -> Int -> Dir -> Color -> Int
-dirLocsSingleCount g idx dir clr0 =
-    let clr0Enemy = enemyColor clr0
-        x = apply dir idx
-    in if not (onBoard x) then 0
-       else
-        let clr = indexToColor2 g x
-        in case clr == clr0Enemy of
-          True -> 1
-          False | isEmptyGrid g x -> 1
-                | otherwise -> 0
+dirLocsSingleCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
+dirLocsSingleCount g idx dir =
+    let (enemies, empties) = dirLocsSingle g idx dir
+    in (length enemies) + (length empties)
 
 dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
     let enemyClr = enemyColor clr
     in case apply dir idx of
         x | not (onBoard x) -> Nothing
-          | indexToColor2 g x == enemyClr -> Just x
+          | cx <- indexToColor2 g x
+          , isJust cx && fromJust cx == enemyClr -> Just x
           | otherwise -> Nothing
 
 onBoard :: Int -> Bool
@@ -1726,9 +1843,8 @@ checkIndexesToCastle [fromLoc, toLoc]
 checkIndexesToCastle z = error $ "checkIndexesToCastle called with a list not of length 2: " ++ show z
 
 ---------------------------------------------------------------------------------------------------
--- Pieces with tracked "have they moved yet" state
----------------------------------------------------------------------------------------------------
 -- starting locs...
+---------------------------------------------------------------------------------------------------
 wK, wQ, wKB, wKN, wKR, wQB, wQN, wQR ,wKP, wQP :: Int
 wK = 15
 wQ = 14
@@ -1750,7 +1866,6 @@ wCenterPawns = S.fromList [wKP, wQP]
 wCastlingPieces :: Set Int
 wCastlingPieces = S.fromList [wK, wKR, wQR]
 
--- starting locs...
 bK, bQ, bKB, bKN, bKR, bQB, bQN, bQR, bKP, bQP :: Int
 bK = 85
 bQ = 84

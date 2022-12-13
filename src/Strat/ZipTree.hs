@@ -128,12 +128,10 @@ instance Eq a => Eq (TraceCmp a) where
         TraceCmp {mateIn = MateIn (Just (yMateIn, _ySgn))}
         = xMateIn == yMateIn
 
-nodeHash :: (ZipTreeNode a, Hashable a) => a -> Int
-nodeHash n = hash n
-
+instance (Eq a, ZipTreeNode a, Hashable a) => Ord (TraceCmp a) where
+  (<=) = cmpTC
 
 -- TODO: move this back to Ord instance again
--- special comparison function for TraceCmp
 cmpTC :: (ZipTreeNode a, Hashable a) => TraceCmp a -> TraceCmp a -> Bool
 cmpTC Max Max = True
 cmpTC Min Min = True
@@ -191,6 +189,9 @@ revTraceCmp :: TraceCmp a -> TraceCmp a
 revTraceCmp Max = Max
 revTraceCmp Min = Min
 revTraceCmp tc@TraceCmp{..} = tc {movePath = reverse movePath}
+
+nodeHash :: (ZipTreeNode a, Hashable a) => a -> Int
+nodeHash n = hash n
 
 initAlphaBeta :: AlphaBeta
 initAlphaBeta = AlphaBeta
@@ -586,15 +587,18 @@ pickOne gen choices =
     let (r, _g) = randomR (0, length choices - 1) gen
     in choices !! r
 
-isWithin :: (Show a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Sign -> Float -> Bool
+isWithin :: (Show a, Eq a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Sign -> Float -> Bool
 isWithin TraceCmp {mateIn = MateIn (Just _)} TraceCmp {mateIn = MateIn Nothing} _sign _maxRandChg = False
-isWithin TraceCmp{mateIn = MateIn Nothing} TraceCmp {mateIn = MateIn (Just _)} _sign _maxRandChg = False
-isWithin TraceCmp {mateIn = (MateIn (Just bstMateIn))}
-         TraceCmp {mateIn = (MateIn (Just possMateIn ))} _sign _maxRandomChg =
+isWithin TraceCmp {mateIn = MateIn Nothing} TraceCmp {mateIn = MateIn (Just _)} _sign _maxRandChg = False
+isWithin x@(TraceCmp {mateIn = (MateIn (Just bstMateIn))})
+         y@(TraceCmp {mateIn = (MateIn (Just possMateIn ))}) _sign _maxRandomChg =
+    x /= y &&
     possMateIn == bstMateIn
-isWithin TraceCmp {value = bst, mateIn = (MateIn Nothing)}
-         TraceCmp {value = possible, mateIn = (MateIn Nothing)}
+
+isWithin x@TraceCmp {value = bst, mateIn = (MateIn Nothing)}
+         y@TraceCmp {value = possible, mateIn = (MateIn Nothing)}
          sign maxRandomChg =
+    x /= y &&
     case sign of
       Pos ->
         bst - maxRandomChg <= possible
