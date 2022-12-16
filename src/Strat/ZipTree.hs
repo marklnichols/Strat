@@ -400,10 +400,8 @@ negaMax :: (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m)
         => T.Tree a -> Bool -> ZipReaderT m (NegaResult a)
 negaMax t bPruning = do
   let sign = ztnSign $ T.rootLabel t
-
   let alphaBeta = initAlphaBeta
   (theBest, ec) <-  alphaBetaPrune t [] alphaBeta bPruning sign 0 0
-
   return $ NegaResult { picked = toNegaMoves (revTraceCmp theBest)
                       , bestScore = toNegaMoves (revTraceCmp theBest)
                       , alternatives = []
@@ -565,7 +563,7 @@ minLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
 negaRnd :: (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m, RandomGen g)
         => T.Tree a -> g -> Float -> Bool -> ZipReaderT m (NegaResult a)
 negaRnd t gen maxRndChange bPruning = do
-    let sign = ztnSign (T.rootLabel t)
+    let sign = ztnSign $ T.rootLabel t
     let alphaBeta = initAlphaBeta
     (theBestTC, ec) <- alphaBetaPrune t [] alphaBeta bPruning sign 0 0
     let choices =
@@ -576,8 +574,10 @@ negaRnd t gen maxRndChange bPruning = do
     let notPicked = List.delete pickedTC choices
     let revNotPicked = revTraceCmp <$> notPicked
     let reverseBest = theBestTC{movePath = reverse (movePath theBestTC)}
-    let reversePicked = pickedTC{movePath = reverse (movePath pickedTC)}
-    return NegaResult { picked = toNegaMoves reversePicked
+    let _reversePicked = pickedTC{movePath = reverse (movePath pickedTC)}
+    -- TODO: revert this!
+    -- return NegaResult { picked = toNegaMoves reversePicked
+    return NegaResult { picked = toNegaMoves reverseBest
                       , bestScore = toNegaMoves reverseBest
                       , alternatives = toNegaMoves <$> revNotPicked
                       , evalCount = ec}

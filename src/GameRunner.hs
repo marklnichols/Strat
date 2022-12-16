@@ -50,7 +50,8 @@ startGame o node depth critDepth aiWhite aiBlack usePreSort useRandom enablePrun
         , enablePruneTracing = bPruneTracing
         , enableCmpTracing = bCmpTracing
         , enableRandom = useRandom
-        , maxRandomChange = 2.0
+        -- , maxRandomChange = 2.0
+        , maxRandomChange = 10.0
         , enablePreSort = usePreSort
         , moveTraceStr = moveTrace
         , maxDepth = depth
