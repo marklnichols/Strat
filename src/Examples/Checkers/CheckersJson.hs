@@ -138,7 +138,7 @@ jsonFromCkMove mv = (bsToStr . encode . jsonFromParserMove) (Ck.toParserMove mv)
 
 jsonFromMoveScore :: MoveScore Ck.CkMove Ck.CkNode -> Maybe JsonMoveScore
 jsonFromMoveScore ms =
-    case jsonFromParserMove $ Ck.toParserMove $_move ms of
+    case jsonFromParserMove $ Ck.toParserMove $ _move ms of
         Nothing -> Nothing
         Just jMove ->
             let eval = _score ms

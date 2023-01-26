@@ -27,11 +27,10 @@ findMove tree mv =
                      in tlDepth (treeLoc n) == parentDepth + 1
                         && mv == getMove (rootLabel x)
                  ) (subForest tree) of
-
         Nothing ->
             let f x acc =
-                    let dpthStr = show $tlDepth $treeLoc $rootLabel x
-                        moveStr = show $ getMove $rootLabel x
+                    let dpthStr = show $ tlDepth $ treeLoc $ rootLabel x
+                        moveStr = show $ getMove $ rootLabel x
                     in "|<" ++ moveStr ++ " (depth: " ++ dpthStr ++ ")>|, " ++ acc
                 str = foldr f "" (subForest tree)
             in Left ("findMoved failed for move: " ++ show mv

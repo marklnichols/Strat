@@ -1,4 +1,4 @@
-cabal-version: 1.12
+cabal-version: 3.6
 
 name:           Strat
 version:        0.1.0.0
@@ -10,7 +10,7 @@ bug-reports:    https://github.com/marklnichols/Haskell-Strategy-Game-AI-WiP/iss
 author:         Mark Nichols
 maintainer:     marklnichols@gmail.org
 copyright:      GPL
-license:        BSD3
+license:        BSD-3-Clause
 license-file:   LICENSE
 build-type:     Simple
 
@@ -28,10 +28,12 @@ library
       Paths_Strat
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Wdefault
   build-depends:
-                    base
-                , aeson < 2.0
+                  base
+                -- , aeson < 2.0
+                , aeson
+                , async
                 , cmdargs >= 0.10.21
                 , containers
                 , extra
@@ -42,15 +44,29 @@ library
                 , random
                 , rosezipper
                 , safe
-                , singletons == 2.7
+                , singletons
+                , singletons-base
                 , sort
                 , text
+                , threads
                 , vector
 
 executable strat-exe
   main-is: Main.hs
   other-modules:
-      Checkers CheckersJson CheckersText Chess  ChessText Parser8By8 GameRunner Strat.Helpers Strat.StratIO Strat.ZipTree Strat.StratTree.TreeNode StratWeb.WebRunner StratWeb.YesodMain
+      Checkers
+      CheckersJson
+      CheckersText
+      Chess
+      ChessText
+      Parser8By8
+      GameRunner
+      Strat.Helpers
+      Strat.StratIO
+      Strat.ZipTree
+      Strat.StratTree.TreeNode
+      StratWeb.WebRunner
+      StratWeb.YesodMain
   hs-source-dirs:
       main/Strat-commandline
       src
@@ -58,9 +74,10 @@ executable strat-exe
       src/Examples/Checkers
       src/Examples/WIP/Chess
       src/Strat
-  ghc-options: -threaded -rtsopts -O2 -Wall
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -feager-blackholing -Wdefault
   build-depends:
-                    aeson
+                  aeson
+                , async
                 , Cabal
                 , base
                 , bytestring
@@ -76,8 +93,10 @@ executable strat-exe
                 , random
                 , rosezipper
                 , safe
-                , singletons == 2.7
+                , singletons
+                , singletons-base
                 , sort
+                , threads
                 , text
                 , vector
                 , yesod
@@ -116,9 +135,10 @@ executable test-as-exe
       src/Examples/Checkers
       src/Examples/WIP/Chess
       test
-  ghc-options: -Wall
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -feager-blackholing -Wdefault
   build-depends:
-                    aeson
+                  aeson
+                , async
                 , Cabal
                 , base
                 , bytestring
@@ -136,9 +156,11 @@ executable test-as-exe
                 , random
                 , rosezipper
                 , safe
-                , singletons == 2.7
+                , singletons
+                , singletons-base
                 , sort
                 , text
+                , threads
                 , unordered-containers
                 , vector
     -- , yesod == 1.6.0.2
@@ -159,6 +181,7 @@ test-suite StratTreeTest
       GameRunner
       PruningTest
       Strat.Helpers
+      Strat.StratIO
       StratTreeTest
       Strat.ZipTree
       Strat.StratTree.TreeNode
@@ -171,10 +194,11 @@ test-suite StratTreeTest
       src/Examples/Utils
       src/Examples/Checkers
       src/Examples/WIP/Chess
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -feager-blackholing -Wdefault
   build-depends:
-                    Strat
+                  Strat
                 , aeson
+                , async
                 , base
                 , bytestring
                 , cmdargs
@@ -191,8 +215,10 @@ test-suite StratTreeTest
                 , random
                 , rosezipper
                 , safe
-                , singletons == 2.7
+                , singletons
+                , singletons-base
                 , sort
+                , threads
                 , text
                 , unordered-containers
                 , vector

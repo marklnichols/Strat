@@ -16,12 +16,15 @@ import GameRunner
 import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
+import System.Random hiding (next)
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
 testEnv = Z.ZipTreeEnv
         { verbose = False
+        , enablePruning = True
         , enablePruneTracing = False
+        , singleThreaded = True
         , enableCmpTracing = False
         , enableRandom = False
         , maxRandomChange = 10.0
@@ -60,7 +63,7 @@ chessTest = do
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "castleMoves" $ do
-        it "Gets the possible castling moves" $do
+        it "Gets the possible castling moves" $ do
           let pos = _chessPos castlingNode
               moves = castleMoves pos
               hasCastlingMove mvs =
@@ -287,7 +290,7 @@ chessTest = do
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           let t = getStartNode "newgame" White
           -- let newTree = expandTree t 2
-          newTree <- runReaderT (expandTree t 2 2) testEnv
+          newTree <- expandTree testEnv t 2 2
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True
@@ -312,6 +315,10 @@ chessTest = do
         r3 `shouldBe` True
         p1 <- matchStdMove promotion01TestData
         p1 `shouldBe` True
+        c1 <- matchStdMove critBug01TestData
+        c1 `shouldBe` False
+        c2 <- matchStdMove critBug01TestDataB
+        c2 `shouldBe` False
 
     describe "checkPromote" $
       it "checks for pawn promotion" $ do
@@ -347,8 +354,8 @@ matchStdMove StdMoveTestData{..} = do
         -- result = Z.negaMax tree True
     let f :: Z.ZipReaderT IO (Z.NegaResult ChessNode)
         f = do
-            tree <- Z.expandTo board smtdDepth smtdCritDepth
-            Z.negaMax tree True
+            tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
+            Z.negaMax tree (Nothing :: Maybe StdGen)
     result <- runReaderT f testEnv
     let theBest = Z.picked result
     let mvNode = Z.moveNode theBest

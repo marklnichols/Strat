@@ -52,6 +52,8 @@ testEnv = ZipTreeEnv
         , enableCmpTracing = False
         , enableRandom = False
         , maxRandomChange = 0.0
+        , enablePruning = True
+        , singleThreaded = True
         , enablePreSort = False
         , moveTraceStr = pack ""
         , maxDepth = 5
@@ -75,8 +77,8 @@ pruningTest = do
             --------------------------------------------------
             let f1 :: ZipReaderT IO (NegaResult TestNode)
                 f1 = do
-                  wikiTreeD1 <- expandTo rootWikiTree 1 1
-                  negaMax wikiTreeD1 False
+                  wikiTreeD1 <- expandTo rootWikiTree 1 1 1
+                  negaMax wikiTreeD1 (Nothing :: Maybe StdGen)
             result1 <- runReaderT f1 testEnv
 
             let theBest1 = picked result1
@@ -91,8 +93,8 @@ pruningTest = do
             --------------------------------------------------
             let f2 :: ZipReaderT IO (NegaResult TestNode)
                 f2 = do
-                  wikiTreeD2 <- expandTo rootWikiTree 2 2
-                  negaMax wikiTreeD2 False
+                  wikiTreeD2 <- expandTo rootWikiTree 1 2 2
+                  negaMax wikiTreeD2 (Nothing :: Maybe StdGen)
             result2 <- runReaderT f2 testEnv
 
             let theBest2 = picked result2
@@ -108,8 +110,8 @@ pruningTest = do
             --------------------------------------------------
             let f3 :: ZipReaderT IO (NegaResult TestNode)
                 f3 = do
-                  wikiTreeD3 <- expandTo rootWikiTree 3 3
-                  negaMax wikiTreeD3 False
+                  wikiTreeD3 <- expandTo rootWikiTree 1 3 3
+                  negaMax wikiTreeD3 (Nothing :: Maybe StdGen)
             result3 <- runReaderT f3 testEnv
             let theBest3 = picked result3
             evalNode theBest3 `shouldBe`
@@ -123,11 +125,11 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- testing the complete tree
             ----------------------------------------------------------------------------------
-            newWikiTree <- runReaderT (expandTo rootWikiTree 4 4) testEnv
+            newWikiTree <- runReaderT (expandTo rootWikiTree 1 4 4) testEnv
 
             -- first without pruning
-            result4 <- runReaderT (negaMax newWikiTree False) testEnv
-
+            let noPruneEnv = testEnv {enablePruning = False}
+            result4 <- runReaderT (negaMax newWikiTree (Nothing :: Maybe StdGen) ) noPruneEnv
             let theBest4 = picked result4
             evalNode theBest4 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
@@ -145,7 +147,7 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with pruning
             ----------------------------------------------------------------------------------
-            result5 <- runReaderT (negaMax newWikiTree True) testEnv
+            result5 <- runReaderT (negaMax newWikiTree (Nothing :: Maybe StdGen) ) testEnv
 
             let theBest5 = picked result5
             evalNode theBest5 `shouldBe`
@@ -164,7 +166,7 @@ pruningTest = do
             -- negaRnd, but with the random tolerance at 0.0
             ----------------------------------------------------------------------------------
             rnd <- getStdGen
-            result6 <- runReaderT (negaRnd newWikiTree rnd 0.0 True) testEnv
+            result6 <- runReaderT (negaMax newWikiTree (Just rnd) ) testEnv
 
             let theBest6 = picked result6
             evalNode theBest6 `shouldBe`
@@ -182,8 +184,8 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with crit processing only for the important nodes at the bottom two levels
             ----------------------------------------------------------------------------------
-            newCritWikiTree <- runReaderT (expandTo rootWikiTree 2 4) testEnv
-            result7 <- runReaderT (negaMax newCritWikiTree True) testEnv
+            newCritWikiTree <- runReaderT (expandTo rootWikiTree 1 2 4) testEnv
+            result7 <- runReaderT (negaMax newCritWikiTree (Nothing :: Maybe StdGen) ) testEnv
             let theBest7 = picked result7
             evalNode theBest7 `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}

@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -13,11 +14,7 @@
 
 module GameRunner
  ( expandTree
- -- , incrementalSearchTo
- -- , preSort
  , searchTo
- -- , showResultMoves
- -- , showResultMovesFull
  , startGame
  ) where
 
@@ -29,122 +26,127 @@ import Data.Text (Text)
 import Data.Tree
 import Strat.Helpers
 import qualified Strat.ZipTree as Z
+import Strat.StratIO (expandToParallel, negaMaxParallel)
 import Strat.StratTree.TreeNode
     ( Entry(MoveEntry, CmdEntry),
       Eval,
       FinalState(Draw, WWins, BWins),
       Move,
       Output(showCompMove, updateBoard, out, getPlayerEntry),
-      TreeNode(getMove, final, possibleMoves) )
+      TreeNode(getMove, color, final, possibleMoves) )
 import System.Random hiding (next)
 import System.Time.Extra (duration, showDuration)
+import Text.Printf
 -- import Debug.Trace
 
 -- TODO: make a type for all these flags...
 startGame :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
-          => o -> Tree n -> Int -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Text -> IO ()
-startGame o node depth critDepth aiWhite aiBlack usePreSort useRandom enablePruning verbosity bPruneTracing
-          bCmpTracing moveTrace = do
+          => o -> Tree n -> Int -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool
+          -> Bool -> Bool -> Text -> IO ()
+startGame o node maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enablePreSort enableRandom
+          enablePruning singleThreaded
+          verbose enablePruneTracing enableCmpTracing moveTraceStr = do
   let env = Z.ZipTreeEnv
-        { verbose = verbosity
-        , enablePruneTracing = bPruneTracing
-        , enableCmpTracing = bCmpTracing
-        , enableRandom = useRandom
+        { verbose
+        , enablePruneTracing
+        , enableCmpTracing
+        , enableRandom
         -- , maxRandomChange = 2.0
         , maxRandomChange = 10.0
-        , enablePreSort = usePreSort
-        , moveTraceStr = moveTrace
-        , maxDepth = depth
-        , maxCritDepth = critDepth
-        , aiPlaysWhite = aiWhite
-        , aiPlaysBlack = aiBlack
+        , enablePruning
+        , enablePreSort
+        , moveTraceStr
+        , maxDepth
+        , maxCritDepth
+        , aiPlaysWhite
+        , aiPlaysBlack
+        , singleThreaded
         }
-  runReaderT (startGameLoop o node enablePruning) env
+  startGameLoop env o node
 
 startGameLoop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
-              => o -> Tree n -> Bool -> Z.ZipReaderT IO ()
-startGameLoop o node enablePruning = do
-    env <- ask
-    newTree <- expandTree node 2 2
-    unless enablePruning $
-      liftIO $ putStrLn "***** Alpha-Beta pruning is turned OFF *****";
+              => Z.ZipTreeEnv -> o -> Tree n -> IO ()
+startGameLoop env o node = do
+    -- TODO: Test this with 1 1
+    newTree <- expandSingleThreaded env node 2 2
+    putStrLn $ "(startGameLoop - treesize: " ++ show (Z.treeSize newTree) ++ ")\n"
+    unless (Z.enablePruning env) $
+      putStrLn "***** Alpha-Beta pruning is turned OFF *****";
+    when (Z.singleThreaded env) $
+      putStrLn "***** Running SINGLE THREADED *****";
     unless (Z.enablePreSort env) $
-      liftIO $ putStrLn "***** Pre-evaluation sorting is turned OFF *****";
-    when (Z.verbose env) $
-      liftIO $ putStrLn "***** Verbose output *****";
-    liftIO $ putStrLn $ "critDepth: " ++ show (Z.maxCritDepth env)
+      putStrLn "***** Pre-evaluation sorting is turned OFF *****";
+    when (Z.enableCmpTracing env) $
+      putStrLn $ printf "***** Compare tracing for: |%s| is ON *****" (Z.moveTraceStr env)
+    when (Z.enablePruneTracing env) $
+      putStrLn $ printf "***** Prune tracing for: |%s| is ON *****" (Z.moveTraceStr env)
+    putStrLn $ "critDepth: " ++ show (Z.maxCritDepth env)
     if (Z.enableRandom env)
       then do
         rnd <- getStdGen
-        loop (Just rnd) o newTree enablePruning []
+        loop env (Just rnd) o newTree []
       else do
         liftIO $ putStrLn "***** Random move selection: OFF *****"
-        loop (Nothing :: Maybe StdGen)  o newTree enablePruning []
+        loop env (Nothing :: Maybe StdGen)  o newTree []
 
 loop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n, RandomGen g)
-     => Maybe g -> o -> Tree n -> Bool -> [m] -> Z.ZipReaderT IO ()
-loop gen o node enablePruning moveHistory = do
-    env <- ask
+     => Z.ZipTreeEnv -> Maybe g -> o -> Tree n -> [m] -> IO ()
+loop env gen o node moveHistory = do
     let label = rootLabel node
     liftIO $ updateBoard o label
     (theNext, updatedHistory) <- case final $ label of
         WWins -> do
-            liftIO $ out o "White wins."
+            out o "White wins."
             return (Nothing, moveHistory)
         BWins -> do
-            liftIO $ out o "Black wins."
+            out o "Black wins."
             return (Nothing, moveHistory)
         Draw -> do
-            liftIO $ out o "Draw."
+            out o "Draw."
             return (Nothing, moveHistory)
         _ -> do
             (nextNode, h) <- if isCompTurn (Z.ztnSign label) (Z.aiPlaysWhite env) (Z.aiPlaysBlack env)
-                  then computersTurn gen o node enablePruning moveHistory
-                  else playersTurn o node enablePruning moveHistory
+                  then computersTurn env gen o node moveHistory
+                  else playersTurn env gen o node moveHistory
             return (Just nextNode, h)
     case theNext of
         Nothing -> return ()
-        Just next -> loop gen o next enablePruning updatedHistory
+        Just next -> loop env gen o next updatedHistory
 
 -- TODO: remove this exclusions parameter once its clear it is not needed
 -- TODO: remove maxDepth params once its clear that 'exclusions'list is not needed
-playersTurn :: forall o n m. (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n)
-           => o -> Tree n -> Bool -> [m] -> Z.ZipReaderT IO (Tree n, [m])
-playersTurn o t enablePruning moveHistory = do
+playersTurn :: forall o n m g. (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, RandomGen g)
+           => Z.ZipTreeEnv -> Maybe g -> o -> Tree n -> [m] -> IO (Tree n, [m])
+playersTurn env gen o t moveHistory = do
     -- populate 1 deep just so findMove can work with player vs player games
-
-    (expandedT, _result) <- searchTo t (Nothing :: Maybe StdGen) 1 1 False
-    entry <- liftIO $ getPlayerEntry o expandedT []
+    (expandedT, _result) <- searchToSingleThreaded env t (Nothing :: Maybe StdGen) 1 1
+    entry <- getPlayerEntry o expandedT []
     case entry of
       CmdEntry s -> do
-        _ <- liftIO $ processCommand s (rootLabel t) moveHistory
-        playersTurn o t enablePruning moveHistory
+        _ <- processCommand s (rootLabel t) moveHistory
+        playersTurn env gen o t moveHistory
       MoveEntry mv ->
         case findMove expandedT mv of
           Right newTree -> return (newTree, mv:moveHistory)
           Left s ->  do
-              liftIO $ putStrLn s
-              let newNodeMoves = possibleMoves $ rootLabel expandedT
-              liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
-              playersTurn o t enablePruning moveHistory
-
--- sortDepth :: Int
--- sortDepth = 2
+              putStrLn s
+              let newNodeMoves = possibleMoves (rootLabel expandedT)
+              putStrLn $ "Available moves:" ++ show newNodeMoves
+              playersTurn env gen o t moveHistory
 
 computersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, Ord n, Eval n, RandomGen g)
-             => Maybe g-> o -> Tree n -> Bool -> [m] -> Z.ZipReaderT IO (Tree n, [m])
-computersTurn gen o t enablePruning moveHistory = do
-    env <- ask
+             => Z.ZipTreeEnv -> Maybe g-> o -> Tree n -> [m] -> IO (Tree n, [m])
+computersTurn env gen o t moveHistory = do
     (sec, (newRoot, updatedHistory)) <- duration $ do
-        --TODO: Look into: preSort is now OFF by default, it seemed to cause a problem with the AI's move,
-        -- PLUS it wasn't reducing the evaluations??
-        -- preSortT <- do
-        --   if Z.enablePreSort env then fst <$> (preSort t sortDepth)
-        --   else return t
-        -- (expandedT, result) <- searchTo preSortT etc...
 
-        (expandedT, result) <- searchTo t gen (Z.maxDepth env)
-                               (Z.maxCritDepth env) enablePruning
+        let labe = rootLabel t
+        let sss = printf "computersTurn - top - move:%s color:%s" (show (getMove labe)) (show (color labe))
+        putStrLn sss
+
+        (expandedT, result) <- searchTo env t gen (Z.maxDepth env) (Z.maxCritDepth env)
+        let labe2 = rootLabel expandedT
+        let sss2 = printf "computersTurn - after searchTo - move:%s color:%s" (show (getMove labe2)) (show (color labe2))
+        putStrLn sss2
 
         liftIO $ putStrLn "\n--------------------------------------------------\n"
         liftIO $ showCompMove o expandedT result True
@@ -154,40 +156,30 @@ computersTurn gen o t enablePruning moveHistory = do
     case newRoot of
         Right r -> return (r, updatedHistory)
         Left s -> do
-          let newNodeMoves = possibleMoves $ rootLabel t
+          let newNodeMoves = possibleMoves (rootLabel t)
           liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
           error s
 
---TODO remove this:
--- showResultMoves :: (TreeNode n m ) => Z.NegaResult n -> String
--- showResultMoves Z.NegaResult{..} =
---     let strs = showNegaMovesBrief <$> allMoves
---     in intercalate ", " strs
+expandTree :: forall a. (Ord a, Show a, Z.ZipTreeNode a)
+           => Z.ZipTreeEnv -> Tree a -> Int -> Int -> IO (Tree a)
+expandTree env t depth critDepth =
+    if Z.singleThreaded env
+      then expandSingleThreaded env t depth critDepth
+      else expandMultiThreaded env t depth critDepth
 
---TODO remove this:
--- showResultMovesFull :: (TreeNode n m ) => Z.NegaResult n -> String
--- showResultMovesFull Z.NegaResult{..} =
---     let strs = showNegaMovesFull <$> allMoves
---     in intercalate ", " strs
+expandSingleThreaded :: forall a. (Ord a, Show a, Z.ZipTreeNode a)
+           => Z.ZipTreeEnv -> Tree a -> Int -> Int -> IO (Tree a)
+expandSingleThreaded env t depth critDepth = do
+    let s = printf "expandSingleThreaded called with depth:%d, critDepth:%d" depth critDepth
+    putStrLn s
+    runReaderT (Z.expandTo t 1 depth critDepth) env
 
---TODO remove this:
--- showNegaMovesBrief :: (TreeNode n m) => Z.NegaMoves n -> String
--- showNegaMovesBrief Z.NegaMoves{..} =
---     let mv = getMove moveNode
---     in (show mv) ++ ":" ++ (show evalScore)
-
---TODO remove this:
--- showNegaMovesFull :: (TreeNode n m) => Z.NegaMoves n -> String
--- showNegaMovesFull Z.NegaMoves{..} =
---     let mv = getMove moveNode
---         mvStr = "Move: " ++ (show mv) ++ ":" ++ (show evalScore)
---         seqStrs = show <$> moveSeq
---         seqStr = intercalate ", " seqStrs
---     in mvStr ++ " - Sequence:" ++ seqStr ++ "\n"
-
-expandTree :: (Z.ZipTreeNode n, Ord n, Show n)
-           => Tree n -> Int -> Int -> Z.ZipReaderT IO (Tree n)
-expandTree = Z.expandTo
+expandMultiThreaded :: forall a. (Ord a, Show a, Z.ZipTreeNode a)
+           => Z.ZipTreeEnv -> Tree a -> Int -> Int -> IO (Tree a)
+expandMultiThreaded env t depth critDepth = do
+    let s = printf "expandMultiThreaded called with depth:%d, critDepth:%d" depth critDepth
+    putStrLn s
+    expandToParallel env t depth critDepth
 
 isCompTurn :: Z.Sign -> Bool -> Bool -> Bool
 isCompTurn sign aiPlaysWhite aiPlaysBlack
@@ -200,45 +192,36 @@ isCompTurn sign aiPlaysWhite aiPlaysBlack
    | otherwise
      = False
 
-{- Important: pruning is NEVER allowed during the pre-sort -}
--- preSort :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n)
---                    => Tree n -> Int
---                    -> Z.ZipReaderT IO (Tree n, Z.NegaResult n)
--- preSort t maxDepth = do
---     expanded <- expandTree t maxDepth
---     res <- Z.negaMax expanded False -- False for no pruning
---     let sorted = Z.sortFromResult expanded res
---     return (sorted, res)
-
 searchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
-         => Tree n -> Maybe g -> Int -> Int -> Bool -> Z.ZipReaderT IO (Tree n, Z.NegaResult n)
-searchTo t gen maxDepth maxCritDepth enablePruning = do
-    expanded <- expandTree t maxDepth maxCritDepth
-    env <- ask
-    res <-
-        case gen of
-            Just g -> Z.negaRnd expanded g (Z.maxRandomChange env) enablePruning
-            Nothing -> Z.negaMax expanded enablePruning
-    return (expanded, res)
+         => Z.ZipTreeEnv -> Tree n -> Maybe g -> Int -> Int -> IO (Tree n, Z.NegaResult n)
+searchTo env t gen depth critDepth =
+    if Z.singleThreaded env
+      then searchToSingleThreaded env t gen depth critDepth
+      else searchToMultiThreaded env t gen depth critDepth
 
--- incrementalSearchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, RandomGen g)
---                => Tree n -> g -> Float -> Int
---                -> Z.ZipReaderT IO (Tree n, Z.NegaResult n)
--- incrementalSearchTo t gen percentVar maxDepth =
---     incrementalDecent t gen percentVar 1 maxDepth
+searchToSingleThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
+         => Z.ZipTreeEnv -> Tree n -> Maybe g -> Int -> Int -> IO (Tree n, Z.NegaResult n)
+searchToSingleThreaded env t gen maxDepth maxCritDepth = do
+    expanded <- expandSingleThreaded env t maxDepth maxCritDepth
+    evalTreeSingleThreaded env expanded gen
 
--- incrementalDecent :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, RandomGen g)
---                   => Tree n -> g -> Float -> Int -> Int
---                   -> Z.ZipReaderT IO (Tree n, Z.NegaResult n)
--- incrementalDecent t gen percentVar curDepth maxDepth = do
---     expanded <- expandTree t curDepth
---     res <- Z.negaRnd expanded gen percentVar True
---     if curDepth == maxDepth
---         then return (expanded, res)
---         else do
---             let newDepth = if curDepth < maxDepth then curDepth + 1 else curDepth
---             let sorted = Z.sortFromResult expanded res
---             incrementalDecent sorted gen percentVar newDepth maxDepth
+searchToMultiThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
+         => Z.ZipTreeEnv -> Tree n -> Maybe g -> Int -> Int -> IO (Tree n, Z.NegaResult n)
+searchToMultiThreaded env t gen maxDepth maxCritDepth = do
+    expanded <- expandMultiThreaded env t maxDepth maxCritDepth
+    evalTreeMultiThreaded env expanded gen
+
+evalTreeSingleThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
+         => Z.ZipTreeEnv -> Tree n -> Maybe g -> IO (Tree n, Z.NegaResult n)
+evalTreeSingleThreaded env t gen = do
+    res <- runReaderT (Z.negaMax t gen) env
+    return (t, res)
+
+evalTreeMultiThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
+         => Z.ZipTreeEnv -> Tree n -> Maybe g -> IO (Tree n, Z.NegaResult n)
+evalTreeMultiThreaded env t gen = do
+    res <- negaMaxParallel env t gen
+    return (t, res)
 
 processUndo :: (Move m) => [m] -> IO ()
 processUndo (mv : mvs) = do
@@ -248,7 +231,6 @@ processUndo (mv : mvs) = do
       [] -> putStrLn "Only one move to undo."
 processUndo [] = putStrLn "Nothing to undo."
 
--- playersTurn :: forall o n m. (Output o n m, TreeNode n m, Z.ZipTreeNode n)
 processCommand :: forall n m. (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n) => String -> n -> [m] -> IO ()
 processCommand cmd node moveHistory
     | cmd == "hash" = putStrLn $ "hash of current position: " ++ (show $ Z.nodeHash node)

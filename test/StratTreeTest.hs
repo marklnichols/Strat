@@ -11,6 +11,7 @@ import Data.Hashable
 import Data.Text (pack)
 import Data.Tree
 import GHC.Generics
+import System.Random
 import Test.Hspec
 
 import Strat.ZipTree
@@ -28,7 +29,9 @@ instance ZipTreeNode NodeVal where
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
         { verbose = False
+        , enablePruning = True
         , enablePruneTracing = False
+        , singleThreaded = True
         , enableCmpTracing = False
         , enableRandom = False
         , maxRandomChange = 10.0
@@ -46,7 +49,7 @@ stratTreeTest = do
         it "finds the best move from a tree of moves/opponent moves" $ do
             -- let NegaResult{..} = negaMax negaMaxTree False
             -- evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
-            result1 <- runReaderT (negaMax negaMaxTree False) testEnv
+            result1 <- runReaderT (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv
             let NegaResult{..} = result1
             evalNode picked `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
             moveSeq picked `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
@@ -55,7 +58,7 @@ stratTreeTest = do
     describe "negaMax-b" $
         it "same as the previous, but if black moved next" $ do
             -- let NegaResult{..} = negaMax negaMaxTree False
-            result1 <- runReaderT (negaMax negaMaxTree False) testEnv
+            result1 <- runReaderT (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv
             let NegaResult{..} = result1
             evalNode picked `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
             moveSeq picked `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}

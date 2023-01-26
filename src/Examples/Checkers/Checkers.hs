@@ -501,7 +501,7 @@ getPossibleMoves n = foldr f [] (getPieceLocs n) where
                         f x r = r ++ pieceMoves n x ++ pieceJumps n x
 
 getAllowedMoves :: CkNode -> [CkMove]
-getAllowedMoves = requireJumps . getPossibleMoves
+getAllowedMoves node = (requireJumps . getPossibleMoves) node
 
 requireJumps :: [CkMove] -> [CkMove]
 requireJumps xs = case filter (^. isJump) xs of

@@ -82,6 +82,8 @@ processPlayerMove tree mv bComputerResponse rnds = do
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
         { verbose = False
+        , enablePruning = True
+        , singleThreaded = True -- multi threaded has yet to be tested here
         , enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
@@ -113,8 +115,8 @@ computerResponse prevNode gen = do
 computerMove :: RandomGen g => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-   newTree <- runReaderT (expandTo t (ceDepth gameEnv) (ceCritDepth gameEnv)) testEnv
-   res@NegaResult{..} <- runReaderT (negaRnd newTree gen (ceEquivThreshold gameEnv) True) testEnv
+   newTree <- runReaderT (expandTo t 1 (ceDepth gameEnv) (ceCritDepth gameEnv)) testEnv
+   res@NegaResult{..} <- runReaderT (negaMax newTree (Just gen)) testEnv
    let bestMv = getMove $ moveNode picked
    let moveScores = mkMoveScores (evalNode picked : (evalNode <$> alternatives))
    return $ Right ( MoveResults
@@ -148,7 +150,7 @@ createUpdate msg prevN newN ms =
     NodeWrapper {getNode = newN,
                  getLastMove =  ms,
                  getJsonable = Jsonable $ J.jsonUpdate msg (rootLabel prevN) (rootLabel newN)
-                                          (Ck.getAllowedMoves (rootLabel newN)) ms}
+                                          (Ck.getAllowedMoves (rootLabel newN) ) ms}
 
 createError :: String -> Tree Ck.CkNode-> NodeWrapper
 createError s node = NodeWrapper {getNode = node, getLastMove = Nothing,

@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
@@ -74,6 +75,8 @@ module Chess
     , inCheck
     , invertGrid
     , locsForColor
+    , critBug01TestData
+    , critBug01TestDataB
     , mateInTwo01TestData
     , mateInTwo02TestData
     , mateInTwo03TestData
@@ -101,7 +104,7 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Singletons
-import Data.Singletons.TH
+import Data.Singletons.Base.TH
 import Data.Tree
 import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector, (!))
@@ -113,7 +116,7 @@ import System.Console.CmdArgs.Implicit (Data, Typeable)
 -- import Debug.Trace
 
 import qualified Parser8By8 as Parser
-import Strat.Helpers
+import qualified Strat.Helpers as Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 
@@ -202,12 +205,15 @@ cnShowMoveOnly cn = show (cn ^. chessMv)
 evalChessNode :: ChessNode -> Float
 evalChessNode cn = cn ^. (chessVal . total)
 
-instance Z.ZipTreeNode ChessNode where
+instance (TreeNode ChessNode m) =>  Z.ZipTreeNode ChessNode where
   ztnEvaluate = evalChessNode
-  ztnMakeChildren = makeChildren
+  ztnMakeChildren = makeChessNodeChildren
   ztnSign cn = colorToSign (cn ^. (chessPos . cpColor))
   ztnFinal cn = cn ^. (chessPos . cpFin) /= NotFinal
   ztnDeepDescend = critsOnly
+
+makeChessNodeChildren :: TreeNode ChessNode m => ChessNode -> [Tree ChessNode]
+makeChessNodeChildren = Helpers.makeChildren
 
 colorToSign :: Color -> Z.Sign
 colorToSign White = Z.Pos
@@ -236,7 +242,7 @@ intToParserLoc n =
 
 ---------------------------------------------------------------------------------------------------
 data ChessMoves = ChessMoves
-  { _cmEmpty :: [ChessMove]
+                  { _cmEmpty :: [ChessMove]
   , _cmEnemy :: [ChessMove]
   , _cmForColor :: Color }  -- for debugging output
   deriving (Eq)
@@ -509,6 +515,7 @@ getStartNode restoreGame nextColorToMove =
       "mateInTwo03" -> Node mateInTwoExampleNode03 []
       "mateInTwo03b" -> Node mateInTwoExampleNode03b []
       "promotion01" -> Node promotionNode01 []
+      "critBug01"   -> Node critBugNode01 []
       "debug"       -> Node debugExampleNode []
       "debug02"     -> Node debugExampleNode02 []
       "debug03"     -> Node debugExampleNode03 []
@@ -523,10 +530,16 @@ getStartNode restoreGame nextColorToMove =
       "debug07"     -> Node debugExampleNode07 []
       "draw"        -> Node drawnExampleNode []
       "castling"    -> Node castlingNode []
-      _ -> error "unknown restore game string - choices are:\n newgame, alphabeta, discovered, \
-                 \ checkmate, checkmate2, checkmate3 ,checkmate4 ,mateInTwo01, mateInTwo02, mateInTwo02b \
-                 \ mateInTwo03, mateInTwo03b, promotion01 debug, debug02, debug03 \
-                 \ debug04, debug05, debug06, debug06b, debug06c, debug07, draw, castling"
+      _ -> error "unknown restore game string - choices are:\n \
+                 \ alphabeta, \n \
+                 \ castling, checkmate, checkmate2, checkmate3, checkmate4, critBug01, \n \
+                 \ discovered, \n \
+                 \ mateInTwo01, mateInTwo02, mateInTwo02b, mateInTwo03, mateInTwo03b, \n \
+                 \ promotion01, \n \
+                 \ debug, debug02, debug03, debug04, debug05, \n \
+                 \ debug06, debug06b, debug06c, debug07, debug08, \n \
+                 \ draw, \n \
+                 \ newgame"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> ChessGrid
@@ -2765,6 +2778,60 @@ Why not move knight on F6?
 > cabal exec strat-exe -- -d4 -rdebug07
 -}
 
+
+critBugBoard01 :: ChessGrid
+critBugBoard01 = ChessGrid $ V.fromList
+                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  'R',  'N',  ' ',  ' ',  'K',  'B',  ' ',  'R',  '+',
+                              '+',  'P',  'P',  'P',  ' ',  ' ',  'P',  'P',  'P',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  'Q',  'P',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'B',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                              '+',  'p',  'p',  'p',  'p',  ' ',  'p',  'p',  'p',  '+',
+                              '+',  'r',  ' ',  'b',  'q',  'k',  'b',  ' ',  'r',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   b   q   k   b   -   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   B   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   Q   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   -   -   K   B   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+
+Moves to verify (run with -d3 --critdepth=5),
+should NOT be one of these:
+Black:
+... F6-G4
+... F6-H5
+-}
+critBug01TestData :: StdMoveTestData
+critBug01TestData  = StdMoveTestData
+    { smtdBoardName = "critBug01"
+    , colorToMoveNext = Black
+    , smtdDepth = 3
+    , smtdCritDepth = 5
+    , smtdStartIdx = 66
+    , smtdEndIdx = 47 }
+
+critBug01TestDataB :: StdMoveTestData
+critBug01TestDataB = StdMoveTestData
+    { smtdBoardName = "critBug01"
+    , colorToMoveNext = Black
+    , smtdDepth = 3
+    , smtdCritDepth = 5
+    , smtdStartIdx = 66
+    , smtdEndIdx = 58 }
+
+----------------------------------------------------------------------------------------------------
 castlingBoard :: ChessGrid
 castlingBoard = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                          '+',  'R',  ' ',  'B',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
@@ -2830,6 +2897,9 @@ mateInTwoExampleNode03b = postCastlingGameNode mateInTwoBoard03b Black (45, 62)
 promotionNode01 :: ChessNode
 promotionNode01 = postCastlingGameNode promotionBoard01 White (16, 86)
 
+critBugNode01 :: ChessNode
+critBugNode01 = preCastlingGameNode critBugBoard01 Black (13, 87)
+
 drawnExampleNode :: ChessNode
 drawnExampleNode = preCastlingGameNode drawnBoard White (68, 88)
 
@@ -2866,41 +2936,47 @@ castlingNode = preCastlingGameNode castlingBoard Black (27, 85)
 -- White has K and Q side castling available, Black has King side only
 preCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
 preCastlingGameNode grid the_color kingLocs =
-    let (wLocs, bLocs) = calcLocsForColor grid
-        cPos = ChessPos
-          { _cpGrid = grid
-          , _cpColor = the_color
-          , _cpKingLoc = kingLocs
-          , _cpInCheck = (False, False)
-          , _cpWhitePieceLocs = wLocs
-          , _cpBlackPieceLocs = bLocs
-          , _cpFin = NotFinal }
-    in ChessNode
-        { _chessTreeLoc = TreeLocation {tlDepth = 0}
-        , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-        , _chessVal = ChessEval { _total = 0.0, _details = "" }
-        , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-        , _chessPos = cPos
-        , _chessMvSeq = []
-        , _chessIsEvaluated = False }
+  let (wLocs, bLocs) = calcLocsForColor grid
+      cPos =
+        ChessPos
+          { _cpGrid = grid,
+            _cpColor = the_color,
+            _cpKingLoc = kingLocs,
+            _cpInCheck = (False, False),
+            _cpWhitePieceLocs = wLocs,
+            _cpBlackPieceLocs = bLocs,
+            _cpFin = NotFinal
+          }
+   in ChessNode
+        { _chessTreeLoc = TreeLocation {tlDepth = 0},
+          _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""},
+          _chessVal = ChessEval {_total = 0.0, _details = ""},
+          _chessErrorVal = ChessEval {_total = 0.0, _details = ""},
+          _chessPos = cPos,
+          _chessMvSeq = [],
+          _chessIsEvaluated = False
+        }
 
 -- No castling available
 postCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
 postCastlingGameNode grid the_color kingLocs =
-    let (wLocs, bLocs) = calcLocsForColor grid
-        cPos = ChessPos
-          { _cpGrid = grid
-          , _cpColor = the_color
-          , _cpKingLoc = kingLocs
-          , _cpInCheck = (False, False)
-          , _cpWhitePieceLocs = wLocs
-          , _cpBlackPieceLocs = bLocs
-          , _cpFin = NotFinal }
-    in ChessNode
-        { _chessTreeLoc = TreeLocation {tlDepth = 0}
-        , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-        , _chessVal = ChessEval { _total = 0.0, _details = "" }
-        , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-        , _chessPos = cPos
-        , _chessMvSeq = []
-        , _chessIsEvaluated = False }
+  let (wLocs, bLocs) = calcLocsForColor grid
+      cPos =
+        ChessPos
+          { _cpGrid = grid,
+            _cpColor = the_color,
+            _cpKingLoc = kingLocs,
+            _cpInCheck = (False, False),
+            _cpWhitePieceLocs = wLocs,
+            _cpBlackPieceLocs = bLocs,
+            _cpFin = NotFinal
+          }
+   in ChessNode
+        { _chessTreeLoc = TreeLocation {tlDepth = 0},
+          _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""},
+          _chessVal = ChessEval {_total = 0.0, _details = ""},
+          _chessErrorVal = ChessEval {_total = 0.0, _details = ""},
+          _chessPos = cPos,
+          _chessMvSeq = [],
+          _chessIsEvaluated = False
+        }

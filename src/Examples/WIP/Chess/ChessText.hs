@@ -33,10 +33,10 @@ printString :: String -> IO ()
 printString = putStrLn
 
 showBoard :: ChessText -> ChessNode -> IO ()
-showBoard _ node = do
-    putStrLn $ formatBoard node
-    putStrLn ("Board hash: " ++ show (nodeHash node))
-    putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal node))
+showBoard _ n = do
+    putStrLn $ formatBoard n
+    putStrLn ("Board hash: " ++ show (nodeHash n))
+    putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal n))
 
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
@@ -50,8 +50,8 @@ printMoveChoiceInfo tree result loud = do
     putStrLn ("Computer's move: " ++ showNegaMoves (picked result))
 
     let mv = getMove (moveNode(picked result))
-    let node = rootLabel tree
-    when (moveChecksOpponent node mv) $ do
+    let n = rootLabel tree
+    when (moveChecksOpponent n mv) $ do
         putStrLn " (check)"
     when loud $ do
         putStrLn ("Score details: \n"
@@ -71,11 +71,11 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 playerEntryText :: Tree ChessNode -> [ChessMove] -> IO (Entry ChessMove s)
 playerEntryText tree exclusions = do
-    let node = rootLabel tree
+    let n = rootLabel tree
     putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
-    case parseEntry node line of
+    case parseEntry n line of
         Left err -> do
             putStrLn err
             playerEntryText tree exclusions
@@ -86,7 +86,7 @@ playerEntryText tree exclusions = do
                     putStrLn "Not a legal move."
                     playerEntryText tree exclusions
                 else do
-                    when (moveChecksOpponent node mv) $
+                    when (moveChecksOpponent n mv) $
                         putStrLn " (check)"
                     return me
 
@@ -94,8 +94,8 @@ playerEntryText tree exclusions = do
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
 formatBoard :: ChessNode -> String
-formatBoard node =
-    let g = node ^. (chessPos . cpGrid)
+formatBoard n =
+    let g = n ^. (chessPos . cpGrid)
         g' = unGrid g
     in "\n" ++ (colLabels ++ loop g' 11 8 "") ++ "\n"
   where

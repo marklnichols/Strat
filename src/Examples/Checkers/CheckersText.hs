@@ -29,10 +29,10 @@ printString :: String -> IO ()
 printString = putStrLn
 
 showBoard :: CheckersText -> CkNode -> IO ()
-showBoard _ node = do
-    putStrLn $ formatBoard node
-    putStrLn ("Current position score: " ++ show (evaluate node))
-    putStrLn ("Current position score: \n" ++ showScoreDetails (_ckValue node))
+showBoard _ n = do
+    putStrLn $ formatBoard n
+    putStrLn ("Current position score: " ++ show (evaluate n))
+    putStrLn ("Current position score: \n" ++ showScoreDetails (_ckValue n))
     putStrLn "\n--------------------------------------------------\n"
 
 printMoveChoiceInfo :: Tree CkNode -> NegaResult CkNode -> Bool -> IO ()
@@ -56,11 +56,11 @@ exitFail _ s = do
 ---------------------------------------------------------------------------------------------------
 playerEntry :: Tree CkNode -> [CkMove] -> IO (Entry CkMove s)
 playerEntry tree exclusions = do
-    let node = rootLabel tree
+    let n = rootLabel tree
     putStrLn ("Enter player's move:")
     line <- getLine
     putStrLn ""
-    case parseEntry node line of
+    case parseEntry n line of
         Left err -> do
             putStrLn err
             playerEntry tree exclusions
@@ -78,7 +78,7 @@ playerEntry tree exclusions = do
 -- format position as a string
 ---------------------------------------------------------------------------------------------------
 formatBoard :: CkNode -> String
-formatBoard node = loop (unGrid (node ^. (ckPosition . grid))) 40 "" where
+formatBoard nd = loop (unGrid (nd ^. (ckPosition . grid))) 40 "" where
     loop _ 4 result = result ++ "\n" ++ colLabels
     loop xs n result = loop xs (newIdx - 4) (result ++ rowToStr xs newIdx spaces) where
         (newIdx, spaces) = case n `mod` 9 of

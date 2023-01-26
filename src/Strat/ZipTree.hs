@@ -24,18 +24,22 @@ module Strat.ZipTree
   , MateIn(..) -- exported for testing
   , mateInCompare -- exported for testing
   , maxScore
+  , maxTC
   , maxValueTemp
   , minScore
+  , minTC
   , minValueTemp
   , negaMax
-  , negaRnd
+  , negaWorker
   , nodeHash
+  , revTraceCmp
   , NegaResult(..)
   , NegaMoves(..)
   , Sign(..)
+  , TraceCmp(..)
   , showMoveSeq
   , showTC
-  -- , sortFromResult
+  , toNegaMoves
   , treeSize
   , ZipReaderT
   , ZipTreeEnv(..)
@@ -64,6 +68,8 @@ data ZipTreeEnv = ZipTreeEnv
   , enableCmpTracing :: Bool
   , enableRandom :: Bool
   , maxRandomChange :: Float
+  , enablePruning :: Bool
+  , singleThreaded :: Bool
   , enablePreSort :: Bool
   , moveTraceStr :: Text
   , maxDepth :: Int
@@ -239,32 +245,16 @@ data NegaResult a = NegaResult
   , alternatives :: [NegaMoves a]
   , evalCount :: Int }
 
-expandTo :: forall a m. (Ord a, Show a, ZipTreeNode a, Monad m)
+expandTo :: forall a m. (Ord a, Show a, ZipTreeNode a, MonadIO m)
          => T.Tree a
          -> Int
          -> Int
+         -> Int
          -> ZipReaderT m (T.Tree a)
-expandTo t depth critDepth =
-  decendUntil (fromTree t) 1 depth critDepth
+expandTo t curDepth depth critDepth =
+      decendUntil (fromTree t) curDepth depth critDepth
 
--- sortFromResult :: forall a. (Ord a, Show a, ZipTreeNode a)
---          => T.Tree a
---          -> NegaResult a
---          -> T.Tree a
--- sortFromResult treeRoot prevResult =
---     let tpos = fromTree treeRoot
---         theChildren = T.subForest treeRoot
---         moves = allMoves prevResult
---         pairs = foldr f [] moves where
---             f nmv acc =
---                 case List.find (\t -> T.rootLabel t == moveNode nmv ) theChildren of
---                     Nothing -> error $ "sorting error: couldn't find: " ++ show (moveNode nmv)
---                     Just tMatch -> (tMatch, evalScore nmv) : acc
---         sorted = sortOn (\(_, x) -> -x) pairs
---         sortedChildren = fst <$> sorted
---     in toTree $ modifyTree (\(T.Node x _) -> T.Node x sortedChildren) tpos
-
-decendUntil :: (Ord a, Show a, ZipTreeNode a, Monad m)
+decendUntil :: (Ord a, Show a, ZipTreeNode a, MonadIO m)
             => TreePos Full a
             -> Int
             -> Int
@@ -278,9 +268,11 @@ decendUntil z curDepth goalDepth critDepth
     -- past the goal depth and the parent isn't a crit -- stop
     | curDepth > goalDepth
     , ztnDeepDescend (label z) == False = return $ toTree z
+
     -- past the goal depth and the crit depth -- stop
     | curDepth > goalDepth
     , curDepth > critDepth = return $ toTree z
+
     -- crits only
     | otherwise = do -- crits only...
         unfiltered <- buildChildren z curDepth goalDepth critDepth
@@ -290,7 +282,7 @@ decendUntil z curDepth goalDepth critDepth
 filterDeepDecentChildren :: ZipTreeNode a => [T.Tree a] -> [T.Tree a]
 filterDeepDecentChildren xs = filter (\t -> ztnDeepDescend (T.rootLabel t)) xs
 
-buildChildren :: forall a m. (Ord a, Show a, ZipTreeNode a, Monad m)
+buildChildren :: forall a m. (Ord a, Show a, ZipTreeNode a, MonadIO m)
               => TreePos Full a
               -> Int
               -> Int
@@ -300,7 +292,8 @@ buildChildren z curDepth goalDepth critDepth = do
     let tempLabel = label z
     let tempForest = T.subForest $ toTree z
     theChildren <-
-        -- if only crits, assume non-crits were filtered out -- rebuild the list of moves
+        -- note: rebuild the list of moves if non-crits could have been filtered
+        -- out but are needed again
         if null tempForest || critsOnly tempForest
           then return $ ztnMakeChildren tempLabel
           else return tempForest
@@ -311,7 +304,7 @@ buildChildren z curDepth goalDepth critDepth = do
 critsOnly :: ZipTreeNode a => [T.Tree a] -> Bool
 critsOnly trees = all (\t -> ztnDeepDescend (T.rootLabel t)) trees
 
-zipFoldFn :: (Ord a, Show a, ZipTreeNode a, Monad m)
+zipFoldFn :: (Ord a, Show a, ZipTreeNode a, MonadIO m)
   => Int -> Int -> Int
   -> T.Tree a
   -> ([T.Tree a], TreePos Empty a)
@@ -396,17 +389,6 @@ updateAlphaBeta Neg alpBet bPruning newBeta tc lvl = do
                 else temp
             else return alpBet {beta = maybeUpdated }
 
-negaMax :: (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m)
-        => T.Tree a -> Bool -> ZipReaderT m (NegaResult a)
-negaMax t bPruning = do
-  let sign = ztnSign $ T.rootLabel t
-  let alphaBeta = initAlphaBeta
-  (theBest, ec) <-  alphaBetaPrune t [] alphaBeta bPruning sign 0 0
-  return $ NegaResult { picked = toNegaMoves (revTraceCmp theBest)
-                      , bestScore = toNegaMoves (revTraceCmp theBest)
-                      , alternatives = []
-                      , evalCount = ec }
-
 alphaBetaPrune :: forall a m. (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m)
          => T.Tree a -> [a] -> AlphaBeta -> Bool -> Sign -> Int -> Int
          -> ZipReaderT m (TraceCmp a, Int)
@@ -435,6 +417,7 @@ tcFromT t movePath lvl =
         in
           TraceCmp {node, movePath, value, mateIn, alts = []}
 
+
 -- TODO: remove this
 kingCaptureRisk :: (Ord a, Show a, ZipTreeNode a) => a -> Bool
 kingCaptureRisk _n = False
@@ -446,49 +429,55 @@ maxLoop [] _cmpList tcCurrentBest tcAltsAcc _ _ ec lvl = do
     let altsToSave = if lvl==1 then tcAltsAcc else []
     return (tcCurrentBest{alts = altsToSave}, ec)
 maxLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
-    -- env <- ask
+    env <- ask
     (tcPossibleBest, ec') <- alphaBetaPrune t (T.rootLabel t : cmpList) alphaBeta bPruning Neg ec lvl
     let (tcNewBest, ec'') = (maxTC tcCurrentBest tcPossibleBest, ec' + 1)
+    --
     let newWinner = tcNewBest == tcPossibleBest
     let zTC@TraceCmp {value = zVal} = tcNewBest
-    -- let cmpTracing = enableCmpTracing env
-    -- let pruneTracing = enablePruneTracing env
+    let cmpTracing = enableCmpTracing env
+    let pruneTracing = enablePruneTracing env
+    --
     newAlphaBeta <-
-        updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
-        -- if not cmpTracing
-        --   then updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
-        --   else case tcCurrentBest of
-        --     Min -> updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
-        --     _   -> do
-        --         let TraceCmp {node = cb}  = tcCurrentBest
-        --         let TraceCmp {node = pb} = tcPossibleBest
-        --         let (currentStar, newStar) =
-        --               if newWinner then ("     ", "*+*+*") else ("+++++", "     ")
-        --         let s = "\n"
-        --               ++ printf " %s tcCurrentBest  = %s" currentStar (show tcCurrentBest)
-        --               ++ printf "\n %s tcPossibleBest = %s" newStar (show tcPossibleBest)
-        --               ++ printf "\n Level = %d, #tcCurrentBest = %d, #tcPossibleBest = %d"
-        --                  lvl (nodeHash cb) (nodeHash pb)
-        --         let !temp = updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
-        --         let showIt = isInfixOf (moveTraceStr env) (pack (show tcCurrentBest))
-        --                       || isInfixOf (moveTraceStr env) (pack (show tcPossibleBest))
-        --             -- debugHash = -3107579353474362187
-        --             -- showIt = nodeHash cb == debugHash || nodeHash pb == debugHash
-        --         if showIt then trace s temp
-        --         else temp
+        --
+        -- updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
+        if not cmpTracing
+          then updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
+          else case tcCurrentBest of
+            Min -> updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
+            _   -> do
+                let TraceCmp {node = cb}  = tcCurrentBest
+                let TraceCmp {node = pb} = tcPossibleBest
+                let (currentStar, newStar) =
+                      if newWinner then ("     ", "*+*+*") else ("+++++", "     ")
+                let s = "\n"
+                      ++ printf " %s tcCurrentBest  = %s" currentStar (show tcCurrentBest)
+                      ++ printf "\n %s tcPossibleBest = %s" newStar (show tcPossibleBest)
+                      ++ printf "\n Level = %d, #tcCurrentBest = %d, #tcPossibleBest = %d"
+                         lvl (nodeHash cb) (nodeHash pb)
+                let !temp = updateAlphaBeta Pos alphaBeta bPruning zVal zTC lvl
+                let showIt = isInfixOf (moveTraceStr env) (pack (show tcCurrentBest))
+                              || isInfixOf (moveTraceStr env) (pack (show tcPossibleBest))
+                    -- debugHash = -3107579353474362187
+                    -- showIt = nodeHash cb == debugHash || nodeHash pb == debugHash
+                if showIt then trace s temp
+                else temp
+        --
     let altsToSave = if lvl == 1 then tcAltsAcc else []
-    (bCanPrune, _pruneInfo) <- canPrune newAlphaBeta bPruning zTC "maxLoop"
+    (bCanPrune, pruneInfo) <- canPrune newAlphaBeta bPruning zTC "maxLoop"
     if bCanPrune
       then
-        return (tcNewBest{alts = altsToSave}, ec'')
-        -- if pruneTracing
-        --   then do
-        --     let TraceCmp {movePath = sharedCmpList} = tcNewBest
-        --     strM <- tracePruned ts sharedCmpList "maxLoop" lvl pruneInfo
-        --     case strM of
-        --         Nothing -> return (tcNewBest{alts = altsToSave}, ec'')
-        --         Just str -> return $ trace str (tcNewBest{alts = altsToSave}, ec'')
-        --   else return (tcNewBest{alts = altsToSave}, ec'')
+        --
+        -- return (tcNewBest{alts = altsToSave}, ec'')
+        if pruneTracing
+          then do
+            let TraceCmp {movePath = sharedCmpList} = tcNewBest
+            strM <- tracePruned ts sharedCmpList "maxLoop" lvl pruneInfo
+            case strM of
+                Nothing -> return (tcNewBest{alts = altsToSave}, ec'')
+                Just str -> return $ trace str (tcNewBest{alts = altsToSave}, ec'')
+          else return (tcNewBest{alts = altsToSave}, ec'')
+        --
       else
         let newAlts = if newWinner then tcPossibleBest : tcAltsAcc else tcAltsAcc
         in maxLoop ts cmpList tcNewBest newAlts newAlphaBeta bPruning ec'' lvl
@@ -500,69 +489,120 @@ minLoop [] _cmpList tcCurrentBest tcAltsAcc _ _ ec lvl = do
     let altsToSave = if lvl==1 then tcAltsAcc else []
     return (tcCurrentBest{alts = altsToSave}, ec)
 minLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
-    -- env <- ask
+    env <- ask
     (tcPossibleBest, ec') <- alphaBetaPrune t (T.rootLabel t : cmpList) alphaBeta bPruning Pos  ec lvl
     let (tcNewBest, ec'') = (minTC tcCurrentBest tcPossibleBest, ec' + 1)
+    --
     let newWinner = tcNewBest == tcPossibleBest
     let zTC@TraceCmp{value = zVal} = tcNewBest
-    -- let cmpTracing = enableCmpTracing env
-    -- let pruneTracing = enablePruneTracing env
+    let cmpTracing = enableCmpTracing env
+    let pruneTracing = enablePruneTracing env
+    --
     newAlphaBeta <-
-        updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
-        -- if not cmpTracing
-        --   then updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
-        --   else case tcCurrentBest of
-        --     Max -> updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
-        --     _   -> do
-        --       let TraceCmp {node = cb} = tcCurrentBest
-        --       let TraceCmp {node = pb} = tcPossibleBest
-        --       let (currentStar, newStar) =
-        --             if newWinner then ("     ", "*-*-*") else ("-----", "     ")
-        --       let s = "\n"
-        --               ++ printf " %s tcCurrentBest  = %s" currentStar (show tcCurrentBest)
-        --               ++ printf "\n %s tcPossibleBest = %s" newStar (show tcPossibleBest)
-        --               ++ printf "\n Level = %d, #tcCurrentBest = %d, #tcPossibleBest = %d"
-        --                   lvl (nodeHash cb) (nodeHash pb)
-        --       let !temp = updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
-        --       let showIt = isInfixOf (moveTraceStr env) (pack (show tcCurrentBest))
-        --                     || isInfixOf (moveTraceStr env) (pack (show tcPossibleBest))
-        --             -- debugHash = -3107579353474362187
-        --             -- showIt = nodeHash cb == debugHash || nodeHash pb == debugHash
-        --       if showIt then trace s temp
-        --       else temp
+        --
+        -- updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
+        if not cmpTracing
+          then updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
+          else case tcCurrentBest of
+            Max -> updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
+            _   -> do
+              let TraceCmp {node = cb} = tcCurrentBest
+              let TraceCmp {node = pb} = tcPossibleBest
+              let (currentStar, newStar) =
+                    if newWinner then ("     ", "*-*-*") else ("-----", "     ")
+              let s = "\n"
+                      ++ printf " %s tcCurrentBest  = %s" currentStar (show tcCurrentBest)
+                      ++ printf "\n %s tcPossibleBest = %s" newStar (show tcPossibleBest)
+                      ++ printf "\n Level = %d, #tcCurrentBest = %d, #tcPossibleBest = %d"
+                          lvl (nodeHash cb) (nodeHash pb)
+              let !temp = updateAlphaBeta Neg alphaBeta bPruning zVal zTC lvl
+              let showIt = isInfixOf (moveTraceStr env) (pack (show tcCurrentBest))
+                            || isInfixOf (moveTraceStr env) (pack (show tcPossibleBest))
+                    -- debugHash = -3107579353474362187
+                    -- showIt = nodeHash cb == debugHash || nodeHash pb == debugHash
+              if showIt then trace s temp
+              else temp
+        --
     let altsToSave = if lvl == 1 then tcAltsAcc else []
-    (bCanPrune, _pruneInfo) <- canPrune newAlphaBeta bPruning zTC "minLoop"
+    (bCanPrune, pruneInfo) <- canPrune newAlphaBeta bPruning zTC "minLoop"
     if bCanPrune
       then
-        return (tcNewBest {alts = altsToSave}, ec'')
-        -- if pruneTracing
-        --   then do
-        --     let TraceCmp {movePath = sharedCmpList} = tcNewBest
-        --     strM <- tracePruned ts sharedCmpList "minLoop" lvl pruneInfo
-        --     case strM of
-        --         Nothing -> return (tcNewBest {alts = altsToSave}, ec'')
-        --         Just str -> return $ trace str (tcNewBest {alts = altsToSave}, ec'')
-        --   else return (tcNewBest {alts = altsToSave}, ec'')
+        --
+        -- return (tcNewBest {alts = altsToSave}, ec'')
+        if pruneTracing
+          then do
+            let TraceCmp {movePath = sharedCmpList} = tcNewBest
+            strM <- tracePruned ts sharedCmpList "minLoop" lvl pruneInfo
+            case strM of
+                Nothing -> return (tcNewBest {alts = altsToSave}, ec'')
+                Just str -> return $ trace str (tcNewBest {alts = altsToSave}, ec'')
+          else return (tcNewBest {alts = altsToSave}, ec'')
+        --
       else
         let newAlts = if newWinner then tcPossibleBest : tcAltsAcc else tcAltsAcc
         in minLoop ts cmpList tcNewBest newAlts newAlphaBeta bPruning ec'' lvl
 
--- tracePruned :: forall a m. (Show a, ZipTreeNode a, Ord a, Monad m)
---             => [T.Tree a] -> [a] -> String -> Int -> String -> ZipReaderT m (Maybe String)
--- tracePruned tsPruned sharedCmpList srcStr lvl moreInfo = do
---     env <- ask
---     let prunedAsTCs = fmap (\t -> tcFromT t (T.rootLabel t:sharedCmpList) lvl) tsPruned
---     let tsFiltered = filter (\tc -> (moveTraceStr env) `isInfixOf` pack (show tc)) prunedAsTCs
---     let movesInContext = fmap show tsFiltered
---     if null tsFiltered
---       then return Nothing
---       else return $ Just $ "Pruned during " ++ srcStr ++ ": " ++
---         "\nWith context: " ++ moreInfo ++ "(" ++ show (length tsPruned) ++ ")" ++ "\n"
---          ++ "(p): " ++ intercalate "\n(p): " movesInContext
+tracePruned :: forall a m. (Show a, ZipTreeNode a, Ord a, Monad m)
+            => [T.Tree a] -> [a] -> String -> Int -> String -> ZipReaderT m (Maybe String)
+tracePruned tsPruned sharedCmpList srcStr lvl moreInfo = do
+    env <- ask
+    let prunedAsTCs = fmap (\t -> tcFromT t (T.rootLabel t:sharedCmpList) lvl) tsPruned
+    let tsFiltered = filter (\tc -> (moveTraceStr env) `isInfixOf` pack (show tc)) prunedAsTCs
+    let movesInContext = fmap show tsFiltered
+    if null tsFiltered
+      then return Nothing
+      else return $ Just $ "Pruned during " ++ srcStr ++ ": " ++
+        "\nWith context: " ++ moreInfo ++ "(" ++ show (length tsPruned) ++ ")" ++ "\n"
+         ++ "(p): " ++ List.intercalate "\n(p): " movesInContext
 
+
+----------------------------------------------------------------------------------------------------
+-- Single threaded worker for multithreaded evaluation
+----------------------------------------------------------------------------------------------------
+negaWorker :: (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m)
+        => T.Tree a -> ZipReaderT m (TraceCmp a, Int)
+negaWorker t = do
+  let sign = ztnSign $ T.rootLabel t
+  env <- ask
+  let bPruning = enablePruning env
+  let alphaBeta = initAlphaBeta
+  alphaBetaPrune t [] alphaBeta bPruning sign 0 0
+
+----------------------------------------------------------------------------------------------------
+-- Entry point for evaluation when running single threaded
+----------------------------------------------------------------------------------------------------
+negaMax :: (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m, RandomGen g)
+        => T.Tree a -> Maybe g -> ZipReaderT m (NegaResult a)
+negaMax t gen = do
+    case gen of
+      Just g -> negaRnd t g
+      Nothing -> negaNoRand t
+
+----------------------------------------------------------------------------------------------------
+-- Evaluation when running single threaded, no randomness
+----------------------------------------------------------------------------------------------------
+negaNoRand :: (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m)
+        => T.Tree a -> ZipReaderT m (NegaResult a)
+negaNoRand t  = do
+  env <- ask
+  let bPruning = enablePruning env
+  let sign = ztnSign $ T.rootLabel t
+  let alphaBeta = initAlphaBeta
+  (theBest, ec) <-  alphaBetaPrune t [] alphaBeta bPruning sign 0 0
+  return $ NegaResult { picked = toNegaMoves (revTraceCmp theBest)
+                      , bestScore = toNegaMoves (revTraceCmp theBest)
+                      , alternatives = []
+                      , evalCount = ec }
+
+----------------------------------------------------------------------------------------------------
+-- Evaluation when running single threaded, with randomness
+----------------------------------------------------------------------------------------------------
 negaRnd :: (Ord a, Show a, ZipTreeNode a, Hashable a, Monad m, RandomGen g)
-        => T.Tree a -> g -> Float -> Bool -> ZipReaderT m (NegaResult a)
-negaRnd t gen maxRndChange bPruning = do
+        => T.Tree a -> g -> ZipReaderT m (NegaResult a)
+negaRnd t gen = do
+    env <- ask
+    let bPruning = enablePruning env
+    let maxRndChange = maxRandomChange env
     let sign = ztnSign $ T.rootLabel t
     let alphaBeta = initAlphaBeta
     (theBestTC, ec) <- alphaBetaPrune t [] alphaBeta bPruning sign 0 0
