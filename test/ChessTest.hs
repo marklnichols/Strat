@@ -19,7 +19,7 @@ import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
-testEnv :: Z.ZipTreeEnv
+testEnv :: Z.ZipTreeEnv ChessPosState
 testEnv = Z.ZipTreeEnv
         { verbose = False
         , enablePruning = True
@@ -34,6 +34,7 @@ testEnv = Z.ZipTreeEnv
         , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
+        , positionStates = const []
         }
 
 chessTest :: SpecWith ()
@@ -288,9 +289,8 @@ chessTest = do
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
-          let t = getStartNode "newgame" White
-          -- let newTree = expandTree t 2
-          newTree <- expandTree testEnv t 2 2
+          let (t, _) = getStartNode "newgame" White
+          newTree <- runReaderT (expandSingleThreaded t 2 2) testEnv
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True
@@ -349,10 +349,10 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 matchStdMove :: StdMoveTestData -> IO Bool
 matchStdMove StdMoveTestData{..} = do
-    let board = getStartNode smtdBoardName colorToMoveNext
+    let (board, _) = getStartNode smtdBoardName colorToMoveNext
         -- tree = Z.expandTo board smtdDepth
         -- result = Z.negaMax tree True
-    let f :: Z.ZipReaderT IO (Z.NegaResult ChessNode)
+    let f :: Z.ZipReaderIO p (Z.NegaResult ChessNode)
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
             Z.negaMax tree (Nothing :: Maybe StdGen)

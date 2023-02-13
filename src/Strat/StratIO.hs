@@ -25,26 +25,36 @@ resolveRandom xs = do
     return $ Just $ xs !! (r-1)
 
 
-expandToParallel :: forall a. (Ord a, Show a, ZipTreeNode a)
-                 => ZipTreeEnv -> T.Tree a -> Int -> Int -> IO (T.Tree a)
-expandToParallel env t depth critDepth = do
+expandToParallel :: forall a p. (Ord a, Show a, ZipTreeNode a)
+                 => T.Tree a -> Int -> Int -> Z.ZipReaderIO p (T.Tree a)
+expandToParallel t depth critDepth = do
     -- expansion of at least one level should always have been previously done
     let (_, levels) = treeSize t
     let _num_levels = assert (length levels >= 2) (length levels)
     let theChildren = T.subForest t
-    putStrLn $ printf "expandToParallel -- number of threads that will be created: %d" (length theChildren)
-    putStrLn $ printf "(expansion to depth:%d, critDepth %d)" depth critDepth
-    newChildren <- Async.forConcurrently theChildren (\x -> runReaderT (Z.expandTo x 2 depth critDepth) env)
+    liftIO $ putStrLn $ printf "expandToParallel -- number of threads that will be created: %d" (length theChildren)
+    liftIO $ putStrLn $ printf "(expansion to depth:%d, critDepth %d)" depth critDepth
+
+    -- a little weird: runReaderT within a ReaderT monad - to get an IO type usable with Async
+    env <- ask
+    newChildren <- liftIO $ Async.forConcurrently theChildren (\x -> runReaderT (Z.expandTo x 2 depth critDepth) env)
     let z = fromTree t
     let newTree = toTree $ modifyTree (\(T.Node x _) -> T.Node x newChildren) z
-    putStrLn $ printf "size of newTree: %s" (show (treeSize newTree))
+
+    liftIO $ putStrLn $ printf "size of newTree: %s" (show (treeSize newTree))
     return newTree
 
-negaMaxParallel :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
-        => Z.ZipTreeEnv -> T.Tree a -> Maybe g -> IO (NegaResult a)
+expandToSingleThreaded :: forall a p. (Ord a, Show a, ZipTreeNode a)
+                 => T.Tree a -> Int -> Int -> Z.ZipReaderIO p (T.Tree a)
+expandToSingleThreaded t depth critDepth =
+    Z.expandTo t 1 depth critDepth
+
+negaMaxParallel :: forall a g p. (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
+        => Z.ZipTreeEnv p -> T.Tree a -> Maybe g -> Z.ZipReaderIO p  (NegaResult a)
 negaMaxParallel env t _gen = do
     let theChildren = T.subForest t
-    tcResults <- Async.forConcurrently theChildren (\x -> do
+    env <- ask
+    tcResults <- liftIO $ Async.forConcurrently theChildren (\x -> do
           (threadTC, threadEC) <- runReaderT (Z.negaWorker x) env
           -- The TraceCmp returned from each thread needs to be re-attached to
           -- the thread's root node,  part of the move sequence:
@@ -55,7 +65,7 @@ negaMaxParallel env t _gen = do
     let initTC = if sign == Pos then Min else Max
     let curried = foldf sign
     let (theBest, ec::Int) = foldr curried (initTC, 0) tcResults
-    putStrLn $ printf "theBest after comparing thread results: %s" (showTC theBest)
+    liftIO $ putStrLn $ printf "theBest after comparing thread results: %s" (showTC theBest)
 
     -- TODO: find the best among the thread results
     -- TODO: find random alternates within the threshold
@@ -76,3 +86,8 @@ negaMaxParallel env t _gen = do
         (maxTC tcAcc tc, numEvalsAcc + numEvals)
       foldf Neg (tc, numEvals) (tcAcc, numEvalsAcc) =
         (minTC tcAcc tc, numEvalsAcc + numEvals)
+
+negaMaxSingleThreaded :: forall a g p. (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
+        => Z.ZipTreeEnv p -> T.Tree a -> Maybe g -> Z.ZipReaderIO p (NegaResult a)
+negaMaxSingleThreaded env t gen =
+    Z.negaMax t gen

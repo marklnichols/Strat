@@ -78,8 +78,16 @@ processPlayerMove tree mv bComputerResponse rnds = do
  -- Internal functions
 ----------------------------------------------------------------------------------------------------
 
+newtype TestPosState = TestPosState {unPosState :: String}
+
+instance PositionState TestPosState where
+  toString = unPosState
+
+noState :: TestPosState
+noState = TestPosState {unPosState = "Not implemented."}
+
 -- TODO: move this
-testEnv :: ZipTreeEnv
+testEnv :: ZipTreeEnv TestPosState
 testEnv = ZipTreeEnv
         { verbose = False
         , enablePruning = True
@@ -94,6 +102,7 @@ testEnv = ZipTreeEnv
         , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
+        , positionStates = const [noState]
         }
 
 computerResponse :: RandomGen g => Tree Ck.CkNode -> g -> IO NodeWrapper

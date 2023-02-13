@@ -45,7 +45,7 @@ instance ZipTreeNode TestNode where
   ztnDeepDescend = isCrit
 
 --TODO: look into preSort problems -- disabled for now
-testEnv :: ZipTreeEnv
+testEnv :: ZipTreeEnv ()
 testEnv = ZipTreeEnv
         { verbose = False
         , enablePruneTracing = False
@@ -60,6 +60,7 @@ testEnv = ZipTreeEnv
         , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
+        , positionStates = const []
         }
 
 pruningTest :: SpecWith ()
@@ -75,7 +76,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 1
             --------------------------------------------------
-            let f1 :: ZipReaderT IO (NegaResult TestNode)
+            let f1 :: ZipReaderIO () (NegaResult TestNode)
                 f1 = do
                   wikiTreeD1 <- expandTo rootWikiTree 1 1 1
                   negaMax wikiTreeD1 (Nothing :: Maybe StdGen)
@@ -91,7 +92,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 2
             --------------------------------------------------
-            let f2 :: ZipReaderT IO (NegaResult TestNode)
+            let f2 :: ZipReaderIO () (NegaResult TestNode)
                 f2 = do
                   wikiTreeD2 <- expandTo rootWikiTree 1 2 2
                   negaMax wikiTreeD2 (Nothing :: Maybe StdGen)
@@ -108,7 +109,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 3
             --------------------------------------------------
-            let f3 :: ZipReaderT IO (NegaResult TestNode)
+            let f3 :: ZipReaderIO () (NegaResult TestNode)
                 f3 = do
                   wikiTreeD3 <- expandTo rootWikiTree 1 3 3
                   negaMax wikiTreeD3 (Nothing :: Maybe StdGen)

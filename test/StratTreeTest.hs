@@ -25,8 +25,16 @@ instance ZipTreeNode NodeVal where
   ztnSign = sign
   ztnFinal _ = False
 
+newtype TestPosState = TestPosState {unPosState :: String}
+
+instance PositionState TestPosState where
+  toString = unPosState
+
+noState :: TestPosState
+noState = TestPosState {unPosState = "Not implemented."}
+
 --TODO: look into preSort problems -- disabled for now
-testEnv :: ZipTreeEnv
+testEnv :: ZipTreeEnv TestPosState
 testEnv = ZipTreeEnv
         { verbose = False
         , enablePruning = True
@@ -41,6 +49,7 @@ testEnv = ZipTreeEnv
         , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
+        , positionStates = const [noState]
         }
 
 stratTreeTest :: SpecWith ()
