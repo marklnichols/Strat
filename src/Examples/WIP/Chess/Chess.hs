@@ -23,6 +23,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Eta reduce" #-}
+{-# HLINT ignore "Evaluate" #-}
 
 module Chess
     ( Castle(..)
@@ -159,7 +162,7 @@ toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParse
 toParserMove CastlingMove{..} = Parser.Move $ intToParserLoc _kingStartIdx : [intToParserLoc _kingEndIdx]
 
 instance Show ChessMove where
-  show (stm@StdMove {..}) =
+  show stm@StdMove {..} =
       let nonCaptureStr = show $ toParserMove stm
       in case _exchange of
            Just _ -> replace "-" "x" nonCaptureStr
@@ -172,13 +175,16 @@ data UnChessMove
                    , rookUnStartIdx :: Int, rookUnEndIdx :: Int, unCastleNote :: String }
   deriving (Eq, Ord)
 
-data StdMoveTestData = StdMoveTestData
-  { smtdBoardName :: String
-  , colorToMoveNext :: Color
-  , smtdDepth :: Int
-  , smtdCritDepth :: Int
-  , smtdStartIdx :: Int
-  , smtdEndIdx :: Int }
+data StdMoveTestData where
+  StdMoveTestData ::
+    { smtdBoardName :: String
+    , colorToMoveNext :: Color
+    , smtdDepth :: Int
+    , smtdCritDepth :: Int
+    , smtdStartIdx :: Int
+    ,smtdEndIdx :: Int
+    }
+    -> StdMoveTestData
   deriving (Eq, Ord)
 
 data ChessPosState = ChessPosState
@@ -191,7 +197,7 @@ data ChessPosState = ChessPosState
   deriving Show
 
 instance Z.PositionState ChessPosState where
-  toString cps = show cps
+  toString = show
 
 newtype ChessGrid = ChessGrid { unGrid :: Vector Char }
   deriving (Generic, Eq, Show, Ord)
@@ -256,10 +262,12 @@ critsOnly = critical
 
 ---------------------------------------------------------------------------------------------------
 data ChessMoves = ChessMoves
-                  { _cmEmpty :: [ChessMove]
-  , _cmEnemy :: [ChessMove]
-  , _cmForColor :: Color }  -- for debugging output
+  { _cmEmpty :: [ChessMove],
+    _cmEnemy :: [ChessMove],
+    _cmForColor :: Color -- for debugging output
+  }
   deriving (Eq)
+
 makeLenses ''ChessMoves
 
 instance Show ChessMoves where
@@ -764,7 +772,8 @@ inCheck g c kingLoc =
 matchesChar :: ChessGrid -> Char -> [Int] -> Bool
 matchesChar g ch xs = foldr f False xs
   where
-    f x r = if indexToChar g x == ch then True else r
+  --f x r = if indexToChar g x == ch then True else r
+    f x r = indexToChar g x == ch || r
 
 ---------------------------------------------------------------------------------------------------
 checkQueen
@@ -917,15 +926,15 @@ calcEarlyQueen :: ChessPos -> Float
 calcEarlyQueen cp =
     let locs = locsForColor cp
         (wqs, bqs) = filterLocsByChar locs 'Q'
-        wqEarly =
+        wqEarly 
             -- no queen, or multiple queen endgame, dont bother with this
-            if length wqs /= 1 then 0.0 else
-                if fst3 (head wqs) /= wQ
-                    then whiteDev cp - 4.0 else 0.0
-        bqEarly =
-            if length bqs /= 1 then 0.0 else
-                if fst3 (head bqs) /= bQ
-                    then blackDev cp - 4.0 else 0.0
+           | length wqs /= 1       =  0.0
+           | fst3 (head wqs) /= wQ = whiteDev cp - 4.0
+           | otherwise             = 0.0
+        bqEarly 
+           | length bqs /= 1       = 0.0 
+           | fst3 (head bqs) /= bQ = blackDev cp - 4.0
+           | otherwise             = 0.0
     in wqEarly - bqEarly
 
 ---------------------------------------------------------------------------------------------------
@@ -1139,7 +1148,8 @@ filterLocsByChar :: ([(Int, Char, Color)], [(Int, Char, Color)]) -> Char
 filterLocsByChar (wLocs, bLocs) charToMatch =
   let wFiltered = filter (f (toUpper charToMatch)) wLocs
       bFiltered = filter (f (toLower charToMatch)) bLocs
-      f c = \(_, ch, _) -> ch == c
+      -- f c = \(_, ch, _) -> ch == c
+      f c (_, ch, _) = ch == c
   in (wFiltered, bFiltered)
 
 ---------------------------------------------------------------------------------------------------
@@ -1774,9 +1784,8 @@ dirLocs g (idx0, _, c0) dir =
         loop idx (empties, enemies) =
             let cx = indexToColor2 g idx
                 ob = onBoard idx
-                -- friendly = ob && c0 == cx
-                friendly = ob && isJust cx && fromJust cx == c0
-                enemy = ob && isJust cx  && fromJust cx == (enemyColor c0)
+                friendly = ob && (cx == Just c0)
+                enemy = ob && cx == Just (enemyColor c0)
                 (sqState, (newEmpties, newEnemies))
                     | not ob = (OffBoard ,(empties, enemies))
                     | enemy = (HasEnemy, (empties, StdMove (Just (indexToChar g idx)) idx0 idx "": enemies))
@@ -1791,8 +1800,7 @@ dirCaptureLoc g (idx0, _, clr0) dir =
    let clr0Enemy = enemyColor clr0
        loop idx =
            let clr = indexToColor2 g idx
-           -- case hasEnemy g clr idx of
-           in case isJust clr && fromJust clr == clr0Enemy of
+           in case clr == Just clr0Enemy of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
                      | isEmptyGrid g idx -> loop (apply dir idx)
@@ -1802,7 +1810,7 @@ dirCaptureLoc g (idx0, _, clr0) dir =
 dirLocsCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
 dirLocsCount g (idx, ch, clr0) dir =
     let (enemies, empties) = dirLocs g (idx, ch, clr0) dir
-    in (length enemies) + (length empties)
+    in length enemies + length empties
 
 -- Same as dirLocs, but for pieces that move only one square in a given "direction"
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
@@ -1813,14 +1821,14 @@ dirLocsSingle g (idx0, _, c0) dir =
         cEnemy0 = enemyColor c0
     in
       if not (onBoard x) then ([], [])
-      else if isJust cx && fromJust cx == cEnemy0 then ([], [StdMove (Just (indexToChar g x)) idx0 x ""])
-      else if isJust cx && fromJust cx == c0 then ([], [])
+      else if cx == Just cEnemy0 then ([], [StdMove (Just (indexToChar g x)) idx0 x ""])
+      else if cx == Just c0 then ([], [])
       else ([StdMove Nothing idx0 x ""],[]) -- empty square
 
 dirLocsSingleCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
 dirLocsSingleCount g idx dir =
     let (enemies, empties) = dirLocsSingle g idx dir
-    in (length enemies) + (length empties)
+    in length enemies + length empties
 
 dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
@@ -1828,7 +1836,7 @@ dirCaptureLocSingle g (idx, _, clr) dir =
     in case apply dir idx of
         x | not (onBoard x) -> Nothing
           | cx <- indexToColor2 g x
-          , isJust cx && fromJust cx == enemyClr -> Just x
+          , cx == Just enemyClr -> Just x
           | otherwise -> Nothing
 
 onBoard :: Int -> Bool
