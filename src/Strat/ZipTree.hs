@@ -28,13 +28,13 @@ module Strat.ZipTree
   , showTC
   , toNegaMoves
   , treeSize
-  , ZipReaderIO
-  , ZipReaderT
+  , ZipTreeM
   , ZipTreeEnv(..)
   , ZipTreeNode(..)
   ) where
 
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy
 import Data.Hashable
 import qualified Data.List as List
 import Data.Text (Text, pack, isInfixOf)
@@ -52,8 +52,9 @@ newtype  ZipTree a = ZipTree {unZipTree :: T.Tree a}
 
 class PositionState p where
     toString :: p -> String
+    combine :: [p] -> p
 
-data ZipTreeEnv p = ZipTreeEnv
+data ZipTreeEnv = ZipTreeEnv
   { verbose :: Bool
   , enablePruneTracing :: Bool
   , enableCmpTracing :: Bool
@@ -67,12 +68,10 @@ data ZipTreeEnv p = ZipTreeEnv
   , maxCritDepth :: Int
   , aiPlaysWhite :: Bool
   , aiPlaysBlack :: Bool
-  , positionStates :: PositionState p => ZipTreeEnv p -> [p]
   }
 
-type ZipReaderT p a = ReaderT (ZipTreeEnv p) a
-
-type ZipReaderIO p a = ReaderT (ZipTreeEnv p) IO a
+-- type ZipReaderIO p a = ReaderT (ZipTreeEnv p) IO a
+type ZipTreeM p a = (PositionState p) => RWST ZipTreeEnv [String] p IO a
 
 data Sign = Pos | Neg
   deriving (Eq, Generic, Hashable, Ord, Show)
@@ -243,7 +242,7 @@ expandTo :: forall a p. (Ord a, Show a, ZipTreeNode a)
          -> Int
          -> Int
          -> Int
-         -> ZipReaderIO p (T.Tree a)
+         -> ZipTreeM p (T.Tree a)
 expandTo t curDepth depth critDepth =
       decendUntil (fromTree t) curDepth depth critDepth
 
@@ -252,7 +251,7 @@ decendUntil :: (Ord a, Show a, ZipTreeNode a)
             -> Int
             -> Int
             -> Int
-            -> ZipReaderIO p (T.Tree a)
+            -> ZipTreeM p (T.Tree a)
 decendUntil z curDepth goalDepth critDepth
     -- not past the goal depth
     | curDepth <= goalDepth = do
@@ -280,7 +279,7 @@ buildChildren :: forall a p. (Ord a, Show a, ZipTreeNode a)
               -> Int
               -> Int
               -> Int
-              -> ZipReaderIO p [T.Tree a]
+              -> ZipTreeM p [T.Tree a]
 buildChildren z curDepth goalDepth critDepth = do
     let tempLabel = label z
     let tempForest = T.subForest $ toTree z
@@ -301,7 +300,7 @@ zipFoldFn :: (Ord a, Show a, ZipTreeNode a)
   => Int -> Int -> Int
   -> T.Tree a
   -> ([T.Tree a], TreePos Empty a)
-  -> ZipReaderIO p ([T.Tree a], TreePos Empty a)
+  -> ZipTreeM p ([T.Tree a], TreePos Empty a)
 zipFoldFn curDepth goalDepth critDepth t (xs, childPos) = do
     let zippedChild = fromTree t
     newT <- decendUntil zippedChild (curDepth + 1) goalDepth critDepth
@@ -312,15 +311,15 @@ zipFoldFn curDepth goalDepth critDepth t (xs, childPos) = do
 zipFoldR :: forall a p. (Show a)
          => ( T.Tree a
               -> ([T.Tree a], TreePos Empty a)
-              -> ZipReaderIO p ([T.Tree a], TreePos Empty a) )
+              -> ZipTreeM p ([T.Tree a], TreePos Empty a) )
          -> ([T.Tree a], TreePos Empty a)
          -> [T.Tree a]
-         -> ZipReaderIO p ([T.Tree a], TreePos Empty a)
+         -> ZipTreeM p ([T.Tree a], TreePos Empty a)
 zipFoldR f = loop
   where
     loop :: ([T.Tree a], TreePos Empty a)
          -> [T.Tree a]
-         -> ZipReaderIO p ([T.Tree a], TreePos Empty a)
+         -> ZipTreeM p ([T.Tree a], TreePos Empty a)
     loop (acc, z ) [] = return (acc, z)
     loop (acc, z) (x : xs) = do
         (ys, z') <- f x (acc, z)
@@ -329,7 +328,7 @@ zipFoldR f = loop
 -- alpha-beta comparison
 -- A return value of (True, _) means the rest of the tree can be pruned
 -- The string in the 2nd tuple component provides debug info
-canPrune :: (Show a) => AlphaBeta -> Bool -> TraceCmp a -> String -> ZipReaderIO p (Bool, String)
+canPrune :: (Show a) => AlphaBeta -> Bool -> TraceCmp a -> String -> ZipTreeM p (Bool, String)
 canPrune AlphaBeta{..} bPruning tcNewBest moreInfo = do
     env <- ask
     let pruneTracing = enablePruneTracing env
@@ -340,7 +339,7 @@ canPrune AlphaBeta{..} bPruning tcNewBest moreInfo = do
                          \ (Because of %s)" moreInfo alpha beta (showTC tcNewBest)
         return (bPruning && alpha >= beta, str)
 
-updateAlphaBeta :: (Show a) => Sign -> AlphaBeta -> Bool -> Float -> TraceCmp a -> Int -> ZipReaderIO p AlphaBeta
+updateAlphaBeta :: (Show a) => Sign -> AlphaBeta -> Bool -> Float -> TraceCmp a -> Int -> ZipTreeM p AlphaBeta
 updateAlphaBeta Pos alpBet bPruning newAlpha tc lvl = do
     env <- ask
     if not bPruning then return alpBet
@@ -384,7 +383,7 @@ updateAlphaBeta Neg alpBet bPruning newBeta tc lvl = do
 
 alphaBetaPrune :: forall a p. (Ord a, Show a, ZipTreeNode a, Hashable a)
          => T.Tree a -> [a] -> AlphaBeta -> Bool -> Sign -> Int -> Int
-         -> ZipReaderIO p (TraceCmp a, Int)
+         -> ZipTreeM p (TraceCmp a, Int)
 alphaBetaPrune t cmpList alphaBeta bPruning sign ec lvl = do
     let x = T.rootLabel t
     let xs = reverse $ T.subForest t
@@ -417,7 +416,7 @@ kingCaptureRisk _n = False
 
 maxLoop :: forall a p. (Ord a, Show a, ZipTreeNode a, Hashable a)
          => [T.Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool
-         -> Int -> Int -> ZipReaderIO p (TraceCmp a, Int)
+         -> Int -> Int -> ZipTreeM p (TraceCmp a, Int)
 maxLoop [] _cmpList tcCurrentBest tcAltsAcc _ _ ec lvl = do
     let altsToSave = if lvl==1 then tcAltsAcc else []
     return (tcCurrentBest{alts = altsToSave}, ec)
@@ -477,7 +476,7 @@ maxLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
 
 minLoop :: forall a p. (Ord a, Show a, ZipTreeNode a, Hashable a)
          => [T.Tree a] -> [a] -> TraceCmp a -> [TraceCmp a] -> AlphaBeta -> Bool
-            -> Int -> Int -> ZipReaderIO p (TraceCmp a, Int)
+            -> Int -> Int -> ZipTreeM p (TraceCmp a, Int)
 minLoop [] _cmpList tcCurrentBest tcAltsAcc _ _ ec lvl = do
     let altsToSave = if lvl==1 then tcAltsAcc else []
     return (tcCurrentBest{alts = altsToSave}, ec)
@@ -536,7 +535,7 @@ minLoop (t:ts) cmpList tcCurrentBest tcAltsAcc alphaBeta bPruning ec lvl = do
         in minLoop ts cmpList tcNewBest newAlts newAlphaBeta bPruning ec'' lvl
 
 tracePruned :: forall a p. (Show a, ZipTreeNode a, Ord a)
-            => [T.Tree a] -> [a] -> String -> Int -> String -> ZipReaderIO p (Maybe String)
+            => [T.Tree a] -> [a] -> String -> Int -> String -> ZipTreeM p (Maybe String)
 tracePruned tsPruned sharedCmpList srcStr lvl moreInfo = do
     env <- ask
     let prunedAsTCs = fmap (\t -> tcFromT t (T.rootLabel t:sharedCmpList) lvl) tsPruned
@@ -553,7 +552,7 @@ tracePruned tsPruned sharedCmpList srcStr lvl moreInfo = do
 -- Single threaded worker for multithreaded evaluation
 ----------------------------------------------------------------------------------------------------
 negaWorker :: (Ord a, Show a, ZipTreeNode a, Hashable a)
-        => T.Tree a -> ZipReaderIO p (TraceCmp a, Int)
+        => T.Tree a -> ZipTreeM p (TraceCmp a, Int)
 negaWorker t = do
   let sign = ztnSign $ T.rootLabel t
   env <- ask
@@ -565,7 +564,7 @@ negaWorker t = do
 -- Entry point for evaluation when running single threaded
 ----------------------------------------------------------------------------------------------------
 negaMax :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
-        => T.Tree a -> Maybe g -> ZipReaderIO p (NegaResult a)
+        => T.Tree a -> Maybe g -> ZipTreeM p (NegaResult a)
 negaMax t gen = do
     case gen of
       Just g -> negaRnd t g
@@ -575,7 +574,7 @@ negaMax t gen = do
 -- Evaluation when running single threaded, no randomness
 ----------------------------------------------------------------------------------------------------
 negaNoRand :: (Ord a, Show a, ZipTreeNode a, Hashable a)
-        => T.Tree a -> ZipReaderIO p (NegaResult a)
+        => T.Tree a -> ZipTreeM p (NegaResult a)
 negaNoRand t  = do
   env <- ask
   let bPruning = enablePruning env
@@ -591,7 +590,7 @@ negaNoRand t  = do
 -- Evaluation when running single threaded, with randomness
 ----------------------------------------------------------------------------------------------------
 negaRnd :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
-        => T.Tree a -> g -> ZipReaderIO p (NegaResult a)
+        => T.Tree a -> g -> ZipTreeM p (NegaResult a)
 negaRnd t gen = do
     env <- ask
     let bPruning = enablePruning env

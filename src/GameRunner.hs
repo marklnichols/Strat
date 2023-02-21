@@ -1,14 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 
@@ -48,21 +45,21 @@ startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enab
           enablePruning singleThreaded
           verbose enablePruneTracing enableCmpTracing moveTraceStr = do
   let env = Z.ZipTreeEnv
-        { verbose
-        , enablePruneTracing
-        , enableCmpTracing
-        , enableRandom
+        { Z.verbose
+        , Z.enablePruneTracing
+        , Z.enableCmpTracing
+        , Z.enableRandom
         -- , maxRandomChange = 2.0
-        , maxRandomChange = 10.0
-        , enablePruning
-        , enablePreSort
-        , moveTraceStr
-        , maxDepth
-        , maxCritDepth
-        , aiPlaysWhite
-        , aiPlaysBlack
-        , singleThreaded
-        , positionStates = \ _ ->[startState]
+        , Z.maxRandomChange = 10.0
+        , Z.enablePruning
+        , Z.enablePreSort
+        , Z.moveTraceStr
+        , Z.maxDepth
+        , Z.maxCritDepth
+        , Z.aiPlaysWhite
+        , Z.aiPlaysBlack
+        , Z.singleThreaded
+        , Z.positionStates = const [startState]
         }
   startGameLoop env o node
 
@@ -80,7 +77,7 @@ startGameLoop env o node = do
     when (Z.enablePruneTracing env) $
       putStrLn $ printf "***** Prune tracing for: |%s| is ON *****" (Z.moveTraceStr env)
     putStrLn $ "critDepth: " ++ show (Z.maxCritDepth env)
-    rnd <- if (Z.enableRandom env)
+    rnd <- if Z.enableRandom env
              then
                Just <$> getStdGen
              else do
@@ -99,7 +96,7 @@ loop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n,
 loop gen o node moveHistory = do
     let label = rootLabel node
     liftIO $ updateBoard o label
-    (theNext, updatedHistory) <- case final $ label of
+    (theNext, updatedHistory) <- case final label of
         WWins -> do
             liftIO $ out o "White wins."
             return (Nothing, moveHistory)
@@ -172,7 +169,6 @@ expandSingleThreaded :: (Ord a, Show a, Z.ZipTreeNode a)
 expandSingleThreaded t depth critDepth = do
     let s = printf "expandSingleThreaded called with depth:%d, critDepth:%d" depth critDepth
     liftIO $ putStrLn s
-    -- runReaderT (Z.expandTo t 1 depth critDepth) env
     expandToSingleThreaded t depth critDepth
 
 expandMultiThreaded :: (Ord a, Show a, Z.ZipTreeNode a)
@@ -182,7 +178,7 @@ expandMultiThreaded env t depth critDepth = do
     liftIO $ putStrLn s
     expandToParallel t depth critDepth
 
-isCompTurn :: Z.Sign -> Z.ZipReaderIO p (Bool)
+isCompTurn :: Z.Sign -> Z.ZipReaderIO p Bool
 isCompTurn sign = do
     env <- ask
     let aiPlaysWhite = Z.aiPlaysWhite env
@@ -221,7 +217,6 @@ evalTreeSingleThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, R
          => Tree n -> Maybe g -> Z.ZipReaderIO p (Tree n, Z.NegaResult n)
 evalTreeSingleThreaded t gen = do
     env <- ask
-    -- res <- runReaderT (Z.negaMax t gen) env
     res <- negaMaxSingleThreaded env t gen
     return (t, res)
 
@@ -242,7 +237,7 @@ processUndo [] = putStrLn "Nothing to undo."
 
 processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n) => String -> n -> [m] -> IO ()
 processCommand cmd node moveHistory
-    | cmd == "hash" = putStrLn $ "hash of current position: " ++ (show $ Z.nodeHash node)
-    | cmd == "list" = putStrLn $ intercalate "\n" (show <$> (reverse moveHistory))
+    | cmd == "hash" = putStrLn $ "hash of current position: " ++ show (Z.nodeHash node)
+    | cmd == "list" = putStrLn $ intercalate "\n" (show <$> reverse moveHistory)
     | cmd == "undo" = processUndo moveHistory
     | otherwise = putStrLn $ "Unhandled Commandi!: " ++ cmd

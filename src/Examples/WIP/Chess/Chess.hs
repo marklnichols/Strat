@@ -198,6 +198,34 @@ data ChessPosState = ChessPosState
 
 instance Z.PositionState ChessPosState where
   toString = show
+  combine = combineChessState
+
+
+
+combineChessStates :: [ChessPosState] -> ChessPosState -> ChessPosState
+combineChessStates xs = foldTBD
+
+combine2ChessStates :: ChessPosState -> ChessPosState -> ChessPosState
+combine2ChessStates s1 s2 =
+  ChessPosState
+  { colorToMove = colorToMove s2
+  , lastMove = lastMove s2
+  , moveNumber = moveNumber s2
+  , castling = combineCastling (castling s1) (castling s2)
+  , enPassant = enPassant s2
+  }
+
+combineCastling :: Castling ->  Castling -> Castling
+combineCastling Unavailable _ = Unavailable
+combineCastling _ Unavailable = Unavailable
+combineCastling _ Castled = Castled
+combineCastling Castled _ = Castled
+combineCastling BothAvailable c2 = c2
+combineCastling c1 BothAvailable = c1
+combineCastling KingSideOnlyAvailable _ = KingSideOnlyAvailable
+combineCastling _ KingSideOnlyAvailable = KingSideOnlyAvailable
+combineCastling QueenSideOnlyAvailable _ = QueenSideOnlyAvailable
+combineCastling _ QueenSideOnlyAvailable = QueenSideOnlyAvailable
 
 newtype ChessGrid = ChessGrid { unGrid :: Vector Char }
   deriving (Generic, Eq, Show, Ord)
@@ -926,13 +954,13 @@ calcEarlyQueen :: ChessPos -> Float
 calcEarlyQueen cp =
     let locs = locsForColor cp
         (wqs, bqs) = filterLocsByChar locs 'Q'
-        wqEarly 
+        wqEarly
             -- no queen, or multiple queen endgame, dont bother with this
            | length wqs /= 1       =  0.0
            | fst3 (head wqs) /= wQ = whiteDev cp - 4.0
            | otherwise             = 0.0
-        bqEarly 
-           | length bqs /= 1       = 0.0 
+        bqEarly
+           | length bqs /= 1       = 0.0
            | fst3 (head bqs) /= bQ = blackDev cp - 4.0
            | otherwise             = 0.0
     in wqEarly - bqEarly
