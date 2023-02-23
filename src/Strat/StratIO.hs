@@ -62,8 +62,8 @@ negaMaxParallel env t _gen = do
     let theChildren = T.subForest t
     env <- ask
     origState <- get
-    (tcResults, newStates) <- liftIO $ Async.forConcurrently theChildren (\x -> do
-        -- (threadTC, threadEC) <- runRWST (Z.negaWorker x) env origState
+    resultsList <- liftIO $ Async.forConcurrently theChildren (\x -> do
+
         triple <- runRWST (Z.negaWorker x) env origState
         -- The TraceCmp returned from each thread needs to be re-attached to
         -- the thread's root node,  part of the move sequence:
@@ -74,12 +74,14 @@ negaMaxParallel env t _gen = do
                            , movePath = movePath threadTC ++  [threadNode] }
                  , threadEC)
                , newState'))
-    let newState = Z.combine newStates
+    let newState = Z.combine (snd <$> resultsList)
     put newState
-
     let sign = ztnSign $ T.rootLabel t
     let initTC = if sign == Pos then Min else Max
+
     let curried = foldf sign
+
+    let tcResults = fst <$> resultsList
     let (theBest, ec::Int) = foldr curried (initTC, 0) tcResults
     liftIO $ putStrLn $ printf "theBest after comparing thread results: %s" (showTC theBest)
 
