@@ -52,7 +52,17 @@ newtype  ZipTree a = ZipTree {unZipTree :: T.Tree a}
 
 class PositionState p where
     toString :: p -> String
-    combine :: [p] -> p
+    combineTwo :: p -> p -> p
+
+    combineList :: [p] -> Maybe p
+    combineList xs =
+      List.foldl' foldFunc Nothing (Just <$> xs)
+        where
+          foldFunc :: Maybe p -> Maybe p -> Maybe p
+          foldFunc Nothing Nothing = Nothing
+          foldFunc Nothing x = x
+          foldFunc x Nothing = x
+          foldFunc (Just x) (Just y) = Just (combineTwo x y)
 
 data ZipTreeEnv = ZipTreeEnv
   { verbose :: Bool

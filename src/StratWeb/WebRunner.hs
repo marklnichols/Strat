@@ -82,6 +82,8 @@ newtype TestPosState = TestPosState {unPosState :: String}
 
 instance PositionState TestPosState where
   toString = unPosState
+  combine _ = defaultState
+  defaultState = noState
 
 noState :: TestPosState
 noState = TestPosState {unPosState = "Not implemented."}

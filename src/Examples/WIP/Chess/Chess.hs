@@ -198,12 +198,13 @@ data ChessPosState = ChessPosState
 
 instance Z.PositionState ChessPosState where
   toString = show
-  combine = combineChessState
+  combineTwo = combine2ChessStates
 
 
-
-combineChessStates :: [ChessPosState] -> ChessPosState -> ChessPosState
-combineChessStates xs = foldTBD
+-- combineChessStates :: [ChessPosState] -> ChessPosState
+-- combineChessStates xs = foldl' foldf defaultState xs
+--   where
+--     foldf x acc = combine2ChessStates x acc
 
 combine2ChessStates :: ChessPosState -> ChessPosState -> ChessPosState
 combine2ChessStates s1 s2 =

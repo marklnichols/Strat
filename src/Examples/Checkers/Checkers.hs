@@ -168,6 +168,8 @@ newtype CheckersPosState = CheckersPosState {unPosState :: String}
 
 instance PositionState CheckersPosState where
   toString  = unPosState
+  combine _ = defaultState
+  defaultState = noState
 
 noState :: CheckersPosState
 noState = CheckersPosState {unPosState = "Not implemented."}
