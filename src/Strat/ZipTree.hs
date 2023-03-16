@@ -37,6 +37,8 @@ import Control.Monad.Reader
 import Control.Monad.RWS.Lazy
 import Data.Hashable
 import qualified Data.List as List
+import Data.List.NonEmpty (NonEmpty, NonEmpty( (:|) ))
+import qualified Data.List.NonEmpty as NE
 import Data.Text (Text, pack, isInfixOf)
 import qualified Data.Tree as T
 import Data.Tree.Zipper
@@ -52,17 +54,11 @@ newtype  ZipTree a = ZipTree {unZipTree :: T.Tree a}
 
 class PositionState p where
     toString :: p -> String
-    combineTwo :: p -> p -> p
+    combine :: p -> p -> p
 
-    combineList :: [p] -> Maybe p
-    combineList xs =
-      List.foldl' foldFunc Nothing (Just <$> xs)
-        where
-          foldFunc :: Maybe p -> Maybe p -> Maybe p
-          foldFunc Nothing Nothing = Nothing
-          foldFunc Nothing x = x
-          foldFunc x Nothing = x
-          foldFunc (Just x) (Just y) = Just (combineTwo x y)
+    combineNonEmpty :: NonEmpty p -> p
+    combineNonEmpty (x :| xs) =
+      List.foldl' (\acc s -> combine acc s) x xs
 
 data ZipTreeEnv = ZipTreeEnv
   { verbose :: Bool

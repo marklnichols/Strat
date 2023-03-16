@@ -9,6 +9,8 @@ import qualified Control.Concurrent.Async as Async
 import Control.Exception (assert)
 import Control.Monad.RWS.Lazy
 import Data.Hashable
+import Data.List.NonEmpty (NonEmpty, NonEmpty( (:|) ))
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Tree as T
 import Data.Tree.Zipper
 import Data.Tuple.Extra
@@ -40,9 +42,12 @@ expandToParallel t depth critDepth = do
     env <- ask
     origState <- get
     triples <- liftIO $ Async.forConcurrently theChildren
-      (\x -> runRWST (Z.expandTo x 2 depth critDepth) env origState)
+      (\x -> runRWST (Z.expandTo x 2 depth critDepth) env origState) 
     let newChildren = fst3 <$> triples
-    let newState = Z.combine (snd3 <$> triples)
+    let stateList = (snd3 <$> triples)
+
+    -- stateList is never empty
+    let newState = Z.combineNonEmpty (head stateList :| tail stateList)
     put newState
 
     let z = fromTree t
@@ -74,8 +79,12 @@ negaMaxParallel env t _gen = do
                            , movePath = movePath threadTC ++  [threadNode] }
                  , threadEC)
                , newState'))
-    let newState = Z.combine (snd <$> resultsList)
+
+    -- stateList is never empty
+    let stateList = (snd <$> resultsList)
+    let newState = Z.combineNonEmpty (head stateList :| tail stateList)
     put newState
+
     let sign = ztnSign $ T.rootLabel t
     let initTC = if sign == Pos then Min else Max
 
