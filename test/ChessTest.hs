@@ -6,6 +6,7 @@ module ChessTest (chessTest) where
 
 import Test.Hspec
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy
 import Data.List
 import qualified Data.Text as T
 import Data.Tuple.Extra (fst3)
@@ -19,7 +20,7 @@ import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
-testEnv :: Z.ZipTreeEnv ChessPosState
+testEnv :: Z.ZipTreeEnv
 testEnv = Z.ZipTreeEnv
         { verbose = False
         , enablePruning = True
@@ -34,8 +35,16 @@ testEnv = Z.ZipTreeEnv
         , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
-        , positionStates = const []
         }
+
+newtype FakeState = FakeState {unFake :: String}
+
+fakeState :: FakeState
+fakeState = FakeState {unFake = "Just a fake state"}
+
+instance Z.PositionState FakeState where
+  toString = unFake
+  combine x y = x
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -290,7 +299,7 @@ chessTest = do
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           let (t, _) = getStartNode "newgame" White
-          newTree <- runReaderT (expandSingleThreaded t 2 2) testEnv
+          (newTree, _, _) <- runRWST (expandSingleThreaded t 2 2) testEnv fakeState
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True
@@ -352,11 +361,11 @@ matchStdMove StdMoveTestData{..} = do
     let (board, _) = getStartNode smtdBoardName colorToMoveNext
         -- tree = Z.expandTo board smtdDepth
         -- result = Z.negaMax tree True
-    let f :: Z.ZipReaderIO p (Z.NegaResult ChessNode)
+    let f :: Z.ZipTreeM p (Z.NegaResult ChessNode)
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
             Z.negaMax tree (Nothing :: Maybe StdGen)
-    result <- runReaderT f testEnv
+    (result, _, _) <- runRWST f testEnv fakeState
     let theBest = Z.picked result
     let mvNode = Z.moveNode theBest
     let mv = _chessMv mvNode
