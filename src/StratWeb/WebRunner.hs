@@ -13,6 +13,7 @@ module StratWeb.WebRunner
     ) where
 
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy
 import Data.Aeson
 import Data.Text (pack)
 import Data.Tree
@@ -29,6 +30,15 @@ data CheckersEnv = CheckersEnv
 gameEnv :: CheckersEnv
 gameEnv = CheckersEnv { ceDepth = 6, ceCritDepth = 10, ceEquivThreshold = 0.05
               , ceP1Comp = False, ceP2Comp = True }
+
+newtype FakeState = FakeState {unFake :: String}
+
+fakeState :: FakeState
+fakeState = FakeState {unFake = "Just a fake state"}
+
+instance PositionState FakeState where
+  toString = unFake
+  combineTwo x _ = x
 
 data Jsonable = forall j. ToJSON j => Jsonable j
 
@@ -82,14 +92,13 @@ newtype TestPosState = TestPosState {unPosState :: String}
 
 instance PositionState TestPosState where
   toString = unPosState
-  combine _ = defaultState
-  defaultState = noState
+  combineTwo s _ = s
 
 noState :: TestPosState
 noState = TestPosState {unPosState = "Not implemented."}
 
 -- TODO: move this
-testEnv :: ZipTreeEnv TestPosState
+testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
         { verbose = False
         , enablePruning = True
@@ -104,7 +113,6 @@ testEnv = ZipTreeEnv
         , maxCritDepth = 5
         , aiPlaysWhite = True
         , aiPlaysBlack = True
-        , positionStates = const [noState]
         }
 
 computerResponse :: RandomGen g => Tree Ck.CkNode -> g -> IO NodeWrapper
@@ -126,8 +134,8 @@ computerResponse prevNode gen = do
 computerMove :: RandomGen g => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-   newTree <- runReaderT (expandTo t 1 (ceDepth gameEnv) (ceCritDepth gameEnv)) testEnv
-   res@NegaResult{..} <- runReaderT (negaMax newTree (Just gen)) testEnv
+   (newTree, _, _) <- runRWST (expandTo t 1 (ceDepth gameEnv) (ceCritDepth gameEnv)) testEnv fakeState
+   (res@NegaResult{..}, _, _) <- runRWST (negaMax newTree (Just gen)) testEnv fakeState
    let bestMv = getMove $ moveNode picked
    let moveScores = mkMoveScores (evalNode picked : (evalNode <$> alternatives))
    return $ Right ( MoveResults

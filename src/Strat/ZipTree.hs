@@ -7,6 +7,7 @@ module Strat.ZipTree
   ( expandTo
   , decendUntil
   , CompareMode(..) -- exported for testing
+  , isWithin
   , MateIn(..) -- exported for testing
   , mateInCompare -- exported for testing
   , maxScore
@@ -21,6 +22,7 @@ module Strat.ZipTree
   , revTraceCmp
   , NegaResult(..)
   , NegaMoves(..)
+  , pickOne
   , PositionState(..)
   , Sign(..)
   , TraceCmp(..)
@@ -609,7 +611,7 @@ negaRnd t gen = do
     let alphaBeta = initAlphaBeta
     (theBestTC, ec) <- alphaBetaPrune t [] alphaBeta bPruning sign 0 0
     let choices =
-          let !tmp = theBestTC : (filter (\tc -> isWithin theBestTC tc sign maxRndChange) (alts theBestTC))
+          let !tmp = theBestTC : (filter (\tc -> isWithin sign maxRndChange theBestTC tc) (alts theBestTC))
               str = printf "Number of choices: %d" (length tmp)
           in trace str tmp
     let pickedTC = pickOne gen choices
@@ -629,17 +631,17 @@ pickOne gen choices =
     let (r, _g) = randomR (0, length choices - 1) gen
     in choices !! r
 
-isWithin :: (Show a, Eq a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Sign -> Float -> Bool
-isWithin TraceCmp {mateIn = MateIn (Just _)} TraceCmp {mateIn = MateIn Nothing} _sign _maxRandChg = False
-isWithin TraceCmp {mateIn = MateIn Nothing} TraceCmp {mateIn = MateIn (Just _)} _sign _maxRandChg = False
-isWithin x@(TraceCmp {mateIn = (MateIn (Just bstMateIn))})
-         y@(TraceCmp {mateIn = (MateIn (Just possMateIn ))}) _sign _maxRandomChg =
+isWithin :: (Show a, Eq a, ZipTreeNode a) => Sign -> Float -> TraceCmp a -> TraceCmp a -> Bool
+isWithin _sign _maxRndChg TraceCmp {mateIn = MateIn (Just _)} TraceCmp {mateIn = MateIn Nothing}  = False
+isWithin _sign _maxRandChg TraceCmp {mateIn = MateIn Nothing} TraceCmp {mateIn = MateIn (Just _)} = False
+isWithin _sign _maxRandomChg
+         x@(TraceCmp {mateIn = (MateIn (Just bstMateIn))})
+         y@(TraceCmp {mateIn = (MateIn (Just possMateIn ))}) =
     x /= y &&
     possMateIn == bstMateIn
-
-isWithin x@TraceCmp {value = bst, mateIn = (MateIn Nothing)}
-         y@TraceCmp {value = possible, mateIn = (MateIn Nothing)}
-         sign maxRandomChg =
+isWithin sign maxRandomChg
+         x@TraceCmp {value = bst, mateIn = (MateIn Nothing)}
+         y@TraceCmp {value = possible, mateIn = (MateIn Nothing)} =
     x /= y &&
     case sign of
       Pos ->

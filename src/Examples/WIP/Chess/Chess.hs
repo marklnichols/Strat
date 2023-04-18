@@ -226,7 +226,6 @@ combineCastling c1 BothAvailable = c1
 combineCastling KingSideOnlyAvailable _ = KingSideOnlyAvailable
 combineCastling _ KingSideOnlyAvailable = KingSideOnlyAvailable
 combineCastling QueenSideOnlyAvailable _ = QueenSideOnlyAvailable
-combineCastling _ QueenSideOnlyAvailable = QueenSideOnlyAvailable
 
 newtype ChessGrid = ChessGrid { unGrid :: Vector Char }
   deriving (Generic, Eq, Show, Ord)
