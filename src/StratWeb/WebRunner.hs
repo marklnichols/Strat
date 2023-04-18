@@ -15,11 +15,12 @@ module StratWeb.WebRunner
 import Control.Monad.Reader
 import Control.Monad.RWS.Lazy
 import Data.Aeson
+import Data.Hashable
 import Data.Text (pack)
 import Data.Tree
 import Strat.Helpers
 import Strat.StratTree.TreeNode
-import Strat.ZipTree
+import qualified Strat.ZipTree as Z
 import System.Random
 import qualified Checkers as Ck
 import qualified CheckersJson as J
@@ -27,16 +28,51 @@ import qualified CheckersJson as J
 data CheckersEnv = CheckersEnv
     { ceDepth :: Int, ceCritDepth ::Int,  ceEquivThreshold :: Float, ceP1Comp :: Bool ,ceP2Comp :: Bool } deriving (Show)
 
-gameEnv :: CheckersEnv
-gameEnv = CheckersEnv { ceDepth = 6, ceCritDepth = 10, ceEquivThreshold = 0.05
-              , ceP1Comp = False, ceP2Comp = True }
+-- gameEnv :: CheckersEnv
+-- gameEnv = CheckersEnv { ceDepth = 6, ceCritDepth = 10, ceEquivThreshold = 0.05
+--               , ceP1Comp = False, ceP2Comp = True }
+gameEnv :: Z.ZipTreeEnv
+gameEnv = Z.ZipTreeEnv
+        { verbose = False
+        , enablePruning = True
+        , singleThreaded = True -- multi threaded has yet to be tested here
+        , enablePruneTracing = False
+        , enableCmpTracing = False
+        , enableRandom = True
+        , maxRandomChange = 0.05
+        , enablePreSort = False
+        , moveTraceStr = pack ""
+        , maxDepth = 6
+        , maxCritDepth = 10
+        , aiPlaysWhite = False
+        , aiPlaysBlack = True
+        }
+
 
 newtype FakeState = FakeState {unFake :: String}
 
 fakeState :: FakeState
 fakeState = FakeState {unFake = "Just a fake state"}
 
-instance PositionState FakeState where
+-- isWithin :: (Show a, Eq a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Sign -> Float -> Bool
+-- isWithin TraceCmp {mateIn = MateIn (Just _)} TraceCmp {mateIn = MateIn Nothing} _sign _maxRandChg = False
+-- isWithin TraceCmp {mateIn = MateIn Nothing} TraceCmp {mateIn = MateIn (Just _)} _sign _maxRandChg = False
+-- isWithin x@(TraceCmp {mateIn = (MateIn (Just bstMateIn))})
+--          y@(TraceCmp {mateIn = (MateIn (Just possMateIn ))}) _sign _maxRandomChg =
+--     x /= y &&
+--     possMateIn == bstMateIn
+-- isWithin x@TraceCmp {value = bst, mateIn = (MateIn Nothing)}
+--          y@TraceCmp {value = possible, mateIn = (MateIn Nothing)}
+--          sign maxRandomChg =
+--     x /= y &&
+--     case sign of
+--       Pos ->
+--         bst - maxRandomChg <= possible
+--       Neg ->
+--         bst + maxRandomChg >= possible
+-- isWithin _ _ _ _ = error "'Min' or 'Max' passed to isWithin?"
+-- isWithin :: (Show a, Eq a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Sign -> Float -> Bool
+
   toString = unFake
   combineTwo x _ = x
 
@@ -88,9 +124,9 @@ processPlayerMove tree mv bComputerResponse rnds = do
  -- Internal functions
 ----------------------------------------------------------------------------------------------------
 
-newtype TestPosState = TestPosState {unPosState :: String}
+newtype NoPosState = NoPosState {unPosState :: String}
 
-instance PositionState TestPosState where
+instance Z.PositionState NoPosState where
   toString = unPosState
   combineTwo s _ = s
 
@@ -143,6 +179,13 @@ computerMove t gen = do
       , mrMoveScores = moveScores
       , mrMove = bestMv
       , mrNewTree = newTree } )
+
+searchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
+         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM p (Z.NegaResult n)
+searchTo t gen maxDepth maxCritDepth = do
+    env <- ask
+    expanded <- expandTo t 1 (ceDepthmaxDepth env) (ceCritDepth gameEnv)
+    negaMax expanded (Just gen)
 
 checkGameOver :: Tree Ck.CkNode -> (Bool, String)
 checkGameOver node =

@@ -71,7 +71,11 @@ fakeState = FakeState {unFake = "Just a fake state"}
 
 instance PositionState FakeState where
   toString = unFake
+<<<<<<< HEAD
   combineTwo x _ = x
+=======
+  combine x y = x
+>>>>>>> 6f947c436e5a81e0b010a47c144224fe906f31cc
 
 pruningTest :: SpecWith ()
 pruningTest = do

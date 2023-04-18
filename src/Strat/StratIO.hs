@@ -42,7 +42,7 @@ expandToParallel t depth critDepth = do
     env <- ask
     origState <- get
     triples <- liftIO $ Async.forConcurrently theChildren
-      (\x -> runRWST (Z.expandTo x 2 depth critDepth) env origState)
+      (\x -> runRWST (Z.expandTo x 2 depth critDepth) env origState) 
     let newChildren = fst3 <$> triples
     let newState = Z.combineList (snd3 <$> triples)
     case newState of
