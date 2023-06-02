@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RankNTypes #-}
 
 module StratWeb.WebRunner
     ( Jsonable(..)
@@ -28,9 +29,6 @@ import qualified CheckersJson as J
 data CheckersEnv = CheckersEnv
     { ceDepth :: Int, ceCritDepth ::Int,  ceEquivThreshold :: Float, ceP1Comp :: Bool ,ceP2Comp :: Bool } deriving (Show)
 
--- gameEnv :: CheckersEnv
--- gameEnv = CheckersEnv { ceDepth = 6, ceCritDepth = 10, ceEquivThreshold = 0.05
---               , ceP1Comp = False, ceP2Comp = True }
 gameEnv :: Z.ZipTreeEnv
 gameEnv = Z.ZipTreeEnv
         { verbose = False
@@ -48,31 +46,12 @@ gameEnv = Z.ZipTreeEnv
         , aiPlaysBlack = True
         }
 
-
 newtype FakeState = FakeState {unFake :: String}
 
 fakeState :: FakeState
 fakeState = FakeState {unFake = "Just a fake state"}
 
--- isWithin :: (Show a, Eq a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Sign -> Float -> Bool
--- isWithin TraceCmp {mateIn = MateIn (Just _)} TraceCmp {mateIn = MateIn Nothing} _sign _maxRandChg = False
--- isWithin TraceCmp {mateIn = MateIn Nothing} TraceCmp {mateIn = MateIn (Just _)} _sign _maxRandChg = False
--- isWithin x@(TraceCmp {mateIn = (MateIn (Just bstMateIn))})
---          y@(TraceCmp {mateIn = (MateIn (Just possMateIn ))}) _sign _maxRandomChg =
---     x /= y &&
---     possMateIn == bstMateIn
--- isWithin x@TraceCmp {value = bst, mateIn = (MateIn Nothing)}
---          y@TraceCmp {value = possible, mateIn = (MateIn Nothing)}
---          sign maxRandomChg =
---     x /= y &&
---     case sign of
---       Pos ->
---         bst - maxRandomChg <= possible
---       Neg ->
---         bst + maxRandomChg >= possible
--- isWithin _ _ _ _ = error "'Min' or 'Max' passed to isWithin?"
--- isWithin :: (Show a, Eq a, ZipTreeNode a) => TraceCmp a -> TraceCmp a -> Sign -> Float -> Bool
-
+instance Z.PositionState FakeState where
   toString = unFake
   combineTwo x _ = x
 
@@ -123,19 +102,9 @@ processPlayerMove tree mv bComputerResponse rnds = do
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
 ----------------------------------------------------------------------------------------------------
-
-newtype NoPosState = NoPosState {unPosState :: String}
-
-instance Z.PositionState NoPosState where
-  toString = unPosState
-  combineTwo s _ = s
-
-noState :: TestPosState
-noState = TestPosState {unPosState = "Not implemented."}
-
 -- TODO: move this
-testEnv :: ZipTreeEnv
-testEnv = ZipTreeEnv
+testEnv :: Z.ZipTreeEnv
+testEnv = Z.ZipTreeEnv
         { verbose = False
         , enablePruning = True
         , singleThreaded = True -- multi threaded has yet to be tested here
@@ -170,10 +139,10 @@ computerResponse prevNode gen = do
 computerMove :: RandomGen g => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-   (newTree, _, _) <- runRWST (expandTo t 1 (ceDepth gameEnv) (ceCritDepth gameEnv)) testEnv fakeState
-   (res@NegaResult{..}, _, _) <- runRWST (negaMax newTree (Just gen)) testEnv fakeState
-   let bestMv = getMove $ moveNode picked
-   let moveScores = mkMoveScores (evalNode picked : (evalNode <$> alternatives))
+   (newTree, _, _) <- runRWST (Z.expandTo t 1 (Z.maxDepth gameEnv) (Z.maxCritDepth gameEnv)) testEnv fakeState
+   (res@Z.NegaResult{..}, _, _) <- runRWST (Z.negaMax newTree (Just gen)) testEnv fakeState
+   let bestMv = getMove $ Z.nmNode picked
+   let moveScores = mkMoveScores ((last (Z.nmMovePath picked)) : ((last . Z.nmMovePath)  <$> alternatives))
    return $ Right ( MoveResults
       { mrResult = res
       , mrMoveScores = moveScores
@@ -181,11 +150,12 @@ computerMove t gen = do
       , mrNewTree = newTree } )
 
 searchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
-         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM p (Z.NegaResult n)
+         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM p (Tree n, Z.NegaResult n)
 searchTo t gen maxDepth maxCritDepth = do
     env <- ask
-    expanded <- expandTo t 1 (ceDepthmaxDepth env) (ceCritDepth gameEnv)
-    negaMax expanded (Just gen)
+    expanded <- Z.expandTo t 1 (Z.maxDepth env) (Z.maxCritDepth env)
+    res <- Z.negaMax expanded gen
+    return (t, res)
 
 checkGameOver :: Tree Ck.CkNode -> (Bool, String)
 checkGameOver node =

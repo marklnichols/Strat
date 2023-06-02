@@ -43,23 +43,26 @@ printMoveChoiceInfo tree result loud = do
     let (tSize, tLevels)  = treeSize tree
     let evaluated = evalCount result
     let percentSaved = 1.0 - fromIntegral evaluated / fromIntegral (tSize-1) :: Float
+    putStrLn $ "%%%%%%%%%%%%%%%%%%%%" ++ " new version " ++ "%%%%%%%%%%%%%%%%%%%%"
     putStrLn ("Tree size: " ++ show tSize)
     putStrLn (show tLevels)
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
-    putStrLn ("Computer's move: " ++ showNegaMoves (picked result))
+    putStrLn ("Computer's move: " ++ show (picked result))
 
-    let mv = getMove (moveNode(picked result))
+    let mv = getMove (nmNode (picked result))
     let n = rootLabel tree
     when (moveChecksOpponent n mv) $ do
         putStrLn " (check)"
     when loud $ do
+        -- START HERE: -- For the selcted move, this does NOT show the details of the score of the deepest node!
         putStrLn ("Score details: \n"
-                 ++ showScoreDetails (_chessVal (evalNode (picked result))))
-        putStrLn ("Move with best score: " ++ showNegaMoves (bestScore result))
+                 ++ showScoreDetails (_chessVal (last (nmMovePath (picked result)))))
+        putStrLn ("Move with best score: " ++ show (bestScore result))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
-                 (showNegaMoves <$> alternatives result))
+                 (show <$> alternatives result))
         putStrLn ""
+    putStrLn $ "%%%%%%%%%%%%%%%%%%%%" ++ "%%%%%%%%%%%%%%"  ++ "%%%%%%%%%%%%%%%%%%%%"
 
 exitFail :: ChessText -> String -> IO ()
 exitFail _ s = do

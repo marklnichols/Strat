@@ -71,11 +71,7 @@ fakeState = FakeState {unFake = "Just a fake state"}
 
 instance PositionState FakeState where
   toString = unFake
-<<<<<<< HEAD
   combineTwo x _ = x
-=======
-  combine x y = x
->>>>>>> 6f947c436e5a81e0b010a47c144224fe906f31cc
 
 pruningTest :: SpecWith ()
 pruningTest = do
@@ -97,9 +93,9 @@ pruningTest = do
             (result1, _s, _w) <- runRWST f1 testEnv fakeState
 
             let theBest1 = picked result1
-            evalNode theBest1 `shouldBe`
+            last (nmMovePath theBest1) `shouldBe`
                 TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
-            moveSeq theBest1 `shouldBe`
+            nmMovePath theBest1 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               ]
 
@@ -113,9 +109,10 @@ pruningTest = do
             (result2, _s, _w) <- runRWST f2 testEnv fakeState
 
             let theBest2 = picked result2
-            evalNode theBest2 `shouldBe`
+
+            last (nmMovePath theBest2) `shouldBe`
                 TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-            moveSeq theBest2 `shouldBe`
+            nmMovePath theBest2 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               ]
@@ -129,9 +126,9 @@ pruningTest = do
                   negaMax wikiTreeD3 (Nothing :: Maybe StdGen)
             (result3, _s, _w) <- runRWST f3 testEnv fakeState
             let theBest3 = picked result3
-            evalNode theBest3 `shouldBe`
+            last (nmMovePath theBest3) `shouldBe`
                 TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-            moveSeq theBest3 `shouldBe`
+            nmMovePath theBest3 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -146,10 +143,10 @@ pruningTest = do
             let noPruneEnv = testEnv {enablePruning = False}
             (result4, _w, _s) <- runRWST (negaMax newWikiTree (Nothing :: Maybe StdGen) ) noPruneEnv fakeState
             let theBest4 = picked result4
-            evalNode theBest4 `shouldBe`
+            last (nmMovePath theBest4) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest4 `shouldBe`
+            nmMovePath theBest4 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -166,10 +163,10 @@ pruningTest = do
 
 
             let theBest5 = picked result5
-            evalNode theBest5 `shouldBe`
+            last (nmMovePath theBest5) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest5 `shouldBe`
+            nmMovePath theBest5 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -185,10 +182,10 @@ pruningTest = do
             (result6, _w, _s) <- runRWST (negaMax newWikiTree (Just rnd) ) testEnv fakeState
 
             let theBest6 = picked result6
-            evalNode theBest6 `shouldBe`
+            last (nmMovePath theBest6) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest6 `shouldBe`
+            nmMovePath theBest6 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -203,10 +200,10 @@ pruningTest = do
             (newCritWikiTree, _w, _s) <- runRWST (expandTo rootWikiTree 1 2 4) testEnv fakeState
             (result7, _w, _s) <- runRWST (negaMax newCritWikiTree (Nothing :: Maybe StdGen) ) testEnv fakeState
             let theBest7 = picked result7
-            evalNode theBest7 `shouldBe`
+            last (nmMovePath theBest7) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest7 `shouldBe`
+            nmMovePath theBest7 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}

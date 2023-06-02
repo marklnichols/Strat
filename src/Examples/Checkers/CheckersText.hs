@@ -38,12 +38,12 @@ showBoard _ n = do
 printMoveChoiceInfo :: Tree CkNode -> NegaResult CkNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
     putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Computer's move: " ++ showNegaMoves (picked result))
+    putStrLn ("Computer's move: " ++ show (picked result))
     when loud $ do
         putStrLn ("score details: \n"
-                 ++ showScoreDetails (_ckValue (evalNode (picked result))))
+                 ++ showScoreDetails (_ckValue (nmNode (picked result))))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
-                 (showNegaMoves <$> alternatives result))
+                 (show <$> alternatives result))
         putStrLn ""
 
 exitFail :: CheckersText -> String -> IO ()

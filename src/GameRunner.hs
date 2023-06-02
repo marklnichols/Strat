@@ -50,8 +50,7 @@ startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enab
         , Z.enablePruneTracing
         , Z.enableCmpTracing
         , Z.enableRandom
-        -- , maxRandomChange = 2.0
-        , Z.maxRandomChange = 10.0
+        , Z.maxRandomChange = 2.0
         , Z.enablePruning
         , Z.enablePreSort
         , Z.moveTraceStr
@@ -145,17 +144,11 @@ computersTurn gen o t moveHistory = do
     (sec, (newRoot, updatedHistory)) <- duration $ do
         env <- ask
         let labe = rootLabel t
-        let sss = printf "computersTurn - top - move:%s color:%s" (show (getMove labe)) (show (color labe))
-        liftIO $ putStrLn sss
-
         (expandedT, result) <- searchTo t gen (Z.maxDepth env) (Z.maxCritDepth env)
         let labe2 = rootLabel expandedT
-        let sss2 = printf "computersTurn - after searchTo - move:%s color:%s" (show (getMove labe2)) (show (color labe2))
-        liftIO $ putStrLn sss2
-
         liftIO $ putStrLn "\n--------------------------------------------------\n"
         liftIO $ showCompMove o expandedT result True
-        let nextMove = getMove $ Z.moveNode (Z.picked result)
+        let nextMove = getMove $ Z.nmNode (Z.picked result)
         return (findMove expandedT nextMove, nextMove:moveHistory)
     liftIO $ putStrLn $ "Computer move (time: " ++ showDuration sec ++ "):"
     case newRoot of

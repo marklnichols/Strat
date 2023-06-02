@@ -198,7 +198,7 @@ data ChessPosState = ChessPosState
 
 instance Z.PositionState ChessPosState where
   toString = show
-  combine = combineChessStates
+  combineTwo = combineChessStates
 
 combineChessStates :: ChessPosState -> ChessPosState -> ChessPosState
 combineChessStates s1 s2 =

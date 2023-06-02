@@ -1,3 +1,4 @@
+{-# language GHC2021 #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -27,7 +28,7 @@ resolveRandom xs = do
     r <- getStdRandom $ randomR (1, length xs)
     return $ Just $ xs !! (r-1)
 
-expandToParallel :: forall a p. (Ord a, Show a, ZipTreeNode a)
+expandToParallel :: (Ord a, Show a, ZipTreeNode a, Z.PositionState p)
                  => T.Tree a -> Int -> Int -> Z.ZipTreeM p (T.Tree a)
 expandToParallel t depth critDepth = do
     -- expansion of at least one level should always have been previously done
@@ -36,58 +37,42 @@ expandToParallel t depth critDepth = do
     let theChildren = T.subForest t
     liftIO $ putStrLn $ printf "expandToParallel -- number of threads that will be created: %d" (length theChildren)
     liftIO $ putStrLn $ printf "(expansion to depth:%d, critDepth %d)" depth critDepth
-
-    -- a little weird: runReaderT within a ReaderT monad - to get an IO type usable with Async
-    -- runRWST :: RWST r w s m a -> r -> s -> m (a, s, w)
     env <- ask
     origState <- get
     triples <- liftIO $ Async.forConcurrently theChildren
-      (\x -> runRWST (Z.expandTo x 2 depth critDepth) env origState) 
+      (\x -> runRWST (Z.expandTo x 2 depth critDepth) env origState)
     let newChildren = fst3 <$> triples
-    let newState = Z.combineList (snd3 <$> triples)
-    case newState of
-      Nothing -> error "StratIO.expandToParallel -- no state?"
-      Just ns -> put ns
+    let newState = Z.combine (snd3 <$> triples)
+    put newState
     let z = fromTree t
     let newTree = toTree $ modifyTree (\(T.Node x _) -> T.Node x newChildren) z
-
-    liftIO $ putStrLn $ printf "size of newTree: %s" (show (treeSize newTree))
     return newTree
 
 expandToSingleThreaded :: forall a p. (Ord a, Show a, ZipTreeNode a)
-                 => T.Tree a -> Int -> Int -> Z.ZipTreeM p (T.Tree a)
-expandToSingleThreaded t depth critDepth =
-    Z.expandTo t 1 depth critDepth
+                       => T.Tree a -> Int -> Int -> Z.ZipTreeM p (T.Tree a)
+expandToSingleThreaded t depth critDepth = Z.expandTo t 1 depth critDepth
 
-negaMaxParallel :: forall a g p. (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g, Z.PositionState p)
+negaMaxParallel :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g, Z.PositionState p)
         => Z.ZipTreeEnv -> T.Tree a -> Maybe g -> Z.ZipTreeM p  (NegaResult a)
 negaMaxParallel env t gen = do
     let theChildren = T.subForest t
     env <- ask
     origState <- get
-    resultsList <- liftIO $ Async.forConcurrently theChildren (\x -> do
-
-        -- TODO: use UnliftIO to remove the need to another runRWST here
+    outerList <- liftIO $ Async.forConcurrently theChildren (\x -> do
         triple <- runRWST (Z.negaWorker x) env origState
-        -- The TraceCmp returned from each thread needs to be re-attached to
-        -- the thread's root node,  part of the move sequence:
         let (threadTC, threadEC) = fst3 triple
         let threadNode = T.rootLabel x
         let newState' = snd3 triple
         return ( ( threadTC { node = threadNode , movePath = movePath threadTC ++  [threadNode] }
                  , threadEC)
                , newState'))
-    let newState = Z.combineList (snd <$> resultsList)
-    case newState of
-        Nothing -> error "StratIO.negaMaxParallel -- no state?"
-        Just ns -> put ns
+    let newState = Z.combine $ snd <$> outerList
+    put newState
     let sign = ztnSign $ T.rootLabel t
     let initTC = if sign == Pos then Min else Max
-
-    let tcResults = fst <$> resultsList
+    let resultsList = fst <$> outerList
     let curried = foldf sign
-    let (theBestTC, ec::Int) = foldr curried (initTC, 0) tcResults
-    liftIO $ putStrLn $ printf "theBest after comparing thread results: %s" (showTC theBestTC)
+    let (theBestTC, ec::Int) = foldr curried (initTC, 0) resultsList
 
     -- TODO: combine this with the code in Strat.ZipTree.negaRnd
     if enableRandom env && isJust gen
@@ -95,23 +80,22 @@ negaMaxParallel env t gen = do
         let theGen = fromJust gen
         let maxRnd = maxRandomChange env
         let curriedAltf = foldfAlts sign (maxRandomChange env) theBestTC
-        let theAlts = foldr curriedAltf [] (fst <$> tcResults)
+        let theAlts = foldr curriedAltf [] (fst <$> resultsList)
+        liftIO $ putStrLn $ printf "best:\n%s\nand the alts:\n%s" (show theBestTC) (Z.showCompactTCList theAlts)
 
-        let pickedTC = Z.pickOne theGen theAlts
-        let notPicked = List.delete pickedTC theAlts
-        let revNotPicked = revTraceCmp <$> notPicked
-        let reverseBest = theBestTC{movePath = reverse (movePath theBestTC)}
-        let reversePicked = pickedTC{movePath = reverse (movePath pickedTC)}
-        return NegaResult { picked = toNegaMoves reversePicked
-                          , bestScore = toNegaMoves (revTraceCmp theBestTC)
-                          , alternatives = toNegaMoves <$> revNotPicked
+        let allChoices = theBestTC : theAlts
+        let pickedTC = Z.pickOne theGen allChoices
+        liftIO $ putStrLn $ printf "Selected:\n%s" (show pickedTC)
+        let notPicked = List.delete pickedTC allChoices
+        return NegaResult { picked = toNegaMoves pickedTC
+                          , bestScore = toNegaMoves theBestTC
+                          , alternatives = toNegaMoves <$> notPicked
                           , evalCount = ec }
-        else
-          return $ NegaResult { picked = toNegaMoves (revTraceCmp theBestTC)
-                              , bestScore = toNegaMoves (revTraceCmp theBestTC)
-                              , alternatives = []
-                              , evalCount = ec }
-
+      else
+        return $ NegaResult { picked = toNegaMoves theBestTC
+                            , bestScore = toNegaMoves theBestTC
+                            , alternatives = []
+                            , evalCount = ec }
     where
         foldf :: forall a. (Ord a, Show a, ZipTreeNode a, Hashable a)
               => Sign
@@ -126,9 +110,9 @@ negaMaxParallel env t gen = do
         foldfAlts :: forall a. (Ord a, Show a, ZipTreeNode a, Hashable a)
                   => Sign -> Float -> TraceCmp a -> TraceCmp a -> [(TraceCmp a)] -> [(TraceCmp a)]
         foldfAlts sgn maxRnd tcBest x acc =
-          case isWithin sgn maxRnd tcBest x of
-            True -> x : acc
-            False -> acc
+          if isWithin sgn maxRnd tcBest x
+            then x : acc
+            else acc
 
 negaMaxSingleThreaded :: forall a g p. (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g, Z.PositionState p)
         => Z.ZipTreeEnv -> T.Tree a -> Maybe g -> Z.ZipTreeM p (NegaResult a)

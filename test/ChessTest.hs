@@ -18,6 +18,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
+import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -367,12 +368,16 @@ matchStdMove StdMoveTestData{..} = do
             Z.negaMax tree (Nothing :: Maybe StdGen)
     (result, _, _) <- runRWST f testEnv fakeState
     let theBest = Z.picked result
-    let mvNode = Z.moveNode theBest
+    putStrLn $ printf "ChessTest::matchStdMove - theBest: %s" (show theBest)
+
+    let mvNode = Z.nmNode theBest
+    let mvNode = head $ Z.nmMovePath theBest -- nmMovePath is never empty
     let mv = _chessMv mvNode
     case mv of
         StdMove {..} -> do
             let start = _startIdx
             let end = _endIdx
+            putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 

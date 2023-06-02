@@ -1,4 +1,3 @@
--- {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -9,8 +8,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
-
--- {-# OPTIONS_GHC -Wno-deriving-defaults #-}
 
 module Strat.StratTree.TreeNode
     (
@@ -29,7 +26,6 @@ module Strat.StratTree.TreeNode
     , RST (..)
     , RSTransformer
     , score
-    , showNegaMoves
     , TreeLocation(..)
     , TreeNode (..)
     , wrapRST
@@ -42,7 +38,7 @@ import Data.List
 import Data.Tree
 import Data.Hashable
 import GHC.Generics
-import Strat.ZipTree (NegaResult(..), NegaMoves(..))
+import qualified Strat.ZipTree as Z
 
 ----------------------------------------------------------------------------------------------------
 -- Data types
@@ -60,7 +56,7 @@ data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Show, Eq)
 $(makeLenses ''MoveScore)
 
 data MoveResults t m = MoveResults
-  { mrResult :: NegaResult t
+  { mrResult :: Z.NegaResult t
   , mrMoveScores :: [MoveScore m t]
   , mrMove :: m
   , mrNewTree :: Tree t }
@@ -108,7 +104,8 @@ class (Move m, Eval t) => TreeNode t m | t -> m where
 class Output o n m | o -> n, n -> m where
     out :: o -> String -> IO ()
     updateBoard :: o -> n -> IO ()
-    showCompMove :: o -> Tree n -> NegaResult n -> Bool -> IO ()
+    --TODO: replace this with showMoveInfo
+    showCompMove :: o -> Tree n -> Z.NegaResult n -> Bool -> IO ()
     getPlayerEntry :: o -> Tree n -> [m] -> IO (Entry m s)
     gameError :: o -> String -> IO ()
 
@@ -118,13 +115,8 @@ mkMoveScores tns = map (\x -> mkMoveScore (getMove x) x) tns
 mkMoveScore :: m -> n -> MoveScore m n
 mkMoveScore = MoveScore
 
-showNegaMoves :: (TreeNode n m, Eval n) => (NegaMoves n) -> String
-showNegaMoves NegaMoves{..} =
-        ("score: " ++ show (evaluate evalNode) ++
-        " - move: " ++ (showMove moveNode) ++
-        " - move sequence: " ++ intercalate ", " (showMove <$> moveSeq))
-           where
-             showMove x = show $ getMove x
+showMoveInfo :: (Show a) => [Z.TraceCmp a] -> String
+showMoveInfo = Z.showCompactTCList
 
 ---------------------------------------------------------------------------------------------------
 -- Monad Transformer stack

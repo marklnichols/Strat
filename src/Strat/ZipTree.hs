@@ -24,6 +24,7 @@ module Strat.ZipTree
   , NegaMoves(..)
   , pickOne
   , PositionState(..)
+  , showCompactTCList
   , Sign(..)
   , TraceCmp(..)
   , showMoveSeq
@@ -56,11 +57,11 @@ newtype  ZipTree a = ZipTree {unZipTree :: T.Tree a}
 
 class PositionState p where
     toString :: p -> String
-    combine :: p -> p -> p
+    combineTwo :: p -> p -> p
 
-    combineNonEmpty :: NonEmpty p -> p
-    combineNonEmpty (x :| xs) =
-      List.foldl' (\acc s -> combine acc s) x xs
+    combine :: [p] -> p
+    combine [x] = x
+    combine (x:xs) = List.foldl' (\acc s -> combineTwo acc s) x xs
 
 data ZipTreeEnv = ZipTreeEnv
   { verbose :: Bool
@@ -78,7 +79,6 @@ data ZipTreeEnv = ZipTreeEnv
   , aiPlaysBlack :: Bool
   }
 
--- type ZipReaderIO p a = ReaderT (ZipTreeEnv p) IO a
 type ZipTreeM p a = (PositionState p) => RWST ZipTreeEnv [String] p IO a
 
 data Sign = Pos | Neg
@@ -136,6 +136,36 @@ instance Eq a => Eq (TraceCmp a) where
 
 instance (Eq a, ZipTreeNode a, Hashable a) => Ord (TraceCmp a) where
   (<=) = cmpTC
+
+-- Similar to TraceCmp, but with move list reversed so that earlier moves preceed later ones
+data NegaMoves a where
+  NegaMoves ::
+    { nmNode :: a
+    , nmMovePath :: [a]
+    , nmValue :: Float
+    , nmMateIn :: MateIn
+    , nmAlts :: [TraceCmp a]
+    } -> NegaMoves a
+instance (Show a) => Show (NegaMoves a) where
+  show = showNegaMoves
+
+toNegaMoves :: TraceCmp a -> NegaMoves a
+toNegaMoves Min = error "received 'Min' in toNegaMoves?"
+toNegaMoves Max = error "received 'Max' in toNegaMoves?"
+toNegaMoves tOrig =
+    let t = revTraceCmp tOrig
+    in NegaMoves
+        { nmNode = node t
+        , nmMovePath = movePath t
+        , nmValue = value t
+        , nmMateIn = mateIn t
+        , nmAlts = alts t }
+
+data NegaResult a = NegaResult
+  { picked :: NegaMoves a
+  , bestScore :: NegaMoves a
+  , alternatives :: [NegaMoves a]
+  , evalCount :: Int }
 
 -- TODO: move this back to Ord instance again
 cmpTC :: (ZipTreeNode a, Hashable a) => TraceCmp a -> TraceCmp a -> Bool
@@ -217,33 +247,6 @@ instance forall a. Ord a => Ord (ZipTree a) where
      let x = unZipTree r
          y = unZipTree s
      in x <= y
-
--- TODO: Can probably get rid of NegaMoves now
-data NegaMoves a = NegaMoves
-  { evalScore :: Float
-  , mateIn :: Maybe (Int, Sign)
-  , evalNode :: a
-  , moveNode :: a
-  , moveSeq :: [a] }
-  deriving (Eq)
-
--- START HERE, evalNode is not right on alt selection
-toNegaMoves :: TraceCmp a -> NegaMoves a
-toNegaMoves TraceCmp{..} =
-    let MateIn mi = mateIn
-    in NegaMoves { evalScore = value
-              , mateIn = mi
-              , evalNode = node
-              , moveNode = head movePath -- never empty
-              , moveSeq = movePath }
-toNegaMoves Min = error "received 'Min' in toNegaMoves?"
-toNegaMoves Max = error "received 'Max' in toNegaMoves?"
-
-data NegaResult a = NegaResult
-  { picked :: NegaMoves a
-  , bestScore :: NegaMoves a
-  , alternatives :: [NegaMoves a]
-  , evalCount :: Int }
 
 expandTo :: forall a p. (Ord a, Show a, ZipTreeNode a)
          => T.Tree a
@@ -418,7 +421,8 @@ tcFromT t movePath lvl =
           TraceCmp {node, movePath, value, mateIn, alts = []}
 
 
--- TODO: remove this
+
+  -- TODO: remove this
 kingCaptureRisk :: (Ord a, Show a, ZipTreeNode a) => a -> Bool
 kingCaptureRisk _n = False
 
@@ -589,8 +593,8 @@ negaNoRand t  = do
   let sign = ztnSign $ T.rootLabel t
   let alphaBeta = initAlphaBeta
   (theBest, ec) <-  alphaBetaPrune t [] alphaBeta bPruning sign 0 0
-  return $ NegaResult { picked = toNegaMoves (revTraceCmp theBest)
-                      , bestScore = toNegaMoves (revTraceCmp theBest)
+  return $ NegaResult { picked = toNegaMoves theBest
+                      , bestScore = toNegaMoves theBest
                       , alternatives = []
                       , evalCount = ec }
 
@@ -612,15 +616,10 @@ negaRnd t gen = do
           in trace str tmp
     let pickedTC = pickOne gen choices
     let notPicked = List.delete pickedTC choices
-    let revNotPicked = revTraceCmp <$> notPicked
-    let reverseBest = theBestTC{movePath = reverse (movePath theBestTC)}
-    let _reversePicked = pickedTC{movePath = reverse (movePath pickedTC)}
-    -- TODO: revert this!
-    -- return NegaResult { picked = toNegaMoves reversePicked
-    return NegaResult { picked = toNegaMoves reverseBest
-                      , bestScore = toNegaMoves reverseBest
-                      , alternatives = toNegaMoves <$> revNotPicked
-                      , evalCount = ec}
+    return NegaResult { picked = toNegaMoves pickedTC
+                      , bestScore = toNegaMoves theBestTC
+                      , alternatives = toNegaMoves <$> notPicked
+                      , evalCount = ec }
 
 pickOne :: RandomGen g => g -> [TraceCmp a] -> TraceCmp a
 pickOne gen choices =
@@ -695,6 +694,22 @@ showCompactTC TraceCmp {..} =
           MateIn (Just n) -> "(mate in " ++ show n ++ ")"
     in midStr ++ " | "
         ++ "value: " ++ show value
+        ++ mateStr
+
+showCompactTCList :: (Show a) => [TraceCmp a] -> String
+showCompactTCList [] = ""
+showCompactTCList (x:xs) = show x ++ "\n" ++ showCompactTCList xs
+
+showNegaMoves :: (Show a) => NegaMoves a -> String
+showNegaMoves NegaMoves {..} =
+    let midStr =
+          if length nmMovePath == 1 then "."
+          else "[" ++ List.intercalate ", " (fmap show nmMovePath) ++ "]"
+        mateStr = case nmMateIn of
+          MateIn Nothing -> ""
+          MateIn (Just n) -> "(mate in " ++ show n ++ ")"
+    in midStr ++ " | "
+        ++ "value: " ++ show nmValue
         ++ mateStr
 
 --------------------------------------------------------------------------------
