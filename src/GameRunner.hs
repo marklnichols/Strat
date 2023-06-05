@@ -86,7 +86,7 @@ startGameLoop env state o node = do
       ( do
         -- TODO: Test this with 1 1
         newTree <- expandSingleThreaded node 2 2
-        liftIO $ putStrLn $ "(startGameLoop - treesize: " ++ show (Z.treeSize newTree) ++ ")\n"
+        liftIO $ putStrLn $ "(startGameLoop - treesize: " ++ show (Z.treeSize newTree) ++ ")"
         loop rnd o newTree []
       ) env state
     return ()
@@ -150,7 +150,7 @@ computersTurn gen o t moveHistory = do
         liftIO $ showCompMove o expandedT result True
         let nextMove = getMove $ Z.nmNode (Z.picked result)
         return (findMove expandedT nextMove, nextMove:moveHistory)
-    liftIO $ putStrLn $ "Computer move (time: " ++ showDuration sec ++ "):"
+    liftIO $ putStrLn $ "Computer move time: " ++ showDuration sec ++ "\n"
     case newRoot of
         Right r -> return (r, updatedHistory)
         Left s -> do
@@ -168,7 +168,7 @@ expandSingleThreaded t depth critDepth = do
 expandMultiThreaded :: (Ord a, Show a, Z.ZipTreeNode a)
            => Z.ZipTreeEnv -> Tree a -> Int -> Int -> Z.ZipTreeM p (Tree a)
 expandMultiThreaded env t depth critDepth = do
-    let s = printf "expandMultiThreaded called with depth:%d, critDepth:%d" depth critDepth
+    let s = printf "\nexpandMultiThreaded called with depth:%d, critDepth:%d" depth critDepth
     liftIO $ putStrLn s
     expandToParallel t depth critDepth
 

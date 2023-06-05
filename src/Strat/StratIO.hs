@@ -81,11 +81,8 @@ negaMaxParallel env t gen = do
         let maxRnd = maxRandomChange env
         let curriedAltf = foldfAlts sign (maxRandomChange env) theBestTC
         let theAlts = foldr curriedAltf [] (fst <$> resultsList)
-        liftIO $ putStrLn $ printf "best:\n%s\nand the alts:\n%s" (show theBestTC) (Z.showCompactTCList theAlts)
-
         let allChoices = theBestTC : theAlts
         let pickedTC = Z.pickOne theGen allChoices
-        liftIO $ putStrLn $ printf "Selected:\n%s" (show pickedTC)
         let notPicked = List.delete pickedTC allChoices
         return NegaResult { picked = toNegaMoves pickedTC
                           , bestScore = toNegaMoves theBestTC
