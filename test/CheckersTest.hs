@@ -20,7 +20,7 @@ checkersTest :: SpecWith ()
 checkersTest = do
     describe "getAllowedMoves" $
         it "Gets the list of allowed moves for a given color from a given position." $ do
-            getAllowedMoves (rootLabel (getStartNode "new_game")) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
+            getAllowedMoves (rootLabel (fst (getStartNode "new_game"))) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
             getAllowedMoves blackFirstStartNode `shouldMatchList` fmap mkSimpleCkMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
 
             getAllowedMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935]
@@ -111,7 +111,7 @@ checkersTest = do
 -- Test helper functions
 ---------------------------------------------------------------------------------------------------
 blackFirstStartNode :: CkNode
-blackFirstStartNode = rootLabel (getStartNode "new_game") & ckPosition.clr .~ (-1)
+blackFirstStartNode = rootLabel (fst (getStartNode "new_game")) & ckPosition.clr .~ (-1)
 
 treeFromGridW :: CkGrid -> Tree CkNode
 treeFromGridW g = Node CkNode

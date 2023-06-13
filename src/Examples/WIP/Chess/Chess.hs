@@ -23,6 +23,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Eta reduce" #-}
+{-# HLINT ignore "Evaluate" #-}
 
 module Chess
     ( Castle(..)
@@ -33,6 +36,7 @@ module Chess
     , ChessMoves(..), cmEmpty, cmEnemy
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
     , ChessPos(..), cpGrid, cpColor, cpFin
+    , ChessPosState(..)
     , Color(..)
     , colorFromInt
     , colorToInt
@@ -103,6 +107,7 @@ import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as S
+
 import Data.Singletons
 import Data.Singletons.Base.TH
 import Data.Tree
@@ -146,20 +151,75 @@ data ChessMove
   deriving (Eq, Generic, Hashable, Ord)
 makeLenses ''ChessMove
 
+intToParserLoc :: Int -> Parser.Loc
+intToParserLoc n =
+    let r = n `div` 10
+        c = chr $ 64 + (n - r * 10)
+    in Parser.Loc c r
+
+toParserMove :: ChessMove -> Parser.Entry
+toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
+toParserMove CastlingMove{..} = Parser.Move $ intToParserLoc _kingStartIdx : [intToParserLoc _kingEndIdx]
+
+instance Show ChessMove where
+  show stm@StdMove {..} =
+      let nonCaptureStr = show $ toParserMove stm
+      in case _exchange of
+           Just _ -> replace "-" "x" nonCaptureStr
+           Nothing -> nonCaptureStr
+  show cm = show $ toParserMove cm
+
 data UnChessMove
   = StdUnMove { unReplace :: Maybe Char, unStartIdx :: Int, unEndIdx :: Int, unStdNote :: String }
   | CastlingUnMove { unCastle :: Castle, kingUnStartIdx :: Int, kingUnEndIdx :: Int
                    , rookUnStartIdx :: Int, rookUnEndIdx :: Int, unCastleNote :: String }
   deriving (Eq, Ord)
 
-data StdMoveTestData = StdMoveTestData
-  { smtdBoardName :: String
-  , colorToMoveNext :: Color
-  , smtdDepth :: Int
-  , smtdCritDepth :: Int
-  , smtdStartIdx :: Int
-  , smtdEndIdx :: Int }
+data StdMoveTestData where
+  StdMoveTestData ::
+    { smtdBoardName :: String
+    , colorToMoveNext :: Color
+    , smtdDepth :: Int
+    , smtdCritDepth :: Int
+    , smtdStartIdx :: Int
+    ,smtdEndIdx :: Int
+    }
+    -> StdMoveTestData
   deriving (Eq, Ord)
+
+data ChessPosState = ChessPosState
+  { colorToMove :: Color
+  , lastMove :: Maybe ChessMove
+  , moveNumber :: Int
+  , castling :: Castling
+  , enPassant :: Maybe Int
+  }
+  deriving Show
+
+instance Z.PositionState ChessPosState where
+  toString = show
+  combineTwo = combineChessStates
+
+combineChessStates :: ChessPosState -> ChessPosState -> ChessPosState
+combineChessStates s1 s2 =
+  ChessPosState
+  { colorToMove = colorToMove s2
+  , lastMove = lastMove s2
+  , moveNumber = moveNumber s2
+  , castling = combineCastling (castling s1) (castling s2)
+  , enPassant = enPassant s2
+  }
+
+combineCastling :: Castling ->  Castling -> Castling
+combineCastling Unavailable _ = Unavailable
+combineCastling _ Unavailable = Unavailable
+combineCastling _ Castled = Castled
+combineCastling Castled _ = Castled
+combineCastling BothAvailable c2 = c2
+combineCastling c1 BothAvailable = c1
+combineCastling KingSideOnlyAvailable _ = KingSideOnlyAvailable
+combineCastling _ KingSideOnlyAvailable = KingSideOnlyAvailable
+combineCastling QueenSideOnlyAvailable _ = QueenSideOnlyAvailable
 
 newtype ChessGrid = ChessGrid { unGrid :: Vector Char }
   deriving (Generic, Eq, Show, Ord)
@@ -222,30 +282,14 @@ colorToSign _ = Z.Neg
 critsOnly :: TreeNode n m => n -> Bool
 critsOnly = critical
 
-toParserMove :: ChessMove -> Parser.Entry
-toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
-toParserMove CastlingMove{..} = Parser.Move $ intToParserLoc _kingStartIdx : [intToParserLoc _kingEndIdx]
-
-instance Show ChessMove where
-  show (stm@StdMove {..}) =
-      let nonCaptureStr = show $ toParserMove stm
-      in case _exchange of
-           Just _ -> replace "-" "x" nonCaptureStr
-           Nothing -> nonCaptureStr
-  show cm = show $ toParserMove cm
-
-intToParserLoc :: Int -> Parser.Loc
-intToParserLoc n =
-    let r = n `div` 10
-        c = chr $ 64 + (n - r * 10)
-    in Parser.Loc c r
-
 ---------------------------------------------------------------------------------------------------
 data ChessMoves = ChessMoves
-                  { _cmEmpty :: [ChessMove]
-  , _cmEnemy :: [ChessMove]
-  , _cmForColor :: Color }  -- for debugging output
+  { _cmEmpty :: [ChessMove],
+    _cmEnemy :: [ChessMove],
+    _cmForColor :: Color -- for debugging output
+  }
   deriving (Eq)
+
 makeLenses ''ChessMoves
 
 instance Show ChessMoves where
@@ -467,7 +511,7 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 -- starting position
 -- TODO: nextColorToMove should be Maybe Color, which overloads the defaults below
 ---------------------------------------------------------------------------------------------------
-getStartNode :: String -> Color -> Tree ChessNode
+getStartNode :: String -> Color -> (Tree ChessNode, ChessPosState)
 getStartNode restoreGame nextColorToMove =
     let bottomColor = White -- TBD allow either color
     in case restoreGame of
@@ -479,14 +523,15 @@ getStartNode restoreGame nextColorToMove =
                         , _cpWhitePieceLocs = wLocs
                         , _cpBlackPieceLocs = bLocs
                         , _cpFin = NotFinal }
-        in Node ChessNode
-            { _chessTreeLoc = TreeLocation {tlDepth = 0}
-            , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-            , _chessVal = ChessEval { _total = 0.0, _details = "" }
-            , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-            , _chessPos = cPos
-            , _chessMvSeq = []
-            , _chessIsEvaluated = False } []
+        in ( Node ChessNode
+              { _chessTreeLoc = TreeLocation {tlDepth = 0}
+              , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+              , _chessVal = ChessEval { _total = 0.0, _details = "" }
+              , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+              , _chessPos = cPos
+              , _chessMvSeq = []
+              , _chessIsEvaluated = False } []
+           , newGameState)
       "alphabeta" ->
         let (wLocs, bLocs) = calcLocsForColor alphaBetaBoard
             cPos = ChessPos
@@ -496,40 +541,39 @@ getStartNode restoreGame nextColorToMove =
               , _cpWhitePieceLocs = wLocs
               , _cpBlackPieceLocs = bLocs
               , _cpFin = NotFinal }
-        in Node ChessNode
-            { _chessTreeLoc = TreeLocation {tlDepth = 0}
-            , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-            , _chessVal = ChessEval { _total = 0.0, _details = "" }
-            , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-            , _chessPos = cPos
-            , _chessMvSeq = []
-            , _chessIsEvaluated = False } []
-      "discovered" -> Node discoveredCheckNode []
-      "checkmate"  -> Node checkMateExampleNode []
-      "checkmate2" -> Node checkMateExampleNode2 []
-      "checkmate3" -> Node checkMateExampleNode3 []
-      "checkmate4" -> Node checkMateExampleNode4 []
-      "mateInTwo01" -> Node mateInTwoExampleNode01 []
-      "mateInTwo02" -> Node mateInTwoExampleNode02 []
-      "mateInTwo02b" -> Node mateInTwoExampleNode02b []
-      "mateInTwo03" -> Node mateInTwoExampleNode03 []
-      "mateInTwo03b" -> Node mateInTwoExampleNode03b []
-      "promotion01" -> Node promotionNode01 []
-      "critBug01"   -> Node critBugNode01 []
-      "debug"       -> Node debugExampleNode []
-      "debug02"     -> Node debugExampleNode02 []
-      "debug03"     -> Node debugExampleNode03 []
-      "debug04"     -> Node debugExampleNode04 []
-      "debug05"     -> Node debugExampleNode05 []
-      "debug06"     -> Node debugExampleNode06 []
-      "draw"       -> Node drawnExampleNode []
-      "castling"   -> Node castlingNode []
-      "debug06"     -> Node debugExampleNode06 []
-      "debug06b"    -> Node debugExampleNode06b []
-      "debug06c"    -> Node debugExampleNode06c []
-      "debug07"     -> Node debugExampleNode07 []
-      "draw"        -> Node drawnExampleNode []
-      "castling"    -> Node castlingNode []
+        in ( Node ChessNode
+              { _chessTreeLoc = TreeLocation {tlDepth = 0}
+              , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+              , _chessVal = ChessEval { _total = 0.0, _details = "" }
+              , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+              , _chessPos = cPos
+              , _chessMvSeq = []
+              , _chessIsEvaluated = False } []
+           , castledTestState White)
+      "discovered" -> (Node discoveredCheckNode [], preCastledTestState White)
+      "checkmate"  -> (Node checkMateExampleNode [], preCastledTestState White)
+      "checkmate2" -> (Node checkMateExampleNode2 [], preCastledTestState White)
+      "checkmate3" -> (Node checkMateExampleNode3 [], preCastledTestState White)
+      "checkmate4" -> (Node checkMateExampleNode4 [], preCastledTestState White)
+      "mateInTwo01" -> (Node mateInTwoExampleNode01 [], preCastledTestState Black)
+      "mateInTwo02" -> (Node mateInTwoExampleNode02 [], preCastledTestState Black)
+      "mateInTwo02b" -> (Node mateInTwoExampleNode02b [], preCastledTestState Black)
+      "mateInTwo03" -> (Node mateInTwoExampleNode03 [], castledTestState Black)
+      "mateInTwo03b" -> (Node mateInTwoExampleNode03b [], castledTestState Black)
+      "promotion01" -> (Node promotionNode01 [], castledTestState White)
+      "critBug01"   -> (Node critBugNode01 [], preCastledTestState Black)
+      "debug"       -> (Node debugExampleNode [], preCastledTestState White)
+      "debug02"     -> (Node debugExampleNode02 [], preCastledTestState White)
+      "debug03"     -> (Node debugExampleNode03 [], preCastledTestState Black)
+      "debug04"     -> (Node debugExampleNode04 [], preCastledTestState Black)
+      "debug05"     -> (Node debugExampleNode05 [], preCastledTestState Black)
+      "debug06"     -> (Node debugExampleNode06 [], preCastledTestState Black)
+      "draw"       -> (Node drawnExampleNode [], preCastledTestState White)
+      "castling"   -> (Node castlingNode [], preCastledTestState White)
+      "debug06b"    -> (Node debugExampleNode06b [], preCastledTestState White)
+      "debug06c"    -> (Node debugExampleNode06c [], preCastledTestState Black)
+      "debug07"     -> (Node debugExampleNode07 [], preCastledTestState Black)
+      "castling"    -> (Node castlingNode [], preCastledTestState Black)
       _ -> error "unknown restore game string - choices are:\n \
                  \ alphabeta, \n \
                  \ castling, checkmate, checkmate2, checkmate3, checkmate4, critBug01, \n \
@@ -547,6 +591,34 @@ mkStartGrid White = startingBoard
 mkStartGrid Black =
   let g' = unGrid startingBoard
   in ChessGrid $ V.reverse g'
+
+newGameState :: ChessPosState
+newGameState = ChessPosState
+    { colorToMove = White
+    , lastMove = Nothing
+    , moveNumber = 0
+    , castling = BothAvailable
+    , enPassant = Nothing
+    }
+
+castledTestState :: Color -> ChessPosState
+castledTestState clr = ChessPosState
+    { colorToMove = clr
+    , lastMove = Nothing
+    , moveNumber = 0
+    , castling = Castled
+    , enPassant = Nothing
+    }
+
+preCastledTestState :: Color -> ChessPosState
+preCastledTestState clr = ChessPosState
+    { colorToMove = clr
+    , lastMove = Nothing
+    , moveNumber = 0
+    , castling = BothAvailable
+    , enPassant = Nothing
+    }
+
 
 ---------------------------------------------------------------------------------------------------}
 -- TODO: revert this eventually...
@@ -722,7 +794,8 @@ inCheck g c kingLoc =
 matchesChar :: ChessGrid -> Char -> [Int] -> Bool
 matchesChar g ch xs = foldr f False xs
   where
-    f x r = if indexToChar g x == ch then True else r
+  --f x r = if indexToChar g x == ch then True else r
+    f x r = indexToChar g x == ch || r
 
 ---------------------------------------------------------------------------------------------------
 checkQueen
@@ -875,15 +948,15 @@ calcEarlyQueen :: ChessPos -> Float
 calcEarlyQueen cp =
     let locs = locsForColor cp
         (wqs, bqs) = filterLocsByChar locs 'Q'
-        wqEarly =
+        wqEarly
             -- no queen, or multiple queen endgame, dont bother with this
-            if length wqs /= 1 then 0.0 else
-                if fst3 (head wqs) /= wQ
-                    then whiteDev cp - 4.0 else 0.0
-        bqEarly =
-            if length bqs /= 1 then 0.0 else
-                if fst3 (head bqs) /= bQ
-                    then blackDev cp - 4.0 else 0.0
+           | length wqs /= 1       =  0.0
+           | fst3 (head wqs) /= wQ = whiteDev cp - 4.0
+           | otherwise             = 0.0
+        bqEarly
+           | length bqs /= 1       = 0.0
+           | fst3 (head bqs) /= bQ = blackDev cp - 4.0
+           | otherwise             = 0.0
     in wqEarly - bqEarly
 
 ---------------------------------------------------------------------------------------------------
@@ -1097,7 +1170,8 @@ filterLocsByChar :: ([(Int, Char, Color)], [(Int, Char, Color)]) -> Char
 filterLocsByChar (wLocs, bLocs) charToMatch =
   let wFiltered = filter (f (toUpper charToMatch)) wLocs
       bFiltered = filter (f (toLower charToMatch)) bLocs
-      f c = \(_, ch, _) -> ch == c
+      -- f c = \(_, ch, _) -> ch == c
+      f c (_, ch, _) = ch == c
   in (wFiltered, bFiltered)
 
 ---------------------------------------------------------------------------------------------------
@@ -1732,9 +1806,8 @@ dirLocs g (idx0, _, c0) dir =
         loop idx (empties, enemies) =
             let cx = indexToColor2 g idx
                 ob = onBoard idx
-                -- friendly = ob && c0 == cx
-                friendly = ob && isJust cx && fromJust cx == c0
-                enemy = ob && isJust cx  && fromJust cx == (enemyColor c0)
+                friendly = ob && (cx == Just c0)
+                enemy = ob && cx == Just (enemyColor c0)
                 (sqState, (newEmpties, newEnemies))
                     | not ob = (OffBoard ,(empties, enemies))
                     | enemy = (HasEnemy, (empties, StdMove (Just (indexToChar g idx)) idx0 idx "": enemies))
@@ -1749,8 +1822,7 @@ dirCaptureLoc g (idx0, _, clr0) dir =
    let clr0Enemy = enemyColor clr0
        loop idx =
            let clr = indexToColor2 g idx
-           -- case hasEnemy g clr idx of
-           in case isJust clr && fromJust clr == clr0Enemy of
+           in case clr == Just clr0Enemy of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
                      | isEmptyGrid g idx -> loop (apply dir idx)
@@ -1760,7 +1832,7 @@ dirCaptureLoc g (idx0, _, clr0) dir =
 dirLocsCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
 dirLocsCount g (idx, ch, clr0) dir =
     let (enemies, empties) = dirLocs g (idx, ch, clr0) dir
-    in (length enemies) + (length empties)
+    in length enemies + length empties
 
 -- Same as dirLocs, but for pieces that move only one square in a given "direction"
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
@@ -1771,14 +1843,14 @@ dirLocsSingle g (idx0, _, c0) dir =
         cEnemy0 = enemyColor c0
     in
       if not (onBoard x) then ([], [])
-      else if isJust cx && fromJust cx == cEnemy0 then ([], [StdMove (Just (indexToChar g x)) idx0 x ""])
-      else if isJust cx && fromJust cx == c0 then ([], [])
+      else if cx == Just cEnemy0 then ([], [StdMove (Just (indexToChar g x)) idx0 x ""])
+      else if cx == Just c0 then ([], [])
       else ([StdMove Nothing idx0 x ""],[]) -- empty square
 
 dirLocsSingleCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
 dirLocsSingleCount g idx dir =
     let (enemies, empties) = dirLocsSingle g idx dir
-    in (length enemies) + (length empties)
+    in length enemies + length empties
 
 dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
@@ -1786,7 +1858,7 @@ dirCaptureLocSingle g (idx, _, clr) dir =
     in case apply dir idx of
         x | not (onBoard x) -> Nothing
           | cx <- indexToColor2 g x
-          , isJust cx && fromJust cx == enemyClr -> Just x
+          , cx == Just enemyClr -> Just x
           | otherwise -> Nothing
 
 onBoard :: Int -> Bool

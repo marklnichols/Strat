@@ -24,7 +24,7 @@ data ChessText = ChessText
 
 instance Output ChessText ChessNode ChessMove where
     out _ = printString
-    updateBoard = showBoard
+    updateBoard = showBoardBrief
     showCompMove _ = printMoveChoiceInfo
     getPlayerEntry _ = playerEntryText
     gameError = exitFail
@@ -32,11 +32,18 @@ instance Output ChessText ChessNode ChessMove where
 printString :: String -> IO ()
 printString = putStrLn
 
-showBoard :: ChessText -> ChessNode -> IO ()
-showBoard _ n = do
-    putStrLn $ formatBoard n
-    putStrLn ("Board hash: " ++ show (nodeHash n))
+showBoardLoud :: ChessText -> ChessNode -> IO ()
+showBoardLoud ct n = do
+    showBoardBrief ct n
     putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal n))
+
+showBoardBrief :: ChessText -> ChessNode -> IO ()
+showBoardBrief _ n = showBoard n
+
+showBoard :: ChessNode -> IO ()
+showBoard n = do
+  putStrLn $ formatBoard n
+  putStrLn ("Board hash: " ++ show (nodeHash n))
 
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
@@ -44,21 +51,22 @@ printMoveChoiceInfo tree result loud = do
     let evaluated = evalCount result
     let percentSaved = 1.0 - fromIntegral evaluated / fromIntegral (tSize-1) :: Float
     putStrLn ("Tree size: " ++ show tSize)
-    putStrLn (show tLevels)
+    print tLevels
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
-    putStrLn ("Computer's move: " ++ showNegaMoves (picked result))
+    putStrLn ("Computer's move: " ++ show (picked result))
 
-    let mv = getMove (moveNode(picked result))
+    let mv = getMove (nmNode (picked result))
     let n = rootLabel tree
     when (moveChecksOpponent n mv) $ do
         putStrLn " (check)"
     when loud $ do
+        -- START HERE: -- For the selcted move, this does NOT show the details of the score of the deepest node!
         putStrLn ("Score details: \n"
-                 ++ showScoreDetails (_chessVal (evalNode (picked result))))
-        putStrLn ("Move with best score: " ++ showNegaMoves (bestScore result))
+                 ++ showScoreDetails (_chessVal (last (nmMovePath (picked result)))))
+        putStrLn ("Move with best score: " ++ show (bestScore result))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
-                 (showNegaMoves <$> alternatives result))
+                 (show <$> alternatives result))
         putStrLn ""
 
 exitFail :: ChessText -> String -> IO ()
@@ -72,6 +80,7 @@ exitFail _ s = do
 playerEntryText :: Tree ChessNode -> [ChessMove] -> IO (Entry ChessMove s)
 playerEntryText tree exclusions = do
     let n = rootLabel tree
+    putStrLn "\n--------------------------------------------------\n"
     putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
@@ -87,7 +96,7 @@ playerEntryText tree exclusions = do
                     playerEntryText tree exclusions
                 else do
                     when (moveChecksOpponent n mv) $
-                        putStrLn " (check)"
+                        putStrLn "* (check) *"
                     return me
 
 ---------------------------------------------------------------------------------------------------
@@ -97,7 +106,7 @@ formatBoard :: ChessNode -> String
 formatBoard n =
     let g = n ^. (chessPos . cpGrid)
         g' = unGrid g
-    in "\n" ++ (colLabels ++ loop g' 11 8 "") ++ "\n"
+    in (colLabels ++ loop g' 11 8 "") ++ "\n"
   where
     loop :: V.Vector Char -> Int -> Int -> String -> String
     loop _ _ 0 dest = dest

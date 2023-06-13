@@ -8,6 +8,7 @@
 module PruningTest (pruningTest) where
 
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy
 import Data.Hashable
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HM
@@ -19,6 +20,7 @@ import Test.Hspec
 import Text.Printf
 
 import Strat.ZipTree
+import Control.Concurrent.Thread.Group (new)
 
 data TestNode = TestNode
   { typ :: Int
@@ -62,6 +64,15 @@ testEnv = ZipTreeEnv
         , aiPlaysBlack = True
         }
 
+newtype FakeState = FakeState {unFake :: String}
+
+fakeState :: FakeState
+fakeState = FakeState {unFake = "Just a fake state"}
+
+instance PositionState FakeState where
+  toString = unFake
+  combineTwo x _ = x
+
 pruningTest :: SpecWith ()
 pruningTest = do
     describe "expandTo" $
@@ -75,32 +86,33 @@ pruningTest = do
             --------------------------------------------------
             -- depth 1
             --------------------------------------------------
-            let f1 :: ZipReaderT IO (NegaResult TestNode)
+            let f1 :: PositionState p => ZipTreeM p (NegaResult TestNode)
                 f1 = do
                   wikiTreeD1 <- expandTo rootWikiTree 1 1 1
                   negaMax wikiTreeD1 (Nothing :: Maybe StdGen)
-            result1 <- runReaderT f1 testEnv
+            (result1, _s, _w) <- runRWST f1 testEnv fakeState
 
             let theBest1 = picked result1
-            evalNode theBest1 `shouldBe`
+            last (nmMovePath theBest1) `shouldBe`
                 TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
-            moveSeq theBest1 `shouldBe`
+            nmMovePath theBest1 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               ]
 
             --------------------------------------------------
             -- depth 2
             --------------------------------------------------
-            let f2 :: ZipReaderT IO (NegaResult TestNode)
+            let f2 :: PositionState p => ZipTreeM p (NegaResult TestNode)
                 f2 = do
                   wikiTreeD2 <- expandTo rootWikiTree 1 2 2
                   negaMax wikiTreeD2 (Nothing :: Maybe StdGen)
-            result2 <- runReaderT f2 testEnv
+            (result2, _s, _w) <- runRWST f2 testEnv fakeState
 
             let theBest2 = picked result2
-            evalNode theBest2 `shouldBe`
+
+            last (nmMovePath theBest2) `shouldBe`
                 TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
-            moveSeq theBest2 `shouldBe`
+            nmMovePath theBest2 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               ]
@@ -108,15 +120,15 @@ pruningTest = do
             --------------------------------------------------
             -- depth 3
             --------------------------------------------------
-            let f3 :: ZipReaderT IO (NegaResult TestNode)
+            let f3 :: PositionState p => ZipTreeM p (NegaResult TestNode)
                 f3 = do
                   wikiTreeD3 <- expandTo rootWikiTree 1 3 3
                   negaMax wikiTreeD3 (Nothing :: Maybe StdGen)
-            result3 <- runReaderT f3 testEnv
+            (result3, _s, _w) <- runRWST f3 testEnv fakeState
             let theBest3 = picked result3
-            evalNode theBest3 `shouldBe`
+            last (nmMovePath theBest3) `shouldBe`
                 TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
-            moveSeq theBest3 `shouldBe`
+            nmMovePath theBest3 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -125,16 +137,16 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- testing the complete tree
             ----------------------------------------------------------------------------------
-            newWikiTree <- runReaderT (expandTo rootWikiTree 1 4 4) testEnv
+            (newWikiTree, _w, _s) <- runRWST (expandTo rootWikiTree 1 4 4) testEnv fakeState
 
             -- first without pruning
             let noPruneEnv = testEnv {enablePruning = False}
-            result4 <- runReaderT (negaMax newWikiTree (Nothing :: Maybe StdGen) ) noPruneEnv
+            (result4, _w, _s) <- runRWST (negaMax newWikiTree (Nothing :: Maybe StdGen) ) noPruneEnv fakeState
             let theBest4 = picked result4
-            evalNode theBest4 `shouldBe`
+            last (nmMovePath theBest4) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest4 `shouldBe`
+            nmMovePath theBest4 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -147,13 +159,14 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with pruning
             ----------------------------------------------------------------------------------
-            result5 <- runReaderT (negaMax newWikiTree (Nothing :: Maybe StdGen) ) testEnv
+            (result5, _w, _s) <- runRWST (negaMax newWikiTree (Nothing :: Maybe StdGen) ) testEnv fakeState
+
 
             let theBest5 = picked result5
-            evalNode theBest5 `shouldBe`
+            last (nmMovePath theBest5) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest5 `shouldBe`
+            nmMovePath theBest5 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -166,13 +179,13 @@ pruningTest = do
             -- negaRnd, but with the random tolerance at 0.0
             ----------------------------------------------------------------------------------
             rnd <- getStdGen
-            result6 <- runReaderT (negaMax newWikiTree (Just rnd) ) testEnv
+            (result6, _w, _s) <- runRWST (negaMax newWikiTree (Just rnd) ) testEnv fakeState
 
             let theBest6 = picked result6
-            evalNode theBest6 `shouldBe`
+            last (nmMovePath theBest6) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest6 `shouldBe`
+            nmMovePath theBest6 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}
@@ -184,13 +197,13 @@ pruningTest = do
             ----------------------------------------------------------------------------------
             -- with crit processing only for the important nodes at the bottom two levels
             ----------------------------------------------------------------------------------
-            newCritWikiTree <- runReaderT (expandTo rootWikiTree 1 2 4) testEnv
-            result7 <- runReaderT (negaMax newCritWikiTree (Nothing :: Maybe StdGen) ) testEnv
+            (newCritWikiTree, _w, _s) <- runRWST (expandTo rootWikiTree 1 2 4) testEnv fakeState
+            (result7, _w, _s) <- runRWST (negaMax newCritWikiTree (Nothing :: Maybe StdGen) ) testEnv fakeState
             let theBest7 = picked result7
-            evalNode theBest7 `shouldBe`
+            last (nmMovePath theBest7) `shouldBe`
                 TestNode { typ = 1, nid = 26, name = "01-03-07-14-26 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
 
-            moveSeq theBest7 `shouldBe`
+            nmMovePath theBest7 `shouldBe`
               [ TestNode { typ = 1, nid = 03, name = "01-03 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = False}
               , TestNode { typ = 1, nid = 07, name = "01-03-07 (6)", tnSign = Pos, tnValue = 6.0 , isCrit = True}
               , TestNode { typ = 1, nid = 14, name = "01-03-07-14 (6)", tnSign = Neg, tnValue = 6.0 , isCrit = True}

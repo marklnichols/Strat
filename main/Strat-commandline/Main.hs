@@ -18,12 +18,12 @@ main = do
     verbose <- isLoud
     case exampleName of
       "chess" -> do
-          let start = Chess.getStartNode restoreGame nextMoveColor
-          GameRunner.startGame ChessText start depth critDepth aiPlaysWhite aiPlaysBlack preSortOn
+          let (startNode, startState) = Chess.getStartNode restoreGame nextMoveColor
+          GameRunner.startGame ChessText startNode startState depth critDepth aiPlaysWhite aiPlaysBlack preSortOn
                          (not noRandom) (not noPruning) singleThreaded verbose pruneTracing cmpTracing (pack traceStr)
       "checkers" -> do
-          let start = Checkers.getStartNode restoreGame
-          GameRunner.startGame CheckersText start depth critDepth aiPlaysWhite aiPlaysBlack
+          let (startNode, startState) = Checkers.getStartNode restoreGame
+          GameRunner.startGame CheckersText startNode startState depth critDepth aiPlaysWhite aiPlaysBlack
             preSortOn (not noRandom) (not noPruning) singleThreaded verbose pruneTracing cmpTracing (pack traceStr)
       "checkersWeb" -> webInit
       _ -> print theArgs

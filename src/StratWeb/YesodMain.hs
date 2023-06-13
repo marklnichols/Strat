@@ -91,7 +91,7 @@ getNewGameR :: Handler Value
 getNewGameR = do
     liftIO $ putStrLn "incoming new game request"
     uniqueId <- getGameSession
-    (wrapper, gen) <- liftIO $ WR.processStartGame (getStartNode "new_game") False
+    (wrapper, gen) <- liftIO $ WR.processStartGame (fst (getStartNode "new_game")) False
     let node = WR.getNode wrapper
     let jAble = WR.getJsonable wrapper
     yesod <- getYesod
@@ -109,7 +109,7 @@ getComputerMoveR = do
         Nothing -> do
             liftIO $ putStrLn "getComputerMoveR - no tree found in the map"
             -- TODO: display some error about the restart
-            liftIO $ WR.processStartGame (getStartNode "new_game") False
+            liftIO $ WR.processStartGame (fst (getStartNode "new_game")) False
         Just (t, g) -> do
             wrp <- WR.processComputerMove t g
             return (wrp, g)
@@ -129,20 +129,20 @@ postPlayerMoveR = do
         Nothing -> do
             liftIO $ putStrLn "getPlayerMoveR - no tree found in the map"
             -- TODO: display some error about the restart
-            liftIO $ WR.processStartGame (getStartNode "new_game") False
+            liftIO $ WR.processStartGame (fst (getStartNode "new_game")) False
         Just (tree, g) ->
             --TODO: clean up these nested cases, and properly deal with the errors / restarts
             case resultM of
                 Error e -> do
                     liftIO $ putStrLn "getPlayerMoveR - could not parse the json from the client"
                     liftIO $ putStrLn ("Error retuned: " ++ e)
-                    liftIO $ WR.processStartGame (getStartNode "new_game") False
+                    liftIO $ WR.processStartGame (fst (getStartNode "new_game")) False
                 Success jMove -> do
                     liftIO $ putStrLn $ "Player move: " ++ show jMove
                     case jsonMoveToCkMove jMove of
                         Nothing -> do
                             liftIO $ putStrLn "getPlayerMoveR - could not covert to CkMove"
-                            liftIO $ WR.processStartGame (getStartNode "new_game") False
+                            liftIO $ WR.processStartGame (fst (getStartNode "new_game")) False
                         Just move -> do
                             wrp <- WR.processPlayerMove tree move True g  --true, computer always responds -- for now
                             return (wrp, g)

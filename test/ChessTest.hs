@@ -6,6 +6,7 @@ module ChessTest (chessTest) where
 
 import Test.Hspec
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy
 import Data.List
 import qualified Data.Text as T
 import Data.Tuple.Extra (fst3)
@@ -17,6 +18,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
+import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -35,6 +37,15 @@ testEnv = Z.ZipTreeEnv
         , aiPlaysWhite = True
         , aiPlaysBlack = True
         }
+
+newtype FakeState = FakeState {unFake :: String}
+
+fakeState :: FakeState
+fakeState = FakeState {unFake = "Just a fake state"}
+
+instance Z.PositionState FakeState where
+  toString = unFake
+  combineTwo x _ = x
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -288,9 +299,8 @@ chessTest = do
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
-          let t = getStartNode "newgame" White
-          -- let newTree = expandTree t 2
-          newTree <- expandTree testEnv t 2 2
+          let (t, _) = getStartNode "newgame" White
+          (newTree, _, _) <- runRWST (expandSingleThreaded t 2 2) testEnv fakeState
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True
@@ -349,21 +359,25 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 matchStdMove :: StdMoveTestData -> IO Bool
 matchStdMove StdMoveTestData{..} = do
-    let board = getStartNode smtdBoardName colorToMoveNext
+    let (board, _) = getStartNode smtdBoardName colorToMoveNext
         -- tree = Z.expandTo board smtdDepth
         -- result = Z.negaMax tree True
-    let f :: Z.ZipReaderT IO (Z.NegaResult ChessNode)
+    let f :: Z.PositionState p => Z.ZipTreeM p (Z.NegaResult ChessNode)
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
             Z.negaMax tree (Nothing :: Maybe StdGen)
-    result <- runReaderT f testEnv
+    (result, _, _) <- runRWST f testEnv fakeState
     let theBest = Z.picked result
-    let mvNode = Z.moveNode theBest
+    putStrLn $ printf "ChessTest::matchStdMove - theBest: %s" (show theBest)
+
+    let mvNode = Z.nmNode theBest
+    let mvNode = head $ Z.nmMovePath theBest -- nmMovePath is never empty
     let mv = _chessMv mvNode
     case mv of
         StdMove {..} -> do
             let start = _startIdx
             let end = _endIdx
+            putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 

@@ -7,6 +7,7 @@
 module StratTreeTest (stratTreeTest) where
 
 import Control.Monad.Reader
+import Control.Monad.RWS.Lazy
 import Data.Hashable
 import Data.Text (pack)
 import Data.Tree
@@ -24,6 +25,15 @@ instance ZipTreeNode NodeVal where
   ztnMakeChildren _ = []
   ztnSign = sign
   ztnFinal _ = False
+
+newtype TestPosState = TestPosState {unPosState :: String}
+
+instance PositionState TestPosState where
+  toString = unPosState
+  combineTwo s _ = s
+
+fakeState :: TestPosState
+fakeState = TestPosState {unPosState = "Not implemented."}
 
 --TODO: look into preSort problems -- disabled for now
 testEnv :: ZipTreeEnv
@@ -49,21 +59,22 @@ stratTreeTest = do
         it "finds the best move from a tree of moves/opponent moves" $ do
             -- let NegaResult{..} = negaMax negaMaxTree False
             -- evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
-            result1 <- runReaderT (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv
+            (result1, _, _) <- runRWST (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv fakeState
             let NegaResult{..} = result1
-            evalNode picked `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
-            moveSeq picked `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
-                                    , NodeVal {nvalToInt = -20, sign = Neg}
-                                    , NodeVal {nvalToInt = 14, sign = Pos} ]
+            last (nmMovePath picked) `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
+            nmMovePath picked `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
+                                         , NodeVal {nvalToInt = -20, sign = Neg}
+                                         , NodeVal {nvalToInt = 14, sign = Pos} ]
     describe "negaMax-b" $
         it "same as the previous, but if black moved next" $ do
             -- let NegaResult{..} = negaMax negaMaxTree False
-            result1 <- runReaderT (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv
+            (result1, _, _) <- runRWST (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv fakeState
             let NegaResult{..} = result1
-            evalNode picked `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
-            moveSeq picked `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}
-                                    , NodeVal {nvalToInt = 35, sign = Neg}
-                                    , NodeVal {nvalToInt = 12, sign = Pos} ]
+            last (nmMovePath picked) `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
+            nmMovePath picked `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}
+                                         , NodeVal {nvalToInt = 35, sign = Neg}
+                                         , NodeVal {nvalToInt = 12, sign = Pos} ]
+
 negaMaxTree :: Tree NodeVal
 negaMaxTree = Node (NodeVal 0 Neg)
   [ Node (NodeVal 1 Pos)

@@ -164,9 +164,18 @@ parseCkMove n s =
 ---------------------------------------------------------------------------------------------------
 -- starting or other test position
 ---------------------------------------------------------------------------------------------------
-getStartNode :: String -> Tree CkNode
+newtype CheckersPosState = CheckersPosState {unPosState :: String}
+
+instance PositionState CheckersPosState where
+  toString  = unPosState
+  combineTwo s _ = s
+
+noState :: CheckersPosState
+noState = CheckersPosState {unPosState = "Not implemented."}
+
+getStartNode :: String -> (Tree CkNode, CheckersPosState)
 getStartNode _restoreGame =
-    Node CkNode
+    ( Node CkNode
         { _ckTreeLoc = TreeLocation {tlDepth = 0}
         , _ckMove = CkMove
           { _isJump = False, _startIdx = -1, _endIdx = -1, _middleIdxs = [], _removedIdxs = [] }
@@ -174,6 +183,7 @@ getStartNode _restoreGame =
           , _ckErrorValue = CkEval {_total = 0, _details = ""}
           , _ckPosition = CkPosition {_grid = mkStartGrid 1, _clr = 1, _fin = NotFinal}
           , _ckIsEvaluated = False} []
+    , noState)
 
 ---------------------------------------------------------------------------------------------------
 -- Grid layout - indexes 0-45
