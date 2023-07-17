@@ -34,7 +34,6 @@ module Strat.StratTree.TreeNode
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Data.List
 import Data.Tree
 import Data.Hashable
 import GHC.Generics
@@ -114,9 +113,6 @@ mkMoveScores tns = map (\x -> mkMoveScore (getMove x) x) tns
 
 mkMoveScore :: m -> n -> MoveScore m n
 mkMoveScore = MoveScore
-
-showMoveInfo :: (Show a) => [Z.TraceCmp a] -> String
-showMoveInfo = Z.showCompactTCList
 
 ---------------------------------------------------------------------------------------------------
 -- Monad Transformer stack

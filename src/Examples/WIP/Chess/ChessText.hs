@@ -32,11 +32,6 @@ instance Output ChessText ChessNode ChessMove where
 printString :: String -> IO ()
 printString = putStrLn
 
-showBoardLoud :: ChessText -> ChessNode -> IO ()
-showBoardLoud ct n = do
-    showBoardBrief ct n
-    putStrLn ("Current position score: \n" ++ showScoreDetails (_chessVal n))
-
 showBoardBrief :: ChessText -> ChessNode -> IO ()
 showBoardBrief _ n = showBoard n
 

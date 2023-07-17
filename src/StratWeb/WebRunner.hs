@@ -14,9 +14,7 @@ module StratWeb.WebRunner
     ) where
 
 import Control.Monad.Reader
-import Control.Monad.RWS.Lazy
 import Data.Aeson
-import Data.Hashable
 import Data.Text (pack)
 import Data.Tree
 import Strat.Helpers
@@ -45,15 +43,6 @@ gameEnv = Z.ZipTreeEnv
         , aiPlaysWhite = False
         , aiPlaysBlack = True
         }
-
-newtype FakeState = FakeState {unFake :: String}
-
-fakeState :: FakeState
-fakeState = FakeState {unFake = "Just a fake state"}
-
-instance Z.PositionState FakeState where
-  toString = unFake
-  combineTwo x _ = x
 
 data Jsonable = forall j. ToJSON j => Jsonable j
 
@@ -139,8 +128,8 @@ computerResponse prevNode gen = do
 computerMove :: RandomGen g => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-   (newTree, _, _) <- runRWST (Z.expandTo t 1 (Z.maxDepth gameEnv) (Z.maxCritDepth gameEnv)) testEnv fakeState
-   (res@Z.NegaResult{..}, _, _) <- runRWST (Z.negaMax newTree (Just gen)) testEnv fakeState
+   newTree <- runReaderT (Z.expandTo t 1 (Z.maxDepth gameEnv) (Z.maxCritDepth gameEnv)) testEnv
+   res@Z.NegaResult{..} <- runReaderT (Z.negaMax newTree (Just gen)) testEnv
    let bestMv = getMove $ Z.nmNode picked
    let moveScores = mkMoveScores ((last (Z.nmMovePath picked)) : ((last . Z.nmMovePath)  <$> alternatives))
    return $ Right ( MoveResults
@@ -148,14 +137,6 @@ computerMove t gen = do
       , mrMoveScores = moveScores
       , mrMove = bestMv
       , mrNewTree = newTree } )
-
-searchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
-         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM p (Tree n, Z.NegaResult n)
-searchTo t gen maxDepth maxCritDepth = do
-    env <- ask
-    expanded <- Z.expandTo t 1 (Z.maxDepth env) (Z.maxCritDepth env)
-    res <- Z.negaMax expanded gen
-    return (t, res)
 
 checkGameOver :: Tree Ck.CkNode -> (Bool, String)
 checkGameOver node =

@@ -7,7 +7,6 @@
 module StratTreeTest (stratTreeTest) where
 
 import Control.Monad.Reader
-import Control.Monad.RWS.Lazy
 import Data.Hashable
 import Data.Text (pack)
 import Data.Tree
@@ -25,15 +24,6 @@ instance ZipTreeNode NodeVal where
   ztnMakeChildren _ = []
   ztnSign = sign
   ztnFinal _ = False
-
-newtype TestPosState = TestPosState {unPosState :: String}
-
-instance PositionState TestPosState where
-  toString = unPosState
-  combineTwo s _ = s
-
-fakeState :: TestPosState
-fakeState = TestPosState {unPosState = "Not implemented."}
 
 --TODO: look into preSort problems -- disabled for now
 testEnv :: ZipTreeEnv
@@ -59,7 +49,7 @@ stratTreeTest = do
         it "finds the best move from a tree of moves/opponent moves" $ do
             -- let NegaResult{..} = negaMax negaMaxTree False
             -- evalNode best `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
-            (result1, _, _) <- runRWST (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv fakeState
+            result1 <- runReaderT (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv
             let NegaResult{..} = result1
             last (nmMovePath picked) `shouldBe` NodeVal {nvalToInt = 14, sign = Pos }
             nmMovePath picked `shouldBe` [ NodeVal {nvalToInt = 2, sign = Pos}
@@ -68,7 +58,7 @@ stratTreeTest = do
     describe "negaMax-b" $
         it "same as the previous, but if black moved next" $ do
             -- let NegaResult{..} = negaMax negaMaxTree False
-            (result1, _, _) <- runRWST (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv fakeState
+            result1 <- runReaderT (negaMax negaMaxTree (Nothing :: Maybe StdGen)) testEnv
             let NegaResult{..} = result1
             last (nmMovePath picked) `shouldBe` NodeVal {nvalToInt = 12, sign = Neg }
             nmMovePath picked `shouldBe` [ NodeVal {nvalToInt = 3, sign = Pos}

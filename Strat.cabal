@@ -116,9 +116,7 @@ executable test-as-exe
       Parser8By8
       TicTac.TTParser
       TicTac.TTGame
-      TicTac.TTParser
       TicTacTest
-      Parser8By8
       GameRunner
       PruningTest
       StratTreeTest
