@@ -117,8 +117,8 @@ import qualified Data.Vector.Unboxed as V
 import Data.Hashable
 import GHC.Generics
 import System.Console.CmdArgs.Implicit (Data, Typeable)
--- import Text.Printf
--- import Debug.Trace
+import Text.Printf
+import Debug.Trace
 
 import qualified Parser8By8 as Parser
 import qualified Strat.Helpers as Helpers
@@ -136,7 +136,7 @@ data Castling = Castled
               | QueenSideOnlyAvailable
               | BothAvailable
               | Unavailable
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Generic, Hashable, Show, Ord)
 
 data Color = Black | White
     deriving (Generic, Hashable, Show, Eq, Ord, Data, Typeable)
@@ -191,10 +191,10 @@ data ChessPosState = ChessPosState
   { colorToMove :: Color
   , lastMove :: Maybe ChessMove
   , moveNumber :: Int
-  , castling :: Castling
+  , castling :: (Castling, Castling)
   , enPassant :: Maybe Int
   }
-  deriving Show
+  deriving (Show, Eq, Generic, Hashable, Ord)
 
 instance Z.PositionState ChessPosState where
   toString = show
@@ -202,13 +202,20 @@ instance Z.PositionState ChessPosState where
 
 combineChessStates :: ChessPosState -> ChessPosState -> ChessPosState
 combineChessStates s1 s2 =
-  ChessPosState
-  { colorToMove = colorToMove s2
-  , lastMove = lastMove s2
-  , moveNumber = moveNumber s2
-  , castling = combineCastling (castling s1) (castling s2)
-  , enPassant = enPassant s2
-  }
+  let updatedCastling = case colorToMove s1 of
+        White ->
+            ( combineCastling (fst (castling s1)) (fst (castling s2))
+            , snd (castling s1))
+        Black ->
+            ( fst (castling s1)
+            , combineCastling (snd (castling s1)) (snd (castling s2)))
+  in ChessPosState
+      { colorToMove = colorToMove s2
+      , lastMove = lastMove s2
+      , moveNumber = moveNumber s2
+      , castling = updatedCastling
+      , enPassant = enPassant s2
+      }
 
 combineCastling :: Castling ->  Castling -> Castling
 combineCastling Unavailable _ = Unavailable
@@ -234,7 +241,8 @@ data ChessPos = ChessPos
   , _cpColor :: Color
   , _cpKingLoc :: (Int, Int)
   , _cpInCheck :: (Bool, Bool)
-  , _cpFin :: FinalState }
+  , _cpFin :: FinalState
+  , _cpState :: ChessPosState }
   deriving (Generic, Hashable, Show, Eq, Ord)
 makeLenses ''ChessPos
 
@@ -517,12 +525,14 @@ getStartNode restoreGame nextColorToMove =
     in case restoreGame of
       "newgame" ->
         let (wLocs, bLocs) = calcLocsForColor $ mkStartGrid bottomColor
-            cPos = ChessPos { _cpGrid = mkStartGrid White, _cpColor = nextColorToMove
-                        , _cpKingLoc = (15, 85)
-                        , _cpInCheck = (False, False)
-                        , _cpWhitePieceLocs = wLocs
-                        , _cpBlackPieceLocs = bLocs
-                        , _cpFin = NotFinal }
+            cPos = ChessPos
+                   { _cpGrid = mkStartGrid White, _cpColor = nextColorToMove
+                   , _cpKingLoc = (15, 85)
+                   , _cpInCheck = (False, False)
+                   , _cpWhitePieceLocs = wLocs
+                   , _cpBlackPieceLocs = bLocs
+                   , _cpFin = NotFinal
+                   , _cpState = newGameState }
         in ( Node ChessNode
               { _chessTreeLoc = TreeLocation {tlDepth = 0}
               , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
@@ -540,7 +550,8 @@ getStartNode restoreGame nextColorToMove =
               , _cpInCheck = (False, False)
               , _cpWhitePieceLocs = wLocs
               , _cpBlackPieceLocs = bLocs
-              , _cpFin = NotFinal }
+              , _cpFin = NotFinal
+              , _cpState = castledTestState White}
         in ( Node ChessNode
               { _chessTreeLoc = TreeLocation {tlDepth = 0}
               , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
@@ -597,7 +608,7 @@ newGameState = ChessPosState
     { colorToMove = White
     , lastMove = Nothing
     , moveNumber = 0
-    , castling = BothAvailable
+    , castling = (BothAvailable, BothAvailable)
     , enPassant = Nothing
     }
 
@@ -606,7 +617,7 @@ castledTestState clr = ChessPosState
     { colorToMove = clr
     , lastMove = Nothing
     , moveNumber = 0
-    , castling = Castled
+    , castling = (Castled, Castled)
     , enPassant = Nothing
     }
 
@@ -615,7 +626,7 @@ preCastledTestState clr = ChessPosState
     { colorToMove = clr
     , lastMove = Nothing
     , moveNumber = 0
-    , castling = BothAvailable
+    , castling = (BothAvailable, BothAvailable)
     , enPassant = Nothing
     }
 
@@ -670,7 +681,7 @@ whitePawnCaptureDirs :: [Dir]
 whitePawnCaptureDirs = [diagUL, diagUR]
 
 whitePawnEnPassantDirs :: [Dir]
-whitePawnEnPassantDirs = [knightUL, knightUR]
+whitePawnEnPassantDirs = whitePawnCaptureDirs
 
 blackPawnDir :: Dir -- non capturing moves...
 blackPawnDir = down
@@ -679,7 +690,7 @@ blackPawnCaptureDirs :: [Dir]
 blackPawnCaptureDirs = [diagDL, diagDR]
 
 blackPawnEnPassantDirs :: [Dir]
-blackPawnEnPassantDirs = [knightDL, knightDR]
+blackPawnEnPassantDirs = blackPawnCaptureDirs
 
 noDirs :: [Dir]
 noDirs = []
@@ -1642,7 +1653,7 @@ movesFromLoc pos loc@(idx, _, _) =
       MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
       MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
       MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
-      MkChessPiece _c (SomeSing SPawn) -> allowablePawnMoves g loc
+      MkChessPiece _c (SomeSing SPawn) -> allowablePawnMoves pos loc
       MkChessPiece _c (SomeSing _) -> ([], [])
 
 allowableMultiMoves :: [Dir] -> ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
@@ -1738,12 +1749,14 @@ allowableKnightMoves = allowableSingleMoves knightDirs
 knightMobility :: ChessGrid -> (Int, Char, Color) -> Int
 knightMobility = singleMoveMobility knightDirs
 
-allowablePawnMoves :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
-allowablePawnMoves g loc =
-   let (_, enemies) = allowablePawnCaptures g loc
-   in (allowablePawnNonCaptures g loc, enemies)
+allowablePawnMoves :: ChessPos -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
+allowablePawnMoves pos loc =
+   let g = _cpGrid pos
+       (_, enemies) = allowablePawnCaptures g loc
+       ep_enemies = allowableEnPassant pos loc
+   in (allowablePawnNonCaptures g loc, enemies ++ ep_enemies)
 
--- EnPassant captures are handled elsewhere and are not included here
+-- EnPassant captures are handled in allowableEnPassant, and not included here
 allowablePawnCaptures :: ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowablePawnCaptures g loc@(_, _, clr) =
       let dirs = case clr of
@@ -1751,6 +1764,30 @@ allowablePawnCaptures g loc@(_, _, clr) =
               Black -> blackPawnCaptureDirs
           (empties, enemies) = allowableSingleMoves dirs g loc
       in (empties, enemies)
+
+-- find the allowable enPassant destination capture locs for a pawn
+allowableEnPassant :: ChessPos -> (Int, Char, Color) -> [ChessMove]
+allowableEnPassant = enPassantCaptures
+
+enPassantCaptures :: ChessPos -> (Int, Char, Color) -> [ChessMove]
+enPassantCaptures pos loc@(idx, _, clr) =
+    let g = _cpGrid pos
+        state = _cpState pos
+        dirs = case clr of
+           White -> whitePawnEnPassantDirs
+           Black -> blackPawnEnPassantDirs
+        empties = fst $ allowableSingleMoves dirs g loc
+        filtered = case enPassant state of
+            Just ep ->
+                filter (\m -> _endIdx m == ep) empties
+            Nothing -> []
+        !temp = filtered
+        str = printf "enPassantCaptures - start loc: %d, color:%s, enPassant:%s"
+                     idx (show clr) (show filtered)
+    in
+      if isJust (enPassant state)
+        then trace str temp
+      else temp
 
 -- find the allowable destination locs for a pawn (non-capturing moves)
 allowablePawnNonCaptures :: ChessGrid -> (Int, Char, Color) -> [ChessMove]
@@ -1777,24 +1814,6 @@ pawnMoves g dir hasMoved loc@(_, ch, clr) =
 hasPawnMoved :: (Int, Char, Color) -> Bool
 hasPawnMoved (idx, _, White) = idx > 28
 hasPawnMoved (idx, _, Black) = idx < 71
-
--- TODO: not currently called
--- find the allowable enPassant destination capture locs for a pawn
--- only enemy squares containing pawns are returned
-allowableEnPassant :: ChessGrid -> (Int, Char, Color) -> [ChessMove]
-allowableEnPassant = enPassantCaptures
-
-enPassantCaptures :: ChessGrid -> (Int, Char, Color) -> [ChessMove]
-enPassantCaptures g loc@(idx, _, clr) =
-    if hasPawnMoved loc then []
-    else
-      let dirs = case clr of
-            White -> whitePawnEnPassantDirs
-            Black -> blackPawnEnPassantDirs
-          enemies = snd $ allowableSingleMoves dirs g loc
-          thisPawn = indexToChar g idx
-      -- only pawns can be captured this way
-      in filter (\n -> indexToChar g (_endIdx n) == flipCharColor thisPawn) enemies
 
 data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
    deriving Show
@@ -3017,7 +3036,8 @@ preCastlingGameNode grid the_color kingLocs =
             _cpInCheck = (False, False),
             _cpWhitePieceLocs = wLocs,
             _cpBlackPieceLocs = bLocs,
-            _cpFin = NotFinal
+            _cpFin = NotFinal,
+            _cpState = preCastledTestState the_color
           }
    in ChessNode
         { _chessTreeLoc = TreeLocation {tlDepth = 0},
@@ -3041,7 +3061,8 @@ postCastlingGameNode grid the_color kingLocs =
             _cpInCheck = (False, False),
             _cpWhitePieceLocs = wLocs,
             _cpBlackPieceLocs = bLocs,
-            _cpFin = NotFinal
+            _cpFin = NotFinal,
+            _cpState = castledTestState the_color
           }
    in ChessNode
         { _chessTreeLoc = TreeLocation {tlDepth = 0},

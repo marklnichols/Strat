@@ -156,8 +156,17 @@ chessTest = do
             empties2 `shouldMatchList` []
             enemies2 `shouldMatchList` []
     describe "allowableEnPassant" $
-        it "Gets the allowable enPassant capturing moves for a pawn" $
-            _endIdx <$> allowableEnPassant board01 (78, 'p', Black) `shouldMatchList` [57]
+        it "Gets the allowable enPassant capturing moves for a pawn" $ do
+            _endIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
+                                           White (Just 68) (12, 87) (False, False))
+                                           (57, 'P', White) `shouldMatchList` [68]
+            _endIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
+                                           Black (Just 32) (12, 87) (False, False))
+                                           (41, 'p', Black) `shouldMatchList` [32]
+            -- no enpassant in state:
+            _endIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
+                                           White Nothing (12, 87) (False, False))
+                                           (57, 'P', White) `shouldMatchList` []
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
@@ -300,7 +309,7 @@ chessTest = do
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           let (t, _) = getStartNode "newgame" White
-          (newTree, _, _) <- runRWST (expandSingleThreaded t 2 2) testEnv fakeState
+          newTree <- runReaderT (expandSingleThreaded t 2 2) testEnv
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True
@@ -362,15 +371,12 @@ matchStdMove StdMoveTestData{..} = do
     let (board, _) = getStartNode smtdBoardName colorToMoveNext
         -- tree = Z.expandTo board smtdDepth
         -- result = Z.negaMax tree True
-    let f :: Z.PositionState p => Z.ZipTreeM p (Z.NegaResult ChessNode)
+    let f :: Z.ZipTreeM (Z.NegaResult ChessNode)
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
             Z.negaMax tree (Nothing :: Maybe StdGen)
     (result, _, _) <- runRWST f testEnv fakeState
     let theBest = Z.picked result
-    putStrLn $ printf "ChessTest::matchStdMove - theBest: %s" (show theBest)
-
-    let mvNode = Z.nmNode theBest
     let mvNode = head $ Z.nmMovePath theBest -- nmMovePath is never empty
     let mv = _chessMv mvNode
     case mv of
@@ -383,6 +389,14 @@ matchStdMove StdMoveTestData{..} = do
 
 posFromGrid :: ChessGrid -> Color -> (Int, Int) -> (Bool, Bool) -> ChessPos
 posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) =
+ mkTestPos g c  (testState c) (kingLocW, kingLocB) (inCheckW, inCheckB)
+
+posFromGridEnPassant :: ChessGrid -> Color -> Maybe Int -> (Int, Int) -> (Bool, Bool) -> ChessPos
+posFromGridEnPassant g c ep (kingLocW, kingLocB) (inCheckW, inCheckB) =
+ mkTestPos g c (epTestState c ep) (kingLocW, kingLocB) (inCheckW, inCheckB)
+
+mkTestPos :: ChessGrid -> Color -> ChessPosState -> (Int, Int) -> (Bool, Bool) -> ChessPos
+mkTestPos g c cpState (kingLocW, kingLocB) (inCheckW, inCheckB) =
   let (wLocs, bLocs) = calcLocsForColor g
   in ChessPos
     { _cpGrid = g, _cpColor = c
@@ -390,7 +404,29 @@ posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) =
     , _cpInCheck = (inCheckW, inCheckB)
     , _cpWhitePieceLocs = wLocs
     , _cpBlackPieceLocs = bLocs
-    , _cpFin = NotFinal }
+    , _cpFin = NotFinal
+    , _cpState = cpState }
+
+
+-- generic test state
+testState :: Color -> ChessPosState
+testState clr = ChessPosState
+    { colorToMove = clr
+    , lastMove = Nothing
+    , moveNumber = 10
+    , castling = (BothAvailable, BothAvailable)
+    , enPassant = Nothing
+    }
+
+-- test state used for enpassant tests
+epTestState :: Color -> Maybe Int -> ChessPosState
+epTestState clr ep = ChessPosState
+    { colorToMove = clr
+    , lastMove = Nothing
+    , moveNumber = 10
+    , castling = (Castled, Castled)
+    , enPassant = ep
+    }
 
 
 -- Test board positions
@@ -437,6 +473,41 @@ P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+
+
+enPassantBoard01 :: ChessGrid
+enPassantBoard01 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  'K',  'R',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'P',  ' ',  ' ',  ' ',  'B',  'R',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  'P',  'B',  ' ',  'N',  'Q',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  'P',  'p',  '+',
+                             '+',  ' ',  'q',  ' ',  ' ',  'b',  'p',  'p',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'b',  ' ',  '+',
+                             '+',  ' ',  ' ',  'r',  ' ',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   r   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   b   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   q   -   -   b   p   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   N   -   -   -   P   p          5| (50)  51   52   53   54   55   56   57   58  (59)
+p   P   B   -   N   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   P   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   -   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   K   R   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+
+To test enpassant:
+with White to move, sen enPassant state to 68 (for piece to move at 57)
+with Black to move, set enPassant state to 32 (for piece to move at 41)
+-}
+
 
 ---------------------------------------------------------------------------------------------------
 invertedBoard01 :: ChessGrid

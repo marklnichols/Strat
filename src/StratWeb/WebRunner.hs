@@ -46,15 +46,6 @@ gameEnv = Z.ZipTreeEnv
         , aiPlaysBlack = True
         }
 
-newtype FakeState = FakeState {unFake :: String}
-
-fakeState :: FakeState
-fakeState = FakeState {unFake = "Just a fake state"}
-
-instance Z.PositionState FakeState where
-  toString = unFake
-  combineTwo x _ = x
-
 data Jsonable = forall j. ToJSON j => Jsonable j
 
 data NodeWrapper = NodeWrapper { getNode :: Tree Ck.CkNode
@@ -139,8 +130,8 @@ computerResponse prevNode gen = do
 computerMove :: RandomGen g => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-   (newTree, _, _) <- runRWST (Z.expandTo t 1 (Z.maxDepth gameEnv) (Z.maxCritDepth gameEnv)) testEnv fakeState
-   (res@Z.NegaResult{..}, _, _) <- runRWST (Z.negaMax newTree (Just gen)) testEnv fakeState
+   newTree <- runReaderT (Z.expandTo t 1 (Z.maxDepth gameEnv) (Z.maxCritDepth gameEnv)) testEnv
+   res@Z.NegaResult{..} <- runReaderT (Z.negaMax newTree (Just gen)) testEnv
    let bestMv = getMove $ Z.nmNode picked
    let moveScores = mkMoveScores ((last (Z.nmMovePath picked)) : ((last . Z.nmMovePath)  <$> alternatives))
    return $ Right ( MoveResults

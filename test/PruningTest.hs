@@ -18,7 +18,6 @@ import GHC.Generics
 import System.Random hiding (next)
 import Test.Hspec
 import Text.Printf
-
 import Strat.ZipTree
 import Control.Concurrent.Thread.Group (new)
 
@@ -86,7 +85,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 1
             --------------------------------------------------
-            let f1 :: PositionState p => ZipTreeM p (NegaResult TestNode)
+            let f1 :: ZipTreeM (NegaResult TestNode)
                 f1 = do
                   wikiTreeD1 <- expandTo rootWikiTree 1 1 1
                   negaMax wikiTreeD1 (Nothing :: Maybe StdGen)
@@ -102,7 +101,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 2
             --------------------------------------------------
-            let f2 :: PositionState p => ZipTreeM p (NegaResult TestNode)
+            let f2 :: ZipTreeM (NegaResult TestNode)
                 f2 = do
                   wikiTreeD2 <- expandTo rootWikiTree 1 2 2
                   negaMax wikiTreeD2 (Nothing :: Maybe StdGen)
@@ -120,7 +119,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 3
             --------------------------------------------------
-            let f3 :: PositionState p => ZipTreeM p (NegaResult TestNode)
+            let f3 :: ZipTreeM (NegaResult TestNode)
                 f3 = do
                   wikiTreeD3 <- expandTo rootWikiTree 1 3 3
                   negaMax wikiTreeD3 (Nothing :: Maybe StdGen)
@@ -160,6 +159,7 @@ pruningTest = do
             -- with pruning
             ----------------------------------------------------------------------------------
             (result5, _w, _s) <- runRWST (negaMax newWikiTree (Nothing :: Maybe StdGen) ) testEnv fakeState
+
 
 
             let theBest5 = picked result5
