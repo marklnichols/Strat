@@ -6,7 +6,6 @@ module ChessTest (chessTest) where
 
 import Test.Hspec
 import Control.Monad.Reader
-import Control.Monad.RWS.Lazy
 import Data.List
 import qualified Data.Text as T
 import Data.Tuple.Extra (fst3)
@@ -37,15 +36,6 @@ testEnv = Z.ZipTreeEnv
         , aiPlaysWhite = True
         , aiPlaysBlack = True
         }
-
-newtype FakeState = FakeState {unFake :: String}
-
-fakeState :: FakeState
-fakeState = FakeState {unFake = "Just a fake state"}
-
-instance Z.PositionState FakeState where
-  toString = unFake
-  combineTwo x _ = x
 
 chessTest :: SpecWith ()
 chessTest = do
@@ -375,7 +365,7 @@ matchStdMove StdMoveTestData{..} = do
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
             Z.negaMax tree (Nothing :: Maybe StdGen)
-    (result, _, _) <- runRWST f testEnv fakeState
+    result <- runReaderT f testEnv
     let theBest = Z.picked result
     let mvNode = head $ Z.nmMovePath theBest -- nmMovePath is never empty
     let mv = _chessMv mvNode

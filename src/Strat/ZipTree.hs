@@ -37,11 +37,8 @@ module Strat.ZipTree
   ) where
 
 import Control.Monad.Reader
-import Control.Monad.RWS.Lazy
 import Data.Hashable
 import qualified Data.List as List
-import Data.List.NonEmpty (NonEmpty, NonEmpty( (:|) ))
-import qualified Data.List.NonEmpty as NE
 import Data.Text (Text, pack, isInfixOf)
 import qualified Data.Tree as T
 import Data.Tree.Zipper

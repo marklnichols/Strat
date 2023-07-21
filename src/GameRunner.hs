@@ -17,7 +17,6 @@ module GameRunner
 
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.RWS.Lazy
 import Data.Hashable
 import Data.List
 import Data.Text (Text)
@@ -60,7 +59,7 @@ startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enab
         , Z.aiPlaysBlack
         , Z.singleThreaded
         }
-  startGameLoop env startState o node
+  startGameLoop env o node
 
 startGameLoop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
               => Z.ZipTreeEnv -> o -> Tree n -> IO ()

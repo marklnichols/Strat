@@ -14,9 +14,7 @@ module StratWeb.WebRunner
     ) where
 
 import Control.Monad.Reader
-import Control.Monad.RWS.Lazy
 import Data.Aeson
-import Data.Hashable
 import Data.Text (pack)
 import Data.Tree
 import Strat.Helpers
@@ -139,14 +137,6 @@ computerMove t gen = do
       , mrMoveScores = moveScores
       , mrMove = bestMv
       , mrNewTree = newTree } )
-
-searchTo :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g)
-         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM p (Tree n, Z.NegaResult n)
-searchTo t gen maxDepth maxCritDepth = do
-    env <- ask
-    expanded <- Z.expandTo t 1 (Z.maxDepth env) (Z.maxCritDepth env)
-    res <- Z.negaMax expanded gen
-    return (t, res)
 
 checkGameOver :: Tree Ck.CkNode -> (Bool, String)
 checkGameOver node =

@@ -40,14 +40,6 @@ showBoard n = do
   putStrLn $ formatBoard n
   putStrLn ("Board hash: " ++ show (nodeHash n))
 
-showBoardBrief :: ChessText -> ChessNode -> IO ()
-showBoardBrief _ n = showBoard n
-
-showBoard :: ChessNode -> IO ()
-showBoard n = do
-  putStrLn $ formatBoard n
-  putStrLn ("Board hash: " ++ show (nodeHash n))
-
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
     let (tSize, tLevels)  = treeSize tree

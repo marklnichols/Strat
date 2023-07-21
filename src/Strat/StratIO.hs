@@ -14,7 +14,6 @@ import Data.Hashable
 import Data.Maybe
 import qualified Data.Tree as T
 import Data.Tree.Zipper
-import Data.Tuple.Extra
 import Strat.StratTree.TreeNode
 import Strat.ZipTree hiding (expandTo)
 import qualified Strat.ZipTree as Z
@@ -60,7 +59,6 @@ negaMaxParallel env t gen = do
                  , threadEC))
     let sign = ztnSign $ T.rootLabel t
     let initTC = if sign == Pos then Min else Max
-    let resultsList = fst <$> outerList
     let curried = foldf sign
     let (theBestTC, ec::Int) = foldr curried (initTC, 0) resultsList
 
