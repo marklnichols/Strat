@@ -17,7 +17,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
-import Text.Printf
+-- import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -39,6 +39,7 @@ testEnv = Z.ZipTreeEnv
 
 chessTest :: SpecWith ()
 chessTest = do
+
     describe "invertGrid" $
       it "Inverts the rows of the grid" $ do
         invertGrid board01 `shouldBe` invertedBoard01
@@ -221,27 +222,31 @@ chessTest = do
 
     describe "calcCenterPawnScore" $
       it "Calculates a score for the two center pawns of each side" $ do
-        calcCenterPawnScore [24, 45] [34, 25] `shouldBe` 6.0
-        calcCenterPawnScore [34, 35] [44, 45] `shouldBe` -12.0
+        calcCenterPawnScore [24, 45] [64, 75] `shouldBe` 6.0
+        calcCenterPawnScore [34, 35] [54, 55] `shouldBe` -12.0
 
-    describe "calcNightPawnScore" $
+    describe "calcKnightPawnScore" $
       it "Calculates a score tor the two knight pawns of each side" $
-        calcKnightPawnScore board09 [22, 27] [32, 37] `shouldBe` 3
+        calcKnightPawnScore board09 [32, 37] [52, 57] `shouldBe` 5
 
-    describe "calcRookPawnScore" $
-      it "Calculates a score for the two rook pawns of each side" $
-        calcRookPawnScore board10 [41, 48] [31, 38] `shouldBe` 0
+    describe "calcRookPawnScore (pawns on R3)" $
+      it "Calculates a score for the two rook pawns of each side, focusing on the R3 squares" $
+        calcRookPawnScore board10R3 [31, 38] [61, 78] `shouldBe` -1
+
+    describe "calcRookPawnScore (pawns on R4)" $
+      it "Calculates a score for the two rook pawns of each side, focusing on the R4 squares" $
+        calcRookPawnScore board10R4 [41, 28] [51, 58] `shouldBe` 1
 
     describe "bishopPawnScore" $
       it "Calculates a score for the two bishop pawns of each side" $ do
-        calcBishopPawnScore [23, 26] [33, 46] `shouldBe` 3.0
-        calcBishopPawnScore [33, 36] [43, 46] `shouldBe` 2.0
+        calcBishopPawnScore [23, 26] [63, 56] `shouldBe` 3.0
+        calcBishopPawnScore [33, 36] [53, 56] `shouldBe` 2.0
 
     describe "calcPawnPositionScore" $
       it ("Calculates a score for the position based on pawn positioning"
           ++ " for each side") $ do
-          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 16
-          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-16)
+          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 15
+          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-15)
           calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) (False, False)) `shouldBe` 0
           calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) (False, False)) `shouldBe` 0
 
@@ -359,8 +364,6 @@ chessTest = do
 matchStdMove :: StdMoveTestData -> IO Bool
 matchStdMove StdMoveTestData{..} = do
     let (board, _) = getStartNode smtdBoardName colorToMoveNext
-        -- tree = Z.expandTo board smtdDepth
-        -- result = Z.negaMax tree True
     let f :: Z.ZipTreeM (Z.NegaResult ChessNode)
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
@@ -373,7 +376,7 @@ matchStdMove StdMoveTestData{..} = do
         StdMove {..} -> do
             let start = _startIdx
             let end = _endIdx
-            putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
+            -- putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 
@@ -941,27 +944,27 @@ R   N   B   Q   K   -   N   R          1| (10)  11   12   13   14   15   16   17
                                                 A    B    C    D    E    F    G    H
 -}
 
-board10 :: ChessGrid
-board10 = ChessGrid $ V.fromList
+board10R3 :: ChessGrid
+board10R3 = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  'N',  'B',  'Q',  ' ',  'R',  'K',  ' ',  '+',
                              '+',  ' ',  'P',  'P',  'P',  ' ',  'P',  'P',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'N',  ' ',  ' ',  '+',
-                             '+',  'P',  ' ',  'B',  ' ',  'P',  ' ',  ' ',  'P',  '+',
+                             '+',  'P',  ' ',  ' ',  ' ',  ' ',  'N',  ' ',  'P',  '+',
+                             '+',  ' ',  ' ',  'B',  ' ',  'P',  ' ',  ' ',  ' ',  '+',
                              '+',  ' ',  ' ',  'b',  ' ',  'p',  ' ',  ' ',  ' ',  '+',
-                             '+',  'p',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  'p',  '+',
-                             '+',  ' ',  'p',  'p',  'p',  ' ',  'p',  'p',  ' ',  '+',
+                             '+',  'p',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  'p',  'p',  ' ',  'p',  'p',  'p',  '+',
                              '+',  'r',  'n',  'b',  'q',  ' ',  'r',  'k',  ' ',  '+',
                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 r   n   b   q   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
--   p   p   p   -   p   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
-p   -   -   -   -   n   -   p          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   p   p   p   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+p   -   -   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
 -   -   b   -   p   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
-P   -   B   -   P   -   -   P          4| (40)  41   42   43   44   45   46   47   48  (49)
--   -   -   -   -   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   B   -   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+P   -   -   -   -   N   -   P          3| (30)  31   32   33   34   35   36   37   38  (39)
 -   P   P   P   -   P   P              2| (20)  21   22   23   24   25   26   27   28  (29)
 R   N   B   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
 
@@ -970,6 +973,34 @@ R   N   B   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17
                                                 A    B    C    D    E    F    G    H
 -}
 
+board10R4 :: ChessGrid
+board10R4 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  'R',  'N',  'B',  'Q',  ' ',  'R',  'K',  ' ',  '+',
+                             '+',  ' ',  'P',  'P',  'P',  ' ',  'P',  'P',  'P',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'N',  ' ',  ' ',  '+',
+                             '+',  'P',  ' ',  'B',  ' ',  'P',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  'b',  ' ',  'p',  ' ',  ' ',  'p',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'n',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  'p',  'p',  ' ',  'p',  'p',  ' ',  '+',
+                             '+',  'r',  'n',  'b',  'q',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   q   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   p   p   p   -   p   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   n   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+p   -   b   -   p   -   -   p          5| (50)  51   52   53   54   55   56   57   58  (59)
+P   -   B   -   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   P   P   P   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
 
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: ChessGrid

@@ -631,9 +631,10 @@ preCastledTestState clr = ChessPosState
     }
 
 
----------------------------------------------------------------------------------------------------}
+---------------------------------------------------------------------------------------------------
 -- TODO: revert this eventually...
 -- type Dir = Int -> Int
+---------------------------------------------------------------------------------------------------
 data Dir = Dir { apply :: Int -> Int, _dirName :: String }
 
 right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
@@ -805,7 +806,6 @@ inCheck g c kingLoc =
 matchesChar :: ChessGrid -> Char -> [Int] -> Bool
 matchesChar g ch xs = foldr f False xs
   where
-  --f x r = if indexToChar g x == ch then True else r
     f x r = indexToChar g x == ch || r
 
 ---------------------------------------------------------------------------------------------------
@@ -852,17 +852,14 @@ flipPieceColor Black = White
 -- Another round of perfomance opt
 -- Implement FEN for positions
 -- Add pawn promotion other than queen
--- Add / fix enpassant
 -- Add more mate in n tests
 -- Determine mate in n and display
--- Add parallel processing
 -- Various command line debug tools
 --    undo
 --    load
 --    save
 --    show eval detail
 --    change level
---
 -- And add evaluation scores for:
       outposts
       half-empty, empty file rooks
@@ -977,20 +974,17 @@ calcPawnPositionScore :: ChessPos -> Float
 calcPawnPositionScore cp =
     let g = cp ^. cpGrid
         (wLocs, bLocs) = locsForColor cp
-        invertedGrid = invertGrid g
+        -- invertedGrid = invertGrid g
         filterF loc =
             case indexToPiece g loc of
                 MkChessPiece _c (SomeSing SPawn) -> True
                 MkChessPiece _c (SomeSing _)     -> False
-        invertY n = 10 * (9 - (n `div` 10)) + n `mod` 10
         wPawns = filter filterF (fst3 <$> wLocs)
         bPawns = filter filterF (fst3 <$> bLocs)
-        bPawns' = invertY <$> bPawns -- invert the black pawn pos vert. and use the white lookup
-
-        centerScore = calcCenterPawnScore wPawns bPawns'
-        npScore = calcKnightPawnScore g wPawns bPawns'
-        rpScore = calcRookPawnScore g wPawns bPawns'
-        bpScore = calcBishopPawnScore wPawns bPawns'
+        centerScore = calcCenterPawnScore wPawns bPawns
+        npScore = calcKnightPawnScore g wPawns bPawns
+        rpScore = calcRookPawnScore g wPawns bPawns
+        bpScore = calcBishopPawnScore wPawns bPawns
     in centerScore + npScore + rpScore + bpScore
 
 invertGrid :: ChessGrid -> ChessGrid
@@ -998,6 +992,11 @@ invertGrid g =
   let rows = asRows g
   -- asRows has already reversed the rows...
   in ChessGrid $ V.concat rows
+
+-- black pawns are reflected to the white side of the board to simplify lookups
+-- e.g. a black pawn at 71 is represented as 21, 61 as 31, etc.
+invertY :: Int -> Int
+invertY n = 10 * (9 - (n `div` 10)) + n `mod` 10
 
 asRows :: ChessGrid -> [Vector Char]
 asRows g =
@@ -1010,51 +1009,77 @@ asRows g =
       n' | n' `div` 10 /= ((n' - 1) `div` 10) -> V.singleton x : acc
          | otherwise -> (a `V.snoc` x) : acc'
 
-
 calcCenterPawnScore :: [Int] -> [Int] -> Float
-calcCenterPawnScore wPawns bPawns' =
+calcCenterPawnScore wPawns bPawns =
     let w = calcPawnAdjustments kpQpAdjustments wPawns
-        b = calcPawnAdjustments kpQpAdjustments bPawns'
+        b = calcPawnAdjustments kpQpAdjustments (invertY <$> bPawns)
     in w - b
 
 calcKnightPawnScore :: ChessGrid -> [Int] -> [Int] -> Float
-calcKnightPawnScore grid wPawns bPawns' =
-    let w = calcNP White grid wPawns
-        b = calcNP Black grid bPawns'
-    in w - b
+calcKnightPawnScore grid wPawns bPawns =
+    let prelimW = calcPawnAdjustments knpQnpAdjustments wPawns
+        prelimB = calcPawnAdjustments knpQnpAdjustments (invertY <$> bPawns)
+        w = calcNP White grid wPawns
+        b = calcNP Black grid bPawns
+    in prelimW + w - (prelimB + b)
   where
     calcNP clr g pawns =
-      let prelim = calcPawnAdjustments knpQnpAdjustments pawns
           -- remove penalty for pawn moves that setup fiancetto
-          kSideAdj = if knpSpaceForFianchetto clr g && kBishopAtHome clr g
-            then np3Value
-            else 0
-          qSideAdj = if qnpSpaceForFianchetto clr g && qBishopAtHome clr g
-            then np3Value
-            else 0
-      in prelim - kSideAdj - qSideAdj
+        let kSideAdj = if knpSpaceForFianchetto clr g && kBishopAtHome clr g
+              then pn3FiancettoValue
+              else 0
+            qSideAdj = if qnpSpaceForFianchetto clr g && qBishopAtHome clr g
+              then pn3FiancettoValue
+              else 0
+        in kSideAdj + qSideAdj
 
 calcRookPawnScore :: ChessGrid -> [Int] -> [Int] -> Float
-calcRookPawnScore grid wPawns bPawns' =
-    let w = calcRP White grid wPawns
-        b = calcRP Black grid bPawns'
-    in w - b
+calcRookPawnScore grid wPawns bPawns =
+    let prelimW = calcPawnAdjustments krpQrpAdjustments wPawns
+        prelimB = calcPawnAdjustments krpQrpAdjustments (invertY <$> bPawns)
+        w = calcRP White grid wPawns
+        b = calcRP Black grid bPawns
+    in prelimW + w - (prelimB + b)
   where
     calcRP clr g pawns =
-      let prelim = calcPawnAdjustments krpQrpAdjustments pawns
-          -- remove penalty for pawn move that opens space for rook
-          kSideAdj = if krpSpaceForRook clr g && kRookAtHome clr g
-            then rp4Value
-            else 0
-          qSideAdj = if qrpSpaceForRook clr g && qRookAtHome clr g
-            then rp4Value
-            else 0
-      in prelim - kSideAdj - qSideAdj
+        -- add penalty for p-r4 pawn moves that do not open a space for rook
+        let kSidePenR4 = if pawnAt clr g wKR 4 && not (krpSpaceForRook clr g && kRookAtHome clr g)
+              then pR4Penalty
+              else 0
+            qSidePenR4 = if pawnAt clr g wQR 4 && not (qrpSpaceForRook clr g && qRookAtHome clr g)
+              then pR4Penalty
+              else 0
+            -- add penalty for p-r3 moves that expose the king
+            kSidePenR3 = if pawnAt clr g wKR 3 && kNearKrp clr g
+              then pR3Penalty
+              else 0
+            qSidePenR3 = if pawnAt clr g wQR 3 && kNearQrp clr g
+              then pR3Penalty
+              else 0
+        in kSidePenR4 + qSidePenR4 + kSidePenR3 + qSidePenR3
+
+-- row numbers are 1-based here so they are consistent with chess notation
+-- e.g. 'pawnAt White grid wKR 4' corresponds to the square KR4 in chess notation
+pawnAt :: Color -> ChessGrid -> Int -> Int -> Bool
+pawnAt White grid columnBase row =
+    let idx = columnBase + (row - 1) * 10
+    --
+        !temp = case indexToPiece grid idx of
+                  MkChessPiece clr (SomeSing SPawn) -> True
+                  _                                 -> False
+    in case indexToPiece grid idx of
+         MkChessPiece clr (SomeSing SPawn) -> True
+         _                                 -> False
+pawnAt Black grid columnBase row =
+    let idx = columnBase + (7 - (row - 1)) * 10
+    in case indexToPiece grid idx of
+         MkChessPiece clr (SomeSing SPawn) -> True
+         _                                 -> False
 
 calcBishopPawnScore :: [Int] -> [Int] -> Float
-calcBishopPawnScore wPawns bPawns' =
+calcBishopPawnScore wPawns bPawns =
     let wp = calcPawnAdjustments kbpQbpAdjustments wPawns
-        bp = calcPawnAdjustments kbpQbpAdjustments bPawns'
+        bp = calcPawnAdjustments kbpQbpAdjustments (invertY <$> bPawns)
     in wp - bp
 
 calcPawnAdjustments :: Map Int Float -> [Int] -> Float
@@ -1070,6 +1095,40 @@ kRookAtHome White grid = case indexToPiece grid wKR of
 kRookAtHome Black grid = case indexToPiece grid bKR of
                           MkChessPiece Black (SomeSing SRook) -> True
                           _                                   -> False
+
+kNearKrp :: Color -> ChessGrid -> Bool
+kNearKrp White grid =
+  case indexToPiece grid wKN of
+    MkChessPiece White (SomeSing SKing) -> True
+    _                                   ->
+        case indexToPiece grid wKR of
+            MkChessPiece White (SomeSing SKing) -> True
+            _                                   -> False
+
+kNearKrp Black grid =
+  case indexToPiece grid bKN of
+    MkChessPiece Black (SomeSing SKing) -> True
+    _                                   ->
+        case indexToPiece grid bKR of
+            MkChessPiece Black (SomeSing SKing) -> True
+            _                                   -> False
+
+kNearQrp :: Color -> ChessGrid -> Bool
+kNearQrp White grid =
+  case indexToPiece grid wQN of
+    MkChessPiece White (SomeSing SKing) -> True
+    _                                   ->
+        case indexToPiece grid wQR of
+            MkChessPiece White (SomeSing SKing) -> True
+            _                                   -> False
+
+kNearQrp Black grid =
+  case indexToPiece grid bQN of
+    MkChessPiece Black (SomeSing SKing) -> True
+    _                                   ->
+        case indexToPiece grid bQR of
+            MkChessPiece Black (SomeSing SKing) -> True
+            _                                   -> False
 
 qRookAtHome :: Color -> ChessGrid -> Bool
 qRookAtHome White grid = case indexToPiece grid wQR of
@@ -1130,19 +1189,22 @@ kpQpAdjustments :: Map Int Float
 kpQpAdjustments = M.fromList
     [ (24, 0.0), (34, 3.0), (44, 9.0), (25, 0.0), (35, 3.0), (45, 9.0) ]
 
-np3Value :: Float
-np3Value = -1
+pn3FiancettoValue :: Float
+pn3FiancettoValue = 3 -- when used, added to pawn at N3's value
 
 knpQnpAdjustments :: Map Int Float
 knpQnpAdjustments = M.fromList
-    [ (22, 0.0), (32, np3Value), (42, -2.0), (27, 0.0), (37, np3Value), (47, -2.0) ]
+    [ (22, 0.0), (32, -1), (42, -2.0), (27, 0.0), (37, -1), (47, -2.0) ]
 
-rp4Value :: Float
-rp4Value = -2
+pR3Penalty :: Float
+pR3Penalty = -3 -- when used, subtracted from pawn at R3's value
+
+pR4Penalty :: Float
+pR4Penalty = -3 -- when used, subtracted to pawn at R4's value
 
 krpQrpAdjustments :: Map Int Float
 krpQrpAdjustments = M.fromList
-    [ (21, 0.0), (31, -1.0), (41, rp4Value), (28, 0.0), (38, -1.0), (48, rp4Value) ]
+    [ (21, 0.0), (31, 2.0), (41, 2), (28, 0.0), (38, 2.0), (48, 2) ]
 
 kbpQbpAdjustments :: Map Int Float
 kbpQbpAdjustments = M.fromList
@@ -2954,7 +3016,6 @@ Moves to verify (run with -d2 -c6):
 No weird king-side castle that makes the bishop dissappear...
 -}
 
---TODO: get rid of these castling states...
 discoveredCheckNode :: ChessNode
 discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
 
