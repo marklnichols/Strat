@@ -148,14 +148,14 @@ chessTest = do
             enemies2 `shouldMatchList` []
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $ do
-            _endIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
+            _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
                                            White (Just 68) (12, 87) (False, False))
                                            (57, 'P', White) `shouldMatchList` [68]
-            _endIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
+            _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
                                            Black (Just 32) (12, 87) (False, False))
                                            (41, 'p', Black) `shouldMatchList` [32]
             -- no enpassant in state:
-            _endIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
+            _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
                                            White Nothing (12, 87) (False, False))
                                            (57, 'P', White) `shouldMatchList` []
     describe "calcMoveListGrid" $

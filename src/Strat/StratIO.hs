@@ -31,8 +31,11 @@ expandToParallel :: (Ord a, Show a, ZipTreeNode a)
                  => T.Tree a -> Int -> Int -> Z.ZipTreeM (T.Tree a)
 expandToParallel t depth critDepth = do
     -- expansion of at least one level should always have been previously done
-    let (_, levels) = treeSize t
-    let _num_levels = assert (length levels >= 2) (length levels)
+
+    let (tSize, tLevels)  = treeSize t
+    liftIO $ putStrLn ("Tree size: " ++ show tSize)
+    liftIO $ print tLevels
+    let _num_levels = assert (length tLevels >= 2) (length tLevels)
     let theChildren = T.subForest t
     liftIO $ putStrLn $ printf "expandToParallel -- number of threads that will be created: %d" (length theChildren)
     liftIO $ putStrLn $ printf "(expansion to depth:%d, critDepth %d)" depth critDepth

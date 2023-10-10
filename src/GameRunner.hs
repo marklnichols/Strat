@@ -90,27 +90,30 @@ startGameLoop env o node = do
       ) env
     return ()
 
+moveHistory :: TreeNode n m => [n] -> [m]
+moveHistory tns = getMove <$> tns
+
 loop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n, RandomGen g)
-     => Maybe g -> o -> Tree n -> [m] -> Z.ZipTreeM ()
-loop gen o node moveHistory = do
+     => Maybe g -> o -> Tree n -> [n] -> Z.ZipTreeM ()
+loop gen o node nodeHistory = do
     let label = rootLabel node
     liftIO $ updateBoard o label
     (theNext, updatedHistory) <- case final label of
         WWins -> do
             liftIO $ out o "White wins."
-            return (Nothing, moveHistory)
+            return (Nothing, nodeHistory)
         BWins -> do
             liftIO $ out o "Black wins."
-            return (Nothing, moveHistory)
+            return (Nothing, nodeHistory)
         Draw -> do
             liftIO $ out o "Draw."
-            return (Nothing, moveHistory)
+            return (Nothing, nodeHistory)
         _ -> do
             (nextNode, h) <- do
                 bCompTurn <- isCompTurn (Z.ztnSign label)
                 if bCompTurn
-                  then computersTurn gen o node moveHistory
-                  else playersTurn gen o node moveHistory
+                  then computersTurn gen o node nodeHistory
+                  else playersTurn gen o node nodeHistory
             return (Just nextNode, h)
     case theNext of
         Nothing -> return ()
@@ -119,34 +122,35 @@ loop gen o node moveHistory = do
 -- TODO: remove this exclusions parameter once its clear it is not needed
 -- TODO: remove maxDepth params once its clear that 'exclusions'list is not needed
 playersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, RandomGen g)
-           => Maybe g -> o -> Tree n -> [m] -> Z.ZipTreeM (Tree n, [m])
-playersTurn gen o t moveHistory = do
+           => Maybe g -> o -> Tree n -> [n] -> Z.ZipTreeM (Tree n, [n])
+playersTurn gen o t nodeHistory = do
     -- populate 1 deep just so findMove can work with player vs player games
     (expandedT, _result) <- searchToSingleThreaded t (Nothing :: Maybe StdGen) 1 1
     entry <- liftIO $ getPlayerEntry o expandedT []
     case entry of
       CmdEntry s -> do
-        _ <- liftIO $ processCommand s (rootLabel t) moveHistory
-        playersTurn gen o t moveHistory
+        _ <- processCommand s (rootLabel t) nodeHistory
+        playersTurn gen o t nodeHistory
       MoveEntry mv ->
         case findMove expandedT mv of
-          Right newTree -> return (newTree, mv:moveHistory)
+          Right newTree -> return (newTree, (rootLabel newTree):nodeHistory)
           Left s ->  do
               liftIO $ putStrLn s
               let newNodeMoves = possibleMoves (rootLabel expandedT)
               liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
-              playersTurn gen o t moveHistory
+              playersTurn gen o t nodeHistory
 
 computersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, Ord n, Eval n, RandomGen g)
-              => Maybe g-> o -> Tree n -> [m] -> Z.ZipTreeM (Tree n, [m])
-computersTurn gen o t moveHistory = do
+              => Maybe g-> o -> Tree n -> [n] -> Z.ZipTreeM (Tree n, [n])
+computersTurn gen o t nodeHistory = do
     (sec, (newRoot, updatedHistory)) <- duration $ do
         env <- ask
         (expandedT, result) <- searchTo t gen (Z.maxDepth env) (Z.maxCritDepth env)
         liftIO $ putStrLn "\n--------------------------------------------------\n"
         liftIO $ showCompMove o expandedT result True
-        let nextMove = getMove $ Z.nmNode (Z.picked result)
-        return (findMove expandedT nextMove, nextMove:moveHistory)
+        let nextNode =Z.nmNode (Z.picked result)
+        let nextMove = getMove nextNode
+        return (findMove expandedT nextMove, nextNode:nodeHistory)
     liftIO $ putStrLn $ "Computer move time: " ++ showDuration sec ++ "\n"
     case newRoot of
         Right r -> return (r, updatedHistory)
@@ -218,17 +222,25 @@ evalTreeMultiThreaded t gen = do
     res <- negaMaxParallel env t gen
     return (t, res)
 
-processUndo :: (Move m) => [m] -> IO ()
-processUndo (mv : mvs) = do
-  putStrLn $ "Undo for |" ++ show mv ++ "|"
-  case mvs of
-      (prev : _) -> putStrLn $ "Undo for |" ++ show prev ++ "|"
-      [] -> putStrLn "Only one move to undo."
-processUndo [] = putStrLn "Nothing to undo."
+processUndo :: (TreeNode n m) => [n] -> Z.ZipTreeM (Maybe (Tree n, [n]))
+processUndo [] = do
+  liftIO $ putStrLn "Nothing to undo."
+  return Nothing
+processUndo (n : ns) = do
+  liftIO $ putStrLn $ "undoign the last move ..."
+  return $ Just (Node n [], ns)
 
-processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n) => String -> n -> [m] -> IO ()
-processCommand cmd node moveHistory
-    | cmd == "hash" = putStrLn $ "hash of current position: " ++ show (Z.nodeHash node)
-    | cmd == "list" = putStrLn $ intercalate "\n" (show <$> reverse moveHistory)
-    | cmd == "undo" = processUndo moveHistory
-    | otherwise = putStrLn $ "Unhandled Commandi!: " ++ cmd
+processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n) => String -> n -> [n]
+                -> Z.ZipTreeM (Maybe (Tree n, [n]))
+processCommand cmd node nodeHistory
+    | cmd == "hash" = do
+        liftIO $ putStrLn $ "hash of current position: " ++ show (Z.nodeHash node)
+        return Nothing
+    | cmd == "list" = do
+        liftIO $ putStrLn $ intercalate "\n" (show <$> reverse (moveHistory nodeHistory))
+        return Nothing
+    | cmd == "undo" = do
+        processUndo nodeHistory
+    | otherwise = do
+        liftIO $ putStrLn $ "Unhandled Commandi!: " ++ cmd
+        return Nothing
