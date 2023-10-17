@@ -55,13 +55,14 @@ chessTest = do
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = pairToIndexes
                   $ allowableKingMoves
-                      ( posFromGrid board01 White (12, 87) (False, False)
-                        ) (12, 'K', White)
+                      ( mkTestPos board01 White (testStateCastled White) (12, 87) (False, False))
+                      (12, 'K', White)
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             let (empties2, enemies2) = pairToIndexes
                   $ allowableKingMoves
-                      ( posFromGrid board01 Black (12, 87) (False, False) ) (87, 'k', Black)
+                      ( mkTestPos board01 Black (testStateCastled Black) (12, 87) (False, False) )
+                      (87, 'k', Black)
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
     describe "castleMoves" $ do
@@ -174,40 +175,30 @@ chessTest = do
         it "Checks  the castling state of each side" $ do
             fst (castlingStatus (posFromGrid board03a White (15, 85) (False, False)))
                 `shouldBe` KingSideOnlyAvailable
-
             snd (castlingStatus (posFromGrid board03a Black (15, 85) (False, False)))
                 `shouldBe` QueenSideOnlyAvailable
-
             fst (castlingStatus (posFromGrid board03b White (24, 87) (False, False)))
                 `shouldBe` Unavailable
-
             snd (castlingStatus (posFromGrid board03b Black (24, 87) (False, False)))
                 `shouldBe` Castled
-
             fst (castlingStatus (posFromGrid board03c White (15, 85) (False, False)))
                 `shouldBe` BothAvailable
-
             snd (castlingStatus (posFromGrid board03c Black (15, 85) (False, False)))
                 `shouldBe` BothAvailable
 
     describe "castlingAvailable" $
         it "Checks castling availability for one player" $ do
-            castlingAvailable (posFromGrid board03a White (15, 85) (False, False)) White
+            castlingAvailable (mkTestPos board03a White (testStateKSOnly White) (15, 85) (False, False)) White
+               `shouldBe` Unavailable
+            castlingAvailable (mkTestPos board03a Black (testStateQSOnly Black) (15, 85) (False, False)) Black
                 `shouldBe` Unavailable
-
-            castlingAvailable (posFromGrid board03a Black (15, 85) (False, False)) Black
+            castlingAvailable (mkTestPos board03b White (testStateUnavail White) (24, 87) (False, False)) White
                 `shouldBe` Unavailable
-
-            castlingAvailable (posFromGrid board03b White (24, 87) (False, False)) White
-                `shouldBe` Unavailable
-
-            castlingAvailable (posFromGrid board03b Black (24, 87) (False, False)) Black
+            castlingAvailable (mkTestPos board03b Black (testStateCastled Black) (24, 87) (False, False)) Black
                 `shouldBe` Castled
-
-            castlingAvailable (posFromGrid board03c White (15, 85) (False, False)) White
+            castlingAvailable (mkTestPos board03c White (testStateQSOnly White) (15, 85) (False, False)) White
                 `shouldBe` QueenSideOnlyAvailable
-
-            castlingAvailable (posFromGrid board03c Black (15, 85) (False, False)) Black
+            castlingAvailable (mkTestPos board03c Black (testState Black) (15, 85) (False, False)) Black
                 `shouldBe` KingSideOnlyAvailable
 
     describe "countMaterial" $
@@ -400,25 +391,44 @@ mkTestPos g c cpState (kingLocW, kingLocB) (inCheckW, inCheckB) =
     , _cpFin = NotFinal
     , _cpState = cpState }
 
-
--- generic test state
+-- generic test state (Both K and Q side castiling avail for both sides)
 testState :: Color -> ChessPosState
 testState clr = ChessPosState
-    { colorToMove = clr
-    , lastMove = Nothing
-    , moveNumber = 10
-    , castling = (BothAvailable, BothAvailable)
-    , enPassant = Nothing
+    { _cpsColorToMove = clr
+    , _cpsLastMove = Nothing
+    , _cpsMoveNumber = 10
+    , _cpsCastling = (BothAvailable, BothAvailable)
+    , _cpsEnPassant = Nothing
     }
+
+-- test state - King Side only castling both sides
+testStateKSOnly :: Color -> ChessPosState
+testStateKSOnly clr = (testState clr)
+  { _cpsCastling = (KingSideOnlyAvailable, KingSideOnlyAvailable) }
+
+-- test state - Queen Side only castling both sides
+testStateQSOnly :: Color -> ChessPosState
+testStateQSOnly clr = (testState clr)
+  { _cpsCastling = (QueenSideOnlyAvailable, QueenSideOnlyAvailable) }
+
+-- test state - castling unavailable both sides
+testStateUnavail :: Color -> ChessPosState
+testStateUnavail clr = (testState clr)
+  { _cpsCastling = (Unavailable, Unavailable) }
+
+-- test state - castled both sides
+testStateCastled :: Color -> ChessPosState
+testStateCastled clr = (testState clr)
+  { _cpsCastling = (Castled, Castled) }
 
 -- test state used for enpassant tests
 epTestState :: Color -> Maybe Int -> ChessPosState
 epTestState clr ep = ChessPosState
-    { colorToMove = clr
-    , lastMove = Nothing
-    , moveNumber = 10
-    , castling = (Castled, Castled)
-    , enPassant = ep
+    { _cpsColorToMove = clr
+    , _cpsLastMove = Nothing
+    , _cpsMoveNumber = 10
+    , _cpsCastling = (Castled, Castled)
+    , _cpsEnPassant = ep
     }
 
 
@@ -591,7 +601,8 @@ _   R   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 -}
 
 board03b :: ChessGrid
-board03b = ChessGrid $ V.fromList       [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board03b = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                              '+',  'R',  ' ',  ' ',  ' ',  ' ',  'B',  'N',  'R',  '+',
                              '+',  'P',  'P',  'P',  'K',  'Q',  'P',  'P',  'P',  '+',
                              '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',

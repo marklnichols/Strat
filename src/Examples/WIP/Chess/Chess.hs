@@ -37,7 +37,8 @@ module Chess
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
     , ChessPos(..), cpGrid, cpColor, cpFin
     , ChessPosState(..)
-    , Color(..)
+    , Color(..
+           )
     , colorFromInt
     , colorToInt
     , countMaterial
@@ -117,8 +118,8 @@ import qualified Data.Vector.Unboxed as V
 import Data.Hashable
 import GHC.Generics
 import System.Console.CmdArgs.Implicit (Data, Typeable)
-import Text.Printf
-import Debug.Trace
+-- import Text.Printf
+-- import Debug.Trace
 
 import qualified Parser8By8 as Parser
 import qualified Strat.Helpers as Helpers
@@ -183,19 +184,20 @@ data StdMoveTestData where
     , smtdDepth :: Int
     , smtdCritDepth :: Int
     , smtdStartIdx :: Int
-    ,smtdEndIdx :: Int
+    , smtdEndIdx :: Int
     }
     -> StdMoveTestData
   deriving (Eq, Ord)
 
 data ChessPosState = ChessPosState
-  { colorToMove :: Color
-  , lastMove :: Maybe ChessMove
-  , moveNumber :: Int
-  , castling :: (Castling, Castling)
-  , enPassant :: Maybe Int
+  { _cpsColorToMove :: Color
+  , _cpsLastMove :: Maybe ChessMove
+  , _cpsMoveNumber :: Int
+  , _cpsCastling :: (Castling, Castling)
+  , _cpsEnPassant :: Maybe Int
   }
   deriving (Show, Eq, Generic, Hashable, Ord)
+makeLenses ''ChessPosState
 
 instance Z.PositionState ChessPosState where
   toString = show
@@ -203,19 +205,19 @@ instance Z.PositionState ChessPosState where
 
 combineChessStates :: ChessPosState -> ChessPosState -> ChessPosState
 combineChessStates s1 s2 =
-  let updatedCastling = case colorToMove s1 of
+  let updatedCastling = case _cpsColorToMove s1 of
         White ->
-            ( combineCastling (fst (castling s1)) (fst (castling s2))
-            , snd (castling s1))
+            ( combineCastling (fst (_cpsCastling s1)) (fst (_cpsCastling s2))
+            , snd (_cpsCastling s1))
         Black ->
-            ( fst (castling s1)
-            , combineCastling (snd (castling s1)) (snd (castling s2)))
+            ( fst (_cpsCastling s1)
+            , combineCastling (snd (_cpsCastling s1)) (snd (_cpsCastling s2)))
   in ChessPosState
-      { colorToMove = colorToMove s2
-      , lastMove = lastMove s2
-      , moveNumber = moveNumber s2
-      , castling = updatedCastling
-      , enPassant = enPassant s2
+      { _cpsColorToMove = _cpsColorToMove s2
+      , _cpsLastMove = _cpsLastMove s2
+      , _cpsMoveNumber = _cpsMoveNumber s2
+      , _cpsCastling = updatedCastling
+      , _cpsEnPassant = _cpsEnPassant s2
       }
 
 combineCastling :: Castling ->  Castling -> Castling
@@ -607,29 +609,29 @@ mkStartGrid Black =
 
 newGameState :: ChessPosState
 newGameState = ChessPosState
-    { colorToMove = White
-    , lastMove = Nothing
-    , moveNumber = 0
-    , castling = (BothAvailable, BothAvailable)
-    , enPassant = Nothing
+    { _cpsColorToMove = White
+    , _cpsLastMove = Nothing
+    , _cpsMoveNumber = 0
+    , _cpsCastling = (BothAvailable, BothAvailable)
+    , _cpsEnPassant = Nothing
     }
 
 castledTestState :: Color -> ChessPosState
 castledTestState clr = ChessPosState
-    { colorToMove = clr
-    , lastMove = Nothing
-    , moveNumber = 0
-    , castling = (Castled, Castled)
-    , enPassant = Nothing
+    { _cpsColorToMove = clr
+    , _cpsLastMove = Nothing
+    , _cpsMoveNumber = 0
+    , _cpsCastling = (Castled, Castled)
+    , _cpsEnPassant = Nothing
     }
 
 preCastledTestState :: Color -> ChessPosState
 preCastledTestState clr = ChessPosState
-    { colorToMove = clr
-    , lastMove = Nothing
-    , moveNumber = 0
-    , castling = (BothAvailable, BothAvailable)
-    , enPassant = Nothing
+    { _cpsColorToMove = clr
+    , _cpsLastMove = Nothing
+    , _cpsMoveNumber = 0
+    , _cpsCastling = (BothAvailable, BothAvailable)
+    , _cpsEnPassant = Nothing
     }
 
 
@@ -707,6 +709,9 @@ calcNewNode node mv tLoc =
         curMoveSeq = node ^. chessMvSeq
         curGrid = curPos ^. cpGrid
         curColor = curPos ^. cpColor
+
+        epLoc = enPassantCaptureLoc curGrid mv
+
         (newGrid, _mvStartIdx, mvEndIdx) = case mv of
             m@StdMove{..} -> (movePiece' curGrid m _startIdx _endIdx, _startIdx, _endIdx)
             cm@CastlingMove{..} -> (castle' curGrid cm, _kingStartIdx, _kingEndIdx)
@@ -722,17 +727,20 @@ calcNewNode node mv tLoc =
         inCheckPair' = colorToTuple clrFlipped inCheckPair isInCheck
 
         (whiteLocs, blackLocs) = calcLocsForColor newGrid
-        epLoc = enPassantCaptureLoc curGrid mv
-        newState = (_cpState curPos) {enPassant = epLoc}
+
         newPos = curPos { _cpGrid = newGrid
                          , _cpWhitePieceLocs = whiteLocs
                          , _cpBlackPieceLocs = blackLocs
                          , _cpColor = clrFlipped
                          , _cpKingLoc = kingLocs'
                          , _cpInCheck = inCheckPair'
-                         , _cpState = newState }
+                         -- , _cpState = newState }
+                         }
+        newCastlingPair = castlingStatus newPos
+        newState = (_cpState newPos) {_cpsEnPassant = epLoc, _cpsCastling = newCastlingPair}
         (eval, finalSt) = evalPos newPos
-        updatedPos = newPos { _cpFin = finalSt }
+        updatedPos = newPos { _cpFin = finalSt, _cpState = newState }
+
     in ChessNode
         { _chessTreeLoc = tLoc
         , _chessMv = mv , _chessVal = eval
@@ -1285,21 +1293,19 @@ calcMobility cp =
 --------------------------------------------------------------------------------------------------
 castlingAvailable :: ChessPos -> Color -> Castling
 castlingAvailable pos c =
-    let (wStatus, bStatus) = castlingStatus pos
+    let z1 = pos ^. cpState
+        (wStatus, bStatus) = z1 ^. cpsCastling
         (castling, kPos) = case c of -- color to move next
             White -> (wStatus, wK)
             _ -> (bStatus, bK)
-
         kSideOpen = allEmpty pos [kPos + 1, kPos + 2]
         qSideOpen = allEmpty pos [kPos - 1, kPos - 2, kPos - 3]
 
     in case castling of
             KingSideOnlyAvailable ->
                 if kSideOpen then KingSideOnlyAvailable else Unavailable
-
             QueenSideOnlyAvailable ->
                 if qSideOpen then QueenSideOnlyAvailable else Unavailable
-
             BothAvailable | kSideOpen
                           , qSideOpen
                             -> BothAvailable
@@ -1317,7 +1323,6 @@ allEmpty pos xs =
   foldr f True xs where
       f x acc = acc && isEmpty pos x
 
--- TODO: replace this with use of castling state stored in position
 ---------------------------------------------------------------------------------------------------
 -- Determines each side's castling status:
 -- Castled, KingSideOnlyAvailable, QueenSideOnlyAvailable, BothAvailable, or Unavailable
@@ -1375,7 +1380,7 @@ castlingStatus pos =
 
 calcCastling :: ChessPos -> Float
 calcCastling pos =
-   let (wStatus, bStatus) = castlingStatus pos
+   let (wStatus, bStatus) = pos ^. (cpState . cpsCastling)
    in castlingToAbsVal wStatus - castlingToAbsVal bStatus
 
 wRookCastlingAdjustments :: Map Int Float
@@ -1860,7 +1865,7 @@ enPassantCaptures pos loc@(idx, _, clr) =
            White -> whitePawnEnPassantDirs
            Black -> blackPawnEnPassantDirs
         empties = fst $ allowableSingleMoves dirs g loc
-    in case enPassant state of
+    in case _cpsEnPassant state of
         Just ep ->
             let filtered = filter (\m -> _endIdx m == ep) empties
             in stdMovesToEnPassant g filtered
