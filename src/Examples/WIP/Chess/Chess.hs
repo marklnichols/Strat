@@ -1537,27 +1537,27 @@ checkFinal' cp =
 -- undo move
 ---------------------------------------------------------------------------------------------------
 undoChessMove :: ChessNode -> ChessMove -> ChessNode
-undoChessMove cn mv =
-    let unMove = createUndoMove mv
-    in applyUndo cn unMove
+undoChessMove cn mv = undefined
+    -- let unMove = createUndoMove mv
+    -- in applyUndo cn unMove
 
 -- TODO: resume implementing undo:
-applyUndo :: ChessNode -> UnChessMove -> ChessNode
-applyUndo cn _unMove = cn
+-- applyUndo :: ChessNode -> UnChessMove -> ChessNode
+-- applyUndo cn _unMove = cn
 
-createUndoMove :: ChessMove -> UnChessMove
-createUndoMove StdMove{..} =
-    StdUnMove { unReplace = _exchange
-              , unStartIdx = _endIdx
-              , unEndIdx = _startIdx
-              , unStdNote = "undo of: " ++ _stdNote }
-createUndoMove CastlingMove{..} =
-    CastlingUnMove { unCastle = _castle
-                   , kingUnStartIdx = _kingEndIdx
-                   , kingUnEndIdx = _kingStartIdx
-                   , rookUnStartIdx = _rookEndIdx
-                   , rookUnEndIdx = _rookStartIdx
-                   , unCastleNote = "undo of: " ++ _castleNote }
+-- createUndoMove :: ChessMove -> UnChessMove
+-- createUndoMove StdMove{..} =
+--     StdUnMove { unReplace = _exchange
+--               , unStartIdx = _endIdx
+--               , unEndIdx = _startIdx
+--               , unStdNote = "undo of: " ++ _stdNote }
+-- createUndoMove CastlingMove{..} =
+--     CastlingUnMove { unCastle = _castle
+--                    , kingUnStartIdx = _kingEndIdx
+--                    , kingUnEndIdx = _kingStartIdx
+--                    , rookUnStartIdx = _rookEndIdx
+--                    , rookUnEndIdx = _rookStartIdx
+--                    , unCastleNote = "undo of: " ++ _castleNote }
 
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a node
@@ -1607,7 +1607,6 @@ calcLocsForColor locs' =
                 (Just White) -> ((n, c, White) : wLocs, bLocs)
                 (Just Black) -> (wLocs, (n, c, Black) : bLocs)
                 Nothing    -> (wLocs, bLocs)
-
 
 charToColor :: Char -> Maybe Color
 charToColor c

@@ -129,8 +129,11 @@ playersTurn gen o t nodeHistory = do
     entry <- liftIO $ getPlayerEntry o expandedT []
     case entry of
       CmdEntry s -> do
-        _ <- processCommand s (rootLabel t) nodeHistory
-        playersTurn gen o t nodeHistory
+        result <- processCommand s (rootLabel t) nodeHistory
+        case result of
+          -- TODO: - expand simplifying assumption that 'Just _' can only mean 'undo' in player vs computer game...
+          Just (t', nodeHistory') -> computersTurn gen o t' nodeHistory'
+          Nothing -> playersTurn gen o t nodeHistory
       MoveEntry mv ->
         case findMove expandedT mv of
           Right newTree -> return (newTree, (rootLabel newTree):nodeHistory)
