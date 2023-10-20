@@ -132,7 +132,11 @@ playersTurn gen o t nodeHistory = do
         result <- processCommand s (rootLabel t) nodeHistory
         case result of
           -- TODO: - expand simplifying assumption that 'Just _' can only mean 'undo' in player vs computer game...
-          Just (t', nodeHistory') -> computersTurn gen o t' nodeHistory'
+          Just (t', nodeHistory') -> do
+            (expandedUndo, _) <- searchToSingleThreaded t' (Nothing :: Maybe StdGen) 1 1
+
+            -- computersTurn gen o expandedUndo nodeHistory'
+            return (expandedUndo, nodeHistory')
           Nothing -> playersTurn gen o t nodeHistory
       MoveEntry mv ->
         case findMove expandedT mv of
