@@ -235,7 +235,7 @@ processUndo ns = do
       | otherwise -> do
         let x:y:z:zs = ns
         liftIO $ putStrLn "Undoing the last move of each side ..."
-        return $ Just (Node z [], zs)
+        return $ Just (Node z [], z:zs)
 
 processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n) => String -> n -> [n]
                 -> Z.ZipTreeM (Maybe (Tree n, [n]))
