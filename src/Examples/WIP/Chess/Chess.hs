@@ -637,6 +637,7 @@ preCastledTestState clr = ChessPosState
 
 ---------------------------------------------------------------------------------------------------
 -- TODO: revert this eventually...
+-- TODO: make sure these are inlined...
 -- type Dir = Int -> Int
 ---------------------------------------------------------------------------------------------------
 data Dir = Dir { apply :: Int -> Int, _dirName :: String }
@@ -1534,32 +1535,6 @@ checkFinal' cp =
            else if inCheckStatus then iLose else Draw
 
 ---------------------------------------------------------------------------------------------------
--- undo move
----------------------------------------------------------------------------------------------------
-undoChessMove :: ChessNode -> ChessMove -> ChessNode
-undoChessMove cn mv = undefined
-    -- let unMove = createUndoMove mv
-    -- in applyUndo cn unMove
-
--- TODO: resume implementing undo:
--- applyUndo :: ChessNode -> UnChessMove -> ChessNode
--- applyUndo cn _unMove = cn
-
--- createUndoMove :: ChessMove -> UnChessMove
--- createUndoMove StdMove{..} =
---     StdUnMove { unReplace = _exchange
---               , unStartIdx = _endIdx
---               , unEndIdx = _startIdx
---               , unStdNote = "undo of: " ++ _stdNote }
--- createUndoMove CastlingMove{..} =
---     CastlingUnMove { unCastle = _castle
---                    , kingUnStartIdx = _kingEndIdx
---                    , kingUnEndIdx = _kingStartIdx
---                    , rookUnStartIdx = _rookEndIdx
---                    , rookUnEndIdx = _rookStartIdx
---                    , unCastleNote = "undo of: " ++ _castleNote }
-
----------------------------------------------------------------------------------------------------
 -- get possible moves from a node
 --------------------------------------------------------------------------------------------------
 legalMoves :: ChessNode -> [ChessMove]
@@ -1771,7 +1746,7 @@ multiMoveCaptureLocs pieceDirs g loc =
             Just z  -> z : r
             Nothing -> r
 
- -- find the destination locs for pieces that move one square in a given
+-- find the destination locs for pieces that move one square in a given
 -- direction (i.e., King and Knight). See @allowableMultiMoves
 allowableSingleMoves :: [Dir] -> ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableSingleMoves pieceDirs g loc =
