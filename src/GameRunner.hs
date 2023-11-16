@@ -1,13 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE GHC2021 #-}
 
 module GameRunner
  ( searchTo
@@ -125,15 +116,24 @@ playersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, RandomG
            => Maybe g -> o -> Tree n -> [n] -> Z.ZipTreeM (Tree n, [n])
 playersTurn gen o t nodeHistory = do
     -- populate 1 deep just so findMove can work with player vs player games
+    -- TODO: skip this when not needed
     (expandedT, _result) <- searchToSingleThreaded t (Nothing :: Maybe StdGen) 1 1
     entry <- liftIO $ getPlayerEntry o expandedT []
     case entry of
       CmdEntry s -> do
-        _ <- processCommand s (rootLabel t) nodeHistory
-        playersTurn gen o t nodeHistory
+        result <- processCommand s (rootLabel t) nodeHistory
+        case result of
+          -- TODO: - expand simplifying assumption that 'Just _' can only mean 'undo' in player vs computer game...
+          Just (t', nodeHistory') -> do
+            let label = rootLabel t'
+            liftIO $ updateBoard o label
+            -- fill out a minimal search tree from the undo point:
+            (expandedUndo, _) <- searchToSingleThreaded t' (Nothing :: Maybe StdGen) 2 2
+            playersTurn gen o expandedUndo nodeHistory'
+          Nothing -> playersTurn gen o t nodeHistory
       MoveEntry mv ->
         case findMove expandedT mv of
-          Right newTree -> return (newTree, (rootLabel newTree):nodeHistory)
+          Right newTree -> return (newTree, rootLabel newTree:nodeHistory)
           Left s ->  do
               liftIO $ putStrLn s
               let newNodeMoves = possibleMoves (rootLabel expandedT)
@@ -223,12 +223,19 @@ evalTreeMultiThreaded t gen = do
     return (t, res)
 
 processUndo :: (TreeNode n m) => [n] -> Z.ZipTreeM (Maybe (Tree n, [n]))
-processUndo [] = do
-  liftIO $ putStrLn "Nothing to undo."
-  return Nothing
-processUndo (n : ns) = do
-  liftIO $ putStrLn $ "undoign the last move ..."
-  return $ Just (Node n [], ns)
+processUndo ns = do
+  liftIO $ putStrLn $ "processUndo - length of list: " ++ show (length ns)
+  case ns of
+    ns
+      | len <- length ns
+      , len < 3
+      -> do
+        liftIO $ putStrLn "Undo not yet available"
+        return Nothing
+      | otherwise -> do
+        let x:y:z:zs = ns
+        liftIO $ putStrLn "Undoing the last move of each side ..."
+        return $ Just (Node z [], z:zs)
 
 processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n) => String -> n -> [n]
                 -> Z.ZipTreeM (Maybe (Tree n, [n]))
