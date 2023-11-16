@@ -233,7 +233,7 @@ processUndo ns = do
         liftIO $ putStrLn "Undo not yet available"
         return Nothing
       | otherwise -> do
-        let x:y:z:zs = ns
+        let _x:_y:z:zs = ns
         liftIO $ putStrLn "Undoing the last move of each side ..."
         return $ Just (Node z [], z:zs)
 

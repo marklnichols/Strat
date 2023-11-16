@@ -634,36 +634,41 @@ preCastledTestState clr = ChessPosState
     , _cpsEnPassant = Nothing
     }
 
-
----------------------------------------------------------------------------------------------------
--- TODO: revert this eventually...
--- TODO: make sure these are inlined...
--- type Dir = Int -> Int
----------------------------------------------------------------------------------------------------
-data Dir = Dir { apply :: Int -> Int, _dirName :: String }
-
+type Dir = Int -> Int
 right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
-right = Dir (1+) "right"
-left = Dir (\x -> x - 1) "left"
-up = Dir (10+) "up"
-down = Dir (\x -> x - 10) "down"
-diagUL = Dir (9+) "diagUL"
-diagDR = Dir (\x -> x - 9) "diagDR"
-diagUR = Dir (11+) "diagUR"
-diagDL = Dir (\x -> x - 11) "diagDL"
+right = (1+)
+{-# INLINE right #-}
+left x = x - 1
+{-# INLINE left #-}
+up = (10+)
+{-# INLINE up #-}
+down x = x - 10
+{-# INLINE down #-}
+diagUL = (9+)
+{-# INLINE diagUL #-}
+diagDR x = x - 9
+{-# INLINE diagDR #-}
+diagUR = (11+)
+{-# INLINE diagUR #-}
+diagDL x = x - 11
+{-# INLINE diagDL #-}
 
 knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL :: Dir
-knightLU = Dir (8+) "knightLU"
-knightRD = Dir (\x -> x - 8) "knightRD"
-knightRU = Dir (12+) "knightRU"
-knightLD = Dir (\x -> x - 12) "knightLD"
-knightUL = Dir (19+) "knightUL"
-knightDR = Dir (\x -> x - 19) "knightDR"
-knightUR = Dir (21+) "knightUR"
-knightDL = Dir (\x -> x - 21) "knightDL"
-
-instance Show Dir where
-  show = _dirName
+knightLU = (8+)
+knightRD x = x - 8
+{-# INLINE knightLU #-}
+knightRU = (12+)
+{-# INLINE knightRU #-}
+knightLD x = x - 12
+{-# INLINE knightLD #-}
+knightUL = (19+)
+{-# INLINE knightUL #-}
+knightDR x = x - 19
+{-# INLINE knightDR #-}
+knightUR = (21+)
+{-# INLINE knightUR #-}
+knightDL x = x - 21
+{-# INLINE knightDL #-}
 
 queenDirs :: [Dir]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
@@ -1515,6 +1520,10 @@ lastRank loc c
     | otherwise
       = False
 
+--TODO: implement this typeclass function with what is currently in GameRunner.hs
+undoChessMove :: ChessNode -> ChessMove -> ChessNode
+undoChessMove = undefined
+
 ---------------------------------------------------------------------------------------------------
 -- check for checkmate / stalemate
 --------------------------------------------------------------------------------------------------
@@ -1905,7 +1914,7 @@ data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
 
 dirLocs :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocs g (idx0, _, c0) dir =
-    loop (apply dir idx0) ([], [])
+    loop (dir idx0) ([], [])
       where
         loop idx (empties, enemies) =
             let cx = indexToColor2 g idx
@@ -1918,7 +1927,7 @@ dirLocs g (idx0, _, c0) dir =
                     | friendly = (HasFriendly, (empties, enemies))
                     | otherwise = (Empty, (StdMove Nothing idx0 idx "": empties, enemies))
             in (case sqState of
-                Empty -> loop (apply dir idx) (newEmpties, newEnemies)
+                Empty -> loop (dir idx) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
 dirCaptureLoc :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
@@ -1929,9 +1938,9 @@ dirCaptureLoc g (idx0, _, clr0) dir =
            in case clr == Just clr0Enemy of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
-                     | isEmptyGrid g idx -> loop (apply dir idx)
+                     | isEmptyGrid g idx -> loop (dir idx)
                      | otherwise -> Nothing
-   in loop (apply dir idx0)
+   in loop (dir idx0)
 
 dirLocsCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
 dirLocsCount g (idx, ch, clr0) dir =
@@ -1942,7 +1951,7 @@ dirLocsCount g (idx, ch, clr0) dir =
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
 dirLocsSingle :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocsSingle g (idx0, _, c0) dir =
-    let x = apply dir idx0
+    let x = dir idx0
         cx = indexToColor2 g x
         cEnemy0 = enemyColor c0
     in
@@ -1959,7 +1968,7 @@ dirLocsSingleCount g idx dir =
 dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
     let enemyClr = enemyColor clr
-    in case apply dir idx of
+    in case dir idx of
         x | not (onBoard x) -> Nothing
           | cx <- indexToColor2 g x
           , cx == Just enemyClr -> Just x
