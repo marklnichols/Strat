@@ -637,64 +637,43 @@ preCastledTestState clr = ChessPosState
     }
 
 
-newtype Dir = Dir { apply :: Int -> Int }
-
--- type Dir = Int -> Int
+type Dir = Int -> Int
 right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
-right = Dir (1+)
+right = (1+)
 {-# INLINE right #-}
-left = Dir (\x -> x - 1)
+left x = x - 1
 {-# INLINE left #-}
-up = Dir (10+)
+up = (10+)
 {-# INLINE up #-}
-down = Dir (\x -> x - 10)
+down x = x - 10
 {-# INLINE down #-}
-diagUL = Dir (9+)
+diagUL = (9+)
 {-# INLINE diagUL #-}
-diagDR = Dir (\x -> x - 9)
+diagDR x = x - 9
 {-# INLINE diagDR #-}
-diagUR = Dir (11+)
+diagUR = (11+)
 {-# INLINE diagUR #-}
-diagDL = Dir (\x -> x - 11)
+diagDL x = x - 11
 {-# INLINE diagDL #-}
 
 knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL :: Dir
-knightLU = Dir (8+)
+knightLU = (8+)
 {-# INLINE knightLU #-}
-knightRD  = Dir (\x -> x - 8)
+knightRD x = x - 8
 {-# INLINE knightRD #-}
-knightRU = Dir (12+)
+knightRU = (12+)
 {-# INLINE knightRU #-}
-knightLD = Dir (\x -> x - 12)
+knightLD x = x - 12
 {-# INLINE knightLD #-}
-knightUL = Dir (19+)
+knightUL = (19+)
 {-# INLINE knightUL #-}
-knightDR = Dir (\x -> x - 19)
+knightDR x = x - 19
 {-# INLINE knightDR #-}
-knightUR = Dir (21+)
+knightUR = (21+)
 {-# INLINE knightUR #-}
-knightDL = Dir (\x -> x - 21)
+knightDL x = x - 21
 {-# INLINE knightDL #-}
 
--- for debugging:
-instance Show Dir where
-  show d =  "(0 -> " ++ show (apply d 0) ++ ")"
---   show right = "right (1+)"
---   show left = "left (1-)"
---   show up = "up (10+)"
---   show down = "down (10-)"
---   show diagUL = "diagUL (9+)"
---   show diagDR = "diagDR (9-)"
---   show diagUR = "diagUR (11+)"
---   show diagDL = "diagDL (11-)"
---   show knightLU = "knightLU (8+)"
---   show knightRD = "knightRD (8-)"
---   show knightRU = "knightRU (12+)"
---   show knightLD = "knightLD (12-)"
---   show knightUL = "knightUL (19+)"
---   show knightDR = "knightDR (19-)"
---   show knightUR = "knightUR (21+)"
---   show knightDL = "knightDL (21-)"
 
 queenDirs :: [Dir]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
@@ -1985,7 +1964,7 @@ data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
 
 dirLocs :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocs g (idx0, _, c0) dir =
-    loop (apply dir idx0) ([], [])
+    loop (dir idx0) ([], [])
       where
         loop idx (empties, enemies) =
             let cx = indexToColor2 g idx
@@ -1998,7 +1977,7 @@ dirLocs g (idx0, _, c0) dir =
                     | friendly = (HasFriendly, (empties, enemies))
                     | otherwise = (Empty, (StdMove Nothing idx0 idx "": empties, enemies))
             in (case sqState of
-                Empty -> loop (apply dir idx) (newEmpties, newEnemies)
+                Empty -> loop (dir idx) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
 ---------------------------------------------------------------------------------------------------
@@ -2012,9 +1991,9 @@ dirCaptureLoc g (idx0, _, clr0) dir =
            in case clr == Just clr0Enemy of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
-                     | isEmptyGrid g idx -> loop (apply dir idx)
+                     | isEmptyGrid g idx -> loop (dir idx)
                      | otherwise -> Nothing
-   in loop (apply dir idx0)
+   in loop (dir idx0)
 
 ---------------------------------------------------------------------------------------------------
 -- Find the first friendly piece in a given direction
@@ -2027,10 +2006,10 @@ dirFriendlyPieceLoc g (idx0, _, clr0) dir =
           in case clr == Just clr0 of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
-                     | isEmptyGrid g idx -> loop (apply dir idx)
+                     | isEmptyGrid g idx -> loop (dir idx)
                      | otherwise -> Nothing
-    in loop (apply dir idx0)
-        -- !tmp = loop (apply dir idx0)
+    in loop (dir idx0)
+        -- !tmp = loop (dir idx0)
         -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
         --              (show clr0) idx0 (show dir) (show tmp)
         -- in trace str tmp
@@ -2049,7 +2028,7 @@ dirLocsCount g (idx, ch, clr0) dir =
 ---------------------------------------------------------------------------------------------------
 dirLocsSingle :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocsSingle g (idx0, _, c0) dir =
-    let x = apply dir idx0
+    let x = dir idx0
         cx = indexToColor2 g x
         cEnemy0 = enemyColor c0
     in
@@ -2066,7 +2045,7 @@ dirLocsSingleCount g idx dir =
 dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
     let enemyClr = enemyColor clr
-    in case apply dir idx of
+    in case dir idx of
         x | not (onBoard x) -> Nothing
           | cx <- indexToColor2 g x
           , cx == Just enemyClr -> Just x
