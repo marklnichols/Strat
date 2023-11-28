@@ -279,6 +279,19 @@ chessTest = do
           calcMobility (posFromGrid board08 White (15, 85) (False, False)
                            ) `shouldBe` 14  -- (25W - 11b = 14)
 
+    describe "connectedRooks" $
+      it ("Determine if a side has two connected rooks") $ do
+          connectedRooks (posFromGrid board07 White (12, 87) (False, False)) White `shouldBe` False
+          connectedRooks (posFromGrid board07 White (12, 87) (False, False)) Black `shouldBe` False
+          connectedRooks (posFromGrid board01 White (12, 87) (False, False)) White `shouldBe` False
+          connectedRooks (posFromGrid board01 White (12, 87) (False, False)) Black `shouldBe` True
+          connectedRooks (posFromGrid board11 White (15, 82) (False, False)) White `shouldBe` True
+          connectedRooks (posFromGrid board11 White (15, 82) (False, False)) Black `shouldBe` False
+          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) (False, False))
+              White `shouldBe` False
+          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) (False, False))
+              Black `shouldBe` True
+
     describe "inCheck" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
           inCheck board03a White 15 `shouldBe` False
@@ -412,6 +425,7 @@ testStateQSOnly clr = (testState clr)
   { _cpsCastling = (QueenSideOnlyAvailable, QueenSideOnlyAvailable) }
 
 -- test state - castling unavailable both sides
+
 testStateUnavail :: Color -> ChessPosState
 testStateUnavail clr = (testState clr)
   { _cpsCastling = (Unavailable, Unavailable) }
@@ -869,7 +883,8 @@ board07c = ChessGrid $ V.fromList
 -}
 
 board07d:: ChessGrid
-board07d = ChessGrid $ V.fromList         [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+board07d = ChessGrid $ V.fromList
+                              [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                 '+',  'K',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -883,8 +898,8 @@ board07d = ChessGrid $ V.fromList         [ '+',  '+',  '+',  '+',  '+',  '+',  
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 r   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
-/
--   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          7| (70)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (60)  61   62   63   64   65   66   67   68  (69)
 -   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   -   b   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 -   p   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
@@ -1007,6 +1022,64 @@ P   -   B   -   P   -   -   -          4| (40)  41   42   43   44   45   46   47
 -   -   -   -   -   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
 -   P   P   P   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
 R   N   B   Q   -   R   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
+board11 :: ChessGrid
+board11 = ChessGrid $ V.fromList
+                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  'R',  ' ',  'K',  ' ',  '+',
+                              '+',  ' ',  'P',  ' ',  'B',  ' ',  ' ',  'P',  'P',  '+',
+                              '+',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  'p',  ' ',  ' ',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'p',  '+',
+                              '+',  ' ',  'p',  ' ',  ' ',  ' ',  'b',  'p',  ' ',  '+',
+                              '+',  'r',  'k',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   k   -   -   r   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   p   -   -   -   b   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   p          6| (50)  61   62   63   64   65   66   67   68  (69)
+p   -   -   -   R   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+P   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   P   -   B   -   -   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   R   -   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+-}
+
+board12 :: ChessGrid
+board12 = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  'K',  ' ',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'R',  ' ',  ' ',  '+',
+                             '+',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'k',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   k   -   r   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   -   -   r   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   p   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   P   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+P   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   K   -   -   R   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
 
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------

@@ -49,7 +49,8 @@ printMoveChoiceInfo tree result loud = do
     print tLevels
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
-    putStrLn ("Computer's move: " ++ show (picked result))
+    putStrLn ("Move with best score: " ++ show (bestScore result))
+    putStrLn ("(*) Computer's move: " ++ show (picked result))
 
     let mv = getMove (nmNode (picked result))
     let n = rootLabel tree
@@ -59,7 +60,6 @@ printMoveChoiceInfo tree result loud = do
         -- START HERE: -- For the selcted move, this does NOT show the details of the score of the deepest node!
         putStrLn ("Score details: \n"
                  ++ showScoreDetails (_chessVal (last (nmMovePath (picked result)))))
-        putStrLn ("Move with best score: " ++ show (bestScore result))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
                  (show <$> alternatives result))
         putStrLn ""

@@ -65,16 +65,17 @@ module Chess
     , calcPawnPositionScore
     , castleMoves
     , castlingAvailable
+    , castlingNode
     , castlingStatus
     , checkPromote
-    , cnShowMoveOnly
-    , discoveredCheckNode
     , checkFinal'
     , checkMateExampleNode
     , checkMateExampleNode2
-    , castlingNode
+    , cnShowMoveOnly
+    , connectedRooks
     , dirLocsCount
     , dirLocsSingleCount
+    , discoveredCheckNode
     , right, left, up, down, diagUL, diagDR, diagUR, diagDL
     , knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL
     , inCheck
@@ -590,6 +591,7 @@ getStartNode restoreGame nextColorToMove =
       "enpassant"    -> (Node enPassantNode01 [], preCastledTestState Black)
       "enpassant2"    -> (Node enPassantNode02 [], preCastledTestState Black)
       "castling"     -> (Node castlingNode [], preCastledTestState Black)
+      "connectrooks"  -> (Node connectRookNode [], castledTestState Black)
       _ -> error "unknown restore game string - choices are:\n \
                  \ alphabeta, \n \
                  \ castling, checkmate, checkmate2, checkmate3, checkmate4, critBug01, \n \
@@ -598,7 +600,7 @@ getStartNode restoreGame nextColorToMove =
                  \ promotion01, \n \
                  \ debug, debug02, debug03, debug04, debug05, \n \
                  \ debug06, debug06b, debug06c, debug07, debug08, \n \
-                 \ enpassant, enpassant2, draw, newgame"
+                 \ enpassant, enpassant2, connectrook, draw, newgame"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> ChessGrid
@@ -634,41 +636,65 @@ preCastledTestState clr = ChessPosState
     , _cpsEnPassant = Nothing
     }
 
-type Dir = Int -> Int
+
+newtype Dir = Dir { apply :: Int -> Int }
+
+-- type Dir = Int -> Int
 right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
-right = (1+)
+right = Dir (1+)
 {-# INLINE right #-}
-left x = x - 1
+left = Dir (\x -> x - 1)
 {-# INLINE left #-}
-up = (10+)
+up = Dir (10+)
 {-# INLINE up #-}
-down x = x - 10
+down = Dir (\x -> x - 10)
 {-# INLINE down #-}
-diagUL = (9+)
+diagUL = Dir (9+)
 {-# INLINE diagUL #-}
-diagDR x = x - 9
+diagDR = Dir (\x -> x - 9)
 {-# INLINE diagDR #-}
-diagUR = (11+)
+diagUR = Dir (11+)
 {-# INLINE diagUR #-}
-diagDL x = x - 11
+diagDL = Dir (\x -> x - 11)
 {-# INLINE diagDL #-}
 
 knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL :: Dir
-knightLU = (8+)
-knightRD x = x - 8
+knightLU = Dir (8+)
 {-# INLINE knightLU #-}
-knightRU = (12+)
+knightRD  = Dir (\x -> x - 8)
+{-# INLINE knightRD #-}
+knightRU = Dir (12+)
 {-# INLINE knightRU #-}
-knightLD x = x - 12
+knightLD = Dir (\x -> x - 12)
 {-# INLINE knightLD #-}
-knightUL = (19+)
+knightUL = Dir (19+)
 {-# INLINE knightUL #-}
-knightDR x = x - 19
+knightDR = Dir (\x -> x - 19)
 {-# INLINE knightDR #-}
-knightUR = (21+)
+knightUR = Dir (21+)
 {-# INLINE knightUR #-}
-knightDL x = x - 21
+knightDL = Dir (\x -> x - 21)
 {-# INLINE knightDL #-}
+
+-- for debugging:
+instance Show Dir where
+  show d =  "(0 -> " ++ show (apply d 0) ++ ")"
+--   show right = "right (1+)"
+--   show left = "left (1-)"
+--   show up = "up (10+)"
+--   show down = "down (10-)"
+--   show diagUL = "diagUL (9+)"
+--   show diagDR = "diagDR (9-)"
+--   show diagUR = "diagUR (11+)"
+--   show diagDL = "diagDL (11-)"
+--   show knightLU = "knightLU (8+)"
+--   show knightRD = "knightRD (8-)"
+--   show knightRU = "knightRU (12+)"
+--   show knightLD = "knightLD (12-)"
+--   show knightUL = "knightUL (19+)"
+--   show knightDR = "knightDR (19-)"
+--   show knightUR = "knightUR (21+)"
+--   show knightDL = "knightDL (21-)"
 
 queenDirs :: [Dir]
 queenDirs = [right, left, up, down, diagUL, diagDR, diagUR, diagDL]
@@ -878,7 +904,6 @@ flipPieceColor Black = White
 -- Determine mate in n and display
 -- Display total computer move time / n moves / average
 -- Various command line debug tools
---    undo
 --    load
 --    save
 --    show eval detail
@@ -886,7 +911,6 @@ flipPieceColor Black = White
 -- And add evaluation scores for:
       outposts
       half-empty, empty file rooks
-      doubled rooks
       doubled pawns
       having both bishops
       slight pref. to kingside castle over queenside
@@ -905,6 +929,7 @@ evalPos pos =
          earlyQueen = calcEarlyQueen pos
          pawnPositionScore = calcPawnPositionScore pos
          knightPositionScore = calcKnightPositionScore pos
+         connectedRookScore = calcConnectedRookScore pos
          finalState = checkFinal' pos
          (t, detailsStr) =
             if finalState /= NotFinal then
@@ -913,14 +938,15 @@ evalPos pos =
             else
               ( (material * 30.0 ) + (mobility * 1) + (castling * 9.0)
               + (development * 5.0) + (earlyQueen * 15.0) + (pawnPositionScore * 2)
-              + knightPositionScore
+              + knightPositionScore + (connectedRookScore * 25.0)
               ,  "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
                   ++ "\n\tMobility (x 1): " ++ show (mobility * 1)
                   ++ "\n\tCastling (x 9): " ++ show (castling * 9.0)
                   ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
                   ++ "\n\tQueen dev. early (x 15): " ++ show (earlyQueen * 15.0)
                   ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
-                  ++ "\n\tKnight position score (x 1): " ++ show knightPositionScore)
+                  ++ "\n\tKnight position score (x 1): " ++ show knightPositionScore
+                  ++ "\n\tConnected rook score (x 25): " ++ show (connectedRookScore * 25.0))
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -1240,6 +1266,19 @@ calcPiecePositionScore theMap locs =
     let f :: Int -> Float -> Float
         f loc acc =  M.findWithDefault 0 loc theMap + acc
     in foldr f 0.0 locs
+
+---------------------------------------------------------------------------------------------------
+-- Calculate a score for Connected rooks
+--------------------------------------------------------------------------------------------------
+calcConnectedRookScore :: ChessPos -> Float
+calcConnectedRookScore cp =
+  let wScore = if connectedRooks cp White
+        then 1.0
+        else 0.0
+      bScore = if connectedRooks cp Black
+        then 1.0
+        else 0.0
+  in wScore - bScore
 
 ---------------------------------------------------------------------------------------------------
 -- Calculate a score for Knight positioning
@@ -1572,6 +1611,38 @@ filterKingInCheck' pos xs =
                then r
                else mv : r
         in foldr foldf [] xs
+
+
+---------------------------------------------------------------------------------------------------
+-- Determine if there are two connected rooks of a given color
+---------------------------------------------------------------------------------------------------
+connectedRooks :: ChessPos -> Color -> Bool
+connectedRooks cp clr =
+  let (wRs, bRs) = filterLocsByChar (locsForColor cp) 'R'
+      rookLocs = case clr of
+        White -> wRs
+        _     -> bRs
+  in if length rookLocs < 2
+    then False
+    else hasConnectedPartner cp rookDirs (head rookLocs)
+
+---------------------------------------------------------------------------------------------------
+-- Given one rook, determine if there is a connected partner
+---------------------------------------------------------------------------------------------------
+hasConnectedPartner :: ChessPos -> [Dir] -> (Int, Char, Color) -> Bool
+hasConnectedPartner cp dirs loc@(idx, ch, clr) =
+  let g' = _cpGrid cp
+  in foldl' (f g') False dirs
+    where
+      f :: ChessGrid -> Bool -> Dir -> Bool
+      f g acc x =
+        case dirFriendlyPieceLoc g loc x of
+            Nothing -> acc
+            Just z  ->
+              acc ||
+              case indexToPiece g z of
+                  MkChessPiece clr (SomeSing SRook) -> True
+                  MkChessPiece _c (SomeSing _) -> False
 
 ---------------------------------------------------------------------------------------------------
 -- get piece locations for a given color from a board
@@ -1914,7 +1985,7 @@ data SquareState = Empty | HasFriendly | HasEnemy | OffBoard
 
 dirLocs :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocs g (idx0, _, c0) dir =
-    loop (dir idx0) ([], [])
+    loop (apply dir idx0) ([], [])
       where
         loop idx (empties, enemies) =
             let cx = indexToColor2 g idx
@@ -1927,9 +1998,12 @@ dirLocs g (idx0, _, c0) dir =
                     | friendly = (HasFriendly, (empties, enemies))
                     | otherwise = (Empty, (StdMove Nothing idx0 idx "": empties, enemies))
             in (case sqState of
-                Empty -> loop (dir idx) (newEmpties, newEnemies)
+                Empty -> loop (apply dir idx) (newEmpties, newEnemies)
                 _ -> (newEmpties, newEnemies))
 
+---------------------------------------------------------------------------------------------------
+-- find the first enemy piece in a given direction
+---------------------------------------------------------------------------------------------------
 dirCaptureLoc :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLoc g (idx0, _, clr0) dir =
    let clr0Enemy = enemyColor clr0
@@ -1938,20 +2012,44 @@ dirCaptureLoc g (idx0, _, clr0) dir =
            in case clr == Just clr0Enemy of
                True -> Just idx
                False | not (onBoard idx) -> Nothing
-                     | isEmptyGrid g idx -> loop (dir idx)
+                     | isEmptyGrid g idx -> loop (apply dir idx)
                      | otherwise -> Nothing
-   in loop (dir idx0)
+   in loop (apply dir idx0)
 
+---------------------------------------------------------------------------------------------------
+-- Find the first friendly piece in a given direction
+-- TODO: combine with dirCaptureLoc
+---------------------------------------------------------------------------------------------------
+dirFriendlyPieceLoc :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
+dirFriendlyPieceLoc g (idx0, _, clr0) dir =
+    let loop idx =
+          let clr = indexToColor2 g idx
+          in case clr == Just clr0 of
+               True -> Just idx
+               False | not (onBoard idx) -> Nothing
+                     | isEmptyGrid g idx -> loop (apply dir idx)
+                     | otherwise -> Nothing
+    in loop (apply dir idx0)
+        -- !tmp = loop (apply dir idx0)
+        -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
+        --              (show clr0) idx0 (show dir) (show tmp)
+        -- in trace str tmp
+
+---------------------------------------------------------------------------------------------------
+-- Count the number of squares that can be moved in a given direction
+---------------------------------------------------------------------------------------------------
 dirLocsCount :: ChessGrid -> (Int, Char, Color) -> Dir -> Int
 dirLocsCount g (idx, ch, clr0) dir =
     let (enemies, empties) = dirLocs g (idx, ch, clr0) dir
     in length enemies + length empties
 
+---------------------------------------------------------------------------------------------------
 -- Same as dirLocs, but for pieces that move only one square in a given "direction"
 -- (aka King and Knight) -- some code intentionally duplicated with 'dirLocs'
+---------------------------------------------------------------------------------------------------
 dirLocsSingle :: ChessGrid -> (Int, Char, Color) -> Dir ->([ChessMove], [ChessMove])
 dirLocsSingle g (idx0, _, c0) dir =
-    let x = dir idx0
+    let x = apply dir idx0
         cx = indexToColor2 g x
         cEnemy0 = enemyColor c0
     in
@@ -1968,7 +2066,7 @@ dirLocsSingleCount g idx dir =
 dirCaptureLocSingle :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
 dirCaptureLocSingle g (idx, _, clr) dir =
     let enemyClr = enemyColor clr
-    in case dir idx of
+    in case apply dir idx of
         x | not (onBoard x) -> Nothing
           | cx <- indexToColor2 g x
           , cx == Just enemyClr -> Just x
@@ -3144,6 +3242,35 @@ E5 F6
 Not a legal move.
 -}
 
+connectRooksBoard :: ChessGrid
+connectRooksBoard = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  'K',  ' ',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'Q',  ' ',  ' ',  '+',
+                             '+',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'p',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  ' ',  'r',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   k   -   -   -   -   r   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   -   -   r   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   p   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   P   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+P   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   Q   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   K   -   -   R   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
 ----------------------------------------------------------------------------------------------------
 discoveredCheckNode :: ChessNode
 discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
@@ -3219,6 +3346,9 @@ enPassantNode01 = postCastlingGameNode enPassantBoard01 Black (15, 83)
 
 enPassantNode02 :: ChessNode
 enPassantNode02 = preCastlingGameNode enPassantBoard02 Black (27, 85)
+
+connectRookNode :: ChessNode
+connectRookNode = postCastlingGameNode connectRooksBoard Black (22, 82)
 
 -- White has K and Q side castling available, Black has King side only
 preCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
