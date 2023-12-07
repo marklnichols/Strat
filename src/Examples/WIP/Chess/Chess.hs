@@ -90,6 +90,8 @@ module Chess
     , moveChecksOpponent
     , pairToIndexes
     , promotion01TestData
+    , rookFileStatus
+    , RookFileStatus(..)
     , rookMobility
     , queenMobility
     , showScoreDetails
@@ -125,6 +127,7 @@ import System.Console.CmdArgs.Implicit (Data, Typeable)
 import qualified Parser8By8 as Parser
 import qualified Strat.Helpers as Helpers
 import Strat.StratTree.TreeNode
+
 import qualified Strat.ZipTree as Z
 
 ---------------------------------------------------------------------------------------------------
@@ -256,6 +259,9 @@ makeLenses ''ChessEval
 
 instance Show ChessEval where
     show e = show (e ^. total)
+
+data RookFileStatus = Open | HalfOpen | NotOpen
+  deriving (Show, Eq)
 
 showScoreDetails :: ChessEval -> String
 showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
@@ -591,7 +597,8 @@ getStartNode restoreGame nextColorToMove =
       "enpassant"    -> (Node enPassantNode01 [], preCastledTestState Black)
       "enpassant2"    -> (Node enPassantNode02 [], preCastledTestState Black)
       "castling"     -> (Node castlingNode [], preCastledTestState Black)
-      "connectrooks"  -> (Node connectRookNode [], castledTestState Black)
+      "connectrooks" -> (Node connectRookNode [], castledTestState Black)
+      "endgame01"    -> (Node endgameNode01 [], castledTestState White)
       _ -> error "unknown restore game string - choices are:\n \
                  \ alphabeta, \n \
                  \ castling, checkmate, checkmate2, checkmate3, checkmate4, critBug01, \n \
@@ -600,7 +607,8 @@ getStartNode restoreGame nextColorToMove =
                  \ promotion01, \n \
                  \ debug, debug02, debug03, debug04, debug05, \n \
                  \ debug06, debug06b, debug06c, debug07, debug08, \n \
-                 \ enpassant, enpassant2, connectrook, draw, newgame"
+                 \ enpassant, enpassant2, connectrook, endgame01, \n \
+                 \ draw, newgame"
 
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> ChessGrid
@@ -876,6 +884,7 @@ flipPieceColor Black = White
 {- TODOs:
 -- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
 -- Add warning message if non-quiet move chosen, consider not picking those
+-- Auto depth increase in endgame
 -- Another round of perfomance opt
 -- Implement FEN for positions
 -- Add pawn promotion other than queen
@@ -889,7 +898,8 @@ flipPieceColor Black = White
 --    change level
 -- And add evaluation scores for:
       outposts
-      half-empty, empty file rooks
+      rooks on open / half-open files
+      rooks (or queen) on 7th (or 8th) rank
       doubled pawns
       having both bishops
       slight pref. to kingside castle over queenside
@@ -909,6 +919,7 @@ evalPos pos =
          pawnPositionScore = calcPawnPositionScore pos
          knightPositionScore = calcKnightPositionScore pos
          connectedRookScore = calcConnectedRookScore pos
+         rookOpenFileScore = calcRookOpenFileScore pos
          finalState = checkFinal' pos
          (t, detailsStr) =
             if finalState /= NotFinal then
@@ -917,7 +928,7 @@ evalPos pos =
             else
               ( (material * 30.0 ) + (mobility * 1) + (castling * 9.0)
               + (development * 5.0) + (earlyQueen * 15.0) + (pawnPositionScore * 2)
-              + knightPositionScore + (connectedRookScore * 25.0)
+              + knightPositionScore + (connectedRookScore * 25.0) + (rookOpenFileScore * 25.0)
               ,  "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
                   ++ "\n\tMobility (x 1): " ++ show (mobility * 1)
                   ++ "\n\tCastling (x 9): " ++ show (castling * 9.0)
@@ -925,7 +936,8 @@ evalPos pos =
                   ++ "\n\tQueen dev. early (x 15): " ++ show (earlyQueen * 15.0)
                   ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
                   ++ "\n\tKnight position score (x 1): " ++ show knightPositionScore
-                  ++ "\n\tConnected rook score (x 25): " ++ show (connectedRookScore * 25.0))
+                  ++ "\n\tConnected rook score (x 25): " ++ show (connectedRookScore * 25.0)
+                  ++ "\n\tRook open file score (x 25): " ++ show (rookOpenFileScore * 25.0))
          eval = ChessEval { _total = t
                           , _details = detailsStr
                           }
@@ -1237,9 +1249,6 @@ kbpQbpAdjustments :: Map Int Float
 kbpQbpAdjustments = M.fromList
     [ (23, 0.0), (33, -1.0), (43, -2.0), (26, 0.0), (36, -1.0), (46, -2.0) ]
 
----------------------------------------------------------------------------------------------------
--- TODO: move this to the correctly commented section of this file
---------------------------------------------------------------------------------------------------
 calcPiecePositionScore :: Map Int Float -> [Int] -> Float
 calcPiecePositionScore theMap locs =
     let f :: Int -> Float -> Float
@@ -1258,6 +1267,51 @@ calcConnectedRookScore cp =
         then 1.0
         else 0.0
   in wScore - bScore
+
+
+---------------------------------------------------------------------------------------------------
+-- Calculate a score for rooks on open or half-open files
+--------------------------------------------------------------------------------------------------
+calcRookOpenFileScore :: ChessPos -> Float
+calcRookOpenFileScore cp =
+    let (wRs, bRs) = filterLocsByChar (locsForColor cp) 'R'
+        wScore = rooksOpenFileScore cp wRs
+        bScore = rooksOpenFileScore cp bRs
+    in wScore - bScore
+
+rooksOpenFileScore :: ChessPos -> [(Int, Char, Color)] -> Float
+rooksOpenFileScore cp rLocs =
+    let scores = fmap (rookOpenFileScore cp) rLocs
+    in sum scores
+
+rookOpenFileScore :: ChessPos -> (Int, Char, Color) -> Float
+rookOpenFileScore cp (loc, _ch, clr) =
+  case rookFileStatus cp loc clr  of
+    Open -> 1.0
+    HalfOpen -> 0.5
+    NotOpen -> 0.0
+
+-- TODO: implement black/white switching sides (re use of 'up'/'down')
+rookFileStatus :: ChessPos -> Int -> Color -> RookFileStatus
+rookFileStatus cp idx0 clr0 =
+  let dir = case clr0 of
+              White -> up
+              Black -> down
+      g = _cpGrid cp
+      loop idx =
+        let piece = indexToPiece g idx
+            clr = indexToColor2 g idx
+        in case piece of
+            MkChessPiece _c (SomeSing SPawn) ->
+                if clr == Just clr0
+                    then NotOpen
+                    else HalfOpen
+            MkChessPiece _c (SomeSing _) ->
+              if not (onBoard idx)
+                  then Open
+              else
+                  loop (dir idx)
+  in loop (dir idx0)
 
 ---------------------------------------------------------------------------------------------------
 -- Calculate a score for Knight positioning
@@ -1590,7 +1644,6 @@ filterKingInCheck' pos xs =
                then r
                else mv : r
         in foldr foldf [] xs
-
 
 ---------------------------------------------------------------------------------------------------
 -- Determine if there are two connected rooks of a given color
@@ -3250,6 +3303,44 @@ P   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37
                                                 A    B    C    D    E    F    G    H
 -}
 
+
+----------------------------------------------------------------------------------------------------
+endgameBoard01 :: ChessGrid
+endgameBoard01 = ChessGrid $ V.fromList
+                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  ' ',  ' ',  'K',  'R',  ' ',  ' ',  ' ',  'R',  '+',
+                              '+',  ' ',  'P',  ' ',  ' ',  ' ',  'P',  ' ',  'P',  '+',
+                              '+',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'Q',  ' ',  ' ',  '+',
+                              '+',  'p',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'q',  ' ',  '+',
+                              '+',  ' ',  'p',  'p',  ' ',  ' ',  'p',  'p',  ' ',  '+',
+                              '+',  'r',  ' ',  'k',  ' ',  'r',  ' ',  ' ',  ' ',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   -   k   -   r   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   p   p   -   -   p   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   q   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+p   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+P   -   -   -   -   -   P   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   P   -   -   -   P   -   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   K   R   -   -   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+
+FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w KQkq - 0 1
+-}
+
+
+
+
+
+
 ----------------------------------------------------------------------------------------------------
 discoveredCheckNode :: ChessNode
 discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
@@ -3328,6 +3419,9 @@ enPassantNode02 = preCastlingGameNode enPassantBoard02 Black (27, 85)
 
 connectRookNode :: ChessNode
 connectRookNode = postCastlingGameNode connectRooksBoard Black (22, 82)
+
+endgameNode01 :: ChessNode
+endgameNode01 = postCastlingGameNode endgameBoard01 White (13, 83)
 
 -- White has K and Q side castling available, Black has King side only
 preCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode

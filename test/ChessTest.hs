@@ -292,6 +292,17 @@ chessTest = do
           connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) (False, False))
               Black `shouldBe` True
 
+    describe "rookFileStatus" $
+      it ("Determines whether a rook's file is Open, HalfOpen, or NotOpen") $ do
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+              14 White `shouldBe` Open
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+              18 White `shouldBe` NotOpen
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+              82 Black `shouldBe` HalfOpen
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+              86 Black `shouldBe` Open
+
     describe "inCheck" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
           inCheck board03a White 15 `shouldBe` False
@@ -1086,12 +1097,46 @@ P   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37
                                                 A    B    C    D    E    F    G    H
 -}
 
+board13 :: ChessGrid
+board13 = ChessGrid $ V.fromList
+                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  ' ',  ' ',  'K',  'R',  ' ',  ' ',  ' ',  'R',  '+',
+                              '+',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  'B',  ' ',  'N',  ' ',  ' ',  ' ',  ' ',  'P',  '+',
+                              '+',  'b',  ' ',  'n',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'p',  '+',
+                              '+',  ' ',  'r',  ' ',  ' ',  ' ',  'r',  'k',  ' ',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   r   -   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   b   -   n   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   B   -   N   -   -   -   P          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   P   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   K   R   -   -   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+Desired rookFileStatus:
+  R @ 14, Open
+  R @ 18, NotOpen
+  r @ 82, HalfOpen
+  r @ 86, Open
+-}
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: ChessGrid
-_boardTemplate = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+_boardTemplate = ChessGrid $ V.fromList
+                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                               '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
