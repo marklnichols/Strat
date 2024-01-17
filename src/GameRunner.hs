@@ -246,6 +246,9 @@ processCommand cmd node nodeHistory
     | cmd == "list" = do
         liftIO $ putStrLn $ intercalate "\n" (show <$> reverse (moveHistory nodeHistory))
         return Nothing
+    | cmd == "moves" = do
+        liftIO $ print $ possibleMoves node
+        return Nothing
     | cmd == "undo" = do
         processUndo nodeHistory
     | otherwise = do

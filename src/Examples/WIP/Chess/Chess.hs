@@ -79,8 +79,10 @@ module Chess
     , right, left, up, down, diagUL, diagDR, diagUR, diagDL
     , knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL
     , inCheck
+    , inCheckNode01
     , invertGrid
     , locsForColor
+    , checkKingExposure
     , critBug01TestData
     , critBug01TestDataB
     , mateInTwo01TestData
@@ -166,6 +168,7 @@ intToParserLoc n =
 toParserMove :: ChessMove -> Parser.Entry
 toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
 toParserMove CastlingMove{..} = Parser.Move $ intToParserLoc _kingStartIdx : [intToParserLoc _kingEndIdx]
+toParserMove EnPassantMove{..} = Parser.Move $ intToParserLoc _epStartIdx : [intToParserLoc _epEndIdx]
 
 instance Show ChessMove where
   show stm@StdMove {..} =
@@ -571,15 +574,15 @@ getStartNode restoreGame nextColorToMove =
               , _chessMvSeq = []
               , _chessIsEvaluated = False } []
            , castledTestState White)
-      "discovered" -> (Node discoveredCheckNode [], preCastledTestState White)
-      "checkmate"  -> (Node checkMateExampleNode [], preCastledTestState White)
-      "checkmate2" -> (Node checkMateExampleNode2 [], preCastledTestState White)
-      "checkmate3" -> (Node checkMateExampleNode3 [], preCastledTestState White)
-      "checkmate4" -> (Node checkMateExampleNode4 [], preCastledTestState White)
-      "mateInTwo01" -> (Node mateInTwoExampleNode01 [], preCastledTestState Black)
-      "mateInTwo02" -> (Node mateInTwoExampleNode02 [], preCastledTestState Black)
+      "discovered"   -> (Node discoveredCheckNode [], preCastledTestState White)
+      "checkmate"    -> (Node checkMateExampleNode [], preCastledTestState White)
+      "checkmate2"   -> (Node checkMateExampleNode2 [], preCastledTestState White)
+      "checkmate3"   -> (Node checkMateExampleNode3 [], preCastledTestState White)
+      "checkmate4"   -> (Node checkMateExampleNode4 [], preCastledTestState White)
+      "mateInTwo01"  -> (Node mateInTwoExampleNode01 [], preCastledTestState Black)
+      "mateInTwo02"  -> (Node mateInTwoExampleNode02 [], preCastledTestState Black)
       "mateInTwo02b" -> (Node mateInTwoExampleNode02b [], preCastledTestState Black)
-      "mateInTwo03" -> (Node mateInTwoExampleNode03 [], castledTestState Black)
+      "mateInTwo03"  -> (Node mateInTwoExampleNode03 [], castledTestState Black)
       "mateInTwo03b" -> (Node mateInTwoExampleNode03b [], castledTestState Black)
       "promotion01"  -> (Node promotionNode01 [], castledTestState White)
       "critBug01"    -> (Node critBugNode01 [], preCastledTestState Black)
@@ -595,10 +598,11 @@ getStartNode restoreGame nextColorToMove =
       "debug06c"     -> (Node debugExampleNode06c [], preCastledTestState Black)
       "debug07"      -> (Node debugExampleNode07 [], preCastledTestState Black)
       "enpassant"    -> (Node enPassantNode01 [], preCastledTestState Black)
-      "enpassant2"    -> (Node enPassantNode02 [], preCastledTestState Black)
+      "enpassant2"   -> (Node enPassantNode02 [], preCastledTestState Black)
       "castling"     -> (Node castlingNode [], preCastledTestState Black)
       "connectrooks" -> (Node connectRookNode [], castledTestState Black)
       "endgame01"    -> (Node endgameNode01 [], castledTestState White)
+      "incheck01"    -> (Node inCheckNode01 [], castledTestState White)
       _ -> error "unknown restore game string - choices are:\n \
                  \ alphabeta, \n \
                  \ castling, checkmate, checkmate2, checkmate3, checkmate4, critBug01, \n \
@@ -607,7 +611,7 @@ getStartNode restoreGame nextColorToMove =
                  \ promotion01, \n \
                  \ debug, debug02, debug03, debug04, debug05, \n \
                  \ debug06, debug06b, debug06c, debug07, debug08, \n \
-                 \ enpassant, enpassant2, connectrook, endgame01, \n \
+                 \ enpassant, enpassant2, connectrook, endgame01, incheck01 \n \
                  \ draw, newgame"
 
 -- Color represents the color at the 'bottom' of the board
@@ -785,17 +789,135 @@ moveChecksOpponent node mv =
   let flippedClr = flipPieceColor $ node ^. (chessPos . cpColor)
   in moveIsCheckAgainst node mv flippedClr
 
+
 ---------------------------------------------------------------------------------------------------
 -- Calulate if applying the given move results in the moving player's king being exposed to capture
+-- Unless the player is already in check or the king is moving, the function
+-- moveBreaksPin gives a much faster answer then moveExposesKing
 ---------------------------------------------------------------------------------------------------
-moveExposesKing :: ChessNode -> ChessMove -> Bool
-moveExposesKing node mv =
-    let pos = node ^. chessPos
-    in moveExposesKing' pos mv
+checkKingExposure :: ChessPos -> ChessMove -> Bool
+checkKingExposure cp move@CastlingMove{..} = moveExposesKing cp move
+checkKingExposure cp move@EnPassantMove{..} =
+   let check = case _cpColor cp of
+                 White -> fst (_cpInCheck cp)
+                 _     -> snd (_cpInCheck cp)
+   in if check
+        then moveExposesKing cp move
+        else moveBreaksPin cp move
+checkKingExposure cp move@StdMove{..} =
+   let ch = indexToChar (_cpGrid cp) _startIdx
+       check = case _cpColor cp of
+                 White -> fst $ _cpInCheck cp
+                 _     -> snd $ _cpInCheck cp
+   in if check || ch == 'K' || ch == 'k'
+        then moveExposesKing cp move
+        else moveBreaksPin cp move
 
-moveExposesKing' :: ChessPos -> ChessMove -> Bool
-moveExposesKing' pos mv =
+moveExposesKing :: ChessPos -> ChessMove -> Bool
+moveExposesKing pos mv =
   moveIsCheckAgainst' pos mv (pos ^. cpColor)
+
+---------------------------------------------------------------------------------------------------
+-- Calulate if applying the given move results in the moving player's king being exposed to capture
+-- This one gets call a LOT, needs to be pretty snappy
+---------------------------------------------------------------------------------------------------
+moveBreaksPin :: ChessPos -> ChessMove -> Bool
+moveBreaksPin cp CastlingMove{..} = False
+moveBreaksPin cp EnPassantMove{..} = moveBreaksPin' cp _epStartIdx
+moveBreaksPin cp move@StdMove{..} = moveBreaksPin' cp _startIdx
+
+moveBreaksPin' :: ChessPos -> Int -> Bool
+moveBreaksPin' cp startIdx =
+  let clr = _cpColor cp
+      (kingLocW, kingLocB) = _cpKingLoc cp
+      kingLoc = case clr of
+          White -> kingLocW
+          _     -> kingLocB
+      diff = abs (startIdx - kingLoc)
+      upDown = diff `mod` 10 == 0
+      leftRight = diff < 10
+      posSlopeDiag = diff `mod` 9 == 0
+      negSlopeDiag = diff `mod` 11 == 0
+      ch = indexToChar (_cpGrid cp) startIdx
+  in if upDown || leftRight
+    then
+      let pair =
+            case startIdx > kingLoc of
+              gt | upDown
+                 , gt
+                   -> (down, up)
+                 | upDown
+                 , not gt
+                   -> (up, down)
+                 | leftRight
+                 , gt
+                   -> (left, right)
+                 | leftRight
+                 , not gt
+                   -> (right, left)
+      in rectPin cp startIdx pair clr
+  else if posSlopeDiag || negSlopeDiag
+    then
+      let pair =
+            case (startIdx > kingLoc) of
+              gt | posSlopeDiag
+                , gt
+                  -> (diagDR, diagUL)
+                | posSlopeDiag
+                , not gt
+                  -> (diagUL, diagDR)
+                | negSlopeDiag
+                , gt
+                  -> (diagDL, diagUR)
+                | negSlopeDiag
+                , not gt
+                  -> (diagUR, diagDL)
+      in diagPin cp startIdx pair clr
+  else False -- not (upDown || leftRight) && not (posSlopeDiag || negSlopeDiag)
+
+----------------------------------------------------------------------------------------------------
+-- Is the piece in the provided loc pinned to the king? (The first element of the pair of Dirs is the
+-- direction the king can be found in, the 2nd element is the opposite direction)
+-- Here the directions are one of up, down, left, or right
+----------------------------------------------------------------------------------------------------
+rectPin :: ChessPos -> Int -> (Dir, Dir) -> Color -> Bool
+rectPin cp loc (dir, oppDir) clr =
+  -- are there only empty squares between the given loc and the king?
+  let m = dirAllPieceLoc (_cpGrid cp) loc clr dir
+      mChar = snd <$> m
+  in if mChar /= Just 'K' && mChar /= Just 'k'
+       then False
+       else
+         -- is the first piece in the opposite direction of the king an enemy Rook or Queen?
+         let m = dirCaptureLoc' (_cpGrid cp) loc clr oppDir
+         in case m of
+             Just (_, 'R') -> True
+             Just (_, 'r') -> True
+             Just (_, 'Q') -> True
+             Just (_, 'q') -> True
+             _   -> False
+
+----------------------------------------------------------------------------------------------------
+-- Is the piece in the provided loc pinned to the king? (The first element of the pair of Dirs is the
+-- direction the king can be found in, the 2nd element is the opposite direction)
+-- Here the directions are one of diagUR, diagDL, diagUL, diagDR
+----------------------------------------------------------------------------------------------------
+diagPin :: ChessPos -> Int -> (Dir, Dir) -> Color -> Bool
+diagPin cp loc (dir, oppDir) clr =
+  -- are there only empty squares between the given loc and the king?
+  let m = dirAllPieceLoc (_cpGrid cp) loc clr dir
+      mChar = snd <$> m
+  in if mChar /= Just 'K' && mChar /= Just 'k'
+       then False
+       else
+  -- is the first piece in the opposite direction of the king an enemy Rook or Queen?
+  let m = dirCaptureLoc' (_cpGrid cp) loc clr oppDir
+  in case m of
+      Just (_, 'B') -> True
+      Just (_, 'b') -> True
+      Just (_, 'Q') -> True
+      Just (_, 'q') -> True
+      _   -> False
 
 ---------------------------------------------------------------------------------------------------
 -- Is the side with the given color in check after a move is applied?
@@ -879,7 +1001,6 @@ isCritical cn =
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
-
 
 {- TODOs:
 -- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
@@ -1640,7 +1761,8 @@ filterKingInCheck' pos xs =
         c = pos ^. cpColor
         kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
         foldf mv r =
-            if moveExposesKing' pos mv
+            -- if moveExposesKing pos mv
+            if checkKingExposure pos mv
                then r
                else mv : r
         in foldr foldf [] xs
@@ -1796,7 +1918,11 @@ moveToIndex StdMove{..} = _endIdx
 calcMoveLists :: ChessPos -> ChessMoves
 calcMoveLists pos =
     let c = _cpColor pos
-        (_empty, enemy) = pieceDestinations pos c
+    in calcMoveLists' pos c
+
+calcMoveLists' :: ChessPos -> Color -> ChessMoves
+calcMoveLists' pos c =
+    let (_empty, enemy) = pieceDestinations pos c
     in ChessMoves
       { _cmEmpty = _empty
       , _cmEnemy = enemy
@@ -1849,12 +1975,12 @@ multiMoveMobility pieceDirs g loc =
         in count + r
 
 multiMoveCaptureLocs :: [Dir] -> ChessGrid -> (Int, Char, Color) -> [Int]
-multiMoveCaptureLocs pieceDirs g loc =
+multiMoveCaptureLocs pieceDirs g (loc, _, clr) =
   foldl' f [] pieceDirs
     where
       f :: [Int] -> Dir -> [Int]
       f r x =
-        case dirCaptureLoc g loc x of
+        case dirCaptureLoc g loc clr x of
             Just z  -> z : r
             Nothing -> r
 
@@ -2036,13 +2162,28 @@ dirLocs g (idx0, _, c0) dir =
 ---------------------------------------------------------------------------------------------------
 -- find the first enemy piece in a given direction
 ---------------------------------------------------------------------------------------------------
-dirCaptureLoc :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe Int
-dirCaptureLoc g (idx0, _, clr0) dir =
+dirCaptureLoc :: ChessGrid -> Int -> Color -> Dir -> Maybe Int
+dirCaptureLoc g idx0 clr0 dir =
    let clr0Enemy = enemyColor clr0
        loop idx =
            let clr = indexToColor2 g idx
            in case clr == Just clr0Enemy of
                True -> Just idx
+               False | not (onBoard idx) -> Nothing
+                     | isEmptyGrid g idx -> loop (dir idx)
+                     | otherwise -> Nothing
+   in loop (dir idx0)
+
+---------------------------------------------------------------------------------------------------
+-- similar to dirCaptureLoc, but also returns the char representation of the enemy piece
+---------------------------------------------------------------------------------------------------
+dirCaptureLoc' :: ChessGrid -> Int -> Color -> Dir -> Maybe (Int, Char)
+dirCaptureLoc' g idx0 clr0 dir =
+   let clr0Enemy = enemyColor clr0
+       loop idx =
+           let clr = indexToColor2 g idx
+           in case clr == Just clr0Enemy of
+               True -> Just (idx, indexToChar g idx)
                False | not (onBoard idx) -> Nothing
                      | isEmptyGrid g idx -> loop (dir idx)
                      | otherwise -> Nothing
@@ -2062,10 +2203,36 @@ dirFriendlyPieceLoc g (idx0, _, clr0) dir =
                      | isEmptyGrid g idx -> loop (dir idx)
                      | otherwise -> Nothing
     in loop (dir idx0)
-        -- !tmp = loop (dir idx0)
-        -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
-        --              (show clr0) idx0 (show dir) (show tmp)
-        -- in trace str tmp
+
+---------------------------------------------------------------------------------------------------
+-- Similar to dirFriendlyPieceLoc, but also returns the char representation of the friendly piece
+---------------------------------------------------------------------------------------------------
+dirFriendlyPieceLoc' :: ChessGrid -> (Int, Char, Color) -> Dir -> Maybe (Int, Char)
+dirFriendlyPieceLoc' g (idx0, _, clr0) dir =
+    let loop idx =
+          let clr = indexToColor2 g idx
+          in case clr == Just clr0 of
+               True -> Just (idx, indexToChar g idx)
+               False | not (onBoard idx) -> Nothing
+                     | isEmptyGrid g idx -> loop (dir idx)
+                     | otherwise -> Nothing
+    in loop (dir idx0)
+
+---------------------------------------------------------------------------------------------------
+-- Find the first friendly or enemy piece in a given direction
+-- Return the pieces loc and char representation.
+---------------------------------------------------------------------------------------------------
+dirAllPieceLoc :: ChessGrid -> Int -> Color -> Dir -> Maybe (Int, Char)
+dirAllPieceLoc g idx0 clr0 dir =
+    let clr0Enemy = enemyColor clr0
+        loop idx =
+          let clr = indexToColor2 g idx
+          in case clr == Just clr0 || clr == Just clr0Enemy of
+               True -> Just (idx, indexToChar g idx)
+               False | not (onBoard idx) -> Nothing
+                     | isEmptyGrid g idx -> loop (dir idx)
+                     | otherwise -> Nothing
+    in loop (dir idx0)
 
 ---------------------------------------------------------------------------------------------------
 -- Count the number of squares that can be moved in a given direction
@@ -3336,10 +3503,34 @@ P   -   -   -   -   -   P   -          3| (30)  31   32   33   34   35   36   37
 FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w KQkq - 0 1
 -}
 
+inCheckBoard01 :: ChessGrid
+inCheckBoard01 = ChessGrid $ V.fromList
+                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                              '+',  'R',  ' ',  ' ',  ' ',  'K',  'B',  'N',  'R',  '+',
+                              '+',  'P',  'P',  'P',  'N',  ' ',  'P',  'P',  'P',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  'P',  'P',  ' ',  ' ',  ' ',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  'Q',  ' ',  ' ',  'n',  '+',
+                              '+',  ' ',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  '+',
+                              '+',  'p',  'p',  'p',  'p',  ' ',  'p',  ' ',  'p',  '+',
+                              '+',  'r',  'n',  'b',  'q',  'k',  ' ',  ' ',  ' ',  '+',
+                              '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
+r   n   b   q   k   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   -   p   -   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   r   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   Q   -   -   n          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   P   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   N   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   -   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
 
-
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+-}
 
 ----------------------------------------------------------------------------------------------------
 discoveredCheckNode :: ChessNode
@@ -3422,6 +3613,9 @@ connectRookNode = postCastlingGameNode connectRooksBoard Black (22, 82)
 
 endgameNode01 :: ChessNode
 endgameNode01 = postCastlingGameNode endgameBoard01 White (13, 83)
+
+inCheckNode01 :: ChessNode
+inCheckNode01 = postCastlingGameNode inCheckBoard01 White (15, 85)
 
 -- White has K and Q side castling available, Black has King side only
 preCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
