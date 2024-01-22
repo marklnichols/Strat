@@ -348,7 +348,6 @@ chessTest = do
         c1 `shouldBe` False
         c2 <- matchStdMove critBug01TestDataB
         c2 `shouldBe` False
-
     describe "checkPromote" $
       it "checks for pawn promotion" $ do
           checkPromote 'P' 82 `shouldBe` 'Q'
@@ -372,6 +371,10 @@ chessTest = do
 
         Z.mateInCompare whiteTwo blackTwo `shouldBe` False
         Z.mateInCompare blackThree whiteTwo `shouldBe` True
+    describe "toFen" $
+      it "describes the position in FEN (Forsyth-Edwards Notation)" $
+        let pos = _chessPos endgameNode01
+        in toFen pos `shouldBe` "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R"
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions / datatypes

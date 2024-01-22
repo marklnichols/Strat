@@ -1,31 +1,13 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE GHC2021 #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE EmptyCase #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Eta reduce" #-}
-{-# HLINT ignore "Evaluate" #-}
 
 module Chess
     ( Castle(..)
@@ -76,6 +58,7 @@ module Chess
     , dirLocsCount
     , dirLocsSingleCount
     , discoveredCheckNode
+    , endgameNode01
     , right, left, up, down, diagUL, diagDR, diagUR, diagDL
     , knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL
     , inCheck
@@ -96,6 +79,7 @@ module Chess
     , queenMobility
     , showScoreDetails
     , startingBoard
+    , toFen
     , wK, wKB, wKN, wKR, wQB, wQN, wQR
     , bK, bKB, bKN, bKR, bQB, bQN, bQR
     ) where
@@ -104,7 +88,7 @@ import Control.Lens hiding (Empty)
 
 import Data.Char
 import Data.List (foldl')
-import Data.List.Extra (replace, notNull)
+import Data.List.Extra (replace, notNull, upper)
 import Data.Kind
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
@@ -282,6 +266,38 @@ cnShowMoveOnly cn = show (cn ^. chessMv)
 
 evalChessNode :: ChessNode -> Float
 evalChessNode cn = cn ^. (chessVal . total)
+
+---------------------------------------------------------------------------------------------------
+-- Display the board in FEN (Forsyth-Edwards Notation)
+-- TODO: complete the FEN
+---------------------------------------------------------------------------------------------------
+toFen :: ChessPos -> String
+toFen cp =
+    let v = unGrid $ _cpGrid cp
+        rows y acc = scanRow v y ++ "/" ++ acc
+        strPlus = foldr rows "" [88, 78, 68, 58, 48, 38, 28, 18]
+    in take ((length strPlus) - 1) strPlus -- drop the final '/'
+
+scanRow :: Vector Char -> Int -> String
+scanRow v idx =
+    let loop :: Int -> Int -> String -> String
+        loop i curSpaces str =
+          case i `mod` 10 of
+            0 -> if curSpaces == 0
+                     then str
+                     else (intToDigit curSpaces) : str
+            _ -> case v!i of
+                    ' ' -> loop (i-1) (curSpaces+1) str
+                    ch  -> if curSpaces == 0
+                              then loop (i-1) 0 (ch : str)
+                              else loop (i-1) 0 (ch : ((intToDigit curSpaces) : str))
+    in loop idx 0 ""
+
+showChessNodeAs :: ChessNode -> String -> String
+showChessNodeAs cn formatType =
+  if (upper formatType) == "FEN"
+    then toFen $ _chessPos cn
+    else show cn
 
 instance (TreeNode ChessNode m) =>  Z.ZipTreeNode ChessNode where
   ztnEvaluate = evalChessNode
@@ -880,8 +896,8 @@ flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
 
-
 {- TODOs:
+-- Add :? cmd that shows the available commands
 -- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
 -- Add warning message if non-quiet move chosen, consider not picking those
 -- Auto depth increase in endgame
@@ -891,6 +907,7 @@ flipPieceColor Black = White
 -- Add more mate in n tests
 -- Determine mate in n and display
 -- Display total computer move time / n moves / average
+-- Remove TemplateHaskell (remove TH generated Lenses, manually make only needed lenses (deep updates)
 -- Various command line debug tools
 --    load
 --    save
@@ -3321,8 +3338,8 @@ endgameBoard01 = ChessGrid $ V.fromList
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 r   -   k   -   r   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
--   p   p   -   -   p   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
--   -   -   -   -   -   q   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   p   p   -   -   p   p   -          7| (70)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   q   -          6| (60)  61   62   63   64   65   66   67   68  (69)
 p   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   -   -   -   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 P   -   -   -   -   -   P   -          3| (30)  31   32   33   34   35   36   37   38  (39)
@@ -3335,6 +3352,11 @@ P   -   -   -   -   -   P   -          3| (30)  31   32   33   34   35   36   37
 
 FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w KQkq - 0 1
 -}
+-- expected: "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R"
+--  but got: "11r/p2p1/6/p/5/5P/131/3R2/"
+
+
+
 
 
 

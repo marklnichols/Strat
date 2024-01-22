@@ -107,6 +107,9 @@ class Output o n m | o -> n, n -> m where
     showCompMove :: o -> Tree n -> Z.NegaResult n -> Bool -> IO ()
     getPlayerEntry :: o -> Tree n -> [m] -> IO (Entry m s)
     gameError :: o -> String -> IO ()
+    showAs :: o -> String -> n -> IO ()
+    showAs o _ node = updateBoard o node
+
 
 mkMoveScores :: (TreeNode n m, Eval n) => [n] -> [MoveScore m n]
 mkMoveScores tns = map (\x -> mkMoveScore (getMove x) x) tns
