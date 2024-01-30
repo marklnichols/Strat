@@ -17,7 +17,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
--- import Text.Printf
+import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -318,7 +318,7 @@ chessTest = do
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
-          let (t, _) = getStartNode "newgame" White
+          let (t, _) = getStartNode "newgame"
           newTree <- runReaderT (expandSingleThreaded t 2 2) testEnv
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
@@ -374,14 +374,14 @@ chessTest = do
     describe "toFen" $
       it "describes the position in FEN (Forsyth-Edwards Notation)" $
         let pos = _chessPos endgameNode01
-        in toFen pos `shouldBe` "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R"
+        in toFen pos `shouldBe` "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20"
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions / datatypes
 ---------------------------------------------------------------------------------------------------
 matchStdMove :: StdMoveTestData -> IO Bool
 matchStdMove StdMoveTestData{..} = do
-    let (board, _) = getStartNode smtdBoardName colorToMoveNext
+    let (board, _) = getStartNode smtdBoardName
     let f :: Z.ZipTreeM (Z.NegaResult ChessNode)
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
@@ -394,7 +394,7 @@ matchStdMove StdMoveTestData{..} = do
         StdMove {..} -> do
             let start = _startIdx
             let end = _endIdx
-            -- putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
+            putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 
@@ -410,13 +410,13 @@ mkTestPos :: ChessGrid -> Color -> ChessPosState -> (Int, Int) -> (Bool, Bool) -
 mkTestPos g c cpState (kingLocW, kingLocB) (inCheckW, inCheckB) =
   let (wLocs, bLocs) = calcLocsForColor g
   in ChessPos
-    { _cpGrid = g, _cpColor = c
+    { _cpGrid = g
     , _cpKingLoc = (kingLocW, kingLocB)
     , _cpInCheck = (inCheckW, inCheckB)
     , _cpWhitePieceLocs = wLocs
     , _cpBlackPieceLocs = bLocs
     , _cpFin = NotFinal
-    , _cpState = cpState }
+    , _cpState = cpState {_cpsColorToMove = c}}
 
 -- generic test state (Both K and Q side castiling avail for both sides)
 testState :: Color -> ChessPosState
