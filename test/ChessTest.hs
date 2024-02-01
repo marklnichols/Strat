@@ -17,7 +17,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
-import Text.Printf
+-- import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -394,7 +394,7 @@ matchStdMove StdMoveTestData{..} = do
         StdMove {..} -> do
             let start = _startIdx
             let end = _endIdx
-            putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
+            -- putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 

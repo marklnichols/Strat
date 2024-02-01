@@ -104,9 +104,9 @@ import Data.Vector.Unboxed (Vector, (!))
 import qualified Data.Vector.Unboxed as V
 import Data.Hashable
 import GHC.Generics
-import System.Console.CmdArgs.Implicit (Data, Typeable)
--- import Text.Printf
--- import Debug.Trace
+import System.Console.CmdArgs.Implicit (Data)
+import Text.Printf
+import Debug.Trace
 
 import qualified Parser8By8 as Parser
 import qualified Strat.Helpers as Helpers
@@ -127,8 +127,10 @@ data Castling = Castled
               | Unavailable
   deriving (Eq, Generic, Hashable, Show, Ord)
 
-data Color = Black | White
-    deriving (Generic, Hashable, Show, Eq, Ord, Data, Typeable)
+data Color where
+  Black :: Color
+  White :: Color
+    deriving (Generic, Hashable, Show, Eq, Ord, Data )
 
 data Castle = QueenSide | KingSide
   deriving (Generic, Hashable, Eq, Ord, Show)
@@ -298,9 +300,19 @@ instance Show ChessMoves where
   show ChessMoves{..} = "Moves for color: " ++ show _cmForColor
     ++  "\nEmpty: " ++ show _cmEmpty ++ "\nEnemy: " ++ show _cmEnemy
 
+---------------------------------------------------------------------------------------------------
+-- Weird Haskell bug? (GHC 9.4.7) -- these two versions do not behave the same:
+-- In the commented-out code, 'colorToChar White' fails with a non-exaustive pattern match
+-- In the second version, it works correctly
+---------------------------------------------------------------------------------------------------
+-- colorToChar :: Color -> Char
+-- colortoChar White = 'w'
+-- colorToChar Black = 'b'
 colorToChar :: Color -> Char
-colortoChar White = 'w'
-colorToChar _ = 'b'
+colorToChar clr =
+  case clr of
+    White -> 'w'
+    Black -> 'b'
 
 colorToInt :: Color -> Int
 colorToInt Black = -1
@@ -336,9 +348,8 @@ toFen cp =
         v = unGrid $ _cpGrid cp
         rows y acc = scanRow v y ++ "/" ++ acc
         strPlus = foldr rows "" [88, 78, 68, 58, 48, 38, 28, 18]
-
         boardFen = take (length strPlus - 1) strPlus -- drop the final '/'
-        nextColor = [colorToChar $ _cpsColorToMove $ state]
+        nextColor = [colorToChar $ _cpsColorToMove state]
         castlingPair = _cpsCastling state
         castlingStr = fenCastlingChars castlingPair
         enPassantStr =
@@ -347,7 +358,8 @@ toFen cp =
             Just n -> locToAlgebraic n
         halfMoves = "0" -- not yet implemented
         fullMoves = show (_cpsMoveNumber state `div` 2)
-    in boardFen ++ " " ++ nextColor ++ " " ++ castlingStr ++ " " ++ halfMoves ++ " " ++ fullMoves
+    in boardFen ++ " " ++ nextColor ++ " " ++ castlingStr ++ " " ++ enPassantStr ++ " "
+       ++ halfMoves ++ " " ++ fullMoves
 
 locToAlgebraic :: Int -> String
 locToAlgebraic n =
@@ -700,7 +712,6 @@ preCastledTestState clr = ChessPosState
     , _cpsEnPassant = Nothing
     }
 
-
 type Dir = Int -> Int
 right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
 right = (1+)
@@ -784,6 +795,7 @@ calcNewNode node mv tLoc =
         curMoveSeq = node ^. chessMvSeq
         curGrid = curPos ^. cpGrid
         curColor = curPos ^. (cpState . cpsColorToMove)
+        curMoveNum = curPos ^. (cpState . cpsMoveNumber)
 
         epLoc = enPassantCaptureLoc curGrid mv
 
@@ -813,7 +825,8 @@ calcNewNode node mv tLoc =
                          }
         newCastlingPair = castlingStatus newPos
         newState = (_cpState newPos)
-          {_cpsColorToMove = clrFlipped, _cpsEnPassant = epLoc, _cpsCastling = newCastlingPair}
+          { _cpsColorToMove = clrFlipped, _cpsEnPassant = epLoc, _cpsCastling = newCastlingPair
+          , _cpsMoveNumber = curMoveNum + 1 }
         posWithState = newPos { _cpState = newState }
         (eval, finalSt) = evalPos posWithState
         updatedPos = posWithState { _cpFin = finalSt }
@@ -3524,7 +3537,7 @@ postCastlingGameNode' grid the_color moveNumber kingLocs =
             _cpWhitePieceLocs = wLocs,
             _cpBlackPieceLocs = bLocs,
             _cpFin = NotFinal,
-            _cpState = castledTestState the_color
+            _cpState = castledTestState' the_color 40
           }
    in ChessNode
         { _chessTreeLoc = TreeLocation {tlDepth = 0},
