@@ -670,17 +670,19 @@ fromFen fenStr =
     case splitRowData fenStr of
         Nothing -> Nothing
         Just (rowData, otherData) ->
+            -- HERE: initialV should be all '+'s on first and last rows,
+            -- and '+' and beginning and end of other rows, with ' 's in beteen
             let initialV = V.replicate 100 '+'
-                --
-                -- rowStrs = split (== '/') rowData
-                -- newV = foldr foldF initialV rowStrs
-                --
                 rowStrs = split (== '/') rowData
-                !tmp :: Vector Char = foldr foldF initialV rowStrs
+                rowIdxs = [88, 78, 68, 58, 48, 38, 28, 18]
+                pairs = zip rowStrs rowIdxs
+                str0 = show pairs
+                -- V.ifoldl' foldf [] v
+                !tmp :: Vector Char = foldr foldF initialV pairs
                 str = printf "length rowStrs = %d, rowStrs[0]:\n%s" (length rowStrs)
                       (show (head rowStrs))
                 str2 = "lenght newV = " ++ show (V.length tmp)
-                newV = trace (str ++ "\n" ++ str2) tmp
+                newV = trace (str0 ++ "\n" ++ str ++ "\n" ++ str2) tmp
                 --
             in case (parseOtherFenData otherData)  of
                 Nothing -> Nothing
@@ -713,16 +715,16 @@ fromFen fenStr =
                           , _chessIsEvaluated = False } []
                         , cpState)
     where
-      foldF :: [Char] -> Vector Char -> Vector Char
-      foldF str accV =
-        (V.++) (fst (foldr foldF2 (accV, 0) str)) accV
+      foldF :: ([Char], Int) -> Vector Char -> Vector Char
+      foldF (str, n) accV =
+        (V.++) (fst (foldr (foldF2 n) (accV, 0) str)) accV
 
-      foldF2 :: Char -> (Vector Char, Int) -> (Vector Char, Int)
-      foldF2 x (accV, idx) = case x of
+      foldF2 :: Int -> Char -> (Vector Char, Int) -> (Vector Char, Int)
+      foldF2 n x (accV, idx) = case x of
         ch | ch > '0' && ch < '9'
              -> (accV, idx + digitToInt ch)
            | otherwise
-             -> (set (ix idx) ch accV, idx + 1)
+             -> (set (ix (idx+n)) ch accV, idx + 1)
 
 ----------------------------------------------------------------------------------------------------
 -- Separate the row-by-row FEN data from the additional data
