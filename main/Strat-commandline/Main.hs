@@ -11,6 +11,7 @@ import CheckersText
 import Data.Text(pack)
 import System.Console.CmdArgs.Implicit
 import StratWeb.YesodMain
+import Text.Printf
 
 main :: IO ()
 main = do
@@ -18,9 +19,34 @@ main = do
     verbose <- isLoud
     case exampleName of
       "chess" -> do
-          let (startNode, startState) = Chess.getStartNode restoreGame
-          GameRunner.startGame ChessText startNode startState depth critDepth aiPlaysWhite aiPlaysBlack preSortOn
-                         (not noRandom) (not noPruning) singleThreaded verbose pruneTracing cmpTracing (pack traceStr)
+          printf "restoreGame: %s\n" restoreGame
+          printf "loadFromFed: %s\n" loadFromFen
+          if restoreGame /= "newgame" && loadFromFen /= ""
+            then do
+              putStrLn "Choose either --restoreGame or --fen, but not both"
+              print theArgs
+            else do
+              pairMay <-
+                  if loadFromFen == ""
+                    then return $ Just $ Chess.getStartNode restoreGame
+                    else do
+                      case Chess.getNodeFromFen loadFromFen of
+                        Nothing -> do
+                          putStrLn "Invalid FEN format"
+                          print theArgs
+                          return Nothing
+                        Just (startNode, startState) -> do
+                          putStrLn "FEN seems ok? (A)"
+                          return $ Just (startNode, startState)
+              case pairMay of
+                Nothing -> do
+                  putStrLn "Invalid FEN format"
+                  print theArgs
+                Just (startNode, startState) -> do
+                  putStrLn "FEN seems ok? (b)"
+                  GameRunner.startGame ChessText startNode startState depth critDepth aiPlaysWhite
+                      aiPlaysBlack preSortOn (not noRandom) (not noPruning) singleThreaded verbose
+                      pruneTracing cmpTracing (pack traceStr)
       "checkers" -> do
           let (startNode, startState) = Checkers.getStartNode restoreGame
           GameRunner.startGame CheckersText startNode startState depth critDepth aiPlaysWhite aiPlaysBlack
@@ -28,6 +54,14 @@ main = do
       "checkersWeb" -> webInit
       _ -> print theArgs
 
+-- startFromFen :: StratArgs -> IO (Tree ChessNode, ChessPosState)
+-- startFromFen theArgs@StratArgs{..} = do
+--     verbose <- isLoud
+--     case Chess.getNodeFromFen loadFromFen of
+--       Nothing -> do
+--         putStrLn "Invalid FEN format"
+--         print theArgs
+--       Just (startNode, startState) -> return $ Just (startNode, startState)
 
 -- TODO: remove pruneTracing and cmpTracing and implement via Verbosity
 data StratArgs = StratArgs
@@ -37,6 +71,7 @@ data StratArgs = StratArgs
   , noRandom :: Bool
   , noPruning :: Bool
   , restoreGame :: String
+  , loadFromFen :: String
   , nextMoveColor :: Color
   , aiPlaysWhite :: Bool
   , aiPlaysBlack :: Bool
@@ -56,6 +91,7 @@ stratArgs = StratArgs
   , noRandom = False &= name "nr" &= help "Turn off randomness used in the computer's move selection"
   , noPruning = False &= name "p" &= help "Turn off alpha-beta pruning (for debugging only)"
   , restoreGame = "newgame" &= help "Game name to restore"
+  , loadFromFen = "" &= name "fen" &= help "Load a game using FEN (Forsyth-Edwards Notation)"
   , nextMoveColor = White &= name "c" &= help "Color to move next (White | Black)"
   , aiPlaysWhite = False &= name "white-ai" &= help "The computer plays the white pieces"
   , aiPlaysBlack = True &= name "black-ai" &= help "The computer plays the black pieces"

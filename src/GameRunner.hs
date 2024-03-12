@@ -55,6 +55,7 @@ startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enab
 startGameLoop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
               => Z.ZipTreeEnv -> o -> Tree n -> IO ()
 startGameLoop env o node = do
+    putStrLn "startGameLooooooop"
     unless (Z.enablePruning env) $
       putStrLn "***** Alpha-Beta pruning is turned OFF *****";
     when (Z.singleThreaded env) $

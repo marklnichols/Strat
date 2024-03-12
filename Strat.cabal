@@ -30,7 +30,7 @@ library
       src
   ghc-options: -Wdefault
   build-depends:
-                  base
+                base
                 -- , aeson < 2.0
                 , aeson
                 , async

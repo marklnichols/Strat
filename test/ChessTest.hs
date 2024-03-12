@@ -423,6 +423,7 @@ testState :: Color -> ChessPosState
 testState clr = ChessPosState
     { _cpsColorToMove = clr
     , _cpsLastMove = Nothing
+    , _cpsHalfMovesForDraw = 0
     , _cpsMoveNumber = 10
     , _cpsCastling = (BothAvailable, BothAvailable)
     , _cpsEnPassant = Nothing
@@ -454,6 +455,7 @@ epTestState :: Color -> Maybe Int -> ChessPosState
 epTestState clr ep = ChessPosState
     { _cpsColorToMove = clr
     , _cpsLastMove = Nothing
+    , _cpsHalfMovesForDraw = 0
     , _cpsMoveNumber = 10
     , _cpsCastling = (Castled, Castled)
     , _cpsEnPassant = ep
