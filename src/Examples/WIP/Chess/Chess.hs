@@ -108,8 +108,8 @@ import Data.Hashable
 import GHC.Generics
 import Safe (readMay)
 import System.Console.CmdArgs.Implicit (Data)
-import Text.Printf
-import Debug.Trace
+-- import Text.Printf
+-- import Debug.Trace
 
 import qualified Parser8By8 as Parser
 import qualified Strat.Helpers as Helpers
@@ -670,31 +670,18 @@ fromFen fenStr =
     case splitRowData fenStr of
         Nothing -> Nothing
         Just (rowData, otherData) ->
-            -- HERE: initialV should be all '+'s on first and last rows,
-            -- and '+' and beginning and end of other rows, with ' 's in beteen
-            let initialV = V.replicate 100 '+'
+            let initialV = emptyGrid
                 rowStrs = split (== '/') rowData
-                rowIdxs = [88, 78, 68, 58, 48, 38, 28, 18]
+                rowIdxs = [81, 71, 61, 51, 41, 31, 21, 11]
                 pairs = zip rowStrs rowIdxs
                 str0 = show pairs
-                -- V.ifoldl' foldf [] v
-                !tmp :: Vector Char = foldr foldF initialV pairs
-                str = printf "length rowStrs = %d, rowStrs[0]:\n%s" (length rowStrs)
-                      (show (head rowStrs))
-                str2 = "lenght newV = " ++ show (V.length tmp)
-                newV = trace (str0 ++ "\n" ++ str ++ "\n" ++ str2) tmp
-                --
+                newV :: Vector Char = foldl' foldF initialV pairs
             in case (parseOtherFenData otherData)  of
                 Nothing -> Nothing
                 Just cpState ->
                     let grid = ChessGrid newV
                         (wKing, bKing) = findKingLocs newV
-                        --
-                        -- inCheckPair = (inCheck grid White wKing, inCheck grid Black bKing)
-                        !tmp = (inCheck grid White wKing, inCheck grid Black bKing)
-                        str = printf "fromFen - newV: %s" (show newV)
-                        !inCheckPair = trace str tmp
-                        --
+                        inCheckPair = (inCheck grid White wKing, inCheck grid Black bKing)
                         (wLocs, bLocs) = calcLocsForColor grid
                         cp = ChessPos
                             { _cpGrid = grid
@@ -715,16 +702,33 @@ fromFen fenStr =
                           , _chessIsEvaluated = False } []
                         , cpState)
     where
-      foldF :: ([Char], Int) -> Vector Char -> Vector Char
-      foldF (str, n) accV =
-        (V.++) (fst (foldr (foldF2 n) (accV, 0) str)) accV
+      foldF :: Vector Char -> ([Char], Int) -> Vector Char
+      foldF accV (str, n) =
+        fst (foldl' (foldF2 n) (accV, 0) str)
 
-      foldF2 :: Int -> Char -> (Vector Char, Int) -> (Vector Char, Int)
-      foldF2 n x (accV, idx) = case x of
+      foldF2 :: Int -> (Vector Char, Int) -> Char -> (Vector Char, Int)
+      foldF2 n (accV, idx) x = case x of
         ch | ch > '0' && ch < '9'
              -> (accV, idx + digitToInt ch)
            | otherwise
              -> (set (ix (idx+n)) ch accV, idx + 1)
+
+emptyGrid :: Vector Char
+emptyGrid =
+   V.concat
+     [ V.fromList topOrBottom
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList topOrBottom ]
+  where
+    topOrBottom = ['+', '+', '+', '+', '+', '+', '+', '+', '+', '+']
+    middle      = ['+', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '+']
 
 ----------------------------------------------------------------------------------------------------
 -- Separate the row-by-row FEN data from the additional data
@@ -735,13 +739,7 @@ fromFen fenStr =
 splitRowData :: String -> Maybe (String, [String])
 splitRowData s =
   let splitz = split (== ' ') s
-  --
-  -- in if length splitz /= 2
-  --   then Nothing
-  --   else Just (head splitz, (tail splitz))
-      !tmp = (head splitz, (tail splitz))
-      str = printf "head splitz: %s, tail splitz: %s" (head splitz) (show (tail splitz))
-  in trace str (Just tmp)
+  in Just (head splitz, (tail splitz))
 
 ----------------------------------------------------------------------------------------------------
 -- Parse the non row-by-row data at the end of a FEN string
@@ -751,11 +749,7 @@ splitRowData s =
 ----------------------------------------------------------------------------------------------------
 parseOtherFenData :: [String] -> Maybe ChessPosState
 parseOtherFenData splitz =
-      -- let v = Vb.fromList splitz
-  let !tmp = Vb.fromList splitz
-      str = printf "splitz: %s, length: %d" (show splitz) (length tmp)
-      v = trace str tmp
-      --
+  let v = Vb.fromList splitz
       nextColor =
         if length v /= 5
           then Nothing
@@ -779,24 +773,13 @@ parseOtherFenData splitz =
     enPas <- enPassant
     halfMvs <- halfMovesForDraw
     moveNum <- moveNumber
-    --
-    -- return ChessPosState
-    --          { _cpsColorToMove = nextClr
-    --          , _cpsLastMove = Nothing
-    --          , _cpsHalfMovesForDraw = halfMvs
-    --          , _cpsMoveNumber = moveNum
-    --          , _cpsCastling = castlg
-    --          , _cpsEnPassant = enPas }
-    let !tmp = ChessPosState
-             { _cpsColorToMove = nextClr
-             , _cpsLastMove = Nothing
-             , _cpsHalfMovesForDraw = halfMvs
-             , _cpsMoveNumber = moveNum
-             , _cpsCastling = castlg
-             , _cpsEnPassant = enPas }
-        str = printf "nextClr: %s, castlg: %s, enPas: %s, halfMvs: %d, moveNum: %d"
-                (show nextClr) (show castlg) (show enPas) halfMvs moveNum
-    return $ trace str tmp
+    return ChessPosState
+           { _cpsColorToMove = nextClr
+           , _cpsLastMove = Nothing
+           , _cpsHalfMovesForDraw = halfMvs
+           , _cpsMoveNumber = moveNum
+           , _cpsCastling = castlg
+           , _cpsEnPassant = enPas }
 
 scanRow :: Vector Char -> Int -> String
 scanRow v idx =
@@ -2360,10 +2343,6 @@ dirFriendlyPieceLoc g (idx0, _, clr0) dir =
                      | isEmptyGrid g idx -> loop (dir idx)
                      | otherwise -> Nothing
     in loop (dir idx0)
-        -- !tmp = loop (dir idx0)
-        -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
-        --              (show clr0) idx0 (show dir) (show tmp)
-        -- in trace str tmp
 
 ---------------------------------------------------------------------------------------------------
 -- Count the number of squares that can be moved in a given direction
