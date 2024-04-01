@@ -52,8 +52,8 @@ module Chess
     , castlingStatus
     , checkPromote
     , checkFinal'
-    , checkMateExampleNode
-    , checkMateExampleNode2
+    -- , checkMateExampleNode
+    -- , checkMateExampleNode2
     , cnShowMoveOnly
     , connectedRooks
     , dirLocsCount
@@ -73,6 +73,7 @@ module Chess
     , mateInTwo03bTestData
     , moveChecksOpponent
     , pairToIndexes
+    , parseChessEntry
     , promotion01TestData
     , rookFileStatus
     , RookFileStatus(..)
@@ -99,7 +100,8 @@ import qualified Data.Set as S
 
 import Data.Singletons
 import Data.Singletons.Base.TH
-import Data.Tree
+import Data.Tree (Tree(Node))
+import qualified Data.Tree as T
 import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector, (!))
 import qualified Data.Vector.Unboxed as V
@@ -111,7 +113,7 @@ import System.Console.CmdArgs.Implicit (Data)
 -- import Text.Printf
 -- import Debug.Trace
 
-import qualified Parser8By8 as Parser
+import qualified MegaParser8By8 as Parser
 import qualified Strat.Helpers as Helpers
 import Strat.StratTree.TreeNode
 
@@ -591,6 +593,7 @@ countMaterial g =
 --    show eval detail
 --    change level
 -- And add evaluation scores for:
+      score penalty if pawns at both A3 and B3, etc.
       outposts
       rooks (or queen) on 7th (or 8th) rank
       doubled pawns
@@ -677,6 +680,10 @@ fromFen fenStr =
                 str0 = show pairs
                 newV :: Vector Char = foldl' foldF initialV pairs
             in case (parseOtherFenData otherData)  of
+        -- !tmp = loop (dir idx0)
+        -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
+        --              (show clr0) idx0 (show dir) (show tmp)
+        -- in trace str tmp
                 Nothing -> Nothing
                 Just cpState ->
                     let grid = ChessGrid newV
@@ -975,6 +982,25 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+
+newGameTree :: (Tree ChessNode, ChessPosState)
+newGameTree = fromJust $ getNodeFromFen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0"
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
 ---------------------------------------------------------------------------------------------------
 -- start new game, or load via game name
 ---------------------------------------------------------------------------------------------------
@@ -982,25 +1008,25 @@ getStartNode :: String -> (Tree ChessNode, ChessPosState)
 getStartNode restoreGame =
     let bottomColor = White -- TBD allow either color
     in case restoreGame of
-      "newgame" ->
-        let (wLocs, bLocs) = calcLocsForColor $ mkStartGrid bottomColor
-            cPos = ChessPos
-                   { _cpGrid = mkStartGrid White
-                   , _cpKingLoc = (15, 85)
-                   , _cpInCheck = (False, False)
-                   , _cpWhitePieceLocs = wLocs
-                   , _cpBlackPieceLocs = bLocs
-                   , _cpFin = NotFinal
-                   , _cpState = newGameState {_cpsColorToMove = White} }
-        in ( Node ChessNode
-              { _chessTreeLoc = TreeLocation {tlDepth = 0}
-              , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-              , _chessVal = ChessEval { _total = 0.0, _details = "" }
-              , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-              , _chessPos = cPos
-              , _chessMvSeq = []
-              , _chessIsEvaluated = False } []
-           , newGameState)
+      "newgame" -> newGameTree
+        -- let (wLocs, bLocs) = calcLocsForColor $ mkStartGrid bottomColor
+        --     cPos = ChessPos
+        --            { _cpGrid = mkStartGrid White
+        --            , _cpKingLoc = (15, 85)
+        --            , _cpInCheck = (False, False)
+        --            , _cpWhitePieceLocs = wLocs
+        --            , _cpBlackPieceLocs = bLocs
+        --            , _cpFin = NotFinal
+        --            , _cpState = newGameState {_cpsColorToMove = White} }
+        -- in ( Node ChessNode
+        --       { _chessTreeLoc = TreeLocation {tlDepth = 0}
+        --       , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+        --       , _chessVal = ChessEval { _total = 0.0, _details = "" }
+        --       , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+        --       , _chessPos = cPos
+        --       , _chessMvSeq = []
+        --       , _chessIsEvaluated = False } []
+        --    , newGameState)
       "alphabeta" ->
         let (wLocs, bLocs) = calcLocsForColor alphaBetaBoard
             cPos = ChessPos
@@ -1020,7 +1046,8 @@ getStartNode restoreGame =
               , _chessMvSeq = []
               , _chessIsEvaluated = False } []
            , castledTestState White)
-      "discovered" -> (Node discoveredCheckNode [], preCastledTestState White)
+      -- "discovered" -> (Node discoveredCheckNode [], preCastledTestState White)
+      "discovered" -> discoveredCheckTree
       "checkmate"  -> (Node checkMateExampleNode [], preCastledTestState White)
       "checkmate2" -> (Node checkMateExampleNode2 [], preCastledTestState White)
       "checkmate3" -> (Node checkMateExampleNode3 [], preCastledTestState White)
@@ -2524,8 +2551,8 @@ bCastlingPieces = S.fromList [bK, bKR, bQR]
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move or command
 ---------------------------------------------------------------------------------------------------
-parseChessEntry :: ChessNode -> String -> Either String (Entry ChessMove s)
 parseChessEntry n s
+    | s == ""             = Left "No input"
     | Left err <- pMove   = Left err
     | Right x  <- pMove   = parserToChessEntry n x
         where
@@ -2629,23 +2656,21 @@ Q   B   -   -   -   -   P   -          2| (20)  21   22   23   24   25   26   27
                                                 A    B    C    D    E    F    G    H
 -}
 
-discoveredCheckBoard :: ChessGrid
-discoveredCheckBoard = ChessGrid $ V.fromList
-                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
-                             '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'B',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  'b',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+discoveredCheckTree :: (Tree ChessNode, ChessPosState)
+discoveredCheckTree = fromJust $ fromFen "3r4/8/3k4/2b1R3/8/6B1/8/3K4 w - - 0 0"
+                           -- ChessGrid $ V.fromList
+                           -- [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'B',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  'b',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
--- Moves to verify:
--- (W) E5-C5 (discovered) check
--- (b) D6 x C5 (discovered) check
 -   -   -   r   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
 -   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
 -   -   -   k   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
@@ -2658,7 +2683,15 @@ discoveredCheckBoard = ChessGrid $ V.fromList
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
+-- Moves to verify:
+-- (W) E5-C5 (discovered) check
+-- (b) D6 x C5 (discovered) check
 -}
+
+--used in tests:
+discoveredCheckNode :: ChessNode
+discoveredCheckNode = T.rootLabel $ fst discoveredCheckTree
+
 checkMateExampleBoard :: ChessGrid
 checkMateExampleBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
@@ -3614,8 +3647,8 @@ FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20
 -}
 
 ----------------------------------------------------------------------------------------------------
-discoveredCheckNode :: ChessNode
-discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
+-- discoveredCheckNode :: ChessNode
+-- discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
 
 checkMateExampleNode :: ChessNode
 checkMateExampleNode = preCastlingGameNode checkMateExampleBoard White (15, 85)

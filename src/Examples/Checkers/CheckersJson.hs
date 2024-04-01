@@ -15,7 +15,7 @@ import Data.Char
 import GHC.Generics
 import Strat.StratTree.TreeNode (MoveScore(..))
 import qualified Checkers as Ck
-import qualified Parser8By8 as P
+import qualified MegaParser8By8 as P
 import qualified Data.ByteString.Lazy as B
 import qualified Data.ByteString.Lazy.Char8 as B8
 import Data.Maybe (fromMaybe, mapMaybe)

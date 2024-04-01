@@ -1,8 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
 
-
-module Parser8By8
+module MegaParser8By8
     ( Entry (..)
     , Loc (..)
     , run
@@ -10,9 +10,13 @@ module Parser8By8
 
 import Data.Aeson
 import Data.Char
+import Data.Void
 import GHC.Generics
-import Text.Parsec
-import Text.Parsec.String
+
+import Text.Megaparsec
+import Text.Megaparsec.Char
+
+type Parser = Parsec Void String
 
 data Loc = Loc Char Int
     deriving (Eq, Generic)
@@ -41,7 +45,7 @@ loc = do
     return $ Loc c (digitToInt d)
 
 spacers :: Parser ()
-spacers = skipMany (space <|> oneOf "-.,/|")
+spacers = skipMany (oneOf "-.,/|x ")
 
 move :: Parser Entry
 move = do
@@ -51,14 +55,14 @@ move = do
 cmd :: Parser Entry
 cmd = do
     _ <- oneOf ":"
-    b <- letter
-    c <- many alphaNum
+    b <- letterChar
+    c <- many alphaNumChar
     return $ Cmd (b:c)
 
 entry :: Parser Entry
 entry = move <|> cmd
 
 run :: String -> Either String Entry
-run s = case runParser entry () "" s of
+run s = case runParser entry "" s of
     Left err    -> Left $ show err
     Right xs    -> Right xs
