@@ -52,8 +52,6 @@ module Chess
     , castlingStatus
     , checkPromote
     , checkFinal'
-    -- , checkMateExampleNode
-    -- , checkMateExampleNode2
     , cnShowMoveOnly
     , connectedRooks
     , dirLocsCount
@@ -184,7 +182,6 @@ data UnChessMove
 data StdMoveTestData where
   StdMoveTestData ::
     { smtdBoardName :: String
-    -- , colorToMoveNext :: Color
     , smtdDepth :: Int
     , smtdCritDepth :: Int
     , smtdStartIdx :: Int
@@ -247,7 +244,6 @@ data ChessPos = ChessPos
   { _cpGrid :: ChessGrid
   , _cpWhitePieceLocs :: [(Int, Char, Color)]
   , _cpBlackPieceLocs :: [(Int, Char, Color)]
-  -- , _cpColor :: Color
   , _cpKingLoc :: (Int, Int)
   , _cpInCheck :: (Bool, Bool)
   , _cpFin :: FinalState
@@ -390,14 +386,6 @@ findKingLocs g =
         f idx 'K' (_, accB) = (idx, accB)
         f idx 'k' (accW, _) = (accW, idx)
         f idx _ (accW, accB) = (accW, accB)
-
-
-
-
-
-
-
-
 
 ----------------------------------------------------------------------------------------------------
 -- New, new attempt with singletons
@@ -575,6 +563,8 @@ countMaterial g =
 
 
 {- TODOs:
+-- Add: Track and display average time for computer move
+-- Convert more stored positions to FEN
 -- Add :? cmd that shows the available commands
 -- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
 -- Add warning message if non-quiet move chosen, consider not picking those
@@ -643,8 +633,6 @@ finalStateToScore :: FinalState -> Float
 finalStateToScore WWins = Z.maxScore
 finalStateToScore BWins = Z.minScore
 finalStateToScore _ = 0.0
-
-
 
 ---------------------------------------------------------------------------------------------------
 -- Create a string for the current position in FEN (Forsyth-Edwards Notation)
@@ -1009,24 +997,6 @@ getStartNode restoreGame =
     let bottomColor = White -- TBD allow either color
     in case restoreGame of
       "newgame" -> newGameTree
-        -- let (wLocs, bLocs) = calcLocsForColor $ mkStartGrid bottomColor
-        --     cPos = ChessPos
-        --            { _cpGrid = mkStartGrid White
-        --            , _cpKingLoc = (15, 85)
-        --            , _cpInCheck = (False, False)
-        --            , _cpWhitePieceLocs = wLocs
-        --            , _cpBlackPieceLocs = bLocs
-        --            , _cpFin = NotFinal
-        --            , _cpState = newGameState {_cpsColorToMove = White} }
-        -- in ( Node ChessNode
-        --       { _chessTreeLoc = TreeLocation {tlDepth = 0}
-        --       , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-        --       , _chessVal = ChessEval { _total = 0.0, _details = "" }
-        --       , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-        --       , _chessPos = cPos
-        --       , _chessMvSeq = []
-        --       , _chessIsEvaluated = False } []
-        --    , newGameState)
       "alphabeta" ->
         let (wLocs, bLocs) = calcLocsForColor alphaBetaBoard
             cPos = ChessPos
@@ -1046,7 +1016,6 @@ getStartNode restoreGame =
               , _chessMvSeq = []
               , _chessIsEvaluated = False } []
            , castledTestState White)
-      -- "discovered" -> (Node discoveredCheckNode [], preCastledTestState White)
       "discovered" -> discoveredCheckTree
       "checkmate"  -> (Node checkMateExampleNode [], preCastledTestState White)
       "checkmate2" -> (Node checkMateExampleNode2 [], preCastledTestState White)
@@ -1239,10 +1208,8 @@ calcNewNode node mv tLoc =
         newPos = curPos { _cpGrid = newGrid
                          , _cpWhitePieceLocs = whiteLocs
                          , _cpBlackPieceLocs = blackLocs
-                         -- , _cpColor = clrFlipped
                          , _cpKingLoc = kingLocs'
                          , _cpInCheck = inCheckPair'
-                         -- , _cpState = newState }
                          }
         newCastlingPair = castlingStatus newPos
         newState = (_cpState newPos)
@@ -2851,7 +2818,6 @@ mate in 2: (b) A8-A3
 mateInTwo01TestData :: StdMoveTestData
 mateInTwo01TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo01"
-    -- , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 81
@@ -2889,7 +2855,6 @@ mate in 2: (b) B4-B3
 mateInTwo02TestData :: StdMoveTestData
 mateInTwo02TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo02"
-    -- , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 42
@@ -2958,7 +2923,6 @@ mate in 2: (b) F7-F3, (W)D5-E4 (or others), (b) A3-A8
 mateInTwo03TestData :: StdMoveTestData
 mateInTwo03TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo03"
-    -- , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 76
@@ -2997,7 +2961,6 @@ mate in 1: (b) A3-A8
 mateInTwo03bTestData :: StdMoveTestData
 mateInTwo03bTestData = StdMoveTestData
     { smtdBoardName = "mateInTwo03b"
-    -- , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 31
@@ -3039,7 +3002,6 @@ or (b) D1-D1
 promotion01TestData :: StdMoveTestData
 promotion01TestData = StdMoveTestData
     { smtdBoardName = "promotion01"
-    -- , colorToMoveNext = White
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 74
@@ -3470,7 +3432,6 @@ Black:
 critBug01TestData :: StdMoveTestData
 critBug01TestData  = StdMoveTestData
     { smtdBoardName = "critBug01"
-    -- , colorToMoveNext = Black
     , smtdDepth = 3
     , smtdCritDepth = 5
     , smtdStartIdx = 66
@@ -3479,7 +3440,6 @@ critBug01TestData  = StdMoveTestData
 critBug01TestDataB :: StdMoveTestData
 critBug01TestDataB = StdMoveTestData
     { smtdBoardName = "critBug01"
-    -- , colorToMoveNext = Black
     , smtdDepth = 3
     , smtdCritDepth = 5
     , smtdStartIdx = 66
@@ -3647,9 +3607,6 @@ FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20
 -}
 
 ----------------------------------------------------------------------------------------------------
--- discoveredCheckNode :: ChessNode
--- discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
-
 checkMateExampleNode :: ChessNode
 checkMateExampleNode = preCastlingGameNode checkMateExampleBoard White (15, 85)
 

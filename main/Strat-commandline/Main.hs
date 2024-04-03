@@ -54,15 +54,6 @@ main = do
       "checkersWeb" -> webInit
       _ -> print theArgs
 
--- startFromFen :: StratArgs -> IO (Tree ChessNode, ChessPosState)
--- startFromFen theArgs@StratArgs{..} = do
---     verbose <- isLoud
---     case Chess.getNodeFromFen loadFromFen of
---       Nothing -> do
---         putStrLn "Invalid FEN format"
---         print theArgs
---       Just (startNode, startState) -> return $ Just (startNode, startState)
-
 -- TODO: remove pruneTracing and cmpTracing and implement via Verbosity
 data StratArgs = StratArgs
   { exampleName :: String
