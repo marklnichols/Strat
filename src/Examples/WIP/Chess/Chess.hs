@@ -1,31 +1,13 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE GHC2021 #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE EmptyCase #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Eta reduce" #-}
-{-# HLINT ignore "Evaluate" #-}
 
 module Chess
     ( Castle(..)
@@ -35,13 +17,14 @@ module Chess
     , ChessMove(..), exchange, startIdx, endIdx
     , ChessMoves(..), cmEmpty, cmEnemy
     , ChessNode(..), chessMv, chessVal, chessErrorVal, chessPos
-    , ChessPos(..), cpGrid, cpColor, cpFin
+    , ChessPos(..), cpGrid, cpState, cpFin
     , ChessPosState(..)
     , Color(..
            )
     , colorFromInt
     , colorToInt
     , countMaterial
+    , getNodeFromFen
     , getStartNode
     , toParserMove
     -- exported for testing only
@@ -69,13 +52,12 @@ module Chess
     , castlingStatus
     , checkPromote
     , checkFinal'
-    , checkMateExampleNode
-    , checkMateExampleNode2
     , cnShowMoveOnly
     , connectedRooks
     , dirLocsCount
     , dirLocsSingleCount
     , discoveredCheckNode
+    , endgameNode01
     , right, left, up, down, diagUL, diagDR, diagUR, diagDL
     , knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL
     , inCheck
@@ -89,6 +71,7 @@ module Chess
     , mateInTwo03bTestData
     , moveChecksOpponent
     , pairToIndexes
+    , parseChessEntry
     , promotion01TestData
     , rookFileStatus
     , RookFileStatus(..)
@@ -96,6 +79,7 @@ module Chess
     , queenMobility
     , showScoreDetails
     , startingBoard
+    , toFen
     , wK, wKB, wKN, wKR, wQB, wQN, wQR
     , bK, bKB, bKN, bKR, bQB, bQN, bQR
     ) where
@@ -104,7 +88,7 @@ import Control.Lens hiding (Empty)
 
 import Data.Char
 import Data.List (foldl')
-import Data.List.Extra (replace, notNull)
+import Data.List.Extra (replace, notNull, upper, split)
 import Data.Kind
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
@@ -114,17 +98,20 @@ import qualified Data.Set as S
 
 import Data.Singletons
 import Data.Singletons.Base.TH
-import Data.Tree
+import Data.Tree (Tree(Node))
+import qualified Data.Tree as T
 import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector, (!))
 import qualified Data.Vector.Unboxed as V
+import qualified Data.Vector as Vb
 import Data.Hashable
 import GHC.Generics
-import System.Console.CmdArgs.Implicit (Data, Typeable)
+import Safe (readMay)
+import System.Console.CmdArgs.Implicit (Data)
 -- import Text.Printf
 -- import Debug.Trace
 
-import qualified Parser8By8 as Parser
+import qualified MegaParser8By8 as Parser
 import qualified Strat.Helpers as Helpers
 import Strat.StratTree.TreeNode
 
@@ -143,8 +130,10 @@ data Castling = Castled
               | Unavailable
   deriving (Eq, Generic, Hashable, Show, Ord)
 
-data Color = Black | White
-    deriving (Generic, Hashable, Show, Eq, Ord, Data, Typeable)
+data Color where
+  Black :: Color
+  White :: Color
+    deriving (Generic, Hashable, Show, Eq, Ord, Data )
 
 data Castle = QueenSide | KingSide
   deriving (Generic, Hashable, Eq, Ord, Show)
@@ -157,11 +146,20 @@ data ChessMove
   deriving (Eq, Generic, Hashable, Ord)
 makeLenses ''ChessMove
 
+rowIndexes :: M.Map Int Int
+rowIndexes = M.fromList [(1, 11), (2, 10), (3, 14), (4, 19), (5, 23), (6, 28), (7, 32), (8, 37)]
+
 intToParserLoc :: Int -> Parser.Loc
 intToParserLoc n =
     let r = n `div` 10
         c = chr $ 64 + (n - r * 10)
     in Parser.Loc c r
+
+locToInt :: Parser.Loc -> Int
+locToInt (Parser.Loc c d) =
+    -- A->1, B->2, etc...
+    let colBase = ord (toUpper c) - 65 + 1
+    in d * 10 + colBase
 
 toParserMove :: ChessMove -> Parser.Entry
 toParserMove StdMove {..} = Parser.Move $ intToParserLoc _startIdx : [intToParserLoc _endIdx]
@@ -184,7 +182,6 @@ data UnChessMove
 data StdMoveTestData where
   StdMoveTestData ::
     { smtdBoardName :: String
-    , colorToMoveNext :: Color
     , smtdDepth :: Int
     , smtdCritDepth :: Int
     , smtdStartIdx :: Int
@@ -196,6 +193,7 @@ data StdMoveTestData where
 data ChessPosState = ChessPosState
   { _cpsColorToMove :: Color
   , _cpsLastMove :: Maybe ChessMove
+  , _cpsHalfMovesForDraw :: Int
   , _cpsMoveNumber :: Int
   , _cpsCastling :: (Castling, Castling)
   , _cpsEnPassant :: Maybe Int
@@ -219,6 +217,7 @@ combineChessStates s1 s2 =
   in ChessPosState
       { _cpsColorToMove = _cpsColorToMove s2
       , _cpsLastMove = _cpsLastMove s2
+      , _cpsHalfMovesForDraw = _cpsHalfMovesForDraw s2
       , _cpsMoveNumber = _cpsMoveNumber s2
       , _cpsCastling = updatedCastling
       , _cpsEnPassant = _cpsEnPassant s2
@@ -245,7 +244,6 @@ data ChessPos = ChessPos
   { _cpGrid :: ChessGrid
   , _cpWhitePieceLocs :: [(Int, Char, Color)]
   , _cpBlackPieceLocs :: [(Int, Char, Color)]
-  , _cpColor :: Color
   , _cpKingLoc :: (Int, Int)
   , _cpInCheck :: (Bool, Bool)
   , _cpFin :: FinalState
@@ -286,7 +284,7 @@ evalChessNode cn = cn ^. (chessVal . total)
 instance (TreeNode ChessNode m) =>  Z.ZipTreeNode ChessNode where
   ztnEvaluate = evalChessNode
   ztnMakeChildren = makeChessNodeChildren
-  ztnSign cn = colorToSign (cn ^. (chessPos . cpColor))
+  ztnSign cn = colorToSign (cn ^. (chessPos . cpState . cpsColorToMove))
   ztnFinal cn = cn ^. (chessPos . cpFin) /= NotFinal
   ztnDeepDescend = critsOnly
 
@@ -314,6 +312,20 @@ instance Show ChessMoves where
   show ChessMoves{..} = "Moves for color: " ++ show _cmForColor
     ++  "\nEmpty: " ++ show _cmEmpty ++ "\nEnemy: " ++ show _cmEnemy
 
+---------------------------------------------------------------------------------------------------
+-- Weird Haskell bug? (GHC 9.4.7) -- these two versions do not behave the same:
+-- In the commented-out code, 'colorToChar White' fails with a non-exaustive pattern match
+-- In the second version, it works correctly
+---------------------------------------------------------------------------------------------------
+-- colorToChar :: Color -> Char
+-- colortoChar White = 'w'
+-- colorToChar Black = 'b'
+colorToChar :: Color -> Char
+colorToChar clr =
+  case clr of
+    White -> 'w'
+    Black -> 'b'
+
 colorToInt :: Color -> Int
 colorToInt Black = -1
 colorToInt White = 1
@@ -337,6 +349,43 @@ colorToTupleElem _ (_x, y) = y
 colorToTuple :: Color -> (a, a) -> a -> (a, a)
 colorToTuple White (_x, y) x' = (x', y)
 colorToTuple _ (x, _y) y' = (x, y')
+
+---------------------------------------------------------------------------------------------------
+-- get piece locations for a given color from a board
+-- (pre-calculated via calcLocsForColor)
+--------------------------------------------------------------------------------------------------
+locsForColor :: ChessPos -> ([(Int, Char, Color)], [(Int, Char, Color)])
+locsForColor cp = (_cpWhitePieceLocs cp, _cpBlackPieceLocs cp)
+
+calcLocsForColor :: ChessGrid -> ([(Int, Char, Color)], [(Int, Char, Color)])
+calcLocsForColor locs' =
+    let locs = unGrid locs'
+    in V.ifoldr f ([], []) locs where
+        f :: Int -> Char -> ([(Int, Char, Color)], [(Int, Char, Color)])
+                         -> ([(Int, Char, Color)], [(Int, Char, Color)])
+        f n c (wLocs, bLocs) =
+            case charToColor c of
+                (Just White) -> ((n, c, White) : wLocs, bLocs)
+                (Just Black) -> (wLocs, (n, c, Black) : bLocs)
+                Nothing    -> (wLocs, bLocs)
+
+charToColor :: Char -> Maybe Color
+charToColor c
+  | ord c > 64 && ord c < 91 = Just White  -- A - Z : 65 - 90
+  | ord c > 96 && ord c < 123 = Just Black -- | a - z : 97 - 122
+  | otherwise = Nothing
+
+---------------------------------------------------------------------------------------------------
+-- Find the king locs (White, black) from the give ChessGrid
+---------------------------------------------------------------------------------------------------
+findKingLocs :: Vector Char -> (Int, Int)
+findKingLocs g =
+    V.ifoldr f (0, 0) g
+      where
+        f :: Int -> Char -> (Int, Int) -> (Int, Int)
+        f idx 'K' (_, accB) = (idx, accB)
+        f idx 'k' (accW, _) = (accW, idx)
+        f idx _ (accW, accB) = (accW, accB)
 
 ----------------------------------------------------------------------------------------------------
 -- New, new attempt with singletons
@@ -421,10 +470,406 @@ pieceAbsVal (MkChessPiece _c (SomeSing SPawn)) = 1.0
 pieceAbsVal (MkChessPiece _c (SomeSing SNone)) = 0.0
 pieceAbsVal (MkChessPiece _c (SomeSing SOffBoardNone)) = 0.0
 
+mobilityCountFromLoc :: ChessPos -> (Int, Char, Color) -> Int
+mobilityCountFromLoc cp loc@(idx, _, _) =
+  let g = cp ^. cpGrid
+      piece = indexToPiece g idx
+  in case piece of
+      MkChessPiece _c (SomeSing SKing) -> kingMobility cp loc
+      MkChessPiece _c (SomeSing SQueen) -> queenMobility cp loc
+      MkChessPiece _c (SomeSing SRook) -> rookMobility g loc
+      MkChessPiece _c (SomeSing SKnight) -> knightMobility g loc
+      MkChessPiece _c (SomeSing SBishop) -> bishopMobility g loc
+      MkChessPiece _c (SomeSing _) -> 0
+
+mobilityCountFromLocs :: ChessPos -> [(Int, Char, Color)] -> Int
+mobilityCountFromLocs cp =
+  foldr f 0 where
+    f :: (Int, Char, Color) -> Int -> Int
+    f loc r =
+      let cnt = mobilityCountFromLoc cp loc
+      in cnt + r
+
+---------------------------------------------------------------------------------------------------
+-- Calculate the 'mobility' score for the pieces on the board
+--------------------------------------------------------------------------------------------------
+calcMobility :: ChessPos -> Float
+calcMobility cp =
+  let g = cp ^. cpGrid
+      (wLocs, bLocs) = locsForColor cp
+      wCnt = mobilityCountFromLocs cp wLocs
+      bCnt = mobilityCountFromLocs cp bLocs
+  in fromIntegral (wCnt - bCnt)
+
+calcPiecePositionScore :: Map Int Float -> [Int] -> Float
+calcPiecePositionScore theMap locs =
+    let f :: Int -> Float -> Float
+        f loc acc =  M.findWithDefault 0 loc theMap + acc
+    in foldr f 0.0 locs
+
+---------------------------------------------------------------------------------------------------
+-- Calculate a score for Knight positioning
+--------------------------------------------------------------------------------------------------
+calcKnightPositionScore :: ChessPos -> Float
+calcKnightPositionScore cp =
+  let (wFiltered, bFiltered) = filterLocsByChar (locsForColor cp) 'N'
+      wLocs = map (\(loc, _, _) -> loc) wFiltered
+      bLocs = map (\(loc, _, _) -> loc) bFiltered
+      wTotal = calcPiecePositionScore knightAdjustments wLocs
+      bTotal = calcPiecePositionScore knightAdjustments bLocs
+  in wTotal - bTotal
+
+knightAdjustments :: Map Int Float
+knightAdjustments = M.fromList
+    [ (23, 4.0), (32, 4.0), (52, 4.0), (63, 4.0), (65, 4.0), (56, 4.0), (36, 4.0), (25, 4.0)
+    , (24, 4.0), (33, 4.0), (53, 4.0), (64, 4.0), (66, 4.0), (57, 4.0), (37, 4.0), (26, 4.0)
+    , (33, 4.0), (42, 4.0), (62, 4.0), (73, 4.0), (75, 4.0), (66, 4.0), (46, 4.0), (35, 4.0)
+    , (34, 4.0), (43, 4.0), (63, 4.0), (74, 4.0), (76, 4.0), (67, 4.0), (47, 4.0), (36, 4.0) ]
+
+filterLocsByChar :: ([(Int, Char, Color)], [(Int, Char, Color)]) -> Char
+                 -> ([(Int, Char, Color)], [(Int, Char, Color)])
+filterLocsByChar (wLocs, bLocs) charToMatch =
+  let wFiltered = filter (f (toUpper charToMatch)) wLocs
+      bFiltered = filter (f (toLower charToMatch)) bLocs
+      -- f c = \(_, ch, _) -> ch == c
+      f c (_, ch, _) = ch == c
+  in (wFiltered, bFiltered)
+
+wRookCastlingAdjustments :: Map Int Float
+wRookCastlingAdjustments = M.fromList [(11, 0.1), (18, 1.0)]
+
+bRookCastlingAdjustments :: Map Int Float
+bRookCastlingAdjustments = M.fromList [(81, 0.1), (88, 1.0)]
+
+castlingToAbsVal :: Castling -> Float
+castlingToAbsVal Castled = 3.0
+castlingToAbsVal Unavailable = -3.0
+castlingToAbsVal BothAvailable = 0.0
+castlingToAbsVal KingSideOnlyAvailable = -1.0
+castlingToAbsVal QueenSideOnlyAvailable = -1.0
+
+---------------------------------------------------------------------------------------------------
+-- Count the 'material' score for the pieces on the board
+--------------------------------------------------------------------------------------------------
+countMaterial :: ChessGrid -> Float
+countMaterial g =
+  let g' = unGrid g
+  in V.foldr f 0 g'
+  where
+    f ch theTotal =
+        if ch == empty
+          then theTotal
+          else theTotal + pieceVal (charToPiece ch)
+
+
+{- TODOs:
+-- Add: Track and display average time for computer move
+-- Convert more stored positions to FEN
+-- Add :? cmd that shows the available commands
+-- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
+-- Add warning message if non-quiet move chosen, consider not picking those
+-- Auto depth increase in endgame
+-- Add way to detect castling score bonus when loading from FEN
+-- Another round of perfomance opt
+-- Add pawn promotion other than queen
+-- Keep track of 'half move clock' for 50 move draws -- implement in to/from FEN
+-- Add more mate in 2 tests, add mate in 3 tests
+-- Determine mate in n and display
+-- Display total computer move time / n moves / average
+-- Remove TemplateHaskell (remove TH generated Lenses, manually make only needed lenses (deep updates)
+-- Various command line debug tools
+--    load
+--    save
+--    show eval detail
+--    change level
+-- And add evaluation scores for:
+      score penalty if pawns at both A3 and B3, etc.
+      outposts
+      rooks (or queen) on 7th (or 8th) rank
+      doubled pawns
+      having both bishops
+      slight pref. to kingside castle over queenside
+      pawn advancement
+      trading (esp. queens) only if ahead
+-}
+---------------------------------------------------------------------------------------------------
+-- Evaluate and produce a score for the position
+--------------------------------------------------------------------------------------------------
+evalPos :: ChessPos -> (ChessEval, FinalState)
+evalPos pos =
+     let material = countMaterial (pos ^. cpGrid)
+         mobility = calcMobility pos
+         castling = calcCastling pos
+         development = calcDevelopment pos
+         earlyQueen = calcEarlyQueen pos
+         pawnPositionScore = calcPawnPositionScore pos
+         knightPositionScore = calcKnightPositionScore pos
+         connectedRookScore = calcConnectedRookScore pos
+         rookOpenFileScore = calcRookOpenFileScore pos
+         finalState = checkFinal' pos
+         (t, detailsStr) =
+            if finalState /= NotFinal then
+                let finalScore = finalStateToScore finalState
+                in (finalScore, "\n\tThe position is final: " ++ show finalScore )
+            else
+              ( (material * 30.0 ) + (mobility * 1) + (castling * 9.0)
+              + (development * 5.0) + (earlyQueen * 15.0) + (pawnPositionScore * 2)
+              + knightPositionScore + (connectedRookScore * 25.0) + (rookOpenFileScore * 25.0)
+              ,  "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
+                  ++ "\n\tMobility (x 1): " ++ show (mobility * 1)
+                  ++ "\n\tCastling (x 9): " ++ show (castling * 9.0)
+                  ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
+                  ++ "\n\tQueen dev. early (x 15): " ++ show (earlyQueen * 15.0)
+                  ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
+                  ++ "\n\tKnight position score (x 1): " ++ show knightPositionScore
+                  ++ "\n\tConnected rook score (x 25): " ++ show (connectedRookScore * 25.0)
+                  ++ "\n\tRook open file score (x 25): " ++ show (rookOpenFileScore * 25.0))
+         eval = ChessEval { _total = t
+                          , _details = detailsStr
+                          }
+     in (eval, finalState)
+
+finalStateToScore :: FinalState -> Float
+finalStateToScore WWins = Z.maxScore
+finalStateToScore BWins = Z.minScore
+finalStateToScore _ = 0.0
+
+---------------------------------------------------------------------------------------------------
+-- Create a string for the current position in FEN (Forsyth-Edwards Notation)
+---------------------------------------------------------------------------------------------------
+toFen :: ChessPos -> String
+toFen cp =
+    let state = _cpState cp
+        v = unGrid $ _cpGrid cp
+        rows y acc = scanRow v y ++ "/" ++ acc
+        strPlus = foldr rows "" [88, 78, 68, 58, 48, 38, 28, 18]
+        boardFen = take (length strPlus - 1) strPlus -- drop the final '/'
+        nextColor = [colorToChar $ _cpsColorToMove state]
+        castlingPair = _cpsCastling state
+        castlingStr = fenCastlingToChars castlingPair
+        enPassantStr =
+          case _cpsEnPassant state of
+            Nothing -> "-"
+            Just n -> locToAlgebraic n
+        halfMoves = "0" -- not yet implemented
+        fullMoves = show (_cpsMoveNumber state `div` 2)
+    in boardFen ++ " " ++ nextColor ++ " " ++ castlingStr ++ " " ++ enPassantStr ++ " "
+       ++ halfMoves ++ " " ++ fullMoves
+
+fromFen :: String -> Maybe (Tree ChessNode, ChessPosState)
+fromFen fenStr =
+    case splitRowData fenStr of
+        Nothing -> Nothing
+        Just (rowData, otherData) ->
+            let initialV = emptyGrid
+                rowStrs = split (== '/') rowData
+                rowIdxs = [81, 71, 61, 51, 41, 31, 21, 11]
+                pairs = zip rowStrs rowIdxs
+                str0 = show pairs
+                newV :: Vector Char = foldl' foldF initialV pairs
+            in case (parseOtherFenData otherData)  of
+        -- !tmp = loop (dir idx0)
+        -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
+        --              (show clr0) idx0 (show dir) (show tmp)
+        -- in trace str tmp
+                Nothing -> Nothing
+                Just cpState ->
+                    let grid = ChessGrid newV
+                        (wKing, bKing) = findKingLocs newV
+                        inCheckPair = (inCheck grid White wKing, inCheck grid Black bKing)
+                        (wLocs, bLocs) = calcLocsForColor grid
+                        cp = ChessPos
+                            { _cpGrid = grid
+                            , _cpKingLoc = findKingLocs newV
+                            , _cpInCheck = inCheckPair
+                            , _cpWhitePieceLocs = wLocs
+                            , _cpBlackPieceLocs = bLocs
+                            , _cpFin = NotFinal -- can be anything, will be replaced
+                            , _cpState = cpState }
+                    in Just
+                        ( Node ChessNode
+                          { _chessTreeLoc = TreeLocation {tlDepth = 0}
+                          , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+                          , _chessVal = ChessEval { _total = 0.0, _details = "" }
+                          , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+                          , _chessPos = cp {_cpFin = snd $ evalPos cp}
+                          , _chessMvSeq = []
+                          , _chessIsEvaluated = False } []
+                        , cpState)
+    where
+      foldF :: Vector Char -> ([Char], Int) -> Vector Char
+      foldF accV (str, n) =
+        fst (foldl' (foldF2 n) (accV, 0) str)
+
+      foldF2 :: Int -> (Vector Char, Int) -> Char -> (Vector Char, Int)
+      foldF2 n (accV, idx) x = case x of
+        ch | ch > '0' && ch < '9'
+             -> (accV, idx + digitToInt ch)
+           | otherwise
+             -> (set (ix (idx+n)) ch accV, idx + 1)
+
+emptyGrid :: Vector Char
+emptyGrid =
+   V.concat
+     [ V.fromList topOrBottom
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList middle
+     , V.fromList topOrBottom ]
+  where
+    topOrBottom = ['+', '+', '+', '+', '+', '+', '+', '+', '+', '+']
+    middle      = ['+', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '+']
+
+----------------------------------------------------------------------------------------------------
+-- Separate the row-by-row FEN data from the additional data
+-- e.g., given a FEN "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20"
+-- split into: Just ("r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R", "w - - 0 20")
+-- an invalid FEN string returns Nothing
+----------------------------------------------------------------------------------------------------
+splitRowData :: String -> Maybe (String, [String])
+splitRowData s =
+  let splitz = split (== ' ') s
+  in Just (head splitz, (tail splitz))
+
+----------------------------------------------------------------------------------------------------
+-- Parse the non row-by-row data at the end of a FEN string
+-- e.g., given a FEN "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20"
+-- parse the string "w - - 0 20"
+-- an invalid FEN string returns Nothing
+----------------------------------------------------------------------------------------------------
+parseOtherFenData :: [String] -> Maybe ChessPosState
+parseOtherFenData splitz =
+  let v = Vb.fromList splitz
+      nextColor =
+        if length v /= 5
+          then Nothing
+          else
+            let s0 = (Vb.!) v 0
+            in case s0 of
+              "w" -> Just White
+              "b" -> Just Black
+              _ -> Nothing
+      castling =
+        let s1 = (Vb.!) v 1
+        in fenCharsToCastling s1
+      enPassant =
+        let s2 = (Vb.!) v 2
+        in algebraicToLoc s2
+      halfMovesForDraw = readMay $ (Vb.!) v 3
+      moveNumber = readMay $ (Vb.!) v 4
+  in do
+    nextClr <- nextColor
+    castlg <- castling
+    enPas <- enPassant
+    halfMvs <- halfMovesForDraw
+    moveNum <- moveNumber
+    return ChessPosState
+           { _cpsColorToMove = nextClr
+           , _cpsLastMove = Nothing
+           , _cpsHalfMovesForDraw = halfMvs
+           , _cpsMoveNumber = moveNum
+           , _cpsCastling = castlg
+           , _cpsEnPassant = enPas }
+
+scanRow :: Vector Char -> Int -> String
+scanRow v idx =
+    let loop :: Int -> Int -> String -> String
+        loop i curSpaces str =
+          case i `mod` 10 of
+            0 -> if curSpaces == 0
+                     then str
+                     else (intToDigit curSpaces) : str
+            _ -> case v!i of
+                    ' ' -> loop (i-1) (curSpaces+1) str
+                    ch  -> if curSpaces == 0
+                              then loop (i-1) 0 (ch : str)
+                              else loop (i-1) 0 (ch : ((intToDigit curSpaces) : str))
+    in loop idx 0 ""
+
+locToAlgebraic :: Int -> String
+locToAlgebraic n =
+  let Parser.Loc c r = intToParserLoc n
+  in c : show r
+
+algebraicToLoc :: String -> Maybe (Maybe Int)
+algebraicToLoc "-" = Just Nothing -- no enpassant, correcty set
+alegebraicToLoc s =
+    if length s /= 2 then Nothing
+    else
+      let s0 = head s
+      in if not $ isDigit s0
+           then Nothing
+           else
+             let digit = digitToInt s0
+                 loc = Parser.Loc (head (tail s)) digit
+            in Just $ locToInt loc
+
+fenCastlingToChars :: (Castling, Castling) -> String
+fenCastlingToChars (wCastling, bCastling) =
+    let wCastlingChars = upper $ castlingChars wCastling
+        bCastlingChars = castlingChars bCastling
+    in if wCastlingChars == "" && bCastlingChars == ""
+         then "-"
+         else wCastlingChars ++ bCastlingChars
+    where
+      castlingChars :: Castling -> String
+      castlingChars Castled = ""
+      castlingChars KingSideOnlyAvailable = "k"
+      castlingChars QueenSideOnlyAvailable = "q"
+      castlingChars BothAvailable = "kq"
+      castlingChars Unavailable = ""
+
+castlingToInt :: Castling -> Int
+castlingToInt Castled = 0
+castlingToInt Unavailable = 0
+castlingToInt KingSideOnlyAvailable = 1
+castlingToInt QueenSideOnlyAvailable = 2
+castlingToInt BothAvailable =  3
+
+intToCastling :: Int -> Maybe Castling
+intToCastling 0 = Just Unavailable
+intToCastling 1 = Just KingSideOnlyAvailable
+intToCastling 2 = Just QueenSideOnlyAvailable
+intToCastling 3 = Just BothAvailable -- Note: this does not say whether castling has been done or not
+intToCastling _ = Nothing
+
+fenCharsToCastling :: String -> Maybe (Castling, Castling)
+fenCharsToCastling str =
+  let neither = 0
+  in if length str == 0 || length str > 4
+     then Nothing
+     else if str == "-" then Just (Unavailable, Unavailable)
+     else let (w, b, _) = foldr foldf (neither, neither, White) str -- Note: White chars before black here
+          in do
+            w' <- intToCastling w
+            b' <- intToCastling b
+            return (w', b')
+        where
+            foldf :: Char -> (Int, Int, Color) -> (Int, Int, Color)
+            foldf ch (accW, accB, curColor) =
+                let kside = 1
+                    qside = 2
+                in case ch of
+                    'K' -> (accW + kside, accB, White)
+                    'Q' -> (accW + qside, accB, White)
+                    'k' -> (accW, accB + kside, Black)
+                    'q' -> (accW, accB + qside, Black)
+
+showChessNodeAs :: ChessNode -> String -> String
+showChessNodeAs cn formatType =
+  if (upper formatType) == "FEN"
+    then toFen $ _chessPos cn
+    else show cn
+
 instance TreeNode ChessNode ChessMove where
     newNode = calcNewNode
     possibleMoves = legalMoves
-    color = colorToInt . view (chessPos . cpColor)
+    color = colorToInt . view (chessPos . cpState . cpsColorToMove)
     -- final = view (chessPos . cpFin)
     final = checkFinal
     critical = isCritical
@@ -525,37 +970,37 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
 -}
+
+newGameTree :: (Tree ChessNode, ChessPosState)
+newGameTree = fromJust $ getNodeFromFen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0"
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+r   n   b   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   p   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   P   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
+
 ---------------------------------------------------------------------------------------------------
--- starting position
--- TODO: nextColorToMove should be Maybe Color, which overloads the defaults below
+-- start new game, or load via game name
 ---------------------------------------------------------------------------------------------------
-getStartNode :: String -> Color -> (Tree ChessNode, ChessPosState)
-getStartNode restoreGame nextColorToMove =
+getStartNode :: String -> (Tree ChessNode, ChessPosState)
+getStartNode restoreGame =
     let bottomColor = White -- TBD allow either color
     in case restoreGame of
-      "newgame" ->
-        let (wLocs, bLocs) = calcLocsForColor $ mkStartGrid bottomColor
-            cPos = ChessPos
-                   { _cpGrid = mkStartGrid White, _cpColor = nextColorToMove
-                   , _cpKingLoc = (15, 85)
-                   , _cpInCheck = (False, False)
-                   , _cpWhitePieceLocs = wLocs
-                   , _cpBlackPieceLocs = bLocs
-                   , _cpFin = NotFinal
-                   , _cpState = newGameState }
-        in ( Node ChessNode
-              { _chessTreeLoc = TreeLocation {tlDepth = 0}
-              , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-              , _chessVal = ChessEval { _total = 0.0, _details = "" }
-              , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-              , _chessPos = cPos
-              , _chessMvSeq = []
-              , _chessIsEvaluated = False } []
-           , newGameState)
+      "newgame" -> newGameTree
       "alphabeta" ->
         let (wLocs, bLocs) = calcLocsForColor alphaBetaBoard
             cPos = ChessPos
-              { _cpGrid = alphaBetaBoard, _cpColor = White
+              { _cpGrid = alphaBetaBoard
               , _cpKingLoc = (11, 31)
               , _cpInCheck = (False, False)
               , _cpWhitePieceLocs = wLocs
@@ -571,12 +1016,12 @@ getStartNode restoreGame nextColorToMove =
               , _chessMvSeq = []
               , _chessIsEvaluated = False } []
            , castledTestState White)
-      "discovered" -> (Node discoveredCheckNode [], preCastledTestState White)
+      "discovered" -> discoveredCheckTree
       "checkmate"  -> (Node checkMateExampleNode [], preCastledTestState White)
       "checkmate2" -> (Node checkMateExampleNode2 [], preCastledTestState White)
       "checkmate3" -> (Node checkMateExampleNode3 [], preCastledTestState White)
       "checkmate4" -> (Node checkMateExampleNode4 [], preCastledTestState White)
-      "mateInTwo01" -> (Node mateInTwoExampleNode01 [], preCastledTestState Black)
+      "mateInTwo01" -> (Node mateInTwoExampleNode01 [], castledTestState Black)
       "mateInTwo02" -> (Node mateInTwoExampleNode02 [], preCastledTestState Black)
       "mateInTwo02b" -> (Node mateInTwoExampleNode02b [], preCastledTestState Black)
       "mateInTwo03" -> (Node mateInTwoExampleNode03 [], castledTestState Black)
@@ -610,6 +1055,13 @@ getStartNode restoreGame nextColorToMove =
                  \ enpassant, enpassant2, connectrook, endgame01, \n \
                  \ draw, newgame"
 
+
+---------------------------------------------------------------------------------------------------
+-- Create game from FEN
+---------------------------------------------------------------------------------------------------
+getNodeFromFen :: String -> Maybe (Tree ChessNode, ChessPosState)
+getNodeFromFen = fromFen
+
 -- Color represents the color at the 'bottom' of the board
 mkStartGrid :: Color -> ChessGrid
 mkStartGrid White = startingBoard
@@ -621,16 +1073,21 @@ newGameState :: ChessPosState
 newGameState = ChessPosState
     { _cpsColorToMove = White
     , _cpsLastMove = Nothing
+    , _cpsHalfMovesForDraw = 0
     , _cpsMoveNumber = 0
     , _cpsCastling = (BothAvailable, BothAvailable)
     , _cpsEnPassant = Nothing
     }
 
 castledTestState :: Color -> ChessPosState
-castledTestState clr = ChessPosState
+castledTestState clr = castledTestState' clr 0
+
+castledTestState' :: Color -> Int -> ChessPosState
+castledTestState' clr moveNum = ChessPosState
     { _cpsColorToMove = clr
     , _cpsLastMove = Nothing
-    , _cpsMoveNumber = 0
+    , _cpsHalfMovesForDraw = 0
+    , _cpsMoveNumber = moveNum
     , _cpsCastling = (Castled, Castled)
     , _cpsEnPassant = Nothing
     }
@@ -639,11 +1096,11 @@ preCastledTestState :: Color -> ChessPosState
 preCastledTestState clr = ChessPosState
     { _cpsColorToMove = clr
     , _cpsLastMove = Nothing
+    , _cpsHalfMovesForDraw = 0
     , _cpsMoveNumber = 0
     , _cpsCastling = (BothAvailable, BothAvailable)
     , _cpsEnPassant = Nothing
     }
-
 
 type Dir = Int -> Int
 right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
@@ -727,7 +1184,8 @@ calcNewNode node mv tLoc =
     let curPos = node ^. chessPos
         curMoveSeq = node ^. chessMvSeq
         curGrid = curPos ^. cpGrid
-        curColor = curPos ^. cpColor
+        curColor = curPos ^. (cpState . cpsColorToMove)
+        curMoveNum = curPos ^. (cpState . cpsMoveNumber)
 
         epLoc = enPassantCaptureLoc curGrid mv
 
@@ -750,15 +1208,16 @@ calcNewNode node mv tLoc =
         newPos = curPos { _cpGrid = newGrid
                          , _cpWhitePieceLocs = whiteLocs
                          , _cpBlackPieceLocs = blackLocs
-                         , _cpColor = clrFlipped
                          , _cpKingLoc = kingLocs'
                          , _cpInCheck = inCheckPair'
-                         -- , _cpState = newState }
                          }
         newCastlingPair = castlingStatus newPos
-        newState = (_cpState newPos) {_cpsEnPassant = epLoc, _cpsCastling = newCastlingPair}
-        (eval, finalSt) = evalPos newPos
-        updatedPos = newPos { _cpFin = finalSt, _cpState = newState }
+        newState = (_cpState newPos)
+          { _cpsColorToMove = clrFlipped, _cpsEnPassant = epLoc, _cpsCastling = newCastlingPair
+          , _cpsMoveNumber = curMoveNum + 1 }
+        posWithState = newPos { _cpState = newState }
+        (eval, finalSt) = evalPos posWithState
+        updatedPos = posWithState { _cpFin = finalSt }
 
     in ChessNode
         { _chessTreeLoc = tLoc
@@ -782,7 +1241,7 @@ updateKingLocs grid kingLocs mvEndIdx =
 ---------------------------------------------------------------------------------------------------
 moveChecksOpponent :: ChessNode -> ChessMove -> Bool
 moveChecksOpponent node mv =
-  let flippedClr = flipPieceColor $ node ^. (chessPos . cpColor)
+  let flippedClr = flipPieceColor $ node ^. (chessPos . cpState . cpsColorToMove)
   in moveIsCheckAgainst node mv flippedClr
 
 ---------------------------------------------------------------------------------------------------
@@ -795,7 +1254,7 @@ moveExposesKing node mv =
 
 moveExposesKing' :: ChessPos -> ChessMove -> Bool
 moveExposesKing' pos mv =
-  moveIsCheckAgainst' pos mv (pos ^. cpColor)
+  moveIsCheckAgainst' pos mv (pos ^. (cpState . cpsColorToMove))
 
 ---------------------------------------------------------------------------------------------------
 -- Is the side with the given color in check after a move is applied?
@@ -868,7 +1327,7 @@ isCritical cn =
                 Nothing -> False
               _ -> False
         pos = cn ^. chessPos
-        clr = pos ^. cpColor
+        clr = pos ^. (cpState . cpsColorToMove)
     {- this turns out to be a bad idea...
          isInCheck = colorToTupleElem clr (pos ^. cpInCheck)
     in isAnExchange || isInCheck -}
@@ -879,74 +1338,6 @@ isCritical cn =
 flipPieceColor :: Color -> Color
 flipPieceColor White = Black
 flipPieceColor Black = White
-
-
-{- TODOs:
--- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
--- Add warning message if non-quiet move chosen, consider not picking those
--- Auto depth increase in endgame
--- Another round of perfomance opt
--- Implement FEN for positions
--- Add pawn promotion other than queen
--- Add more mate in n tests
--- Determine mate in n and display
--- Display total computer move time / n moves / average
--- Various command line debug tools
---    load
---    save
---    show eval detail
---    change level
--- And add evaluation scores for:
-      outposts
-      rooks on open / half-open files
-      rooks (or queen) on 7th (or 8th) rank
-      doubled pawns
-      having both bishops
-      slight pref. to kingside castle over queenside
-      pawn advancement
-      trading (esp. queens) only if ahead
--}
----------------------------------------------------------------------------------------------------
--- Evaluate and produce a score for the position
---------------------------------------------------------------------------------------------------
-evalPos :: ChessPos -> (ChessEval, FinalState)
-evalPos pos =
-     let material = countMaterial (pos ^. cpGrid)
-         mobility = calcMobility pos
-         castling = calcCastling pos
-         development = calcDevelopment pos
-         earlyQueen = calcEarlyQueen pos
-         pawnPositionScore = calcPawnPositionScore pos
-         knightPositionScore = calcKnightPositionScore pos
-         connectedRookScore = calcConnectedRookScore pos
-         rookOpenFileScore = calcRookOpenFileScore pos
-         finalState = checkFinal' pos
-         (t, detailsStr) =
-            if finalState /= NotFinal then
-                let finalScore = finalStateToScore finalState
-                in (finalScore, "\n\tThe position is final: " ++ show finalScore )
-            else
-              ( (material * 30.0 ) + (mobility * 1) + (castling * 9.0)
-              + (development * 5.0) + (earlyQueen * 15.0) + (pawnPositionScore * 2)
-              + knightPositionScore + (connectedRookScore * 25.0) + (rookOpenFileScore * 25.0)
-              ,  "\n\tMaterial (x 30.0): " ++ show (material * 30.0)
-                  ++ "\n\tMobility (x 1): " ++ show (mobility * 1)
-                  ++ "\n\tCastling (x 9): " ++ show (castling * 9.0)
-                  ++ "\n\tDevelopment (x 5): " ++ show (development * 5.0)
-                  ++ "\n\tQueen dev. early (x 15): " ++ show (earlyQueen * 15.0)
-                  ++ "\n\tPawn position score (x 2): " ++ show (pawnPositionScore * 2.0)
-                  ++ "\n\tKnight position score (x 1): " ++ show knightPositionScore
-                  ++ "\n\tConnected rook score (x 25): " ++ show (connectedRookScore * 25.0)
-                  ++ "\n\tRook open file score (x 25): " ++ show (rookOpenFileScore * 25.0))
-         eval = ChessEval { _total = t
-                          , _details = detailsStr
-                          }
-     in (eval, finalState)
-
-finalStateToScore :: FinalState -> Float
-finalStateToScore WWins = Z.maxScore
-finalStateToScore BWins = Z.minScore
-finalStateToScore _ = 0.0
 
 ---------------------------------------------------------------------------------------------------
 -- Calculate the 'development' score for the position (White - Black)
@@ -1249,12 +1640,6 @@ kbpQbpAdjustments :: Map Int Float
 kbpQbpAdjustments = M.fromList
     [ (23, 0.0), (33, -1.0), (43, -2.0), (26, 0.0), (36, -1.0), (46, -2.0) ]
 
-calcPiecePositionScore :: Map Int Float -> [Int] -> Float
-calcPiecePositionScore theMap locs =
-    let f :: Int -> Float -> Float
-        f loc acc =  M.findWithDefault 0 loc theMap + acc
-    in foldr f 0.0 locs
-
 ---------------------------------------------------------------------------------------------------
 -- Calculate a score for Connected rooks
 --------------------------------------------------------------------------------------------------
@@ -1312,58 +1697,6 @@ rookFileStatus cp idx0 clr0 =
               else
                   loop (dir idx)
   in loop (dir idx0)
-
----------------------------------------------------------------------------------------------------
--- Calculate a score for Knight positioning
---------------------------------------------------------------------------------------------------
-calcKnightPositionScore :: ChessPos -> Float
-calcKnightPositionScore cp =
-  let (wFiltered, bFiltered) = filterLocsByChar (locsForColor cp) 'N'
-      wLocs = map (\(loc, _, _) -> loc) wFiltered
-      bLocs = map (\(loc, _, _) -> loc) bFiltered
-      wTotal = calcPiecePositionScore knightAdjustments wLocs
-      bTotal = calcPiecePositionScore knightAdjustments bLocs
-  in wTotal - bTotal
-
-knightAdjustments :: Map Int Float
-knightAdjustments = M.fromList
-    [ (23, 4.0), (32, 4.0), (52, 4.0), (63, 4.0), (65, 4.0), (56, 4.0), (36, 4.0), (25, 4.0)
-    , (24, 4.0), (33, 4.0), (53, 4.0), (64, 4.0), (66, 4.0), (57, 4.0), (37, 4.0), (26, 4.0)
-    , (33, 4.0), (42, 4.0), (62, 4.0), (73, 4.0), (75, 4.0), (66, 4.0), (46, 4.0), (35, 4.0)
-    , (34, 4.0), (43, 4.0), (63, 4.0), (74, 4.0), (76, 4.0), (67, 4.0), (47, 4.0), (36, 4.0) ]
-
-filterLocsByChar :: ([(Int, Char, Color)], [(Int, Char, Color)]) -> Char
-                 -> ([(Int, Char, Color)], [(Int, Char, Color)])
-filterLocsByChar (wLocs, bLocs) charToMatch =
-  let wFiltered = filter (f (toUpper charToMatch)) wLocs
-      bFiltered = filter (f (toLower charToMatch)) bLocs
-      -- f c = \(_, ch, _) -> ch == c
-      f c (_, ch, _) = ch == c
-  in (wFiltered, bFiltered)
-
----------------------------------------------------------------------------------------------------
--- Count the 'material' score for the pieces on the board
---------------------------------------------------------------------------------------------------
-countMaterial :: ChessGrid -> Float
-countMaterial g =
-  let g' = unGrid g
-  in V.foldr f 0 g'
-  where
-    f ch theTotal =
-        if ch == empty
-          then theTotal
-          else theTotal + pieceVal (charToPiece ch)
-
----------------------------------------------------------------------------------------------------
--- Calculate the 'mobility' score for the pieces on the board
---------------------------------------------------------------------------------------------------
-calcMobility :: ChessPos -> Float
-calcMobility cp =
-  let g = cp ^. cpGrid
-      (wLocs, bLocs) = locsForColor cp
-      wCnt = mobilityCountFromLocs cp wLocs
-      bCnt = mobilityCountFromLocs cp bLocs
-  in fromIntegral (wCnt - bCnt)
 
 ---------------------------------------------------------------------------------------------------
 -- Checks each sides castling status, then adds checking for the necessary empty squares
@@ -1460,39 +1793,6 @@ calcCastling :: ChessPos -> Float
 calcCastling pos =
    let (wStatus, bStatus) = pos ^. (cpState . cpsCastling)
    in castlingToAbsVal wStatus - castlingToAbsVal bStatus
-
-wRookCastlingAdjustments :: Map Int Float
-wRookCastlingAdjustments = M.fromList [(11, 0.1), (18, 1.0)]
-
-bRookCastlingAdjustments :: Map Int Float
-bRookCastlingAdjustments = M.fromList [(81, 0.1), (88, 1.0)]
-
-castlingToAbsVal :: Castling -> Float
-castlingToAbsVal Castled = 3.0
-castlingToAbsVal Unavailable = -3.0
-castlingToAbsVal BothAvailable = 0.0
-castlingToAbsVal KingSideOnlyAvailable = -1.0
-castlingToAbsVal QueenSideOnlyAvailable = -1.0
-
-mobilityCountFromLocs :: ChessPos -> [(Int, Char, Color)] -> Int
-mobilityCountFromLocs cp =
-  foldr f 0 where
-    f :: (Int, Char, Color) -> Int -> Int
-    f loc r =
-      let cnt = mobilityCountFromLoc cp loc
-      in cnt + r
-
-mobilityCountFromLoc :: ChessPos -> (Int, Char, Color) -> Int
-mobilityCountFromLoc cp loc@(idx, _, _) =
-  let g = cp ^. cpGrid
-      piece = indexToPiece g idx
-  in case piece of
-      MkChessPiece _c (SomeSing SKing) -> kingMobility cp loc
-      MkChessPiece _c (SomeSing SQueen) -> queenMobility cp loc
-      MkChessPiece _c (SomeSing SRook) -> rookMobility g loc
-      MkChessPiece _c (SomeSing SKnight) -> knightMobility g loc
-      MkChessPiece _c (SomeSing SBishop) -> bishopMobility g loc
-      MkChessPiece _c (SomeSing _) -> 0
 
 ---------------------------------------------------------------------------------------------------
 -- Move a piece on the board, removing any captured piece.  Returns the updated node
@@ -1606,7 +1906,7 @@ checkFinal cn =
 
 checkFinal' :: ChessPos -> FinalState
 checkFinal' cp =
-    let c = _cpColor cp
+    let c = _cpsColorToMove $ _cpState cp
         inCheckStatus = colorToTupleElem c (_cpInCheck cp)
         iLose = colorToTupleElem c (BWins, WWins)
         -- ^ e.g. colorToTupleElem White (BWins, WWins) = BWins -- White loses
@@ -1637,7 +1937,7 @@ filterKingInCheck node xs =
 filterKingInCheck' :: ChessPos -> [ChessMove] -> [ChessMove]
 filterKingInCheck' pos xs =
     let g = pos ^. cpGrid
-        c = pos ^. cpColor
+        c = pos ^. (cpState . cpsColorToMove)
         kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
         foldf mv r =
             if moveExposesKing' pos mv
@@ -1676,31 +1976,6 @@ hasConnectedPartner cp dirs loc@(idx, ch, clr) =
                   MkChessPiece clr (SomeSing SRook) -> True
                   MkChessPiece _c (SomeSing _) -> False
 
----------------------------------------------------------------------------------------------------
--- get piece locations for a given color from a board
--- (pre-calculated via calcLocsForColor)
---------------------------------------------------------------------------------------------------
-locsForColor :: ChessPos -> ([(Int, Char, Color)], [(Int, Char, Color)])
-locsForColor cp = (_cpWhitePieceLocs cp, _cpBlackPieceLocs cp)
-
-calcLocsForColor :: ChessGrid -> ([(Int, Char, Color)], [(Int, Char, Color)])
-calcLocsForColor locs' =
-    let locs = unGrid locs'
-    in V.ifoldr f ([], []) locs where
-        f :: Int -> Char -> ([(Int, Char, Color)], [(Int, Char, Color)])
-                         -> ([(Int, Char, Color)], [(Int, Char, Color)])
-        f n c (wLocs, bLocs) =
-            case charToColor c of
-                (Just White) -> ((n, c, White) : wLocs, bLocs)
-                (Just Black) -> (wLocs, (n, c, Black) : bLocs)
-                Nothing    -> (wLocs, bLocs)
-
-charToColor :: Char -> Maybe Color
-charToColor c
-  | ord c > 64 && ord c < 91 = Just White  -- A - Z : 65 - 90
-  | ord c > 96 && ord c < 123 = Just Black -- | a - z : 97 - 122
-  | otherwise = Nothing
-
 -- r to R, B to b, etc.
 flipCharColor :: Char -> Char
 flipCharColor ch =
@@ -1718,7 +1993,7 @@ allowableKingMoves pos loc =
 
 castleMoves :: ChessPos -> [ChessMove]
 castleMoves pos =
-  let c = pos ^. cpColor
+  let c = pos ^. (cpState . cpsColorToMove)
       avail = castlingAvailable pos c
   in case avail of
       Unavailable -> []
@@ -1795,7 +2070,7 @@ moveToIndex StdMove{..} = _endIdx
 ----------------------------------------------------------------------------------------------------
 calcMoveLists :: ChessPos -> ChessMoves
 calcMoveLists pos =
-    let c = _cpColor pos
+    let c = _cpsColorToMove (_cpState pos)
         (_empty, enemy) = pieceDestinations pos c
     in ChessMoves
       { _cmEmpty = _empty
@@ -2062,10 +2337,6 @@ dirFriendlyPieceLoc g (idx0, _, clr0) dir =
                      | isEmptyGrid g idx -> loop (dir idx)
                      | otherwise -> Nothing
     in loop (dir idx0)
-        -- !tmp = loop (dir idx0)
-        -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
-        --              (show clr0) idx0 (show dir) (show tmp)
-        -- in trace str tmp
 
 ---------------------------------------------------------------------------------------------------
 -- Count the number of squares that can be moved in a given direction
@@ -2247,8 +2518,8 @@ bCastlingPieces = S.fromList [bK, bKR, bQR]
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move or command
 ---------------------------------------------------------------------------------------------------
-parseChessEntry :: ChessNode -> String -> Either String (Entry ChessMove s)
 parseChessEntry n s
+    | s == ""             = Left "No input"
     | Left err <- pMove   = Left err
     | Right x  <- pMove   = parserToChessEntry n x
         where
@@ -2352,23 +2623,21 @@ Q   B   -   -   -   -   P   -          2| (20)  21   22   23   24   25   26   27
                                                 A    B    C    D    E    F    G    H
 -}
 
-discoveredCheckBoard :: ChessGrid
-discoveredCheckBoard = ChessGrid $ V.fromList
-                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
-                             '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'B',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  'b',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+discoveredCheckTree :: (Tree ChessNode, ChessPosState)
+discoveredCheckTree = fromJust $ fromFen "3r4/8/3k4/2b1R3/8/6B1/8/3K4 w - - 0 0"
+                           -- ChessGrid $ V.fromList
+                           -- [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'B',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  'b',  ' ',  'R',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  ' ',  '+',
+                           --   '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
--- Moves to verify:
--- (W) E5-C5 (discovered) check
--- (b) D6 x C5 (discovered) check
 -   -   -   r   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
 -   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
 -   -   -   k   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
@@ -2381,7 +2650,15 @@ discoveredCheckBoard = ChessGrid $ V.fromList
                                            (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
                                           -------------------------------------------------
                                                 A    B    C    D    E    F    G    H
+-- Moves to verify:
+-- (W) E5-C5 (discovered) check
+-- (b) D6 x C5 (discovered) check
 -}
+
+--used in tests:
+discoveredCheckNode :: ChessNode
+discoveredCheckNode = T.rootLabel $ fst discoveredCheckTree
+
 checkMateExampleBoard :: ChessGrid
 checkMateExampleBoard = ChessGrid $ V.fromList
                            [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
@@ -2541,7 +2818,6 @@ mate in 2: (b) A8-A3
 mateInTwo01TestData :: StdMoveTestData
 mateInTwo01TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo01"
-    , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 81
@@ -2579,7 +2855,6 @@ mate in 2: (b) B4-B3
 mateInTwo02TestData :: StdMoveTestData
 mateInTwo02TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo02"
-    , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 42
@@ -2648,7 +2923,6 @@ mate in 2: (b) F7-F3, (W)D5-E4 (or others), (b) A3-A8
 mateInTwo03TestData :: StdMoveTestData
 mateInTwo03TestData = StdMoveTestData
     { smtdBoardName = "mateInTwo03"
-    , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 76
@@ -2687,7 +2961,6 @@ mate in 1: (b) A3-A8
 mateInTwo03bTestData :: StdMoveTestData
 mateInTwo03bTestData = StdMoveTestData
     { smtdBoardName = "mateInTwo03b"
-    , colorToMoveNext = Black
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 31
@@ -2729,7 +3002,6 @@ or (b) D1-D1
 promotion01TestData :: StdMoveTestData
 promotion01TestData = StdMoveTestData
     { smtdBoardName = "promotion01"
-    , colorToMoveNext = White
     , smtdDepth = 4
     , smtdCritDepth = 4
     , smtdStartIdx = 74
@@ -3160,7 +3432,6 @@ Black:
 critBug01TestData :: StdMoveTestData
 critBug01TestData  = StdMoveTestData
     { smtdBoardName = "critBug01"
-    , colorToMoveNext = Black
     , smtdDepth = 3
     , smtdCritDepth = 5
     , smtdStartIdx = 66
@@ -3169,7 +3440,6 @@ critBug01TestData  = StdMoveTestData
 critBug01TestDataB :: StdMoveTestData
 critBug01TestDataB = StdMoveTestData
     { smtdBoardName = "critBug01"
-    , colorToMoveNext = Black
     , smtdDepth = 3
     , smtdCritDepth = 5
     , smtdStartIdx = 66
@@ -3321,8 +3591,8 @@ endgameBoard01 = ChessGrid $ V.fromList
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 r   -   k   -   r   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
--   p   p   -   -   p   p   -          7| (50)  71   72   73   74   75   76   77   78  (79)
--   -   -   -   -   -   q   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   p   p   -   -   p   p   -          7| (70)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   q   -          6| (60)  61   62   63   64   65   66   67   68  (69)
 p   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
 -   -   -   -   -   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
 P   -   -   -   -   -   P   -          3| (30)  31   32   33   34   35   36   37   38  (39)
@@ -3333,18 +3603,10 @@ P   -   -   -   -   -   P   -          3| (30)  31   32   33   34   35   36   37
                                            -------------------------------------------------
                                                  A    B    C    D    E    F    G    H
 
-FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w KQkq - 0 1
+FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20
 -}
 
-
-
-
-
-
 ----------------------------------------------------------------------------------------------------
-discoveredCheckNode :: ChessNode
-discoveredCheckNode = preCastlingGameNode discoveredCheckBoard White (14, 64)
-
 checkMateExampleNode :: ChessNode
 checkMateExampleNode = preCastlingGameNode checkMateExampleBoard White (15, 85)
 
@@ -3358,7 +3620,7 @@ checkMateExampleNode4 :: ChessNode
 checkMateExampleNode4 = preCastlingGameNode checkMateExampleBoard4 White (15, 87)
 
 mateInTwoExampleNode01 :: ChessNode
-mateInTwoExampleNode01 = preCastlingGameNode mateInTwoBoard01 Black (11, 13)
+mateInTwoExampleNode01 = postCastlingGameNode mateInTwoBoard01 Black (11, 13)
 
 mateInTwoExampleNode02 :: ChessNode
 mateInTwoExampleNode02 = preCastlingGameNode mateInTwoBoard02 Black (21, 23)
@@ -3421,16 +3683,15 @@ connectRookNode :: ChessNode
 connectRookNode = postCastlingGameNode connectRooksBoard Black (22, 82)
 
 endgameNode01 :: ChessNode
-endgameNode01 = postCastlingGameNode endgameBoard01 White (13, 83)
+endgameNode01 = postCastlingGameNode' endgameBoard01 White 20 (13, 83)
 
--- White has K and Q side castling available, Black has King side only
 preCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
 preCastlingGameNode grid the_color kingLocs =
   let (wLocs, bLocs) = calcLocsForColor grid
       cPos =
         ChessPos
           { _cpGrid = grid,
-            _cpColor = the_color,
+            -- _cpColor = the_color,
             _cpKingLoc = kingLocs,
             _cpInCheck = (False, False),
             _cpWhitePieceLocs = wLocs,
@@ -3451,17 +3712,20 @@ preCastlingGameNode grid the_color kingLocs =
 -- No castling available
 postCastlingGameNode :: ChessGrid -> Color -> (Int, Int) -> ChessNode
 postCastlingGameNode grid the_color kingLocs =
+    postCastlingGameNode' grid the_color 0 kingLocs
+
+postCastlingGameNode' :: ChessGrid -> Color -> Int -> (Int, Int) -> ChessNode
+postCastlingGameNode' grid the_color moveNumber kingLocs =
   let (wLocs, bLocs) = calcLocsForColor grid
       cPos =
         ChessPos
           { _cpGrid = grid,
-            _cpColor = the_color,
             _cpKingLoc = kingLocs,
             _cpInCheck = (False, False),
             _cpWhitePieceLocs = wLocs,
             _cpBlackPieceLocs = bLocs,
             _cpFin = NotFinal,
-            _cpState = castledTestState the_color
+            _cpState = castledTestState' the_color 40
           }
    in ChessNode
         { _chessTreeLoc = TreeLocation {tlDepth = 0},

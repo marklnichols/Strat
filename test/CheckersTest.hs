@@ -2,7 +2,7 @@
 module CheckersTest (checkersTest) where
 
 import Checkers
-import Parser8By8
+import MegaParser8By8
 import Control.Lens
 import Data.Either
 import Data.Tree

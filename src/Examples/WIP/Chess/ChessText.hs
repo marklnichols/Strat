@@ -28,6 +28,7 @@ instance Output ChessText ChessNode ChessMove where
     showCompMove _ = printMoveChoiceInfo
     getPlayerEntry _ = playerEntryText
     gameError = exitFail
+    showAs _ showType node = showChessPosAs showType (_chessPos node)
 
 printString :: String -> IO ()
 printString = putStrLn
@@ -68,6 +69,12 @@ exitFail :: ChessText -> String -> IO ()
 exitFail _ s = do
     putStrLn s
     exitFailure
+
+showChessPosAs :: String -> ChessPos -> IO ()
+showChessPosAs showType cPos =
+    case showType of
+        "FEN" -> putStrLn $ "FEN representation of current position: \n" ++ toFen cPos ++ "\n"
+        s     -> putStrLn $ "Unknown format: " ++ s
 
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input

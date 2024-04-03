@@ -21,7 +21,7 @@ import Strat.StratTree.TreeNode
       Eval,
       FinalState(Draw, WWins, BWins),
       Move,
-      Output(showCompMove, updateBoard, out, getPlayerEntry),
+      Output(showCompMove, updateBoard, out, getPlayerEntry, showAs),
       TreeNode(getMove, final, possibleMoves) )
 import System.Random hiding (next)
 import System.Time.Extra (duration, showDuration)
@@ -55,6 +55,7 @@ startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enab
 startGameLoop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
               => Z.ZipTreeEnv -> o -> Tree n -> IO ()
 startGameLoop env o node = do
+    putStrLn "startGameLooooooop"
     unless (Z.enablePruning env) $
       putStrLn "***** Alpha-Beta pruning is turned OFF *****";
     when (Z.singleThreaded env) $
@@ -121,7 +122,7 @@ playersTurn gen o t nodeHistory = do
     entry <- liftIO $ getPlayerEntry o expandedT []
     case entry of
       CmdEntry s -> do
-        result <- processCommand s (rootLabel t) nodeHistory
+        result <- processCommand s (rootLabel t) nodeHistory o
         case result of
           -- TODO: - expand simplifying assumption that 'Just _' can only mean 'undo' in player vs computer game...
           Just (t', nodeHistory') -> do
@@ -237,17 +238,23 @@ processUndo ns = do
         liftIO $ putStrLn "Undoing the last move of each side ..."
         return $ Just (Node z [], z:zs)
 
-processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n) => String -> n -> [n]
-                -> Z.ZipTreeM (Maybe (Tree n, [n]))
-processCommand cmd node nodeHistory
+processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n, Output o n m) => String -> n -> [n]
+                -> o -> Z.ZipTreeM (Maybe (Tree n, [n]))
+processCommand cmd node nodeHistory o
     | cmd == "hash" = do
         liftIO $ putStrLn $ "hash of current position: " ++ show (Z.nodeHash node)
+        return Nothing
+    | cmd == "fen" = do
+        liftIO $ showAs o "FEN" node
         return Nothing
     | cmd == "list" = do
         liftIO $ putStrLn $ intercalate "\n" (show <$> reverse (moveHistory nodeHistory))
         return Nothing
     | cmd == "undo" = do
         processUndo nodeHistory
+    | cmd == "moves" = do
+        liftIO $ print $ possibleMoves node
+        return Nothing
     | otherwise = do
         liftIO $ putStrLn $ "Unhandled Commandi!: " ++ cmd
         return Nothing

@@ -55,7 +55,7 @@ import Strat.Helpers
 import Strat.StratTree.TreeNode hiding (MoveScore)
 import Strat.ZipTree
 import Safe
-import qualified Parser8By8 as Parser
+import qualified MegaParser8By8 as Parser
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Map as Map
 
