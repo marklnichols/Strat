@@ -79,6 +79,7 @@ module Chess
     , queenMobility
     , showScoreDetails
     , startingBoard
+    , fromFen
     , toFen
     , wK, wKB, wKN, wKR, wQB, wQN, wQR
     , bK, bKB, bKN, bKR, bQB, bQN, bQR
@@ -88,25 +89,23 @@ import Control.Lens hiding (Empty)
 
 import Data.Char
 import Data.List (foldl')
-import Data.List.Extra (replace, notNull, upper, split)
+import Data.List.Extra (replace, notNull, upper, lower)
 import Data.Kind
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as S
-
 import Data.Singletons
 import Data.Singletons.Base.TH
-import Data.Tree (Tree(Node))
-import qualified Data.Tree as T
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Tree (Tree(Node), rootLabel)
 import Data.Tuple.Extra
 import Data.Vector.Unboxed (Vector, (!))
 import qualified Data.Vector.Unboxed as V
-import qualified Data.Vector as Vb
 import Data.Hashable
 import GHC.Generics
-import Safe (readMay)
 import System.Console.CmdArgs.Implicit (Data)
 -- import Text.Printf
 -- import Debug.Trace
@@ -114,7 +113,7 @@ import System.Console.CmdArgs.Implicit (Data)
 import qualified MegaParser8By8 as Parser
 import qualified Strat.Helpers as Helpers
 import Strat.StratTree.TreeNode
-
+import qualified FenParser as FP
 import qualified Strat.ZipTree as Z
 
 ---------------------------------------------------------------------------------------------------
@@ -364,19 +363,31 @@ calcLocsForColor locs' =
         f :: Int -> Char -> ([(Int, Char, Color)], [(Int, Char, Color)])
                          -> ([(Int, Char, Color)], [(Int, Char, Color)])
         f n c (wLocs, bLocs) =
-            case charToColor c of
+            case asciiToColor c of
                 (Just White) -> ((n, c, White) : wLocs, bLocs)
                 (Just Black) -> (wLocs, (n, c, Black) : bLocs)
                 Nothing    -> (wLocs, bLocs)
 
-charToColor :: Char -> Maybe Color
-charToColor c
+--------------------------------------------------------------------------------------------------
+-- convert ascii piece representations to piece color
+-- i.e. upper case -> White, lower case -> Black
+--------------------------------------------------------------------------------------------------
+asciiToColor :: Char -> Maybe Color
+asciiToColor c
   | ord c > 64 && ord c < 91 = Just White  -- A - Z : 65 - 90
   | ord c > 96 && ord c < 123 = Just Black -- | a - z : 97 - 122
   | otherwise = Nothing
 
----------------------------------------------------------------------------------------------------
--- Find the king locs (White, black) from the give ChessGrid
+--------------------------------------------------------------------------------------------------
+-- convert char representations of color (i.e., 'w', 'W', 'b', 'B') to the Color type
+--------------------------------------------------------------------------------------------------
+charToColor :: Char -> Maybe Color
+charToColor c | c == 'w' = Just White
+              | c == 'W' = Just White
+              | c == 'b' = Just Black
+              | c == 'B' = Just Black
+              | otherwise = Nothing
+
 ---------------------------------------------------------------------------------------------------
 findKingLocs :: Vector Char -> (Int, Int)
 findKingLocs g =
@@ -440,7 +451,7 @@ charToPiece ch = error $ "charToPiece not implemented for the value " ++ show ch
 indexToColor2 :: ChessGrid -> Int -> Maybe Color
 indexToColor2 g idx =
   let g' = unGrid g
-  in charToColor (g' ! idx)
+  in asciiToColor (g' ! idx)
 
 indexToPiece :: ChessGrid -> Int -> ChessPiece (k :: SomeSing Piece)
 indexToPiece g idx =
@@ -656,57 +667,48 @@ toFen cp =
     in boardFen ++ " " ++ nextColor ++ " " ++ castlingStr ++ " " ++ enPassantStr ++ " "
        ++ halfMoves ++ " " ++ fullMoves
 
-fromFen :: String -> Maybe (Tree ChessNode, ChessPosState)
+fromFen :: String -> Either String (Tree ChessNode, ChessPosState)
 fromFen fenStr =
-    case splitRowData fenStr of
-        Nothing -> Nothing
-        Just (rowData, otherData) ->
-            let initialV = emptyGrid
-                rowStrs = split (== '/') rowData
-                rowIdxs = [81, 71, 61, 51, 41, 31, 21, 11]
-                pairs = zip rowStrs rowIdxs
-                str0 = show pairs
-                newV :: Vector Char = foldl' foldF initialV pairs
-            in case (parseOtherFenData otherData)  of
-        -- !tmp = loop (dir idx0)
-        -- str = printf "dirFriendlyPiece - color:%s, idx0:%d, dir:%s, result:%s"
-        --              (show clr0) idx0 (show dir) (show tmp)
-        -- in trace str tmp
-                Nothing -> Nothing
-                Just cpState ->
-                    let grid = ChessGrid newV
-                        (wKing, bKing) = findKingLocs newV
-                        inCheckPair = (inCheck grid White wKing, inCheck grid Black bKing)
-                        (wLocs, bLocs) = calcLocsForColor grid
-                        cp = ChessPos
-                            { _cpGrid = grid
-                            , _cpKingLoc = findKingLocs newV
-                            , _cpInCheck = inCheckPair
-                            , _cpWhitePieceLocs = wLocs
-                            , _cpBlackPieceLocs = bLocs
-                            , _cpFin = NotFinal -- can be anything, will be replaced
-                            , _cpState = cpState }
-                    in Just
-                        ( Node ChessNode
-                          { _chessTreeLoc = TreeLocation {tlDepth = 0}
-                          , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
-                          , _chessVal = ChessEval { _total = 0.0, _details = "" }
-                          , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
-                          , _chessPos = cp {_cpFin = snd $ evalPos cp}
-                          , _chessMvSeq = []
-                          , _chessIsEvaluated = False } []
-                        , cpState)
-    where
-      foldF :: Vector Char -> ([Char], Int) -> Vector Char
-      foldF accV (str, n) =
-        fst (foldl' (foldF2 n) (accV, 0) str)
+    case FP.parseFen fenStr of
+        Left err -> Left err
+        Right fenData@FP.FenData{..} ->
+          let initialV = emptyGrid
+              rowStrs = T.unpack <$> rowData
+              rowIdxs = [81, 71, 61, 51, 41, 31, 21, 11]
+              pairs = zip rowStrs rowIdxs
+              newV :: Vector Char = foldl' foldF initialV pairs
+              grid = ChessGrid newV
+              (wKing, bKing) = findKingLocs newV
+              inCheckPair = (inCheck grid White wKing, inCheck grid Black bKing)
+              (wLocs, bLocs) = calcLocsForColor grid
+              cpState = fenDataToCpState fenData
+              cp = ChessPos
+                   { _cpGrid = grid
+                   , _cpKingLoc = findKingLocs newV
+                   , _cpInCheck = inCheckPair
+                   , _cpWhitePieceLocs = wLocs
+                   , _cpBlackPieceLocs = bLocs
+                   , _cpFin = NotFinal -- can be anything, will be replaced
+                   , _cpState = cpState }
+          in Right
+              ( Node ChessNode
+                { _chessTreeLoc = TreeLocation {tlDepth = 0}
+                , _chessMv = StdMove {_exchange = Nothing, _startIdx = -1, _endIdx = -1, _stdNote = ""}
+                , _chessVal = ChessEval { _total = 0.0, _details = "" }
+                , _chessErrorVal = ChessEval { _total = 0.0, _details = "" }
+                , _chessPos = cp {_cpFin = snd $ evalPos cp}
+                , _chessMvSeq = []
+                , _chessIsEvaluated = False } []
+              , cpState)
+            where
+              foldF :: Vector Char -> ([Char], Int) -> Vector Char
+              foldF accV (str, n) = fst (foldl' (foldF2 n) (accV, 0) str)
 
-      foldF2 :: Int -> (Vector Char, Int) -> Char -> (Vector Char, Int)
-      foldF2 n (accV, idx) x = case x of
-        ch | ch > '0' && ch < '9'
-             -> (accV, idx + digitToInt ch)
-           | otherwise
-             -> (set (ix (idx+n)) ch accV, idx + 1)
+foldF2 :: Int -> (Vector Char, Int) -> Char -> (Vector Char, Int)
+foldF2 n (accV, idx) x =
+    case x of
+        ch | ch > '0' && ch < '9' -> (accV, idx + digitToInt ch)
+           | otherwise            -> (set (ix (idx+n)) ch accV, idx + 1)
 
 emptyGrid :: Vector Char
 emptyGrid =
@@ -725,56 +727,15 @@ emptyGrid =
     topOrBottom = ['+', '+', '+', '+', '+', '+', '+', '+', '+', '+']
     middle      = ['+', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '+']
 
-----------------------------------------------------------------------------------------------------
--- Separate the row-by-row FEN data from the additional data
--- e.g., given a FEN "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20"
--- split into: Just ("r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R", "w - - 0 20")
--- an invalid FEN string returns Nothing
-----------------------------------------------------------------------------------------------------
-splitRowData :: String -> Maybe (String, [String])
-splitRowData s =
-  let splitz = split (== ' ') s
-  in Just (head splitz, (tail splitz))
-
-----------------------------------------------------------------------------------------------------
--- Parse the non row-by-row data at the end of a FEN string
--- e.g., given a FEN "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20"
--- parse the string "w - - 0 20"
--- an invalid FEN string returns Nothing
-----------------------------------------------------------------------------------------------------
-parseOtherFenData :: [String] -> Maybe ChessPosState
-parseOtherFenData splitz =
-  let v = Vb.fromList splitz
-      nextColor =
-        if length v /= 5
-          then Nothing
-          else
-            let s0 = (Vb.!) v 0
-            in case s0 of
-              "w" -> Just White
-              "b" -> Just Black
-              _ -> Nothing
-      castling =
-        let s1 = (Vb.!) v 1
-        in fenCharsToCastling s1
-      enPassant =
-        let s2 = (Vb.!) v 2
-        in algebraicToLoc s2
-      halfMovesForDraw = readMay $ (Vb.!) v 3
-      moveNumber = readMay $ (Vb.!) v 4
-  in do
-    nextClr <- nextColor
-    castlg <- castling
-    enPas <- enPassant
-    halfMvs <- halfMovesForDraw
-    moveNum <- moveNumber
-    return ChessPosState
-           { _cpsColorToMove = nextClr
-           , _cpsLastMove = Nothing
-           , _cpsHalfMovesForDraw = halfMvs
-           , _cpsMoveNumber = moveNum
-           , _cpsCastling = castlg
-           , _cpsEnPassant = enPas }
+fenDataToCpState :: FP.FenData -> ChessPosState
+fenDataToCpState FP.FenData {..} =
+    ChessPosState
+    { _cpsColorToMove = fromJust $ charToColor nextColor
+    , _cpsLastMove = Nothing
+    , _cpsHalfMovesForDraw = halfMovesForDraw
+    , _cpsMoveNumber = moveNumber
+    , _cpsCastling = fenDataToCastling castling
+    , _cpsEnPassant = algebraicToLoc $ T.unpack <$> enPassant }
 
 scanRow :: Vector Char -> Int -> String
 scanRow v idx =
@@ -796,18 +757,15 @@ locToAlgebraic n =
   let Parser.Loc c r = intToParserLoc n
   in c : show r
 
-algebraicToLoc :: String -> Maybe (Maybe Int)
-algebraicToLoc "-" = Just Nothing -- no enpassant, correcty set
-alegebraicToLoc s =
-    if length s /= 2 then Nothing
-    else
-      let s0 = head s
-      in if not $ isDigit s0
-           then Nothing
-           else
-             let digit = digitToInt s0
-                 loc = Parser.Loc (head (tail s)) digit
-            in Just $ locToInt loc
+algebraicToLoc :: Maybe String -> Maybe Int
+algebraicToLoc Nothing = Nothing
+algebraicToLoc (Just "-") = Nothing
+alegebraicToLoc (Just s) =
+    -- parser quarentees a string of length 2 of the form, e.g., "e4"
+    let s0 = head s
+        digit = digitToInt s0
+        loc = Parser.Loc (head (tail s)) digit
+    in Just $ locToInt loc
 
 fenCastlingToChars :: (Castling, Castling) -> String
 fenCastlingToChars (wCastling, bCastling) =
@@ -823,6 +781,19 @@ fenCastlingToChars (wCastling, bCastling) =
       castlingChars QueenSideOnlyAvailable = "q"
       castlingChars BothAvailable = "kq"
       castlingChars Unavailable = ""
+
+fenDataToCastling :: (Maybe Text, Maybe Text) -> (Castling, Castling)
+fenDataToCastling (w, b) = (textToCastling w, textToCastling b)
+
+textToCastling :: Maybe Text -> Castling
+textToCastling Nothing = Unavailable
+textToCastling (Just t) =
+    let s = lower $ T.unpack t
+    in case s of
+        "kq" -> BothAvailable
+        "k" -> KingSideOnlyAvailable
+        "q" -> QueenSideOnlyAvailable
+        _   -> Unavailable
 
 castlingToInt :: Castling -> Int
 castlingToInt Castled = 0
@@ -972,7 +943,11 @@ R   N   B   Q   K   B   N   R          1| (10)  11   12   13   14   15   16   17
 -}
 
 newGameTree :: (Tree ChessNode, ChessPosState)
-newGameTree = fromJust $ getNodeFromFen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0"
+newGameTree =
+    case getNodeFromFen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0" of
+      Left err -> error "newGameTree returned left??" -- this shouldn't happen
+      Right r -> r
+
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 r   n   b   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
@@ -1059,7 +1034,7 @@ getStartNode restoreGame =
 ---------------------------------------------------------------------------------------------------
 -- Create game from FEN
 ---------------------------------------------------------------------------------------------------
-getNodeFromFen :: String -> Maybe (Tree ChessNode, ChessPosState)
+getNodeFromFen :: String -> Either String (Tree ChessNode, ChessPosState)
 getNodeFromFen = fromFen
 
 -- Color represents the color at the 'bottom' of the board
@@ -1872,7 +1847,7 @@ removeEnPassant g _ = error "removeEnPassant called with the wrong move type ...
 -- for the moment, just choosing a queen
 checkPromote :: Char -> Int -> Char
 checkPromote chPiece toLoc =
-    let c = charToColor chPiece
+    let c = asciiToColor chPiece
         b = lastRank toLoc c
     in if b then
          case charToPiece chPiece of
@@ -1979,7 +1954,7 @@ hasConnectedPartner cp dirs loc@(idx, ch, clr) =
 -- r to R, B to b, etc.
 flipCharColor :: Char -> Char
 flipCharColor ch =
-  case charToColor ch of
+  case asciiToColor ch of
     Just Black -> chr $ ord ch - 32
     Just White -> chr $ ord ch + 32
     Nothing -> ch
@@ -2624,7 +2599,10 @@ Q   B   -   -   -   -   P   -          2| (20)  21   22   23   24   25   26   27
 -}
 
 discoveredCheckTree :: (Tree ChessNode, ChessPosState)
-discoveredCheckTree = fromJust $ fromFen "3r4/8/3k4/2b1R3/8/6B1/8/3K4 w - - 0 0"
+discoveredCheckTree =
+    case getNodeFromFen "3r4/8/3k4/2b1R3/8/6B1/8/3K4 w - - 0 0" of
+      Left err -> error "discoveredCheckTree returned left??" -- this shouldn't happen
+      Right r -> r
                            -- ChessGrid $ V.fromList
                            -- [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                            --   '+',  ' ',  ' ',  ' ',  'K',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -2657,7 +2635,7 @@ discoveredCheckTree = fromJust $ fromFen "3r4/8/3k4/2b1R3/8/6B1/8/3K4 w - - 0 0"
 
 --used in tests:
 discoveredCheckNode :: ChessNode
-discoveredCheckNode = T.rootLabel $ fst discoveredCheckTree
+discoveredCheckNode = rootLabel $ fst discoveredCheckTree
 
 checkMateExampleBoard :: ChessGrid
 checkMateExampleBoard = ChessGrid $ V.fromList

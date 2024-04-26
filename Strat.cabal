@@ -59,8 +59,9 @@ executable strat-exe
       CheckersText
       Chess
       ChessText
-      MegaParser8By8
+      FenParser
       GameRunner
+      MegaParser8By8
       Strat.Helpers
       Strat.StratIO
       Strat.ZipTree
@@ -112,13 +113,15 @@ executable test-as-exe
       CheckersTest
       CheckersText
       Chess
-      ChessText
       ChessTest
+      ChessText
+      FenParser
+      FenTest
+      GameRunner
       MegaParser8By8
       TicTac.TTParser
       TicTac.TTGame
       TicTacTest
-      GameRunner
       PruningTest
       StratTreeTest
       Strat.Helpers
@@ -177,6 +180,8 @@ test-suite StratTreeTest
       CheckersTest
       Chess
       ChessTest
+      FenParser
+      FenTest
       MegaParser8By8
       GameRunner
       PruningTest
