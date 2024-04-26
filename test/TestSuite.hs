@@ -6,6 +6,7 @@ import ChessTest
 import Test.Hspec
 import TicTacTest
 import PruningTest
+import FenTest
 
 main :: IO ()
 main = hspec $ do
@@ -13,3 +14,4 @@ main = hspec $ do
     checkersTest
     chessTest
     pruningTest
+    fenTest

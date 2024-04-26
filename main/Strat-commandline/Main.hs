@@ -31,11 +31,11 @@ main = do
                     then return $ Just $ Chess.getStartNode restoreGame
                     else do
                       case Chess.getNodeFromFen loadFromFen of
-                        Nothing -> do
+                        Left err -> do
                           putStrLn "Invalid FEN format"
-                          print theArgs
+                          print err
                           return Nothing
-                        Just (startNode, startState) -> do
+                        Right (startNode, startState) -> do
                           putStrLn "FEN seems ok? (A)"
                           return $ Just (startNode, startState)
               case pairMay of

@@ -9,6 +9,7 @@ import Control.Monad.Reader
 import Data.List
 import Data.Either
 import qualified Data.Text as T
+import Data.Tree (rootLabel)
 import Data.Tuple.Extra (fst3)
 import qualified Data.Vector.Unboxed as V
 
@@ -376,7 +377,14 @@ chessTest = do
       it "describes the position in FEN (Forsyth-Edwards Notation)" $
         let pos = _chessPos endgameNode01
         in toFen pos `shouldBe` "r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20"
-
+    describe "fromFen followed by toFen" $
+      it "results in the original FEN string" $ do
+        let fenStr = "3r4/8/3k4/2b1R3/8/6B1/8/3K4 w - - 0 0"
+        let result =
+              case (fromFen fenStr) of
+                Left err -> err
+                Right t -> (toFen . _chessPos . rootLabel . fst) t
+        result `shouldBe` fenStr
     describe "parseChessEntry" $
       it "parses a move entered as text" $ do
         let n = castlingNode
