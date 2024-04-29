@@ -18,6 +18,7 @@ import System.Random hiding (next)
 import Test.Hspec
 import Text.Printf
 import Strat.ZipTree
+import Strat.ZipTree (HasZipTreeEnv)
 
 data TestNode = TestNode
   { typ :: Int
@@ -74,7 +75,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 1
             --------------------------------------------------
-            let f1 :: ZipTreeM (NegaResult TestNode)
+            let f1 :: (HasZipTreeEnv r) => ZipTreeM r (NegaResult TestNode)
                 f1 = do
                   wikiTreeD1 <- expandTo rootWikiTree 1 1 1
                   negaMax wikiTreeD1 (Nothing :: Maybe StdGen)
@@ -90,7 +91,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 2
             --------------------------------------------------
-            let f2 :: ZipTreeM (NegaResult TestNode)
+            let f2 :: (HasZipTreeEnv r) => ZipTreeM r (NegaResult TestNode)
                 f2 = do
                   wikiTreeD2 <- expandTo rootWikiTree 1 2 2
                   negaMax wikiTreeD2 (Nothing :: Maybe StdGen)
@@ -108,7 +109,7 @@ pruningTest = do
             --------------------------------------------------
             -- depth 3
             --------------------------------------------------
-            let f3 :: ZipTreeM (NegaResult TestNode)
+            let f3 :: (HasZipTreeEnv r) => ZipTreeM r (NegaResult TestNode)
                 f3 = do
                   wikiTreeD3 <- expandTo rootWikiTree 1 3 3
                   negaMax wikiTreeD3 (Nothing :: Maybe StdGen)

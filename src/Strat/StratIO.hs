@@ -27,8 +27,8 @@ resolveRandom xs = do
     r <- getStdRandom $ randomR (1, length xs)
     return $ Just $ xs !! (r-1)
 
-expandToParallel :: (Ord a, Show a, ZipTreeNode a)
-                 => T.Tree a -> Int -> Int -> Z.ZipTreeM (T.Tree a)
+expandToParallel :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
+                 => T.Tree a -> Int -> Int -> Z.ZipTreeM r (T.Tree a)
 expandToParallel t depth critDepth = do
     -- expansion of at least one level should always have been previously done
 
@@ -46,15 +46,15 @@ expandToParallel t depth critDepth = do
     let newTree = toTree $ modifyTree (\(T.Node x _) -> T.Node x newChildren) z
     return newTree
 
-expandToSingleThreaded :: forall a p. (Ord a, Show a, ZipTreeNode a)
-                       => T.Tree a -> Int -> Int -> Z.ZipTreeM (T.Tree a)
+expandToSingleThreaded :: forall a r p. (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
+                       => T.Tree a -> Int -> Int -> Z.ZipTreeM r (T.Tree a)
 expandToSingleThreaded t depth critDepth = Z.expandTo t 1 depth critDepth
 
-negaMaxParallel :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
-        => Z.ZipTreeEnv -> T.Tree a -> Maybe g -> Z.ZipTreeM (NegaResult a)
+negaMaxParallel :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g, HasZipTreeEnv r)
+        => Z.ZipTreeEnv -> T.Tree a -> Maybe g -> Z.ZipTreeM r (NegaResult a)
 negaMaxParallel env t gen = do
     let theChildren = T.subForest t
-    env <- ask
+
     resultsList <- liftIO $ Async.forConcurrently theChildren (\x -> do
         (threadTC, threadEC) <- runReaderT (Z.negaWorker x) env
         let threadNode = T.rootLabel x
@@ -101,7 +101,7 @@ negaMaxParallel env t gen = do
             then x : acc
             else acc
 
-negaMaxSingleThreaded :: forall a g p. (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
-        => Z.ZipTreeEnv -> T.Tree a -> Maybe g -> Z.ZipTreeM (NegaResult a)
-negaMaxSingleThreaded env t gen =
+negaMaxSingleThreaded :: forall a g r. (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g)
+                       => ZipTreeEnv -> T.Tree a -> Maybe g -> Z.ZipTreeM r (NegaResult a)
+negaMaxSingleThreaded env t gen = do
     Z.negaMax t gen

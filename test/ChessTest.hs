@@ -411,7 +411,7 @@ chessTest = do
 matchStdMove :: StdMoveTestData -> IO Bool
 matchStdMove StdMoveTestData{..} = do
     let (board, _) = getStartNode smtdBoardName
-    let f :: Z.ZipTreeM (Z.NegaResult ChessNode)
+    let f :: (Z.HasZipTreeEnv r) => Z.ZipTreeM r (Z.NegaResult ChessNode)
         f = do
             tree <- Z.expandTo board 1 smtdDepth smtdCritDepth
             Z.negaMax tree (Nothing :: Maybe StdGen)

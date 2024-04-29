@@ -1,9 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GHC2021 #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes #-}
 
 module StratWeb.WebRunner
     ( Jsonable(..)
@@ -19,7 +15,7 @@ import Data.Text (pack)
 import Data.Tree
 import Strat.Helpers
 import Strat.StratTree.TreeNode
-import qualified Strat.ZipTree as Z
+import Strat.ZipTree
 import System.Random
 import qualified Checkers as Ck
 import qualified CheckersJson as J
@@ -27,8 +23,8 @@ import qualified CheckersJson as J
 data CheckersEnv = CheckersEnv
     { ceDepth :: Int, ceCritDepth ::Int,  ceEquivThreshold :: Float, ceP1Comp :: Bool ,ceP2Comp :: Bool } deriving (Show)
 
-gameEnv :: Z.ZipTreeEnv
-gameEnv = Z.ZipTreeEnv
+gameEnv :: ZipTreeEnv
+gameEnv = ZipTreeEnv
         { verbose = False
         , enablePruning = True
         , singleThreaded = True -- multi threaded has yet to be tested here
@@ -92,8 +88,8 @@ processPlayerMove tree mv bComputerResponse rnds = do
  -- Internal functions
 ----------------------------------------------------------------------------------------------------
 -- TODO: move this
-testEnv :: Z.ZipTreeEnv
-testEnv = Z.ZipTreeEnv
+testEnv :: ZipTreeEnv
+testEnv = ZipTreeEnv
         { verbose = False
         , enablePruning = True
         , singleThreaded = True -- multi threaded has yet to be tested here
@@ -128,10 +124,10 @@ computerResponse prevNode gen = do
 computerMove :: RandomGen g => Tree Ck.CkNode -> g
                 -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
 computerMove t gen = do
-   newTree <- runReaderT (Z.expandTo t 1 (Z.maxDepth gameEnv) (Z.maxCritDepth gameEnv)) testEnv
-   res@Z.NegaResult{..} <- runReaderT (Z.negaMax newTree (Just gen)) testEnv
-   let bestMv = getMove $ Z.nmNode picked
-   let moveScores = mkMoveScores ((last (Z.nmMovePath picked)) : ((last . Z.nmMovePath)  <$> alternatives))
+   newTree <- runReaderT (expandTo t 1 (maxDepth gameEnv) (maxCritDepth gameEnv)) testEnv
+   res@NegaResult{..} <- runReaderT (negaMax newTree (Just gen)) testEnv
+   let bestMv = getMove $ nmNode picked
+   let moveScores = mkMoveScores ((last (nmMovePath picked)) : ((last . nmMovePath)  <$> alternatives))
    return $ Right ( MoveResults
       { mrResult = res
       , mrMoveScores = moveScores
