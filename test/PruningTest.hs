@@ -18,7 +18,6 @@ import System.Random hiding (next)
 import Test.Hspec
 import Text.Printf
 import Strat.ZipTree
-import Strat.ZipTree (HasZipTreeEnv)
 
 data TestNode = TestNode
   { typ :: Int

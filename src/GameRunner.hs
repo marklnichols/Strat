@@ -1,4 +1,5 @@
 {-# LANGUAGE GHC2021 #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module GameRunner
  ( searchTo
@@ -9,6 +10,7 @@ module GameRunner
 import Control.Monad
 import Control.Monad.Reader
 import Data.Hashable
+import Data.IORef
 import Data.List
 import Data.Text (Text)
 import Data.Tree
@@ -22,11 +24,33 @@ import Strat.StratTree.TreeNode
       FinalState(Draw, WWins, BWins),
       Move,
       Output(showCompMove, updateBoard, out, getPlayerEntry, showAs),
-      TreeNode(getMove, final, possibleMoves) )
+      TreeNode(final, getMove, moveNum, possibleMoves) )
 import System.Random hiding (next)
-import System.Time.Extra (duration, showDuration)
+import System.Time.Extra (duration, showDuration, Seconds)
 import Text.Printf
 -- import Debug.Trace
+
+data RunnerData = RunnerData
+    { totalCalcTime :: Seconds
+    , avgTimePerMove :: Seconds
+    }
+
+class HasRunnerData a where
+  runnerData :: a -> IORef RunnerData
+
+-- instance HasRunnerData RunnerData where
+--   runnerData = id
+
+data RunnerZipTreeEnv = RunnerZipTreeEnv
+  { zipTreeEnv :: Z.ZipTreeEnv
+  , runData :: IORef RunnerData
+  }
+
+instance Z.HasZipTreeEnv RunnerZipTreeEnv where
+  zte = zipTreeEnv
+
+instance HasRunnerData RunnerZipTreeEnv where
+  runnerData = runData
 
 -- TODO: make a type for all these flags...
 startGame :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n, Z.PositionState p)
@@ -35,7 +59,7 @@ startGame :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashab
 startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enablePreSort enableRandom
           enablePruning singleThreaded
           verbose enablePruneTracing enableCmpTracing moveTraceStr = do
-  let env = Z.ZipTreeEnv
+  let ztEnv = Z.ZipTreeEnv
         { Z.verbose
         , Z.enablePruneTracing
         , Z.enableCmpTracing
@@ -50,11 +74,16 @@ startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enab
         , Z.aiPlaysBlack
         , Z.singleThreaded
         }
+  let rData = RunnerData {totalCalcTime = 0.0, avgTimePerMove = 0.0 }
+  ior <- newIORef rData
+  let env = RunnerZipTreeEnv { zipTreeEnv = ztEnv, runData = ior }
   startGameLoop env o node
 
-startGameLoop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n)
-              => Z.ZipTreeEnv -> o -> Tree n -> IO ()
-startGameLoop env o node = do
+startGameLoop :: ( Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n
+                 , Z.HasZipTreeEnv r, HasRunnerData r)
+              => r -> o -> Tree n -> IO ()
+startGameLoop r o node = do
+    let env = Z.zte r
     putStrLn "startGameLooooooop"
     unless (Z.enablePruning env) $
       putStrLn "***** Alpha-Beta pruning is turned OFF *****";
@@ -79,14 +108,14 @@ startGameLoop env o node = do
         newTree <- expandSingleThreaded node 2 2
         liftIO $ putStrLn $ "(startGameLoop - treesize: " ++ show (Z.treeSize newTree) ++ ")"
         loop rnd o newTree []
-      ) env
+      ) r
     return ()
 
 moveHistory :: TreeNode n m => [n] -> [m]
 moveHistory tns = getMove <$> tns
 
 loop :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n,
-         RandomGen g, Z.HasZipTreeEnv r)
+         RandomGen g, Z.HasZipTreeEnv r, HasRunnerData r)
      => Maybe g -> o -> Tree n -> [n] -> Z.ZipTreeM r ()
 loop gen o node nodeHistory = do
     let label = rootLabel node
@@ -143,19 +172,29 @@ playersTurn gen o t nodeHistory = do
               playersTurn gen o t nodeHistory
 
 computersTurn :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Hashable n, Ord n,
-                  Eval n, RandomGen g, Z.HasZipTreeEnv r)
+                  Eval n, RandomGen g, Z.HasZipTreeEnv r, HasRunnerData r)
               => Maybe g-> o -> Tree n -> [n] -> Z.ZipTreeM r (Tree n, [n])
 computersTurn gen o t nodeHistory = do
+    r <- ask
+    let env = Z.zte r
     (sec, (newRoot, updatedHistory)) <- duration $ do
-        r <- ask
-        let env = Z.zte r
         (expandedT, result) <- searchTo t gen (Z.maxDepth env) (Z.maxCritDepth env)
         liftIO $ putStrLn "\n--------------------------------------------------\n"
         liftIO $ showCompMove o expandedT result True
-        let nextNode =Z.nmNode (Z.picked result)
+        let nextNode = Z.nmNode (Z.picked result)
         let nextMove = getMove nextNode
         return (findMove expandedT nextMove, nextNode:nodeHistory)
-    liftIO $ putStrLn $ "Computer move time: " ++ showDuration sec ++ "\n"
+    liftIO $ putStrLn $ "Computer move time: " ++ showDuration sec
+    let nMoves = moveNum $ rootLabel t
+    let divisor :: Double = fromIntegral ((nMoves `div` 2) + 1)
+    avgTime <- liftIO $ atomicModifyIORef' (runnerData r) (\RunnerData{..} ->
+        let newTotal = totalCalcTime + sec
+            newAvg = newTotal / divisor
+        in ( RunnerData { totalCalcTime = newTotal
+                        , avgTimePerMove = newAvg }
+           , newAvg))
+    liftIO $ putStrLn $ printf "nMoves: %d, divisor %f" nMoves divisor
+    liftIO $ putStrLn $ "Avgerage computer move time: " ++ showDuration avgTime ++ "\n"
     case newRoot of
         Right r -> return (r, updatedHistory)
         Left s -> do

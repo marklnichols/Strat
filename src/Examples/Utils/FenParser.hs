@@ -15,7 +15,7 @@ import Text.Megaparsec.Char
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void
-import Text.Megaparsec.Debug
+-- import Text.Megaparsec.Debug
 
 type Parser = Parsec Void Text
 

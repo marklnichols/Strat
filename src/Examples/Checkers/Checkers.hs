@@ -110,6 +110,7 @@ instance TreeNode CkNode CkMove where
     getMove = _ckMove
     treeLoc = _ckTreeLoc
     undoMove = undoCkMove
+    moveNum n = 0 -- not implemented
 
 instance Show CkMove where
     show mv = show $ toParserMove mv

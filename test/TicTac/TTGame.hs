@@ -73,6 +73,7 @@ instance TreeNode TTNode IntMove where
     critical _ = False
     parseEntry n s = strToMove s (color n)
     undoMove = undoTTMove
+    moveNum n = 0 -- not implemented
 
 -- dummy value of TreeLocation, as its not used in this example
 tl0 :: TreeLocation
