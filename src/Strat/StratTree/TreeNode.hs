@@ -99,6 +99,7 @@ class (Move m, Eval t) => TreeNode t m | t -> m where
     getMove :: t -> m
     treeLoc :: t -> TreeLocation
     undoMove :: t -> m -> t
+    moveNum :: t -> Int
 
 class Output o n m | o -> n, n -> m where
     out :: o -> String -> IO ()

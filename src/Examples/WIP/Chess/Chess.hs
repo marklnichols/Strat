@@ -574,7 +574,6 @@ countMaterial g =
 
 
 {- TODOs:
--- Add: Track and display average time for computer move
 -- Convert more stored positions to FEN
 -- Add :? cmd that shows the available commands
 -- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
@@ -586,7 +585,6 @@ countMaterial g =
 -- Keep track of 'half move clock' for 50 move draws -- implement in to/from FEN
 -- Add more mate in 2 tests, add mate in 3 tests
 -- Determine mate in n and display
--- Display total computer move time / n moves / average
 -- Remove TemplateHaskell (remove TH generated Lenses, manually make only needed lenses (deep updates)
 -- Various command line debug tools
 --    load
@@ -601,7 +599,7 @@ countMaterial g =
       having both bishops
       slight pref. to kingside castle over queenside
       pawn advancement
-      trading (esp. queens) only if ahead
+      trading (esp. queens) only when ahead
 -}
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
@@ -848,6 +846,7 @@ instance TreeNode ChessNode ChessMove where
     getMove = _chessMv
     treeLoc = _chessTreeLoc
     undoMove = undoChessMove
+    moveNum n = n ^. (chessPos . cpState . cpsMoveNumber)
 
 instance Move ChessMove
 
@@ -1193,7 +1192,6 @@ calcNewNode node mv tLoc =
         posWithState = newPos { _cpState = newState }
         (eval, finalSt) = evalPos posWithState
         updatedPos = posWithState { _cpFin = finalSt }
-
     in ChessNode
         { _chessTreeLoc = tLoc
         , _chessMv = mv , _chessVal = eval
