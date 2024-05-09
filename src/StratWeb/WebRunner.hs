@@ -27,7 +27,7 @@ gameEnv :: ZipTreeEnv
 gameEnv = ZipTreeEnv
         { verbose = False
         , enablePruning = True
-        , singleThreaded = True -- multi threaded has yet to be tested here
+        , singleThreaded = True -- TODO: update as per GameRunner for multithreading
         , enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = True
@@ -87,12 +87,12 @@ processPlayerMove tree mv bComputerResponse rnds = do
 ----------------------------------------------------------------------------------------------------
  -- Internal functions
 ----------------------------------------------------------------------------------------------------
--- TODO: move this
+-- TODO: Update this to the use of ReaderT, env constraints, etc. as in the Chess example
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
         { verbose = False
         , enablePruning = True
-        , singleThreaded = True -- multi threaded has yet to be tested here
+        , singleThreaded = True -- TODO: update as per GameRunner for multithreading
         , enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False

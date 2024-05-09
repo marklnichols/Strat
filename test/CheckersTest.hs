@@ -1,37 +1,74 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GHC2021 #-}
 module CheckersTest (checkersTest) where
 
-import Checkers
-import MegaParser8By8
 import Control.Lens
+import Control.Monad.Reader
 import Data.Either
+import qualified Data.Text as T
 import Data.Tree
-import Strat.StratTree.TreeNode
-import Test.Hspec
-import qualified CheckersJson as J
 import qualified Data.Vector.Unboxed as V
+import Test.Hspec
+
+import Checkers
+import qualified CheckersJson as J
+import MegaParser8By8
+import GameRunner
+import Strat.Helpers
+import Strat.StratTree.TreeNode
+import qualified Strat.ZipTree as Z
 
 
 -- dummy value of TreeLocation, used for most tests
 tl0 :: TreeLocation
 tl0 = TreeLocation {tlDepth = 0}
 
+testEnv :: Z.ZipTreeEnv
+testEnv = Z.ZipTreeEnv
+        { Z.verbose = False
+        , Z.enablePruning = True
+        , Z.enablePruneTracing = False
+        , Z.singleThreaded = True
+        , Z.enableCmpTracing = False
+        , Z.enableRandom = False
+        , Z.maxRandomChange = 10.0
+        , Z.enablePreSort = False
+        , Z.moveTraceStr = T.pack ""
+        , Z.maxDepth = 5
+        , Z.maxCritDepth = 5
+        , Z.aiPlaysWhite = True
+        , Z.aiPlaysBlack = True
+        }
+
 checkersTest :: SpecWith ()
 checkersTest = do
     describe "getAllowedMoves" $
         it "Gets the list of allowed moves for a given color from a given position." $ do
-            getAllowedMoves (rootLabel (fst (getStartNode "new_game"))) `shouldMatchList` fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
-            getAllowedMoves blackFirstStartNode `shouldMatchList` fmap mkSimpleCkMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
-
-            getAllowedMoves (nodeFromGridW board01) `shouldMatchList` fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935]
-            getAllowedMoves (nodeFromGridB board01) `shouldMatchList` fmap mkSimpleCkMove    [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712]
-            getAllowedMoves (nodeFromGridW board02) `shouldMatchList` mkMultiCkJump m02Multi : fmap mkSimpleCkJump [(0717, 12), (1624, 20), (2515, 20), (2517, 21), (2535, 30)]
+            getAllowedMoves (rootLabel (fst (getStartNode "new_game"))) `shouldMatchList`
+              fmap mkSimpleCkMove [1419, 1519, 1520, 1620, 1621, 1721, 1722] --white moves
+            getAllowedMoves blackFirstStartNode `shouldMatchList`
+              fmap mkSimpleCkMove [2823, 2824, 2924, 2925, 3025, 3026, 3126] --black moves
+            getAllowedMoves (nodeFromGridW board01) `shouldMatchList`
+              fmap mkSimpleCkMove    [510, 1721, 1722, 2832, 2833, 2823, 2824, 3934, 3935]
+            getAllowedMoves (nodeFromGridB board01) `shouldMatchList`
+              fmap mkSimpleCkMove    [3732, 3733, 3025, 3026, 2024, 2025, 2015, 2016, 711, 712]
+            getAllowedMoves (nodeFromGridW board02) `shouldMatchList` mkMultiCkJump m02Multi :
+              fmap mkSimpleCkJump [(0717, 12), (1624, 20), (2515, 20), (2517, 21), (2535, 30)]
 
             getAllowedMoves (nodeFromGridB board02) `shouldMatchList` fmap mkSimpleCkJump [(2111, 16), (3729, 33)]
             getAllowedMoves (nodeFromGridW board06) `shouldMatchList` fmap mkSimpleCkJump [(2535, 30)]
             MoveEntry <$> getAllowedMoves (nodeFromGridW board07) `shouldMatchList`
               snd (partitionEithers (fmap (parseCkMove (nodeFromGridW board07))
                                           ["C1-A3-C5", "C1-E3-C5", "C1-E3-G5-E7"]))
+    describe "findMove" $
+      it ("find's a subtree element corresponding to a particular move from the current position"
+         ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
+          let (t, _) = getStartNode ""
+          newTree <- runReaderT (expandSingleThreaded t 2 2) testEnv
+          let mv = mkSimpleCkMove 1520 -- 15 -> 20
+          case findMove newTree mv of
+            Right t' -> (t /= t') `shouldBe` True
+            Left s -> error s
+
     describe "calcNewNode" $
         it "creates a new node from a previous position and a move" $ do
             calcNewNode (nodeFromGridW board01) (mkSimpleCkMove m1) tl0 ^. (ckPosition . grid) `shouldBe` board01_m1

@@ -1,7 +1,7 @@
+{-# LANGUAGE GHC2021 #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+
 module ChessTest (chessTest) where
 
 import Test.Hspec

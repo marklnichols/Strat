@@ -323,7 +323,7 @@ boardAsPieceList node =
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: CkNode -> CkMove -> TreeLocation -> CkNode
-calcNewNode node mv _tl =
+calcNewNode node mv tl =
     let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
         clrFlipped = set (ckPosition . clr) (negate (captured ^. (ckPosition . clr))) captured
@@ -332,7 +332,8 @@ calcNewNode node mv _tl =
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue eval finSet
         errScoreSet = set ckErrorValue errEval scoreSet
-    in set ckMove mv errScoreSet
+        treeLocSet = set ckTreeLoc tl errScoreSet
+    in set ckMove mv treeLocSet
 
 removePiece :: CkNode -> Int -> CkNode
 -- removePiece node idx = set (ckPosition . grid . ix idx) 0 node
