@@ -14,8 +14,8 @@ import Data.Tuple.Extra (fst3)
 import qualified Data.Vector.Unboxed as V
 
 import Chess
-import GameRunner
 import Strat.Helpers
+import Strat.StratIO
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
@@ -321,7 +321,7 @@ chessTest = do
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           let (t, _) = getStartNode "newgame"
-          newTree <- runReaderT (expandSingleThreaded t 2 2) testEnv
+          newTree <- runReaderT (expandToSingleThreaded t 2 2) testEnv
           let mv = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True

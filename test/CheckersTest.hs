@@ -12,8 +12,9 @@ import Test.Hspec
 import Checkers
 import qualified CheckersJson as J
 import MegaParser8By8
-import GameRunner
+-- import GameRunner
 import Strat.Helpers
+import Strat.StratIO
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 
@@ -63,7 +64,7 @@ checkersTest = do
       it ("find's a subtree element corresponding to a particular move from the current position"
          ++ " (this test: determine an opening move is correctly found in the starting position)") $ do
           let (t, _) = getStartNode ""
-          newTree <- runReaderT (expandSingleThreaded t 2 2) testEnv
+          newTree <- runReaderT (expandToSingleThreaded t 2 2) testEnv
           let mv = mkSimpleCkMove 1520 -- 15 -> 20
           case findMove newTree mv of
             Right t' -> (t /= t') `shouldBe` True
