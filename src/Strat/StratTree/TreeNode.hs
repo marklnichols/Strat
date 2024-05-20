@@ -18,8 +18,7 @@ module Strat.StratTree.TreeNode
     , GameState(..)
     , mkMoveScore
     , mkMoveScores
-    , move
-    , Move
+    , move , Move
     , MoveResults(..)
     , MoveScore (_move, _score)
     , Output(..)

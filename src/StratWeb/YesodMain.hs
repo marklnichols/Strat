@@ -15,7 +15,7 @@ import Data.Aeson
 import Data.IORef
 import Data.Text (Text)
 import Data.Tree
-import qualified Strat.StratTree.TreeNode as TN
+import qualified Strat.StratTree.TreeNode as TreeNode
 import qualified StratWeb.WebRunner as WR
 import System.Random
 import Yesod hiding (insert)
@@ -121,7 +121,7 @@ getComputerMoveR = do
 postPlayerMoveR :: Handler Value
 postPlayerMoveR = do
     liftIO $ putStrLn "incoming player move"
-    (resultM :: Result JsonMove) <- parseCheckJsonBody
+    (resultM :: Result JsonMove) <- parseInsecureJsonBody
     yesod <- getYesod
     theMap <- liftIO $ readIORef $ getMap yesod
     uniqueId <- getGameSession
@@ -148,10 +148,8 @@ postPlayerMoveR = do
                             return (wrp, g)
     liftIO $ updateMap (getMap yesod) uniqueId $ (WR.getNode wrapper, gen)
     case WR.getJsonable wrapper of
-        WR.Jsonable j -> do
-            case WR.getLastMove wrapper of
-                Just ms -> liftIO $ putStrLn $ "Computer's move: " ++ jsonFromCkMove (ms^.TN.move)
-                Nothing -> liftIO $ putStrLn "(No computer move)"
+      WR.Jsonable j -> do
+            liftIO $ putStrLn $ " ** Computer's move: " ++ show (rootLabel (WR.getNode wrapper))
             returnJson j
 
 webInit :: IO ()

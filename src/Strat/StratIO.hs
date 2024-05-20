@@ -5,10 +5,14 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Strat.StratIO
-  ( expandToSingleThreaded
+  ( evalTreeSingleThreaded
+  , evalTreeMultiThreaded
+  , expandToSingleThreaded
   , expandToParallel
   , negaMaxParallel
   , negaMaxSingleThreaded
+  , searchToSingleThreaded
+  , searchToMultiThreaded
   ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -17,11 +21,13 @@ import Control.Monad.Reader
 import qualified Data.List as List (delete)
 import Data.Hashable
 import Data.Maybe
+import Data.Tree (Tree)
 import qualified Data.Tree as T
 import Data.Tree.Zipper
 -- import Strat.StratTree.TreeNode
 import Strat.ZipTree hiding (expandTo)
 import qualified Strat.ZipTree as Z
+import Strat.StratTree.TreeNode
 import Text.Printf
 import System.Random
 
@@ -30,6 +36,35 @@ import System.Random
 -- resolveRandom xs = do
 --     r <- getStdRandom $ randomR (1, length xs)
 --     return $ Just $ xs !! (r-1)
+
+searchToSingleThreaded
+    :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
+    => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
+searchToSingleThreaded t gen maxDepth maxCritDepth = do
+    expanded <- expandToSingleThreaded t maxDepth maxCritDepth
+    evalTreeSingleThreaded expanded gen
+
+searchToMultiThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
+         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
+searchToMultiThreaded t gen maxDepth maxCritDepth = do
+    expanded <- expandToParallel t maxDepth maxCritDepth
+    evalTreeMultiThreaded expanded gen
+
+evalTreeSingleThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
+         => Tree n -> Maybe g -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
+evalTreeSingleThreaded t gen = do
+    r <- ask
+    let env = Z.zte r
+    res <- negaMaxSingleThreaded env t gen
+    return (t, res)
+
+evalTreeMultiThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
+         => Tree n -> Maybe g -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
+evalTreeMultiThreaded t gen = do
+    r <- ask
+    let env = Z.zte r
+    res <- negaMaxParallel env t gen
+    return (t, res)
 
 expandToParallel :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
                  => T.Tree a -> Int -> Int -> Z.ZipTreeM r (T.Tree a)
@@ -55,7 +90,7 @@ expandToParallel t depth critDepth = do
 expandToSingleThreaded :: forall a r p. (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
                        => T.Tree a -> Int -> Int -> Z.ZipTreeM r (T.Tree a)
 expandToSingleThreaded t depth critDepth = do
-  liftIO $ printf "expandSingleThreaded called with depth:%d, critDepth:%d" depth critDepth
+  liftIO $ putStrLn $ printf "expandSingleThreaded called with depth:%d, critDepth:%d" depth critDepth
   Z.expandTo t 1 depth critDepth
 
 negaMaxParallel :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g, HasZipTreeEnv r)

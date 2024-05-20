@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Strat.Helpers
     ( isLegal
@@ -22,11 +21,12 @@ isLegal t mv exclusions =
 findMove :: forall t m. (TreeNode t m, Move m) => Tree t -> m -> Either String (Tree t)
 findMove tree mv =
     let parentDepth = tlDepth $ treeLoc $ rootLabel tree
-    in case find (\ x ->
+    in case find (\x ->
                      let n = rootLabel x
                      in tlDepth (treeLoc n) == parentDepth + 1
-                        && mv == getMove (rootLabel x)
-                 ) (subForest tree) of
+                        && mv == getMove (rootLabel x))
+                 (subForest tree) of
+        Just !t' -> Right t'
         Nothing ->
             let f x acc =
                     let dpthStr = show $ tlDepth $ treeLoc $ rootLabel x
@@ -36,7 +36,6 @@ findMove tree mv =
             in Left ("findMoved failed for move: " ++ show mv
                      ++ "(depth: " ++ show (parentDepth + 1) ++ ")"
                      ++ "(treesize: " ++ show (treeSize tree) ++ ")\n" ++ str) -- this should not happen
-        Just !t' -> Right t'
 
 makeChildren :: TreeNode n m => n -> [Tree n]
 makeChildren n =
