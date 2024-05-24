@@ -405,7 +405,7 @@ evalCkNode n =
                                "\n" ++ "mobility = " ++ show mob ++
                                "\n" ++ "home row occupation = " ++ show home ++
                                "\n" ++ "forward progress = " ++ show prog ++
-                               "\n" ++ "kings' proximity to enemy pieces = "
+                               "\n" ++ "king's proximity to enemy pieces = "
                                       ++ show kProximity }
                     , finl )
         WWins -> (CkEval {_total = finalValW,

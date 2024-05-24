@@ -8,14 +8,12 @@
 
 module StratWeb.YesodMain (webInit) where
 
-import Control.Lens
 import Checkers
 import CheckersJson
 import Data.Aeson
 import Data.IORef
 import Data.Text (Text)
 import Data.Tree
-import qualified Strat.StratTree.TreeNode as TreeNode
 import qualified StratWeb.WebRunner as WR
 import System.Random
 import Yesod hiding (insert)

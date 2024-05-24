@@ -17,6 +17,7 @@ import Data.Tree
 import Data.Hashable
 import Strat.Helpers
 import Data.List
+import Data.List.Extra (replace)
 import Strat.StratIO
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
@@ -24,7 +25,7 @@ import System.Random
 import qualified Checkers as Ck
 import qualified CheckersJson as J
 -- import Text.Printf
-import Debug.Trace
+-- import Debug.Trace
 
 -- TODO: Split out the checkers-specific code to another file
 data CheckersEnv = CheckersEnv
@@ -93,46 +94,39 @@ processPlayerMove t mv bComputerResponse rnds = do
                 else if bComputerResponse
                     then do
                         let posColor = color $ rootLabel processed
-                        liftIO $ putStrLn $ "Computer move (In processPlayerMove), turn = "
-                                          ++ show (colorToTurn posColor)
+                        putStrLn $ "Computer move (In processPlayerMove), turn = "
+                                 ++ show (colorToTurn posColor)
                         computerResponse processed rnds
                     else return $ createUpdate "No computer move" processed processed Nothing
 
 computerResponse :: RandomGen g => Tree Ck.CkNode -> g -> IO NodeWrapper
 computerResponse prevNode gen = do
-    eitherNode <- computerMove prevNode gen
-    case eitherNode of
-        Left s -> return $ createError s prevNode
-        Right MoveResults{..} ->
-            let (_b, currentPosStr) = checkGameOver mrNewTree
-                ms = case mrMoveScores of
-                  [] -> Nothing
-                  (x:_xs) -> Just x
-            in return $ createUpdate currentPosStr prevNode mrNewTree ms
-
-computerMove :: RandomGen g => Tree Ck.CkNode -> g
-                -> IO (Either String (MoveResults Ck.CkNode Ck.CkMove))
-computerMove t gen = do
-   (expandedT, res@Z.NegaResult{..}) <- searchTo t (Just gen) (Z.maxDepth gameEnv) (Z.maxCritDepth gameEnv)
+   (expandedT, result@Z.NegaResult{..}) <- searchTo prevNode (Just gen) (Z.maxDepth gameEnv)
+                                           (Z.maxCritDepth gameEnv)
    putStrLn "\n--------------------------------------------------\n"
-   printMoveChoiceInfo expandedT res
-   let nextNode = Z.nmNode (Z.picked res)
+   let details = getMoveChoiceInfo expandedT result
+   printMoveChoiceInfo expandedT result -- converts <br> to \n
+   putStrLn details
+   let nextNode = Z.nmNode (Z.picked result)
    let nextMove = getMove nextNode
    let newRoot = findMove expandedT nextMove
    case newRoot of
        Left s -> do
-           let newNodeMoves = possibleMoves (rootLabel t)
+           let newNodeMoves = possibleMoves (rootLabel prevNode)
            liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
-           return $ Left s
-       Right r -> do
+           return $ createError s prevNode
+       Right newTree -> do
           -- note: 'head' is safe in this context...
           let moveScores = mkMoveScores $ head (Z.nmMovePath picked) : (head . Z.nmMovePath  <$> alternatives)
           putStrLn $ "computerMove -- moveScores: " ++ show moveScores
-          return $ Right ( MoveResults
-              { mrResult = res
-              , mrMoveScores = moveScores
-              , mrMove = nextMove
-              , mrNewTree = r } )
+          let (done, doneStr) = checkGameOver newTree
+          if done
+              then return $ createMessage doneStr newTree
+            else do
+              let ms = case moveScores of
+                    [] -> Nothing
+                    (x:_xs) -> Just x
+              return $ createUpdate details prevNode newTree ms
 
 searchTo :: (Z.ZipTreeNode a, Hashable a, Ord a, Show a, Eval a, RandomGen g)
          => Tree a -> Maybe g -> Int -> Int -> IO (Tree a, Z.NegaResult a)
@@ -147,9 +141,7 @@ checkGameOver node =
         WWins -> (True, "White wins.")
         BWins -> (True, "Black wins.")
         Draw  -> (True, "Draw.")
-        _     ->
-            let nodeLabel = rootLabel node
-            in (False, "Computer's move, score:<br/>" ++ show nodeLabel)
+        _     -> (False, "")
 
 --convert +1, -1 to 1, 2
 colorToTurn :: Int -> Int
@@ -174,13 +166,27 @@ createError s node = NodeWrapper {getNode = node, getLastMove = Nothing,
                                   getJsonable = Jsonable (J.jsonError s)}
 
 ----------------------------------------------------------------------------------------------------
--- Output to the console, for debugging
+-- Debugging output
 ----------------------------------------------------------------------------------------------------
 printMoveChoiceInfo :: Tree Ck.CkNode -> Z.NegaResult Ck.CkNode -> IO ()
 printMoveChoiceInfo tree result = do
-    putStrLn ("Tree size: " ++ show (Z.treeSize tree))
-    putStrLn ("(pmci) Computer's move: " ++ show (Z.picked result))
-    putStrLn ("score details: \n"
-             ++ Ck.showScoreDetails (Ck._ckValue (Z.nmNode (Z.picked result))))
-    putStrLn ("Alternative moves:\n" ++ intercalate "\n"
-             (show <$> Z.alternatives result) ++ "\n")
+    let s = getMoveChoiceInfo tree result
+    let replaced = replace "<br>" "\n" s
+    putStrLn replaced
+
+getMoveChoiceInfo :: Tree Ck.CkNode -> Z.NegaResult Ck.CkNode -> String
+getMoveChoiceInfo tree result =
+    let str = "Tree size: " ++ show (Z.treeSize tree) ++ "<br>"
+            ++ "Computer's move:<br>" ++ show (Z.picked result) ++ "<br>"
+            ++ "score details:" ++ "<br>"
+            ++ showScoreDetailsWeb (Ck._ckValue (Z.nmNode (Z.picked result))) ++ "<br>"
+            ++ "Alternative moves:" ++ "<br>"
+            ++ intercalate "<br>" (show <$> Z.alternatives result)
+    in str
+
+-- TODO: better, less confusing text vs web organization is needed here...
+showScoreDetailsWeb :: Ck.CkEval -> String
+showScoreDetailsWeb eval =
+  let str = Ck.showScoreDetails eval
+      replaced = replace "\n" "<br>" str
+  in replaced
