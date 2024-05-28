@@ -11,7 +11,6 @@ import Data.List
 import Data.Tree
 import Strat.Helpers
 import Strat.ZipTree
-    ( treeSize, NegaMoves(nmNode), NegaResult(alternatives, picked) )
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Map as Map

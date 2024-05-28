@@ -12,7 +12,6 @@ import Test.Hspec
 import Checkers
 import qualified CheckersJson as J
 import MegaParser8By8
--- import GameRunner
 import Strat.Helpers
 import Strat.StratIO
 import Strat.StratTree.TreeNode

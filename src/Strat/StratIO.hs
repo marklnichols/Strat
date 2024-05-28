@@ -24,18 +24,11 @@ import Data.Maybe
 import Data.Tree (Tree)
 import qualified Data.Tree as T
 import Data.Tree.Zipper
--- import Strat.StratTree.TreeNode
 import Strat.ZipTree hiding (expandTo)
 import qualified Strat.ZipTree as Z
 import Strat.StratTree.TreeNode
 import Text.Printf
 import System.Random
-
--- resolveRandom :: [MoveScore m e] -> IO (Maybe (MoveScore m e))
--- resolveRandom [] = return Nothing
--- resolveRandom xs = do
---     r <- getStdRandom $ randomR (1, length xs)
---     return $ Just $ xs !! (r-1)
 
 searchToSingleThreaded
     :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
@@ -70,7 +63,6 @@ expandToParallel :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
                  => T.Tree a -> Int -> Int -> Z.ZipTreeM r (T.Tree a)
 expandToParallel t depth critDepth = do
     -- expansion of at least one level should always have been previously done
-
     let s = printf "\nexpandToParallel called with depth:%d, critDepth:%d" depth critDepth
     liftIO $ putStrLn s
     let (tSize, tLevels)  = treeSize t
