@@ -52,7 +52,7 @@ main = do
           GameRunner.startGame CheckersText startNode startState depth critDepth aiPlaysWhite aiPlaysBlack
             preSortOn (not noRandom) (not noPruning) singleThreaded verbose pruneTracing cmpTracing (pack traceStr)
       "checkersWeb" -> webInit
-      _ -> print theArgs
+      s ->  putStrLn (s ++ " is not a valid example name. Valid choices: chess, checkers, and checkersWeb")
 
 -- TODO: remove pruneTracing and cmpTracing and implement via Verbosity
 data StratArgs = StratArgs

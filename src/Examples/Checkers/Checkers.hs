@@ -116,7 +116,7 @@ instance Show CkMove where
     show mv = show $ toParserMove mv
 
 instance Show CkNode where
-    show n = "move: " ++ show (n ^. ckMove) ++ ", value: " ++ show (n ^. ckValue)
+    show n = show (n ^. ckMove)
 
 instance Ord CkNode where
     (<=) ckn1 ckn2 = evaluate ckn1 <= evaluate ckn2
@@ -128,7 +128,7 @@ isCritical :: CkNode -> Bool
 isCritical cn = _isJump $ _ckMove cn
 
 showScoreDetails :: CkEval -> String
-showScoreDetails e =  "Total " ++ show e ++ " made up of " ++ (e ^. details)
+showScoreDetails e =  "Total " ++ show e ++ " made up of:\n" ++ (e ^. details)
 
 evaluateCkNode :: CkNode -> Float
 evaluateCkNode ckn = ckn ^. (ckValue . total)
@@ -287,7 +287,6 @@ toParserMove mv =
     let mAll = intToLoc (mv^.startIdx) : fmap intToLoc (mv^.middleIdxs) ++ [intToLoc (mv^.endIdx)]
     in Parser.Move mAll
 
-
 intToLoc :: Int -> Parser.Loc
 intToLoc n =
     let mchar = chr $ 65 + offset n + colPlus n
@@ -323,7 +322,7 @@ boardAsPieceList node =
 -- calculate new node from a previous node and a move
 ---------------------------------------------------------------------------------------------------
 calcNewNode :: CkNode -> CkMove -> TreeLocation -> CkNode
-calcNewNode node mv _tl =
+calcNewNode node mv tl =
     let moved = movePiece node (mv ^. startIdx) (mv ^. endIdx)
         captured = removeMultiple moved (mv ^. removedIdxs)      --remove any captured pieces
         clrFlipped = set (ckPosition . clr) (negate (captured ^. (ckPosition . clr))) captured
@@ -332,10 +331,10 @@ calcNewNode node mv _tl =
         finSet = set (ckPosition . fin) finalSt clrFlipped
         scoreSet = set ckValue eval finSet
         errScoreSet = set ckErrorValue errEval scoreSet
-    in set ckMove mv errScoreSet
+        treeLocSet = set ckTreeLoc tl errScoreSet
+    in set ckMove mv treeLocSet
 
 removePiece :: CkNode -> Int -> CkNode
--- removePiece node idx = set (ckPosition . grid . ix idx) 0 node
 removePiece node idx =
      let g = node ^. (ckPosition . grid)
          g' = unGrid g
@@ -346,15 +345,6 @@ removePiece node idx =
 removeMultiple :: CkNode -> [Int] -> CkNode
 removeMultiple = foldr (flip removePiece)
 
--- movePiece :: CkNode -> Int -> Int -> CkNode
--- movePiece node pFrom pTo =
---     let value = node ^? (ckPosition . grid . ix pFrom)
---         valid = value >>= validPiece node
---     in case valid of
---         Nothing -> node
---         Just x -> let z = checkPromote node x pTo
---                       p = set (ckPosition . grid . ix pTo) z node
---                   in removePiece p pFrom
 movePiece :: CkNode -> Int -> Int -> CkNode
 movePiece node pFrom pTo =
     let pos = _ckPosition node;
@@ -412,10 +402,10 @@ evalCkNode n =
     in case finl of
         NotFinal -> ( CkEval { _total = mat + mob + home + prog
                              , _details = "material = " ++ show mat ++
-                               "<br>" ++ "mobility = " ++ show mob ++
-                               "<br>" ++ "home row occupation = " ++ show home ++
-                               "<br>" ++ "forward progress = " ++ show prog ++
-                               "<br>" ++ "kings' proximity to enemy pieces = "
+                               "\n" ++ "mobility = " ++ show mob ++
+                               "\n" ++ "home row occupation = " ++ show home ++
+                               "\n" ++ "forward progress = " ++ show prog ++
+                               "\n" ++ "king's proximity to enemy pieces = "
                                       ++ show kProximity }
                     , finl )
         WWins -> (CkEval {_total = finalValW,

@@ -3,7 +3,6 @@
 
 module GameRunner
  ( searchTo
- , expandSingleThreaded
  , startGame
  ) where
 
@@ -16,8 +15,7 @@ import Data.Text (Text)
 import Data.Tree
 import Strat.Helpers
 import qualified Strat.ZipTree as Z
-import Strat.StratIO (expandToParallel, expandToSingleThreaded,
-                      negaMaxParallel, negaMaxSingleThreaded)
+import Strat.StratIO
 import Strat.StratTree.TreeNode
     ( Entry(MoveEntry, CmdEntry),
       Eval,
@@ -38,9 +36,6 @@ data RunnerData = RunnerData
 class HasRunnerData a where
   runnerData :: a -> IORef RunnerData
 
--- instance HasRunnerData RunnerData where
---   runnerData = id
-
 data RunnerZipTreeEnv = RunnerZipTreeEnv
   { zipTreeEnv :: Z.ZipTreeEnv
   , runData :: IORef RunnerData
@@ -52,12 +47,13 @@ instance Z.HasZipTreeEnv RunnerZipTreeEnv where
 instance HasRunnerData RunnerZipTreeEnv where
   runnerData = runData
 
--- TODO: make a type for all these flags...
-startGame :: (Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, Hashable n, Z.PositionState p)
-          => o -> Tree n -> p -> Int -> Int -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool
-          -> Bool -> Bool -> Text -> IO ()
-startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack enablePreSort enableRandom
-          enablePruning singleThreaded
+-- TODO: make a record/type for all these flags...
+startGame :: ( Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n
+             , Hashable n, Z.PositionState p)
+          => o -> Tree n -> p -> Int -> Int -> Bool -> Bool -> Bool -> Bool
+          -> Bool -> Bool -> Bool -> Bool -> Bool -> Text -> IO ()
+startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack
+          enablePreSort enableRandom enablePruning singleThreaded
           verbose enablePruneTracing enableCmpTracing moveTraceStr = do
   let ztEnv = Z.ZipTreeEnv
         { Z.verbose
@@ -105,7 +101,7 @@ startGameLoop r o node = do
     _ <- liftIO $ runReaderT
       ( do
         -- TODO: Test this with 1 1
-        newTree <- expandSingleThreaded node 2 2
+        newTree <- expandToSingleThreaded node 2 2
         liftIO $ putStrLn $ "(startGameLoop - treesize: " ++ show (Z.treeSize newTree) ++ ")"
         loop rnd o newTree []
       ) r
@@ -202,20 +198,6 @@ computersTurn gen o t nodeHistory = do
           liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
           error s
 
-expandSingleThreaded :: (Ord a, Show a, Z.ZipTreeNode a, Z.HasZipTreeEnv r)
-           => Tree a -> Int -> Int -> Z.ZipTreeM r (Tree a)
-expandSingleThreaded t depth critDepth = do
-    let s = printf "expandSingleThreaded called with depth:%d, critDepth:%d" depth critDepth
-    liftIO $ putStrLn s
-    expandToSingleThreaded t depth critDepth
-
-expandMultiThreaded :: (Ord a, Show a, Z.ZipTreeNode a, Z.HasZipTreeEnv r)
-           => Z.ZipTreeEnv -> Tree a -> Int -> Int -> Z.ZipTreeM r (Tree a)
-expandMultiThreaded env t depth critDepth = do
-    let s = printf "\nexpandMultiThreaded called with depth:%d, critDepth:%d" depth critDepth
-    liftIO $ putStrLn s
-    expandToParallel t depth critDepth
-
 isCompTurn :: (Z.HasZipTreeEnv r) => Z.Sign -> Z.ZipTreeM r Bool
 isCompTurn sign = do
     r <- ask
@@ -239,36 +221,6 @@ searchTo t gen depth critDepth = do
     if Z.singleThreaded env
       then searchToSingleThreaded t gen depth critDepth
       else searchToMultiThreaded t gen depth critDepth
-
-searchToSingleThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
-         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
-searchToSingleThreaded t gen maxDepth maxCritDepth = do
-    expanded <- expandSingleThreaded t maxDepth maxCritDepth
-    evalTreeSingleThreaded expanded gen
-
-searchToMultiThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
-         => Tree n -> Maybe g -> Int -> Int -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
-searchToMultiThreaded t gen maxDepth maxCritDepth = do
-    r <- ask
-    let env = Z.zte r
-    expanded <- expandMultiThreaded env t maxDepth maxCritDepth
-    evalTreeMultiThreaded expanded gen
-
-evalTreeSingleThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
-         => Tree n -> Maybe g -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
-evalTreeSingleThreaded t gen = do
-    r <- ask
-    let env = Z.zte r
-    res <- negaMaxSingleThreaded env t gen
-    return (t, res)
-
-evalTreeMultiThreaded :: (Z.ZipTreeNode n, Hashable n, Ord n, Show n, Eval n, RandomGen g, Z.HasZipTreeEnv r)
-         => Tree n -> Maybe g -> Z.ZipTreeM r (Tree n, Z.NegaResult n)
-evalTreeMultiThreaded t gen = do
-    r <- ask
-    let env = Z.zte r
-    res <- negaMaxParallel env t gen
-    return (t, res)
 
 processUndo :: (TreeNode n m, Z.HasZipTreeEnv r) => [n] -> Z.ZipTreeM r (Maybe (Tree n, [n]))
 processUndo ns = do

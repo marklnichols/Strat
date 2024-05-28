@@ -259,7 +259,7 @@ expandTo :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
          -> Int
          -> ZipTreeM r (T.Tree a)
 expandTo t curDepth depth critDepth =
-      decendUntil (fromTree t) curDepth depth critDepth
+    decendUntil (fromTree t) curDepth depth critDepth
 
 decendUntil :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
             => TreePos Full a
