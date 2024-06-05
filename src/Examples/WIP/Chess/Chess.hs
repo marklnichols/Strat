@@ -1168,17 +1168,15 @@ calcNewNode node mv tLoc =
             cm@CastlingMove{..} -> (castle' curGrid cm, _kingStartIdx, _kingEndIdx)
             ep@EnPassantMove{..} -> (movePiece' curGrid ep _epStartIdx _epEndIdx, _epStartIdx ,_epEndIdx )
         clrFlipped = flipPieceColor curColor
-
         kingLocs = curPos ^. cpKingLoc
         kingLocs' = updateKingLocs newGrid kingLocs mvEndIdx
 
         -- after applying the current move, is the side to play next (w/color 'clrFlipped') in check?
-        inCheckPair = curPos ^. cpInCheck
-        isInCheck = inCheck newGrid clrFlipped (colorToTupleElem clrFlipped kingLocs')
+        inCheckPair = (False, False)
+        isInCheck = inCheck' newGrid clrFlipped (colorToTupleElem clrFlipped kingLocs')
         inCheckPair' = colorToTuple clrFlipped inCheckPair isInCheck
 
         (whiteLocs, blackLocs) = calcLocsForColor newGrid
-
         newPos = curPos { _cpGrid = newGrid
                          , _cpWhitePieceLocs = whiteLocs
                          , _cpBlackPieceLocs = blackLocs
@@ -1249,7 +1247,7 @@ moveIsCheckAgainst' curPos mv kingsColor =
      in inCheck newGrid kingsColor (colorToTupleElem kingsColor kingLocs')
 
 ---------------------------------------------------------------------------------------------------
--- Calulate if the king at the given location is in check
+-- Is the king in the given position in check?
 ---------------------------------------------------------------------------------------------------
 inCheck :: ChessGrid -> Color -> Int -> Bool
 inCheck g c kingLoc =
@@ -2012,12 +2010,12 @@ queenSideCastlingMove pos White =
 queenSideCastlingMove pos _ =
   let g = _cpGrid pos
   in [mkCastleMove Black QueenSide |
-        isEmpty pos 16
-        && isEmpty pos 17
-        && isEmpty pos 18
-        && not (inCheck g Black 15)
-        && not (inCheck g Black 16)
-        && not (inCheck g Black 17)]
+        isEmpty pos 86
+        && isEmpty pos 87
+        && isEmpty pos 88
+        && not (inCheck g Black 85)
+        && not (inCheck g Black 86)
+        && not (inCheck g Black 87)]
 
 isEmpty :: ChessPos -> Int -> Bool
 isEmpty pos = isEmptyGrid (_cpGrid pos)
