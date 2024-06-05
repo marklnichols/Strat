@@ -1173,7 +1173,7 @@ calcNewNode node mv tLoc =
 
         -- after applying the current move, is the side to play next (w/color 'clrFlipped') in check?
         inCheckPair = (False, False)
-        isInCheck = inCheck' newGrid clrFlipped (colorToTupleElem clrFlipped kingLocs')
+        isInCheck = inCheck newGrid clrFlipped (colorToTupleElem clrFlipped kingLocs')
         inCheckPair' = colorToTuple clrFlipped inCheckPair isInCheck
 
         (whiteLocs, blackLocs) = calcLocsForColor newGrid
