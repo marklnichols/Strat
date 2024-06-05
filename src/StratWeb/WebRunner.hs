@@ -112,7 +112,7 @@ computerResponse prevNode gen = do
    let newRoot = findMove expandedT nextMove
    case newRoot of
        Left s -> do
-           let newNodeMoves = possibleMoves (rootLabel prevNode)
+           let newNodeMoves = possibleMoves (rootLabel prevNode) Z.NA
            liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
            return $ createError s prevNode
        Right newTree -> do

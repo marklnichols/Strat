@@ -53,7 +53,7 @@ import GHC.Generics
 import Prelude hiding (lookup)
 import Strat.Helpers
 import Strat.StratTree.TreeNode hiding (MoveScore)
-import Strat.ZipTree
+import qualified Strat.ZipTree as Z
 import Safe
 import qualified MegaParser8By8 as Parser
 import qualified Data.Vector.Unboxed as V
@@ -102,7 +102,7 @@ newtype PieceList = PieceList {pieceLocs :: [PieceLoc]}
 
 instance TreeNode CkNode CkMove where
     newNode = calcNewNode
-    possibleMoves = getAllowedMoves
+    possibleMoves = getAllowedMoves'
     color = view (ckPosition . clr)
     final = view (ckPosition . fin)
     critical = isCritical
@@ -140,15 +140,15 @@ instance Eval CkNode where
     isEvaluated ckn = ckn ^. ckIsEvaluated
     setFloat ckn x = ckn & (ckValue . total) .~ x
 
-instance ZipTreeNode CkNode where
+instance Z.ZipTreeNode CkNode where
   ztnEvaluate = evaluateCkNode
   ztnMakeChildren = makeChildren
   ztnSign cn = clrToSign (cn ^. (ckPosition . clr))
-  ztnFinal cn = cn ^. (ckPosition . fin) /= NotFinal
+  -- ztnFinal cn = cn ^. (ckPosition . fin) /= NotFinal
 
-clrToSign :: Int -> Sign
-clrToSign 1 = Pos
-clrToSign _ = Neg
+clrToSign :: Int -> Z.Sign
+clrToSign 1 = Z.Pos
+clrToSign _ = Z.Neg
 
 ---------------------------------------------------------------------------------------------------
 -- parse string input to move
@@ -167,7 +167,7 @@ parseCkMove n s =
 ---------------------------------------------------------------------------------------------------
 newtype CheckersPosState = CheckersPosState {unPosState :: String}
 
-instance PositionState CheckersPosState where
+instance Z.PositionState CheckersPosState where
   toString  = unPosState
   combineTwo s _ = s
 
@@ -501,8 +501,12 @@ getPossibleMoves :: CkNode -> [CkMove]
 getPossibleMoves n = foldr f [] (getPieceLocs n) where
                         f x r = r ++ pieceMoves n x ++ pieceJumps n x
 
+
 getAllowedMoves :: CkNode -> [CkMove]
-getAllowedMoves node = (requireJumps . getPossibleMoves) node
+getAllowedMoves node = getAllowedMoves' node Z.NA
+
+getAllowedMoves' :: CkNode -> Z.ChildrenLeafStatus -> [CkMove]
+getAllowedMoves' node _ = (requireJumps . getPossibleMoves) node
 
 requireJumps :: [CkMove] -> [CkMove]
 requireJumps xs = case filter (^. isJump) xs of

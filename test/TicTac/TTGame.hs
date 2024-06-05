@@ -19,6 +19,7 @@ import Control.Lens
 import Data.Tree
 import Strat.StratTree.TreeNode hiding (MoveScore)
 import qualified TicTac.TTParser as Parser
+import qualified Strat.ZipTree as Z
 
 ------------------------------------------------------------------
 -- Data Types
@@ -67,7 +68,7 @@ instance TreeNode TTNode IntMove where
     treeLoc _ = tl0
     getMove t = t ^. ttMove
     newNode n mv _ = calcNewNode n mv
-    possibleMoves = getPossibleMoves
+    possibleMoves = getPossibleMoves'
     color n = n ^. (ttPosition . clr)
     final n = n ^. (ttPosition . fin)
     critical _ = False
@@ -144,7 +145,10 @@ undoTTMove cn _undoMove = cn
 -- get list of possible moves from a given position
 ---------------------------------------------------------
 getPossibleMoves :: TTNode -> [IntMove]
-getPossibleMoves n =  foldr f [] (zip (n ^. (ttPosition . grid)) [1..9]) where
+getPossibleMoves n = getPossibleMoves' n Z.NA
+
+getPossibleMoves' :: TTNode -> Z.ChildrenLeafStatus -> [IntMove]
+getPossibleMoves' n _ =  foldr f [] (zip (n ^. (ttPosition . grid)) [1..9]) where
     f (x, idx) newList
         | x == 0        = IntMove (idx * (n ^. ttPosition . clr)) : newList
         | otherwise     = newList

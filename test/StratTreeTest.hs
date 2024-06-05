@@ -21,9 +21,9 @@ data NodeVal = NodeVal { nvalToInt :: Int, sign :: Sign }
 
 instance ZipTreeNode NodeVal where
   ztnEvaluate = fromIntegral . nvalToInt
-  ztnMakeChildren _ = []
+  ztnMakeChildren _ _ = []
   ztnSign = sign
-  ztnFinal _ = False
+  -- ztnFinal _ = False
 
 --TODO: look into preSort problems -- disabled for now
 testEnv :: ZipTreeEnv

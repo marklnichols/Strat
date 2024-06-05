@@ -6,12 +6,14 @@
 module Strat.ZipTree
   ( expandTo
   , decendUntil
+  , ChildrenLeafStatus(..)
   , CompareMode(..) -- exported for testing
   , HasZipTreeEnv (..)
   , isWithin
   , MateIn(..) -- exported for testing
   , mateInCompare -- exported for testing
   , maxScore
+  , maxScoreThreshold
   , maxTC
   , maxValueTemp
   , minScore
@@ -103,6 +105,12 @@ minValueTemp = - maxValueTemp
 -- e.g. used as a value for checkmate in chess
 maxScore :: Float
 maxScore = 1000000.0
+
+-- any |score| above maxScoreThreshold is assumed to be made up of
+-- maxScore minus some less significant score adjustments
+-- e.g. treat 999998.0 the same as 1000000.0
+maxScoreThreshold :: Float
+maxScoreThreshold = 500000.0
 
 minScore :: Float
 minScore = - maxScore
@@ -238,11 +246,18 @@ initAlphaBeta = AlphaBeta
   { alpha = minValueTemp
   , beta = maxValueTemp }
 
+-- when requesting children of a given node, will the children be leaf nodes?
+-- (usefull for some search optimizations)
+data ChildrenLeafStatus = Leaves | NotLeaves | Unknown | NA
+  deriving Show
+
+data LeafOptimization = LeafOptOn | LeafOptOff
+
 class ZipTreeNode a where
   ztnEvaluate :: a -> Float
-  ztnMakeChildren :: a -> [T.Tree a]
+  ztnMakeChildren :: a -> ChildrenLeafStatus -> [T.Tree a]
   ztnSign :: a -> Sign
-  ztnFinal :: a -> Bool
+  -- ztnFinal :: a -> Bool
   ztnDeepDescend :: a -> Bool
   ztnDeepDescend _ = False
 
@@ -259,32 +274,42 @@ expandTo :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
          -> Int
          -> ZipTreeM r (T.Tree a)
 expandTo t curDepth depth critDepth =
-    decendUntil (fromTree t) curDepth depth critDepth
+    decendUntil (fromTree t) curDepth depth critDepth LeafOptOn
 
 decendUntil :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
             => TreePos Full a
             -> Int
             -> Int
             -> Int
+            -> LeafOptimization
             -> ZipTreeM r (T.Tree a)
-decendUntil z curDepth goalDepth critDepth
-    -- not past the goal depth
-    | curDepth <= goalDepth = do
-        !theChildren <- buildChildren z curDepth goalDepth critDepth
+decendUntil z curDepth goalDepth critDepth leafOpt
+    START HERE, leafOpt not used??
+    -- below the goal depth
+    | curDepth < goalDepth = do
+        !theChildren <- buildChildren z curDepth goalDepth critDepth NotLeaves
         return $ toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z
+
+    -- at the goal depth
+    | curDepth == goalDepth = do
+        !theChildren <- buildChildren z curDepth goalDepth critDepth Unknown
+        return $ toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z
+
     -- past the goal depth and the parent isn't a crit -- stop
     | curDepth > goalDepth
-    , ztnDeepDescend (label z) == False = return $ toTree z
+    , not (ztnDeepDescend (label z)) =
+        return $ toTree z
 
     -- past the goal depth and the crit depth -- stop
     | curDepth > goalDepth
-    , curDepth > critDepth = return $ toTree z
+    , curDepth > critDepth =
+      return $ toTree z
 
     -- crits only
     | otherwise = do -- crits only...
-        unfiltered <- buildChildren z curDepth goalDepth critDepth
+        unfiltered <- buildChildren z curDepth goalDepth critDepth Unknown
         let !theChildren = filterDeepDecentChildren unfiltered
-        return (toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z)
+        return $ toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z
 
 filterDeepDecentChildren :: ZipTreeNode a => [T.Tree a] -> [T.Tree a]
 filterDeepDecentChildren xs = filter (\t -> ztnDeepDescend (T.rootLabel t)) xs
@@ -294,15 +319,16 @@ buildChildren :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
               -> Int
               -> Int
               -> Int
+              -> ChildrenLeafStatus
               -> ZipTreeM r [T.Tree a]
-buildChildren z curDepth goalDepth critDepth = do
+buildChildren z curDepth goalDepth critDepth childrenLeafStatus = do
     let tempLabel = label z
     let tempForest = T.subForest $ toTree z
     theChildren <-
         -- note: rebuild the list of moves if non-crits could have been filtered
         -- out but are needed again
         if null tempForest || critsOnly tempForest
-          then return $ ztnMakeChildren tempLabel
+          then return $ ztnMakeChildren tempLabel childrenLeafStatus
           else return tempForest
     (results, _) <- zipFoldR (zipFoldFn curDepth goalDepth critDepth)
                     ([], children z) theChildren
@@ -318,7 +344,18 @@ zipFoldFn :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
   -> ZipTreeM r ([T.Tree a], TreePos Empty a)
 zipFoldFn curDepth goalDepth critDepth t (xs, childPos) = do
     let zippedChild = fromTree t
-    newT <- decendUntil zippedChild (curDepth + 1) goalDepth critDepth
+    -- this prevents a weird corner-case of the leaf optimization where
+    -- e.g., in chess, BOTH kings would be 'captured', with the inteneded extreme
+    -- position evaluation scores essentially cancelling each other out
+
+    -- let continueLeafOpt = do
+    --       let absVal = abs $ ztnEvaluate $ T.rootLabel t
+    --       if absVal > maxScoreThreshold
+    --           then LeafOptOff
+    --           else LeafOptOn
+    let continueLeafOpt = LeafOptOff
+
+    newT <- decendUntil zippedChild (curDepth + 1) goalDepth critDepth continueLeafOpt
     let tmp = insert newT childPos
     let nextChildPos = nextSpace tmp
     return (newT : xs, nextChildPos)

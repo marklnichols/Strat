@@ -10,7 +10,7 @@ import Control.Monad
 import Data.List
 import Data.Tree
 import Strat.Helpers
-import Strat.ZipTree
+import qualified Strat.ZipTree as Z
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Map as Map
@@ -35,15 +35,15 @@ showBoard _ n = do
     putStrLn ("Current position score: \n" ++ showScoreDetails (_ckValue n))
     putStrLn "\n--------------------------------------------------\n"
 
-printMoveChoiceInfo :: Tree CkNode -> NegaResult CkNode -> Bool -> IO ()
+printMoveChoiceInfo :: Tree CkNode -> Z.NegaResult CkNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
-    putStrLn ("Tree size: " ++ show (treeSize tree))
-    putStrLn ("Computer's move: " ++ show (picked result))
+    putStrLn ("Tree size: " ++ show (Z.treeSize tree))
+    putStrLn ("Computer's move: " ++ show (Z.picked result))
     when loud $ do
         putStrLn ("score details: \n"
-                 ++ showScoreDetails (_ckValue (nmNode (picked result))))
+                 ++ showScoreDetails (_ckValue (Z.nmNode (Z.picked result))))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
-                 (show <$> alternatives result))
+                 (show <$> Z.alternatives result))
         putStrLn ""
 
 exitFail :: CheckersText -> String -> IO ()
@@ -68,7 +68,7 @@ playerEntry tree exclusions = do
                     putStrLn ("Command!: " ++ s)
                     playerEntry tree exclusions
         Right me@(MoveEntry mv) ->
-            if not (isLegal tree mv exclusions)
+            if not (isLegal tree mv exclusions Z.NA)
                 then do
                     putStrLn "Not a legal move."
                     playerEntry tree exclusions

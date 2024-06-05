@@ -163,7 +163,7 @@ playersTurn gen o t nodeHistory = do
           Right newTree -> return (newTree, rootLabel newTree:nodeHistory)
           Left s ->  do
               liftIO $ putStrLn s
-              let newNodeMoves = possibleMoves (rootLabel expandedT)
+              let newNodeMoves = possibleMoves (rootLabel expandedT) Z.Leaves
               liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
               playersTurn gen o t nodeHistory
 
@@ -194,7 +194,7 @@ computersTurn gen o t nodeHistory = do
     case newRoot of
         Right r -> return (r, updatedHistory)
         Left s -> do
-          let newNodeMoves = possibleMoves (rootLabel t)
+          let newNodeMoves = possibleMoves (rootLabel t) Z.Leaves
           liftIO $ putStrLn $ "Available moves:" ++ show newNodeMoves
           error s
 
@@ -252,7 +252,7 @@ processCommand cmd node nodeHistory o
     | cmd == "undo" = do
         processUndo nodeHistory
     | cmd == "moves" = do
-        liftIO $ print $ possibleMoves node
+        liftIO $ print $ possibleMoves node Z.Leaves
         return Nothing
     | otherwise = do
         liftIO $ putStrLn $ "Unhandled Commandi!: " ++ cmd

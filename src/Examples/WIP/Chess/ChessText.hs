@@ -12,7 +12,7 @@ import Control.Monad
 import Data.List.Extra
 import Data.Tree
 import Strat.Helpers
-import Strat.ZipTree
+import qualified Strat.ZipTree as Z
 import Strat.StratTree.TreeNode
 import System.Exit
 import qualified Data.Vector.Unboxed as V
@@ -39,30 +39,30 @@ showBoardBrief _ n = showBoard n
 showBoard :: ChessNode -> IO ()
 showBoard n = do
   putStrLn $ formatBoard n
-  putStrLn ("Board hash: " ++ show (nodeHash n))
+  putStrLn ("Board hash: " ++ show (Z.nodeHash n))
 
-printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
+printMoveChoiceInfo :: Tree ChessNode -> Z.NegaResult ChessNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
-    let (tSize, tLevels)  = treeSize tree
-    let evaluated = evalCount result
+    let (tSize, tLevels)  = Z.treeSize tree
+    let evaluated = Z.evalCount result
     let percentSaved = 1.0 - fromIntegral evaluated / fromIntegral (tSize-1) :: Float
     putStrLn ("Tree size: " ++ show tSize)
     print tLevels
     putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
-    putStrLn ("Move with best score: " ++ show (bestScore result))
-    putStrLn ("(*) Computer's move: " ++ show (picked result))
+    putStrLn ("Move with best score: " ++ show (Z.bestScore result))
+    putStrLn ("(*) Computer's move: " ++ show (Z.picked result))
 
-    let mv = getMove (nmNode (picked result))
+    let mv = getMove (Z.nmNode (Z.picked result))
     let n = rootLabel tree
     when (moveChecksOpponent n mv) $ do
         putStrLn " (check)"
     when loud $ do
         -- START HERE: -- For the selcted move, this does NOT show the details of the score of the deepest node!
         putStrLn ("Score details: \n"
-                 ++ showScoreDetails (_chessVal (last (nmMovePath (picked result)))))
+                 ++ showScoreDetails (_chessVal (last (Z.nmMovePath (Z.picked result)))))
         putStrLn ("Alternative moves:\n" ++ intercalate "\n"
-                 (show <$> alternatives result))
+                 (show <$> Z.alternatives result))
         putStrLn ""
 
 exitFail :: ChessText -> String -> IO ()
@@ -92,7 +92,7 @@ playerEntryText tree exclusions = do
             playerEntryText tree exclusions
         Right ce@(CmdEntry _) -> return ce
         Right me@(MoveEntry mv) ->
-            if not (isLegal tree mv exclusions)
+            if not (isLegal tree mv exclusions Z.Leaves)
                 then do
                     putStrLn "Not a legal move."
                     playerEntryText tree exclusions

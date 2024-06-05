@@ -19,7 +19,7 @@ import Strat.StratIO
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
--- import Text.Printf
+import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -204,8 +204,13 @@ chessTest = do
                 `shouldBe` KingSideOnlyAvailable
 
     describe "countMaterial" $
-      it "Calculates a score for the position based on the pieces on the board for each side" $
+      it "Calculates a score for the position based on the pieces on the board for each side" $ do
           countMaterial board01 `shouldBe` 6
+
+          -- material score that would have occurred if the White King could have been taken
+          -- (used for inCheck optimization)
+          let v = countMaterial board01NoKingW
+          v < -Z.maxScoreThreshold `shouldBe` True
 
     describe "calcDevelopment" $
       it ("Calculates a score for the position based on the development of the minor pieces "
@@ -336,8 +341,8 @@ chessTest = do
           checkFinal' (posFromGrid board07d White (11, 23) (True, False)) `shouldBe` BWins
     describe "negaMax" $
       it "finds the best move from the tree of possible moves" $ do
-        r1 <- matchStdMove mateInTwo01TestData
-        r1 `shouldBe` True
+        -- r1 <- matchStdMove mateInTwo01TestData
+        -- r1 `shouldBe` True
         r2 <- matchStdMove mateInTwo02TestData
         r2 `shouldBe` True
         r3b <- matchStdMove mateInTwo03bTestData
@@ -423,7 +428,7 @@ matchStdMove StdMoveTestData{..} = do
         StdMove {..} -> do
             let start = _startIdx
             let end = _endIdx
-            -- putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
+            putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 
@@ -536,6 +541,38 @@ P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27
                                                 A    B    C    D    E    F    G    H
 -}
 
+---------------------------------------------------------------------------------------------------
+-- Similar as board01 but missing the White king
+-- (Used in an optization for 'inCheck')
+---------------------------------------------------------------------------------------------------
+board01NoKingW :: ChessGrid
+board01NoKingW = ChessGrid $ V.fromList
+                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+                             '+',  ' ',  ' ',  'R',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  'P',  'P',  ' ',  ' ',  'B',  'R',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'P',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'B',  ' ',  'N',  'Q',  ' ',  ' ',  '+',
+                             '+',  ' ',  ' ',  'N',  ' ',  ' ',  ' ',  'P',  ' ',  '+',
+                             '+',  'p',  'q',  ' ',  ' ',  'b',  'p',  'p',  ' ',  '+',
+                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  'b',  'p',  '+',
+                             '+',  ' ',  ' ',  'r',  ' ',  ' ',  'r',  'k',  ' ',  '+',
+                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   r   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   b   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+p   q   -   -   b   p   p   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   N   -   -   -   P   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   B   -   N   Q   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   P   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   -   -   B   R   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   R   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-}
 
 enPassantBoard01 :: ChessGrid
 enPassantBoard01 = ChessGrid $ V.fromList

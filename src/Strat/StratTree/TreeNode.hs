@@ -91,7 +91,7 @@ class (Show e, Eq e, Ord e) => Eval e where
 class (Move m, Eval t) => TreeNode t m | t -> m where
     newNode :: t -> m -> TreeLocation -> t
     color :: t -> Int
-    possibleMoves :: t -> [m]
+    possibleMoves :: t -> Z.ChildrenLeafStatus -> [m]
     final :: t -> FinalState
     critical :: t -> Bool
     parseEntry :: t -> String -> Either String (Entry m s)

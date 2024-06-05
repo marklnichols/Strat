@@ -284,10 +284,10 @@ instance (TreeNode ChessNode m) =>  Z.ZipTreeNode ChessNode where
   ztnEvaluate = evalChessNode
   ztnMakeChildren = makeChessNodeChildren
   ztnSign cn = colorToSign (cn ^. (chessPos . cpState . cpsColorToMove))
-  ztnFinal cn = cn ^. (chessPos . cpFin) /= NotFinal
+  -- ztnFinal cn = cn ^. (chessPos . cpFin) /= NotFinal
   ztnDeepDescend = critsOnly
 
-makeChessNodeChildren :: TreeNode ChessNode m => ChessNode -> [Tree ChessNode]
+makeChessNodeChildren :: TreeNode ChessNode m => ChessNode -> Z.ChildrenLeafStatus -> [Tree ChessNode]
 makeChessNodeChildren = Helpers.makeChildren
 
 colorToSign :: Color -> Z.Sign
@@ -1292,20 +1292,27 @@ checkQueen g False mv =
         CastlingMove{}  -> False
 
 isCritical :: ChessNode -> Bool
-isCritical cn =
-    let isAnExchange =
-          case _chessMv cn of
-              StdMove{..} -> case _exchange of
-                Just _ -> True
-                Nothing -> False
-              _ -> False
+isCritical cn = isCriticalMove (_chessMv cn)
+    -- let isAnExchange =
+    --       case _chessMv cn of
+    --           StdMove{..} -> case _exchange of
+    --             Just _ -> True
+    --             Nothing -> False
+    --           _ -> False
+    -- in isAnExchange
+
+    {- this turns out to be a bad idea...
         pos = cn ^. chessPos
         clr = pos ^. (cpState . cpsColorToMove)
-    {- this turns out to be a bad idea...
          isInCheck = colorToTupleElem clr (pos ^. cpInCheck)
     in isAnExchange || isInCheck -}
 
-    in isAnExchange
+isCriticalMove :: ChessMove -> Bool
+isCriticalMove StdMove{..} =
+    case _exchange of
+        Just _ -> True
+        Nothing -> False
+isCriticalMove _ = False
 
 ---------------------------------------------------------------------------------------------------
 flipPieceColor :: Color -> Color
@@ -1883,7 +1890,7 @@ checkFinal' cp =
         inCheckStatus = colorToTupleElem c (_cpInCheck cp)
         iLose = colorToTupleElem c (BWins, WWins)
         -- ^ e.g. colorToTupleElem White (BWins, WWins) = BWins -- White loses
-        mvs = legalMoves' cp
+        mvs = legalMoves' cp Z.Leaves
     in if notNull mvs
            then NotFinal
            else if inCheckStatus then iLose else Draw
@@ -1891,32 +1898,68 @@ checkFinal' cp =
 ---------------------------------------------------------------------------------------------------
 -- get possible moves from a node
 --------------------------------------------------------------------------------------------------
-legalMoves :: ChessNode -> [ChessMove]
-legalMoves node =
+legalMoves :: ChessNode -> Z.ChildrenLeafStatus -> [ChessMove]
+legalMoves node leafStatus =
     let pos = node ^. chessPos
-    in  legalMoves' pos
+    in  legalMoves' pos leafStatus
 
-legalMoves' :: ChessPos -> [ChessMove]
-legalMoves' pos =
+legalMoves' :: ChessPos -> Z.ChildrenLeafStatus -> [ChessMove]
+legalMoves' pos leafStatus =
     let moves = calcMoveLists pos
         initialList = _cmEmpty moves ++ _cmEnemy moves
-    in  filterKingInCheck' pos initialList
+    in  filterKingInCheck' pos initialList leafStatus
 
-filterKingInCheck :: ChessNode -> [ChessMove] -> [ChessMove]
-filterKingInCheck node xs =
+filterKingInCheck :: ChessNode -> [ChessMove] -> Z.ChildrenLeafStatus -> [ChessMove]
+filterKingInCheck node xs leafStatus =
     let pos = node ^. chessPos
-    in filterKingInCheck' pos xs
+    in filterKingInCheck' pos xs leafStatus
 
-filterKingInCheck' :: ChessPos -> [ChessMove] -> [ChessMove]
-filterKingInCheck' pos xs =
+filterKingInCheck' :: ChessPos -> [ChessMove] -> Z.ChildrenLeafStatus -> [ChessMove]
+filterKingInCheck' pos xs leafStatus =
+
+    -- TODO:
+    -- inside ZipTree, assign a 'childrenStatus' to each node
+    -- data ChildrenStatus = Left | NotLeaf | Unknown
+    --   when depth < maxDepth ===> NotLeaf
+    --   when depth = maxCritDepth ===> Leaf
+    --   when depth >= maxDepth, depth < maxCritDepth ==> Unknown (depends on crit status)
+    --
+    -- and here:
+    --   if NotLeaf, skip filter
+    --   else if Unknown and move is Critical, skip filter
+    --   else filter
+    --
+
+
+    -- let g = pos ^. cpGrid
+    --     c = pos ^. (cpState . cpsColorToMove)
+    --     kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
+    --     foldf mv r =
+    --         if moveExposesKing' pos mv
+    --            then r
+    --            else mv : r
+    --     in foldr foldf [] xs
     let g = pos ^. cpGrid
         c = pos ^. (cpState . cpsColorToMove)
         kingLoc = colorToTupleElem c (pos ^. cpKingLoc)
-        foldf mv r =
-            if moveExposesKing' pos mv
-               then r
-               else mv : r
-        in foldr foldf [] xs
+    in case leafStatus of
+        Z.NotLeaves -> xs -- optimization: dont check if king is exposed, position scoring will avoid it
+        Z.Unknown -> foldr fCheckCrit [] xs
+        _         -> foldr fCheckAll [] xs
+
+  where
+      fCheckAll mv r =
+          if moveExposesKing' pos mv
+              then r
+              else mv : r
+      fCheckCrit mv acc =
+        if isCriticalMove mv
+          then mv : acc -- optimization: dont check if king is exposed, position scoring will avoid it
+          else consNonExposing pos mv acc
+      consNonExposing pos mv acc =
+          if moveExposesKing' pos mv
+              then acc
+              else mv : acc
 
 ---------------------------------------------------------------------------------------------------
 -- Determine if there are two connected rooks of a given color
@@ -2800,7 +2843,8 @@ mateInTwo01TestData = StdMoveTestData
     , smtdEndIdx = 31 }
 
 mateInTwoBoard02:: ChessGrid
-mateInTwoBoard02 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
+mateInTwoBoard02 = ChessGrid $ V.fromList
+                              [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
                                 '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  'K',  ' ',  'k',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
                                 '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
@@ -2813,7 +2857,7 @@ mateInTwoBoard02 = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  
 
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
-r   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
 -   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
 -   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
 -   -   b   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)

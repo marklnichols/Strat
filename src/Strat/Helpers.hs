@@ -10,13 +10,14 @@ module Strat.Helpers
 import Data.Foldable
 import Data.Tree
 import Strat.StratTree.TreeNode
+import Strat.ZipTree (ChildrenLeafStatus)
 -- import Debug.Trace
 -- import Text.Printf
 
-isLegal :: TreeNode t m => Tree t -> m -> [m] -> Bool
-isLegal t mv exclusions =
+isLegal :: TreeNode t m => Tree t -> m -> [m] -> ChildrenLeafStatus -> Bool
+isLegal t mv exclusions childrenLeafStatus =
   mv `notElem` exclusions &&
-  mv `elem` possibleMoves (rootLabel t)
+  mv `elem` possibleMoves (rootLabel t) childrenLeafStatus
 
 findMove :: forall t m. (TreeNode t m, Move m) => Tree t -> m -> Either String (Tree t)
 findMove tree mv =
@@ -37,12 +38,12 @@ findMove tree mv =
                      ++ "(depth: " ++ show (parentDepth + 1) ++ ")"
                      ++ "(treesize: " ++ show (treeSize tree) ++ ")\n" ++ str) -- this should not happen
 
-makeChildren :: TreeNode n m => n -> [Tree n]
-makeChildren n =
+makeChildren :: TreeNode n m => n -> ChildrenLeafStatus -> [Tree n]
+makeChildren n childrenLeafStatus =
     let tloc = treeLoc n
         parentDepth = tlDepth tloc
         tl = TreeLocation (parentDepth + 1)
-        mvs = possibleMoves n
+        mvs = possibleMoves n childrenLeafStatus
         ns = map (\m -> (newNode n m tl)) mvs
         ts = map (\x -> Node x []) ns
     in ts

@@ -8,6 +8,7 @@ import Chess
 import ChessText
 import GameRunner
 import CheckersText
+import Control.Monad (when)
 import Data.Text(pack)
 import System.Console.CmdArgs.Implicit
 import StratWeb.YesodMain
@@ -19,8 +20,11 @@ main = do
     verbose <- isLoud
     case exampleName of
       "chess" -> do
-          printf "restoreGame: %s\n" restoreGame
-          printf "loadFromFed: %s\n" loadFromFen
+          when ( not (null restoreGame) ) $
+            printf  "restoreGame: %s\n" restoreGame
+          -- when not (null loadFromFen)
+          when (not (null loadFromFen)) $
+            printf "loadFromFed: %s\n" loadFromFen
           if restoreGame /= "newgame" && loadFromFen /= ""
             then do
               putStrLn "Choose either --restoreGame or --fen, but not both"
@@ -36,14 +40,12 @@ main = do
                           print err
                           return Nothing
                         Right (startNode, startState) -> do
-                          putStrLn "FEN seems ok? (A)"
                           return $ Just (startNode, startState)
               case pairMay of
                 Nothing -> do
                   putStrLn "Invalid FEN format"
                   print theArgs
                 Just (startNode, startState) -> do
-                  putStrLn "FEN seems ok? (b)"
                   GameRunner.startGame ChessText startNode startState depth critDepth aiPlaysWhite
                       aiPlaysBlack preSortOn (not noRandom) (not noPruning) singleThreaded verbose
                       pruneTracing cmpTracing (pack traceStr)

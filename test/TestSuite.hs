@@ -4,6 +4,7 @@ module Main where
 import CheckersTest
 import ChessTest
 import Test.Hspec
+-- import StratTreeTest
 import TicTacTest
 import PruningTest
 import FenTest
@@ -15,3 +16,4 @@ main = hspec $ do
     chessTest
     pruningTest
     fenTest
+    -- stratTreeTest
