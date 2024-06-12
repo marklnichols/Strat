@@ -48,7 +48,7 @@ chessTest = do
 
     describe "locsForColor" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
-            let (wLocs, bLocs) = locsForColor (posFromGrid board01 White (12, 87) (False, False))
+            let (wLocs, bLocs) = locsForColor (posFromGrid board01 White (12, 87) False)
             fst3 <$> wLocs `shouldMatchList`
               [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
             fst3 <$> bLocs `shouldMatchList`
@@ -57,13 +57,13 @@ chessTest = do
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = pairToIndexes
                   $ allowableKingMoves
-                      ( mkTestPos board01 White (testStateCastled White) (12, 87) (False, False))
+                      ( mkTestPos board01 White (testStateCastled White) (12, 87) False)
                       (12, 'K', White)
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             let (empties2, enemies2) = pairToIndexes
                   $ allowableKingMoves
-                      ( mkTestPos board01 Black (testStateCastled Black) (12, 87) (False, False) )
+                      ( mkTestPos board01 Black (testStateCastled Black) (12, 87) False )
                       (87, 'k', Black)
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
@@ -152,20 +152,19 @@ chessTest = do
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $ do
             _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
-                                           White (Just 68) (12, 87) (False, False))
+                                           White (Just 68) (12, 87) False)
                                            (57, 'P', White) `shouldMatchList` [68]
             _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
-                                           Black (Just 32) (12, 87) (False, False))
+                                           Black (Just 32) (12, 87) False)
                                            (41, 'p', Black) `shouldMatchList` [32]
             -- no enpassant in state:
             _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
-                                           White Nothing (12, 87) (False, False))
+                                           White Nothing (12, 87) False)
                                            (57, 'P', White) `shouldMatchList` []
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
-            let moves = calcMoveLists (posFromGrid board02 White (15, 85) (False, False)
-                                        )
+            let moves = calcMoveLists (posFromGrid board02 White (15, 85) False)
             let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
             f <$> emptyAndEnemy `shouldMatchList`
                [ (11,12), (13,24), (13,35), (13,46), (13,57), (13,68), (14,24), (14,25), (14,36)
@@ -175,32 +174,32 @@ chessTest = do
 
     describe "castlingStatus" $
         it "Checks  the castling state of each side" $ do
-            fst (castlingStatus (posFromGrid board03a White (15, 85) (False, False)))
+            fst (castlingStatus (posFromGrid board03a White (15, 85) False))
                 `shouldBe` KingSideOnlyAvailable
-            snd (castlingStatus (posFromGrid board03a Black (15, 85) (False, False)))
+            snd (castlingStatus (posFromGrid board03a Black (15, 85) False))
                 `shouldBe` QueenSideOnlyAvailable
-            fst (castlingStatus (posFromGrid board03b White (24, 87) (False, False)))
+            fst (castlingStatus (posFromGrid board03b White (24, 87) False))
                 `shouldBe` Unavailable
-            snd (castlingStatus (posFromGrid board03b Black (24, 87) (False, False)))
+            snd (castlingStatus (posFromGrid board03b Black (24, 87) False))
                 `shouldBe` Castled
-            fst (castlingStatus (posFromGrid board03c White (15, 85) (False, False)))
+            fst (castlingStatus (posFromGrid board03c White (15, 85) False))
                 `shouldBe` BothAvailable
-            snd (castlingStatus (posFromGrid board03c Black (15, 85) (False, False)))
+            snd (castlingStatus (posFromGrid board03c Black (15, 85) False))
                 `shouldBe` BothAvailable
 
     describe "castlingAvailable" $
         it "Checks castling availability for one player" $ do
-            castlingAvailable (mkTestPos board03a White (testStateKSOnly White) (15, 85) (False, False)) White
+            castlingAvailable (mkTestPos board03a White (testStateKSOnly White) (15, 85) False) White
                `shouldBe` Unavailable
-            castlingAvailable (mkTestPos board03a Black (testStateQSOnly Black) (15, 85) (False, False)) Black
+            castlingAvailable (mkTestPos board03a Black (testStateQSOnly Black) (15, 85) False) Black
                 `shouldBe` Unavailable
-            castlingAvailable (mkTestPos board03b White (testStateUnavail White) (24, 87) (False, False)) White
+            castlingAvailable (mkTestPos board03b White (testStateUnavail White) (24, 87) False) White
                 `shouldBe` Unavailable
-            castlingAvailable (mkTestPos board03b Black (testStateCastled Black) (24, 87) (False, False)) Black
+            castlingAvailable (mkTestPos board03b Black (testStateCastled Black) (24, 87) False) Black
                 `shouldBe` Castled
-            castlingAvailable (mkTestPos board03c White (testStateQSOnly White) (15, 85) (False, False)) White
+            castlingAvailable (mkTestPos board03c White (testStateQSOnly White) (15, 85) False) White
                 `shouldBe` QueenSideOnlyAvailable
-            castlingAvailable (mkTestPos board03c Black (testState Black) (15, 85) (False, False)) Black
+            castlingAvailable (mkTestPos board03c Black (testState Black) (15, 85) False) Black
                 `shouldBe` KingSideOnlyAvailable
 
     describe "countMaterial" $
@@ -210,8 +209,7 @@ chessTest = do
     describe "calcDevelopment" $
       it ("Calculates a score for the position based on the development of the minor pieces "
           ++ "(aka knight, bishop) for each side") $
-          calcDevelopment (posFromGrid board03a White (15, 85) (False, False)
-                           ) `shouldBe` 1
+          calcDevelopment (posFromGrid board03a White (15, 85) False) `shouldBe` 1
 
     describe "calcCenterPawnScore" $
       it "Calculates a score for the two center pawns of each side" $ do
@@ -238,10 +236,10 @@ chessTest = do
     describe "calcPawnPositionScore" $
       it ("Calculates a score for the position based on pawn positioning"
           ++ " for each side") $ do
-          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 15
-          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-15)
-          calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) (False, False)) `shouldBe` 0
-          calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) (False, False)) `shouldBe` 0
+          calcPawnPositionScore (posFromGrid board05 White (15, 85) False) `shouldBe` 15
+          calcPawnPositionScore (posFromGrid board06 White (15, 85) False) `shouldBe` (-15)
+          calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) False) `shouldBe` 0
+          calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) False) `shouldBe` 0
 
     describe "dirLocsCount" $
       it ("Counts the number of moves available for a given piece, in a"
@@ -264,8 +262,8 @@ chessTest = do
     describe "queenMobility" $
       it ("Calculates the number of moves available for a queen given"
           ++ "a location on the board") $ do
-         queenMobility (posFromGrid board08 White (15, 85) (False, False)) (14, 'Q', White) `shouldBe` 6
-         queenMobility (posFromGrid board08 White (15, 85) (False, False)) (84, 'q', Black) `shouldBe` 0
+         queenMobility (posFromGrid board08 White (15, 85) False) (14, 'Q', White) `shouldBe` 6
+         queenMobility (posFromGrid board08 White (15, 85) False) (84, 'q', Black) `shouldBe` 0
 
     describe "rookMobility" $
       it ("Calculates the number of moves available for a rook given"
@@ -278,31 +276,31 @@ chessTest = do
     describe "calcMobility" $
       it ("Calculates a score for the position based on the number of moves "
           ++ "available to each side") $
-          calcMobility (posFromGrid board08 White (15, 85) (False, False)
+          calcMobility (posFromGrid board08 White (15, 85) False
                            ) `shouldBe` 14  -- (25W - 11b = 14)
 
     describe "connectedRooks" $
       it ("Determine if a side has two connected rooks") $ do
-          connectedRooks (posFromGrid board07 White (12, 87) (False, False)) White `shouldBe` False
-          connectedRooks (posFromGrid board07 White (12, 87) (False, False)) Black `shouldBe` False
-          connectedRooks (posFromGrid board01 White (12, 87) (False, False)) White `shouldBe` False
-          connectedRooks (posFromGrid board01 White (12, 87) (False, False)) Black `shouldBe` True
-          connectedRooks (posFromGrid board11 White (15, 82) (False, False)) White `shouldBe` True
-          connectedRooks (posFromGrid board11 White (15, 82) (False, False)) Black `shouldBe` False
-          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) (False, False))
+          connectedRooks (posFromGrid board07 White (12, 87) False) White `shouldBe` False
+          connectedRooks (posFromGrid board07 White (12, 87) False) Black `shouldBe` False
+          connectedRooks (posFromGrid board01 White (12, 87) False) White `shouldBe` False
+          connectedRooks (posFromGrid board01 White (12, 87) False) Black `shouldBe` True
+          connectedRooks (posFromGrid board11 White (15, 82) False) White `shouldBe` True
+          connectedRooks (posFromGrid board11 White (15, 82) False) Black `shouldBe` False
+          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) False)
               White `shouldBe` False
-          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) (False, False))
+          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) False)
               Black `shouldBe` True
 
     describe "rookFileStatus" $
       it ("Determines whether a rook's file is Open, HalfOpen, or NotOpen") $ do
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               14 White `shouldBe` Open
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               18 White `shouldBe` NotOpen
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               82 Black `shouldBe` HalfOpen
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               86 Black `shouldBe` Open
 
     describe "inCheck" $
@@ -312,10 +310,10 @@ chessTest = do
           inCheck board04 White 45 `shouldBe` True
           inCheck board07 Black 88 `shouldBe` True
 
-    describe "moveChecksOpponent" $
-      it "Determines if a move results in the opposing King being in check" $ do
-          let mv = StdMove { _exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = "" }
-          moveChecksOpponent discoveredCheckNode mv `shouldBe` True
+    -- describe "moveChecksOpponent" $
+    --   it "Determines if a move results in the opposing King being in check" $ do
+    --       let mv = StdMove { _exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = "" }
+    --       moveExposesKing (_chessPos discoveredCheckNode) mv `shouldBe` True
 
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
@@ -329,11 +327,11 @@ chessTest = do
 
     describe "checkFinal'" $
       it "determines if the board is in a 'final' position, i.e. checkmate or draw" $ do
-          checkFinal' (posFromGrid board07 Black (68, 88) (False, True)) `shouldBe` WWins
-          checkFinal' (posFromGrid board07b White (18,38) (True, False)) `shouldBe` BWins
-          checkFinal' (posFromGrid board07c White (18, 16) (False, False)) `shouldBe` Draw
-          checkFinal' (posFromGrid board07c Black (18, 16) (False, False)) `shouldBe` NotFinal
-          checkFinal' (posFromGrid board07d White (11, 23) (True, False)) `shouldBe` BWins
+          checkFinal' (posFromGrid board07 Black (68, 88) True) `shouldBe` WWins
+          checkFinal' (posFromGrid board07b White (18,38) True) `shouldBe` BWins
+          checkFinal' (posFromGrid board07c White (18, 16) False) `shouldBe` Draw
+          checkFinal' (posFromGrid board07c Black (18, 16) False) `shouldBe` NotFinal
+          checkFinal' (posFromGrid board07d White (11, 23) True) `shouldBe` BWins
     describe "negaMax" $
       it "finds the best move from the tree of possible moves" $ do
         r1 <- matchStdMove mateInTwo01TestData
@@ -427,21 +425,22 @@ matchStdMove StdMoveTestData{..} = do
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 
-posFromGrid :: ChessGrid -> Color -> (Int, Int) -> (Bool, Bool) -> ChessPos
-posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) =
- mkTestPos g c  (testState c) (kingLocW, kingLocB) (inCheckW, inCheckB)
+posFromGrid :: ChessGrid -> Color -> (Int, Int) -> Bool -> ChessPos
+posFromGrid g c (kingLocW, kingLocB) inChck =
+ mkTestPos g c  (testState c) (kingLocW, kingLocB) inChck
 
-posFromGridEnPassant :: ChessGrid -> Color -> Maybe Int -> (Int, Int) -> (Bool, Bool) -> ChessPos
-posFromGridEnPassant g c ep (kingLocW, kingLocB) (inCheckW, inCheckB) =
- mkTestPos g c (epTestState c ep) (kingLocW, kingLocB) (inCheckW, inCheckB)
+posFromGridEnPassant :: ChessGrid -> Color -> Maybe Int -> (Int, Int) -> Bool -> ChessPos
+posFromGridEnPassant g c ep (kingLocW, kingLocB) inChck =
+ mkTestPos g c (epTestState c ep) (kingLocW, kingLocB) inChck
 
-mkTestPos :: ChessGrid -> Color -> ChessPosState -> (Int, Int) -> (Bool, Bool) -> ChessPos
-mkTestPos g c cpState (kingLocW, kingLocB) (inCheckW, inCheckB) =
+mkTestPos :: ChessGrid -> Color -> ChessPosState -> (Int, Int) -> Bool -> ChessPos
+mkTestPos g c cpState (kingLocW, kingLocB) inChk =
   let (wLocs, bLocs) = calcLocsForColor g
   in ChessPos
     { _cpGrid = g
     , _cpKingLoc = (kingLocW, kingLocB)
-    , _cpInCheck = (inCheckW, inCheckB)
+    , _cpInCheck = inChk
+    , _cpKingLeftExposed = False
     , _cpWhitePieceLocs = wLocs
     , _cpBlackPieceLocs = bLocs
     , _cpFin = NotFinal

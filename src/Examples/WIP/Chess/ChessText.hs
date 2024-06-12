@@ -53,9 +53,8 @@ printMoveChoiceInfo tree result loud = do
     putStrLn ("Move with best score: " ++ show (bestScore result))
     putStrLn ("(*) Computer's move: " ++ show (picked result))
 
-    let mv = getMove (nmNode (picked result))
     let n = rootLabel tree
-    when (moveChecksOpponent n mv) $ do
+    when (( _cpInCheck . _chessPos) n) $ do
         putStrLn " (check)"
     when loud $ do
         -- START HERE: -- For the selcted move, this does NOT show the details of the score of the deepest node!
@@ -97,7 +96,7 @@ playerEntryText tree exclusions = do
                     putStrLn "Not a legal move."
                     playerEntryText tree exclusions
                 else do
-                    when (moveChecksOpponent n mv) $
+                    when (enteredMoveChecksOpponent n mv) $
                         putStrLn "* (check) *"
                     return me
 
