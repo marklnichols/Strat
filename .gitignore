@@ -14,6 +14,9 @@ profiling
 .cabal-sandbox/
 cabal.sandbox.config
 *.prof
+*.prof.html
+*.profiterole.html
+*.profiterole.txt
 *.aux
 *.hp
 *.svg
