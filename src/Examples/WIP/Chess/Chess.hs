@@ -1078,37 +1078,37 @@ preCastledTestState clr = ChessPosState
 
 type Dir = Int -> Int
 right, left, up, down, diagUL, diagDR, diagUR, diagDL :: Dir
-right = (1+)
+right x = x + 1
 {-# INLINE right #-}
 left x = x - 1
 {-# INLINE left #-}
-up = (10+)
+up x = x + 10
 {-# INLINE up #-}
 down x = x - 10
 {-# INLINE down #-}
-diagUL = (9+)
+diagUL x  = x + 9
 {-# INLINE diagUL #-}
 diagDR x = x - 9
 {-# INLINE diagDR #-}
-diagUR = (11+)
+diagUR x = x + 11
 {-# INLINE diagUR #-}
 diagDL x = x - 11
 {-# INLINE diagDL #-}
 
 knightLU, knightRD, knightRU, knightLD, knightUL, knightDR, knightUR, knightDL :: Dir
-knightLU = (8+)
+knightLU x = x + 8
 {-# INLINE knightLU #-}
 knightRD x = x - 8
 {-# INLINE knightRD #-}
-knightRU = (12+)
+knightRU x = x + 12
 {-# INLINE knightRU #-}
 knightLD x = x - 12
 {-# INLINE knightLD #-}
-knightUL = (19+)
+knightUL x = x + 19
 {-# INLINE knightUL #-}
 knightDR x = x - 19
 {-# INLINE knightDR #-}
-knightUR = (21+)
+knightUR x = x + 21
 {-# INLINE knightUR #-}
 knightDL x = x - 21
 {-# INLINE knightDL #-}
