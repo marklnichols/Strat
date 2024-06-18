@@ -19,7 +19,7 @@ import Strat.StratIO
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
--- import Text.Printf
+--import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -336,20 +336,25 @@ chessTest = do
           checkFinal' (posFromGrid board07d White (11, 23) (True, False)) `shouldBe` BWins
     describe "negaMax" $
       it "finds the best move from the tree of possible moves" $ do
-        r1 <- matchStdMove mateInTwo01TestData
-        r1 `shouldBe` True
-        r2 <- matchStdMove mateInTwo02TestData
-        r2 `shouldBe` True
-        r3b <- matchStdMove mateInTwo03bTestData
-        r3b `shouldBe` True
-        r3 <- matchStdMove mateInTwo03TestData
-        r3 `shouldBe` True
+        r2_1 <- matchStdMove mateInTwo01TestData
+        r2_1 `shouldBe` True
+        r2_2 <- matchStdMove mateInTwo02TestData
+        r2_2 `shouldBe` True
+        r2_3b <- matchStdMove mateInTwo03bTestData
+        r2_3b `shouldBe` True
+        r2_3 <- matchStdMove mateInTwo03TestData
+        r2_3 `shouldBe` True
+        r3_1 <- matchStdMove mateInThree01TestData
+        r3_1 `shouldBe` True
+        r3_2 <- matchStdMove mateInThree02TestData
+        r3_2 `shouldBe` True
         p1 <- matchStdMove promotion01TestData
         p1 `shouldBe` True
         c1 <- matchStdMove critBug01TestData
         c1 `shouldBe` False
         c2 <- matchStdMove critBug01TestDataB
         c2 `shouldBe` False
+
     describe "checkPromote" $
       it "checks for pawn promotion" $ do
           checkPromote 'P' 82 `shouldBe` 'Q'
