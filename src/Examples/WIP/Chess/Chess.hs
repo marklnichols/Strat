@@ -69,6 +69,8 @@ module Chess
     , mateInTwo02TestData
     , mateInTwo03TestData
     , mateInTwo03bTestData
+    , mateInThree01TestData
+    , mateInThree02TestData
     , moveChecksOpponent
     , pairToIndexes
     , parseChessEntry
@@ -600,6 +602,8 @@ countMaterial g =
       slight pref. to kingside castle over queenside
       pawn advancement
       trading (esp. queens) only when ahead
+      good bishop vs bad bishop (blocked by its own pawns)
+      'weak color complex' around the king(s)
 -}
 ---------------------------------------------------------------------------------------------------
 -- Evaluate and produce a score for the position
@@ -1000,6 +1004,8 @@ getStartNode restoreGame =
       "mateInTwo02b" -> (Node mateInTwoExampleNode02b [], preCastledTestState Black)
       "mateInTwo03" -> (Node mateInTwoExampleNode03 [], castledTestState Black)
       "mateInTwo03b" -> (Node mateInTwoExampleNode03b [], castledTestState Black)
+      "mateInThree01" -> mateInThreeTree01
+      "mateInThree02" -> mateInThreeTree02
       "promotion01"  -> (Node promotionNode01 [], castledTestState White)
       "critBug01"    -> (Node critBugNode01 [], preCastledTestState Black)
       "debug"        -> (Node debugExampleNode [], preCastledTestState White)
@@ -1023,6 +1029,7 @@ getStartNode restoreGame =
                  \ castling, checkmate, checkmate2, checkmate3, checkmate4, critBug01, \n \
                  \ discovered, \n \
                  \ mateInTwo01, mateInTwo02, mateInTwo02b, mateInTwo03, mateInTwo03b, \n \
+                 \ mateInThree01, mateInThree02, \n \
                  \ promotion01, \n \
                  \ debug, debug02, debug03, debug04, debug05, \n \
                  \ debug06, debug06b, debug06c, debug07, debug08, \n \
@@ -1974,9 +1981,6 @@ castleMoves pos =
       BothAvailable -> kingSideCastlingMove pos c
                     ++ queenSideCastlingMove pos c
 
--- singleton list or empty list
--- TODO: prevent Castling while in check & king moving though attacked squares
---       & make sure friendly pieces between king and rook prevent castling
 kingSideCastlingMove :: ChessPos -> Color -> [ChessMove]
 kingSideCastlingMove pos White =
   let g = _cpGrid pos
@@ -2901,6 +2905,69 @@ mateInTwo03TestData = StdMoveTestData
     , smtdCritDepth = 4
     , smtdStartIdx = 76
     , smtdEndIdx = 36 }
+
+mateInThreeTree01 :: (Tree ChessNode, ChessPosState)
+mateInThreeTree01 =
+    case getNodeFromFen "5k1K/6pp/3p2rr/3P4/8/8/7P/8 b - - 0 1" of
+      Left err -> error "mateInThreeTree01 invalid FEN?" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+-   -   -   -   -   k   -   K          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   p   -   -   r   r          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   P   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   _          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+Moves to verify (run with -d6),
+mate in 3: (b)      , H6-H4
+               H2-H3, H7-H4
+               H8-H7, G6-H6 mate
+-}
+mateInThree01TestData :: StdMoveTestData
+mateInThree01TestData = StdMoveTestData
+    { smtdBoardName = "mateInThree01"
+    , smtdDepth = 5
+    , smtdCritDepth = 6
+    , smtdStartIdx = 68
+    , smtdEndIdx = 48 }
+
+mateInThreeTree02 :: (Tree ChessNode, ChessPosState)
+mateInThreeTree02 =
+    case getNodeFromFen "r1b2rk1/pppp1ppp/8/2b1p3/2B1P1nq/2N2N2/PPP2PPP/R1BQR1K1 b - - 0 1" of
+      Left err -> error "mateInThreeTree02 invalid FEN?" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+r   -   b   -   -   r   k   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   p   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   b   -   p   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   B   -   P   -   n   q          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   N   -   -   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   P   -   -   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   B   Q   R   -   K   _          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+Moves to verify (run with --depth=4 --critdepth=4)
+mate in 3: (b)      , H4xF2
+               G1-H1, F2-G1
+               E1xG1, G4-F2 mate  (or F3xG1, G4-F2 mate)
+Note that at this depth the mate is not 'known' at the choice of the first move...
+-}
+mateInThree02TestData :: StdMoveTestData
+mateInThree02TestData = StdMoveTestData
+    { smtdBoardName = "mateInThree02"
+    , smtdDepth = 4
+    , smtdCritDepth = 4
+    , smtdStartIdx = 48
+    , smtdEndIdx = 26 }
 
 mateInTwoBoard03b:: ChessGrid
 mateInTwoBoard03b = ChessGrid $ V.fromList [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
