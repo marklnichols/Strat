@@ -71,6 +71,7 @@ module Chess
     , mateInTwo03bTestData
     , mateInThree01TestData
     , mateInThree02TestData
+    , invalidTree
     , moveChecksOpponent
     , pairToIndexes
     , parseChessEntry
@@ -379,6 +380,7 @@ asciiToColor c
   | ord c > 64 && ord c < 91 = Just White  -- A - Z : 65 - 90
   | ord c > 96 && ord c < 123 = Just Black -- | a - z : 97 - 122
   | otherwise = Nothing
+{-# INLINE asciiToColor #-}
 
 --------------------------------------------------------------------------------------------------
 -- convert char representations of color (i.e., 'w', 'W', 'b', 'B') to the Color type
@@ -454,6 +456,7 @@ indexToColor2 :: ChessGrid -> Int -> Maybe Color
 indexToColor2 g idx =
   let g' = unGrid g
   in asciiToColor (g' ! idx)
+{-# INLINE indexToColor2 #-}
 
 indexToPiece :: ChessGrid -> Int -> ChessPiece (k :: SomeSing Piece)
 indexToPiece g idx =
@@ -1006,6 +1009,7 @@ getStartNode restoreGame =
       "mateInTwo03b" -> (Node mateInTwoExampleNode03b [], castledTestState Black)
       "mateInThree01" -> mateInThreeTree01
       "mateInThree02" -> mateInThreeTree02
+      "invalidTree"   -> invalidTree
       "promotion01"  -> (Node promotionNode01 [], castledTestState White)
       "critBug01"    -> (Node critBugNode01 [], preCastledTestState Black)
       "debug"        -> (Node debugExampleNode [], preCastledTestState White)
@@ -1030,6 +1034,7 @@ getStartNode restoreGame =
                  \ discovered, \n \
                  \ mateInTwo01, mateInTwo02, mateInTwo02b, mateInTwo03, mateInTwo03b, \n \
                  \ mateInThree01, mateInThree02, \n \
+                 \ invalidTree, \n \
                  \ promotion01, \n \
                  \ debug, debug02, debug03, debug04, debug05, \n \
                  \ debug06, debug06b, debug06c, debug07, debug08, \n \
@@ -2031,6 +2036,7 @@ isEmptyGrid :: ChessGrid -> Int -> Bool
 isEmptyGrid g idx =
   let g' = unGrid g
   in (g' V.! idx) == empty
+{-# INLINE isEmptyGrid #-}
 
 pairToIndexes :: ([ChessMove], [ChessMove]) -> ([Int], [Int])
 pairToIndexes (xs, ys) = ( fmap moveToIndex  xs
@@ -2357,6 +2363,7 @@ onBoard x
     | x `mod` 10 == 0 = False
     | x `mod` 10 == 9 = False
     | otherwise       = True
+{-# INLINE onBoard #-}
 
 offBoard :: Int -> Bool
 offBoard x = not $ onBoard x
@@ -3646,6 +3653,98 @@ P   -   -   -   -   -   P   -          3| (30)  31   32   33   34   35   36   37
 
 FEN: r1k1r3/1pp2pp1/6q1/p7/5Q2/P5P1/1P3P1P/2KR3R w - - 0 20
 -}
+
+
+_invalidTree :: (Tree ChessNode, ChessPosState)
+_invalidTree =
+    case getNodeFromFen "rnbqk1nr/ppp2ppp/4p3/3p4/2PP4/5N2/PP1NPPPP/R2QKB1R b KQkq - 0 5" of
+      Left err -> error "mateInThreeTree02 invalid FEN?" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+r   n   b   q   k   -   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   -   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   p   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   P   P   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   -   N   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   Q   K   B   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+
+Computer's move at this position:
+Tree size: 1
+[1]
+Evaluated: 0 (percent saved by pruning: NaN)
+strat-exe: received 'Max' in toNegaMoves?
+CallStack (from HasCallStack):
+  error, called at src/Strat/ZipTree.hs:158:19 in main:Strat.ZipTree
+CallStack (from -prof):
+  Strat.ZipTree.toNegaMoves (src/Strat/ZipTree.hs:(157,1)-(166,27))
+  Strat.ZipTree.CAF (<entire-module>)
+
+Moves to get there, starting from a new game:
+D2-D4, D7-D5
+C2-C4, E7-E6
+G1-F3, F1-B4+
+B1xD2, errore...
+
+run params:
+cabal exec strat-exe -- +RTS -p -RTS --nr
+
+-}
+
+
+
+
+
+
+invalidTree :: (Tree ChessNode, ChessPosState)
+invalidTree =
+    case getNodeFromFen "rnbqkbnr/ppp2ppp/4p3/3p4/2PP4/5N2/PP2PPPP/RNBQKB1R b KQkq - 0 5" of
+      Left err -> error "mateInThreeTree02 invalid FEN?" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+r   n   b   q   k   b   n   r          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   p   -   -   p   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   p   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   p   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   P   P   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   N   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   -   -   P   P   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   N   B   Q   K   B   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+
+Computer's move at this position:
+Tree size: 1
+[1]
+Evaluated: 0 (percent saved by pruning: NaN)
+strat-exe: received 'Max' in toNegaMoves?
+CallStack (from HasCallStack):
+  error, called at src/Strat/ZipTree.hs:158:19 in main:Strat.ZipTree
+CallStack (from -prof):
+  Strat.ZipTree.toNegaMoves (src/Strat/ZipTree.hs:(157,1)-(166,27))
+  Strat.ZipTree.CAF (<entire-module>)
+
+Moves to get there, starting from a new game:
+D2-D4, D7-D5
+C2-C4, E7-E6
+G1-F3, F1-B4+
+B1xD2, errore...
+
+run params:
+cabal exec strat-exe -- +RTS -p -RTS --nr
+
+-}
+
+
+
+
 
 ----------------------------------------------------------------------------------------------------
 checkMateExampleNode :: ChessNode
