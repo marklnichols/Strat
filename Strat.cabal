@@ -31,9 +31,10 @@ library
   ghc-options: -Wdefault
   build-depends:
                 base
-                -- , aeson < 2.0
                 , aeson
                 , async
+                , base
+                , bytestring
                 , cmdargs >= 0.10.21
                 , containers
                 , extra
@@ -49,6 +50,7 @@ library
                 , sort
                 , text
                 , threads
+                , unordered-containers
                 , vector
 
 executable strat-exe
@@ -69,15 +71,13 @@ executable strat-exe
       StratWeb.WebRunner
       StratWeb.YesodMain
   hs-source-dirs:
-      main/Strat-commandline
       src
       src/Examples/Utils
       src/Examples/Checkers
       src/Examples/WIP/Chess
       src/Strat
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -feager-blackholing -Wdefault
-  build-depends:
-                  aeson
+  build-depends:  aeson
                 , async
                 , Cabal
                 , base
@@ -99,6 +99,7 @@ executable strat-exe
                 , singletons-base
                 , sort
                 , threads
+                , unordered-containers
                 , text
                 , vector
                 , yesod
@@ -166,7 +167,6 @@ executable test-as-exe
                 , threads
                 , unordered-containers
                 , vector
-    -- , yesod == 1.6.0.2
     , yesod
     , yesod-core
     , yesod-static
@@ -224,7 +224,7 @@ test-suite StratTreeTest
                 , singletons
                 , singletons-base
                 , sort
-                , threads
                 , text
+                , threads
                 , unordered-containers
                 , vector
