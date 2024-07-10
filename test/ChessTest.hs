@@ -8,8 +8,9 @@ import Test.Hspec
 import Control.Monad.Reader
 import Data.List
 import Data.Either
+import Data.Maybe
 import qualified Data.Text as T
-import Data.Tree (rootLabel)
+import Data.Tree (rootLabel, Tree)
 import Data.Tuple.Extra (fst3)
 import qualified Data.Vector.Unboxed as V
 
@@ -19,7 +20,7 @@ import Strat.StratIO
 import Strat.StratTree.TreeNode
 import qualified Strat.ZipTree as Z
 import System.Random hiding (next)
---import Text.Printf
+import Text.Printf
 
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
@@ -48,7 +49,7 @@ chessTest = do
 
     describe "locsForColor" $
         it "Gets the list of indexes of all chess pieces of a given color from the board" $ do
-            let (wLocs, bLocs) = locsForColor (posFromGrid board01 White (12, 87) (False, False))
+            let (wLocs, bLocs) = locsForColor (posFromGrid board01 White (12, 87) False)
             fst3 <$> wLocs `shouldMatchList`
               [12, 13, 21, 22 ,25, 26, 33, 43, 45, 46, 53, 57]
             fst3 <$> bLocs `shouldMatchList`
@@ -57,13 +58,13 @@ chessTest = do
         it "Gets the possible moves for a king" $ do
             let (empties, enemies) = pairToIndexes
                   $ allowableKingMoves
-                      ( mkTestPos board01 White (testStateCastled White) (12, 87) (False, False))
+                      ( mkTestPos board01 White (testStateCastled White) (12, 87) False)
                       (12, 'K', White)
             empties `shouldMatchList` [11, 23]
             enemies `shouldMatchList` []
             let (empties2, enemies2) = pairToIndexes
                   $ allowableKingMoves
-                      ( mkTestPos board01 Black (testStateCastled Black) (12, 87) (False, False) )
+                      ( mkTestPos board01 Black (testStateCastled Black) (12, 87) False )
                       (87, 'k', Black)
             empties2 `shouldMatchList` [76, 88]
             enemies2 `shouldMatchList` []
@@ -152,19 +153,19 @@ chessTest = do
     describe "allowableEnPassant" $
         it "Gets the allowable enPassant capturing moves for a pawn" $ do
             _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
-                                           White (Just 68) (12, 87) (False, False))
+                                           White (Just 68) (12, 87) False)
                                            (57, 'P', White) `shouldMatchList` [68]
             _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
-                                           Black (Just 32) (12, 87) (False, False))
+                                           Black (Just 32) (12, 87) False)
                                            (41, 'p', Black) `shouldMatchList` [32]
             -- no enpassant in state:
             _epEndIdx <$> allowableEnPassant (posFromGridEnPassant enPassantBoard01
-                                           White Nothing (12, 87) (False, False))
+                                           White Nothing (12, 87) False)
                                            (57, 'P', White) `shouldMatchList` []
     describe "calcMoveListGrid" $
         it "gets all possible moves from a grid, for a given color" $ do
             let f m = (_startIdx m, _endIdx m)
-            let moves = calcMoveLists (posFromGrid board02 White (15, 85) (False, False)
+            let moves = calcMoveLists (posFromGrid board02 White (15, 85) False
                                         )
             let emptyAndEnemy = _cmEmpty moves ++ _cmEnemy moves
             f <$> emptyAndEnemy `shouldMatchList`
@@ -175,32 +176,32 @@ chessTest = do
 
     describe "castlingStatus" $
         it "Checks  the castling state of each side" $ do
-            fst (castlingStatus (posFromGrid board03a White (15, 85) (False, False)))
+            fst (castlingStatus (posFromGrid board03a White (15, 85) False))
                 `shouldBe` KingSideOnlyAvailable
-            snd (castlingStatus (posFromGrid board03a Black (15, 85) (False, False)))
+            snd (castlingStatus (posFromGrid board03a Black (15, 85) False))
                 `shouldBe` QueenSideOnlyAvailable
-            fst (castlingStatus (posFromGrid board03b White (24, 87) (False, False)))
+            fst (castlingStatus (posFromGrid board03b White (24, 87) False))
                 `shouldBe` Unavailable
-            snd (castlingStatus (posFromGrid board03b Black (24, 87) (False, False)))
+            snd (castlingStatus (posFromGrid board03b Black (24, 87) False))
                 `shouldBe` Castled
-            fst (castlingStatus (posFromGrid board03c White (15, 85) (False, False)))
+            fst (castlingStatus (posFromGrid board03c White (15, 85) False))
                 `shouldBe` BothAvailable
-            snd (castlingStatus (posFromGrid board03c Black (15, 85) (False, False)))
+            snd (castlingStatus (posFromGrid board03c Black (15, 85) False))
                 `shouldBe` BothAvailable
 
     describe "castlingAvailable" $
         it "Checks castling availability for one player" $ do
-            castlingAvailable (mkTestPos board03a White (testStateKSOnly White) (15, 85) (False, False)) White
+            castlingAvailable (mkTestPos board03a White (testStateKSOnly White) (15, 85) False) White
                `shouldBe` Unavailable
-            castlingAvailable (mkTestPos board03a Black (testStateQSOnly Black) (15, 85) (False, False)) Black
+            castlingAvailable (mkTestPos board03a Black (testStateQSOnly Black) (15, 85) False) Black
                 `shouldBe` Unavailable
-            castlingAvailable (mkTestPos board03b White (testStateUnavail White) (24, 87) (False, False)) White
+            castlingAvailable (mkTestPos board03b White (testStateUnavail White) (24, 87) False) White
                 `shouldBe` Unavailable
-            castlingAvailable (mkTestPos board03b Black (testStateCastled Black) (24, 87) (False, False)) Black
+            castlingAvailable (mkTestPos board03b Black (testStateCastled Black) (24, 87) False) Black
                 `shouldBe` Castled
-            castlingAvailable (mkTestPos board03c White (testStateQSOnly White) (15, 85) (False, False)) White
+            castlingAvailable (mkTestPos board03c White (testStateQSOnly White) (15, 85) False) White
                 `shouldBe` QueenSideOnlyAvailable
-            castlingAvailable (mkTestPos board03c Black (testState Black) (15, 85) (False, False)) Black
+            castlingAvailable (mkTestPos board03c Black (testState Black) (15, 85) False) Black
                 `shouldBe` KingSideOnlyAvailable
 
     describe "countMaterial" $
@@ -210,7 +211,7 @@ chessTest = do
     describe "calcDevelopment" $
       it ("Calculates a score for the position based on the development of the minor pieces "
           ++ "(aka knight, bishop) for each side") $
-          calcDevelopment (posFromGrid board03a White (15, 85) (False, False)
+          calcDevelopment (posFromGrid board03a White (15, 85) False
                            ) `shouldBe` 1
 
     describe "calcCenterPawnScore" $
@@ -238,10 +239,10 @@ chessTest = do
     describe "calcPawnPositionScore" $
       it ("Calculates a score for the position based on pawn positioning"
           ++ " for each side") $ do
-          calcPawnPositionScore (posFromGrid board05 White (15, 85) (False, False)) `shouldBe` 15
-          calcPawnPositionScore (posFromGrid board06 White (15, 85) (False, False)) `shouldBe` (-15)
-          calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) (False, False)) `shouldBe` 0
-          calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) (False, False)) `shouldBe` 0
+          calcPawnPositionScore (posFromGrid board05 White (15, 85) False) `shouldBe` 15
+          calcPawnPositionScore (posFromGrid board06 White (15, 85) False) `shouldBe` (-15)
+          calcPawnPositionScore (posFromGrid pQ4pQ4Board White (15, 85) False) `shouldBe` 0
+          calcPawnPositionScore (posFromGrid pQ4pQ4Board Black (15, 85) False) `shouldBe` 0
 
     describe "dirLocsCount" $
       it ("Counts the number of moves available for a given piece, in a"
@@ -264,8 +265,8 @@ chessTest = do
     describe "queenMobility" $
       it ("Calculates the number of moves available for a queen given"
           ++ "a location on the board") $ do
-         queenMobility (posFromGrid board08 White (15, 85) (False, False)) (14, 'Q', White) `shouldBe` 6
-         queenMobility (posFromGrid board08 White (15, 85) (False, False)) (84, 'q', Black) `shouldBe` 0
+         queenMobility (posFromGrid board08 White (15, 85) False) (14, 'Q', White) `shouldBe` 6
+         queenMobility (posFromGrid board08 White (15, 85) False) (84, 'q', Black) `shouldBe` 0
 
     describe "rookMobility" $
       it ("Calculates the number of moves available for a rook given"
@@ -278,44 +279,195 @@ chessTest = do
     describe "calcMobility" $
       it ("Calculates a score for the position based on the number of moves "
           ++ "available to each side") $
-          calcMobility (posFromGrid board08 White (15, 85) (False, False)
+          calcMobility (posFromGrid board08 White (15, 85) False
                            ) `shouldBe` 14  -- (25W - 11b = 14)
 
     describe "connectedRooks" $
       it ("Determine if a side has two connected rooks") $ do
-          connectedRooks (posFromGrid board07 White (12, 87) (False, False)) White `shouldBe` False
-          connectedRooks (posFromGrid board07 White (12, 87) (False, False)) Black `shouldBe` False
-          connectedRooks (posFromGrid board01 White (12, 87) (False, False)) White `shouldBe` False
-          connectedRooks (posFromGrid board01 White (12, 87) (False, False)) Black `shouldBe` True
-          connectedRooks (posFromGrid board11 White (15, 82) (False, False)) White `shouldBe` True
-          connectedRooks (posFromGrid board11 White (15, 82) (False, False)) Black `shouldBe` False
-          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) (False, False))
+          connectedRooks (posFromGrid board07 White (12, 87) False) White `shouldBe` False
+          connectedRooks (posFromGrid board07 White (12, 87) False) Black `shouldBe` False
+          connectedRooks (posFromGrid board01 White (12, 87) False) White `shouldBe` False
+          connectedRooks (posFromGrid board01 White (12, 87) False) Black `shouldBe` True
+          connectedRooks (posFromGrid board11 White (15, 82) False) White `shouldBe` True
+          connectedRooks (posFromGrid board11 White (15, 82) False) Black `shouldBe` False
+          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) False)
               White `shouldBe` False
-          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) (False, False))
+          connectedRooks (mkTestPos board12 White (testStateUnavail White) (12, 82) False)
               Black `shouldBe` True
 
     describe "rookFileStatus" $
       it ("Determines whether a rook's file is Open, HalfOpen, or NotOpen") $ do
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               14 White `shouldBe` Open
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               18 White `shouldBe` NotOpen
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               82 Black `shouldBe` HalfOpen
-          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) (False, False))
+          rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               86 Black `shouldBe` Open
 
-    describe "inCheck" $
+    describe "isKingInCheckFull" $
       it "Determines if the King at a given loc is in check from any enemy pieces" $ do
-          inCheck board03a White 15 `shouldBe` False
-          inCheck board04 Black 85 `shouldBe` False
-          inCheck board04 White 45 `shouldBe` True
-          inCheck board07 Black 88 `shouldBe` True
+          isKingInCheckFull board03a White 15 `shouldBe` False
+          isKingInCheckFull board04 Black 85 `shouldBe` False
+          isKingInCheckFull board04 White 45 `shouldBe` True
+          isKingInCheckFull board07 Black 88 `shouldBe` True
 
-    describe "moveChecksOpponent" $
+    describe "applyDiscoveredCheckTest" $
+       it "is a helper helper used in testing discoverCheckDirs" $ do
+            applyDiscoveredCheckTest down 10 0 `shouldBe` True
+
+    describe "discoveredCheckDirs" $
+      it "finds possible discovered check directions for a given move" $ do
+        let (t1, _) = discoveredCheckTree2w
+        let g1 = unGrid $ _cpGrid $ _chessPos $ rootLabel $ t1
+        let bKingLoc1 = 84
+
+        -- discovered check B6-C4
+        let m1 = StdMove { _exchange = Nothing, _startIdx = 62, _endIdx = 43, _stdNote = "" }
+        let res = discoveredCheckDirs g1 bKingLoc1 m1
+        length res `shouldBe` 1
+
+        putStrLn $ "dir applied to 11:" ++ show ((head res) $ 11) -- 22
+        applyDiscoveredCheckTest (head res) 11 0 `shouldBe` True
+
+        -- discovered check EP capture D5xE6
+        let m2 = EnPassantMove { _epStartIdx =54, _epEndIdx = 65 , _epRemoveIdx = 55, _epNote = "" }
+        let pairs2 = discoveredCheckDirs g1 bKingLoc1 m2
+        length pairs2 `shouldBe` 1
+        applyDiscoveredCheckTest (head pairs2) 10 0 `shouldBe` True
+
+        let wKingLoc1 = 15
+        -- king exposed by G1-H3
+        let m3 = StdMove { _exchange = Nothing, _startIdx = 17, _endIdx = 38, _stdNote = "" }
+        let pairs3 = discoveredCheckDirs g1 wKingLoc1 m3
+        length pairs3 `shouldBe` 1
+        applyDiscoveredCheckTest (head pairs3) 0 1 `shouldBe` True
+
+        let (t2, _) = discoveredCheckTree2b
+        let g2 = unGrid $ _cpGrid $ _chessPos $ rootLabel $ t2
+        let bKingLoc2 = 84
+        let wKingLoc2 = 12
+
+        -- discovered check AND king exposed via EP capture D4xE3
+        let m4 = EnPassantMove { _epStartIdx =44, _epEndIdx = 35 , _epRemoveIdx = 45, _epNote = "" }
+        let pairs4 = discoveredCheckDirs g2 bKingLoc2 m4
+        length pairs4 `shouldBe` 1
+        applyDiscoveredCheckTest (head pairs4) 10 0 `shouldBe` True
+
+        -- same move, same board but vs other king
+        let pairs4b = discoveredCheckDirs g2 wKingLoc2 m4
+        length pairs4b `shouldBe` 1
+        applyDiscoveredCheckTest (head pairs4b) 0 11 `shouldBe` True
+
+    describe "dirAttackMeLoc" $ do
+      it "finds the first enemy piece in a given direction that can attack me back from that direction" $ do
+        let (t, _) = attackMeTestTree
+        let g = _cpGrid $ _chessPos $ rootLabel $ t
+        dirAttackMeLoc g (44, ' ', Black) UpDir `shouldBe` Nothing
+        dirAttackMeLoc g (44, ' ', Black) DownDir `shouldBe` Nothing
+        dirAttackMeLoc g (44, ' ', Black) LeftDir `shouldBe` Just 41
+        dirAttackMeLoc g (44, ' ', Black) RightDir `shouldBe` Nothing
+        dirAttackMeLoc g (44, ' ', Black) DiagULDir `shouldBe` Just 71
+        dirAttackMeLoc g (44, ' ', Black) DiagURDir `shouldBe` Nothing
+        dirAttackMeLoc g (44, ' ', Black) DiagDLDir `shouldBe` Nothing
+        dirAttackMeLoc g (44, ' ', Black) DiagDRDir `shouldBe` Nothing
+
+    describe "moveIsDiscoveredCheck" $ do
+      it "determines if a move results in a discovered check" $ do
+        let (t, _) = discoveredCheckTree
+        let g = _cpGrid $ _chessPos $ rootLabel $ t
+        let mv1 = StdMove {_exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = ""}
+        let movingColor1 = White
+        let kingLoc1 = 64
+        moveIsDiscoveredCheck g mv1 movingColor1 kingLoc1 `shouldBe` True
+
+        let mv1b = StdMove {_exchange = Nothing, _startIdx = 37, _endIdx = 28, _stdNote = ""}
+        moveIsDiscoveredCheck g mv1b movingColor1 kingLoc1 `shouldBe` False
+
+        let mv2 = StdMove {_exchange = Just 'b', _startIdx = 64, _endIdx = 53, _stdNote = ""}
+        let movingColor2 = Black
+        let kingLoc2 = 14
+        moveIsDiscoveredCheck g mv2 movingColor2 kingLoc2 `shouldBe` True
+
+    describe "moveIsDirectCheck" $
+      it "determines if a move results in a direct check" $ do
+        let (t1, _) = directCheckTree
+        let g1 = _cpGrid $ _chessPos $ rootLabel $ t1
+        let mv1 = CastlingMove { _castle = KingSide, _kingStartIdx = 15, _kingEndIdx = 17
+                 , _rookStartIdx = 18, _rookEndIdx = 16, _castleNote = "" }
+        let movingColor1 = White
+        moveIsDirectCheck g1 mv1 movingColor1 `shouldBe` True
+
+        let mv1b = StdMove {_exchange = Just 'n', _startIdx = 35, _endIdx = 53, _stdNote = ""}
+        moveIsDirectCheck g1 mv1b movingColor1 `shouldBe` True
+
+        let mv2 = StdMove {_exchange = Nothing, _startIdx = 53, _endIdx = 34, _stdNote = ""}
+        let movingColor2 = Black
+        moveIsDirectCheck g1 mv2 movingColor2 `shouldBe` True
+
+        let mv2b = StdMove {_exchange = Nothing, _startIdx = 53, _endIdx = 45, _stdNote = ""}
+        moveIsDirectCheck g1 mv2b movingColor2 `shouldBe` False
+
+    describe "moveIsCheck" $
+      it "determines if a move results in a check" $ do
+        let (t1, _) = directCheckTree
+        let pos1 = _chessPos $ rootLabel $ t1
+        let mv1 = CastlingMove { _castle = KingSide, _kingStartIdx = 15, _kingEndIdx = 17
+                 , _rookStartIdx = 18, _rookEndIdx = 16, _castleNote = "" }
+        moveIsCheck pos1 mv1 `shouldBe` True
+
+        let mv1b = StdMove {_exchange = Just 'n', _startIdx = 35, _endIdx = 53, _stdNote = ""}
+        moveIsCheck pos1 mv1b `shouldBe` True
+
+        let mv1c = CastlingMove { _castle = QueenSide, _kingStartIdx = 15, _kingEndIdx = 13
+                 , _rookStartIdx = 11, _rookEndIdx = 14 , _castleNote = "" }
+        moveIsCheck pos1 mv1c `shouldBe` False
+
+        let n2 = discoveredCheckNode
+        let pos2 = _chessPos n2
+        let mv2 = StdMove {_exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = ""}
+        moveIsCheck pos2 mv2 `shouldBe` True
+
+        let (t3, _) = discoveredCheckTree
+        let pos3 = _chessPos $ rootLabel $ t3
+        let mv3 = StdMove {_exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = ""}
+        moveIsCheck pos3 mv3 `shouldBe` True
+
+        let mv3b = StdMove {_exchange = Nothing, _startIdx = 37, _endIdx = 28, _stdNote = ""}
+        moveIsCheck pos3 mv3b `shouldBe` False
+
+    describe "moveExposesKingDirect" $
+      it "checks for a King moving directly into check" $ do
+        let (t1, _) = exposedKingDirectTree
+        let g1 = _cpGrid $ _chessPos $ rootLabel $ t1
+        let m1 = StdMove {_exchange = Nothing, _startIdx = 63, _endIdx = 72, _stdNote = ""}
+        let movingSideColor = White
+        moveExposesKingDirect g1 m1 movingSideColor `shouldBe` True
+
+        let m1b = StdMove {_exchange = Nothing, _startIdx = 63, _endIdx = 62, _stdNote = ""}
+        moveExposesKingDirect g1 m1b movingSideColor `shouldBe` True
+
+    describe "moveExposesKingDiscovered" $
+      it "checks if the moving side's king is exposed by a discovered check" $ do
+        let (t1, _) = exposedKingDiscoveredTree
+        let g1 = _cpGrid $ _chessPos $ rootLabel $ t1
+        let m1 = StdMove {_exchange = Nothing, _startIdx = 54, _endIdx = 55, _stdNote = ""}
+        let movingSideColor = White
+        let movingSideKingLoc = 45
+        moveExposesKingDiscovered g1 m1 movingSideColor movingSideKingLoc `shouldBe` True
+
+    describe "moveExposesKing" $
       it "Determines if a move results in the opposing King being in check" $ do
-          let mv = StdMove { _exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = "" }
-          moveChecksOpponent discoveredCheckNode mv `shouldBe` True
+        let (t, _) = getStartNode "newgame"
+        let pos = _chessPos $ rootLabel t
+        let mv1 = StdMove { _exchange = Nothing, _startIdx = 25, _endIdx = 45, _stdNote = "" }
+        moveExposesKing pos mv1 `shouldBe` False
+
+        let (t2, _) = exposedKingDiscoveredTree
+        let pos2 = _chessPos $ rootLabel $ t2
+        let mv2 = StdMove {_exchange = Nothing, _startIdx = 54, _endIdx = 55, _stdNote = ""}
+        moveExposesKing pos2 mv2 `shouldBe` True
 
     describe "findMove" $
       it ("find's a subtree element corresponding to a particular move from the current position"
@@ -329,15 +481,15 @@ chessTest = do
 
     describe "checkFinal'" $
       it "determines if the board is in a 'final' position, i.e. checkmate or draw" $ do
-          checkFinal' (posFromGrid board07 Black (68, 88) (False, True)) `shouldBe` WWins
-          checkFinal' (posFromGrid board07b White (18,38) (True, False)) `shouldBe` BWins
-          checkFinal' (posFromGrid board07c White (18, 16) (False, False)) `shouldBe` Draw
-          checkFinal' (posFromGrid board07c Black (18, 16) (False, False)) `shouldBe` NotFinal
-          checkFinal' (posFromGrid board07d White (11, 23) (True, False)) `shouldBe` BWins
+          checkFinal' isFinalTestPos `shouldBe` BWins
+          checkFinal' (posFromGrid board07 Black (68, 88) True) `shouldBe` WWins
+          checkFinal' (posFromGrid board07b White (18,38) True) `shouldBe` BWins
+          checkFinal' pos07c `shouldBe` Draw
+          checkFinal' (posFromGrid board07d White (11, 23) True) `shouldBe` BWins
+          checkFinal' pos14 `shouldBe` BWins
+
     describe "negaMax" $
       it "finds the best move from the tree of possible moves" $ do
-        r2_1 <- matchStdMove mateInTwo01TestData
-        r2_1 `shouldBe` True
         r2_2 <- matchStdMove mateInTwo02TestData
         r2_2 `shouldBe` True
         r2_3b <- matchStdMove mateInTwo03bTestData
@@ -354,6 +506,8 @@ chessTest = do
         c1 `shouldBe` False
         c2 <- matchStdMove critBug01TestDataB
         c2 `shouldBe` False
+        r2_1 <- matchStdMove mateInTwo01TestData
+        r2_1 `shouldBe` True
 
     describe "checkPromote" $
       it "checks for pawn promotion" $ do
@@ -408,10 +562,48 @@ chessTest = do
         isRight (parseChessEntry n "") `shouldBe` False
         isRight (parseChessEntry n "\n") `shouldBe` False
 
+    describe "findDirFromKing" $
+      it "finds a rectangular or diagonal direction from the king to a a piece if it exists" $ do
+
+        let d1 = findDirFromKing 45 75
+        case d1 of
+            Nothing -> putStrLn "d1 == Nothing"
+            Just d -> putStrLn ("dir d1 applied to 10:" ++ show (d $ 10))
+        applyDirTest d1 0 10 `shouldBe` True
+
+        let d2 = findDirFromKing 45 25
+        case d2 of
+            Nothing -> putStrLn "d2 == Nothing"
+            Just d -> putStrLn $ "dir d2 applied to 10:" ++ show (d $ 10)
+        applyDirTest d2 10 0 `shouldBe` True
+
+        let d3 = findDirFromKing 45 41
+        applyDirTest d3 10 9 `shouldBe` True
+        let d4 = findDirFromKing 45 47
+        applyDirTest d4 10 11 `shouldBe` True
+        let d5 = findDirFromKing 45 78
+        applyDirTest d5 0 11 `shouldBe` True
+        let d6 = findDirFromKing 45 54
+        applyDirTest d6 1 10 `shouldBe` True
+        let d7 = findDirFromKing 45 18
+        applyDirTest d7 10 1 `shouldBe` True
+        let d8 = findDirFromKing 45 23
+        applyDirTest d8 11 0 `shouldBe` True
+        isJust (findDirFromKing 45 64) `shouldBe` False
+        isJust (findDirFromKing 45 45) `shouldBe` False
+
 
 ---------------------------------------------------------------------------------------------------
 -- Test helper functions / datatypes
 ---------------------------------------------------------------------------------------------------
+applyDirTest :: Maybe Dir -> Int -> Int -> Bool
+applyDirTest dir param expected =
+    isJust dir == True &&
+    (fromJust dir $ param) == expected
+
+applyDiscoveredCheckTest :: Dir -> Int -> Int -> Bool
+applyDiscoveredCheckTest dir testParam expectedDirResult =
+         (dir $ testParam) == expectedDirResult
 
 matchStdMove :: StdMoveTestData -> IO Bool
 matchStdMove StdMoveTestData{..} = do
@@ -428,25 +620,25 @@ matchStdMove StdMoveTestData{..} = do
         StdMove {..} -> do
             let start = _startIdx
             let end = _endIdx
-            -- putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
+            putStrLn $ printf "ChestTest::matchStdMove - start:%d, end:%d" start end
             liftIO $ return $ start == smtdStartIdx && end == smtdEndIdx
         CastlingMove {} -> liftIO $ return False
 
-posFromGrid :: ChessGrid -> Color -> (Int, Int) -> (Bool, Bool) -> ChessPos
-posFromGrid g c (kingLocW, kingLocB) (inCheckW, inCheckB) =
- mkTestPos g c  (testState c) (kingLocW, kingLocB) (inCheckW, inCheckB)
+posFromGrid :: ChessGrid -> Color -> (Int, Int) -> Bool -> ChessPos
+posFromGrid g c (kingLocW, kingLocB) inCheck =
+ mkTestPos g c  (testState c) (kingLocW, kingLocB) inCheck
 
-posFromGridEnPassant :: ChessGrid -> Color -> Maybe Int -> (Int, Int) -> (Bool, Bool) -> ChessPos
-posFromGridEnPassant g c ep (kingLocW, kingLocB) (inCheckW, inCheckB) =
- mkTestPos g c (epTestState c ep) (kingLocW, kingLocB) (inCheckW, inCheckB)
+posFromGridEnPassant :: ChessGrid -> Color -> Maybe Int -> (Int, Int) -> Bool -> ChessPos
+posFromGridEnPassant g c ep (kingLocW, kingLocB) inCheck =
+ mkTestPos g c (epTestState c ep) (kingLocW, kingLocB) inCheck
 
-mkTestPos :: ChessGrid -> Color -> ChessPosState -> (Int, Int) -> (Bool, Bool) -> ChessPos
-mkTestPos g c cpState (kingLocW, kingLocB) (inCheckW, inCheckB) =
+mkTestPos :: ChessGrid -> Color -> ChessPosState -> (Int, Int) -> Bool -> ChessPos
+mkTestPos g c cpState (kingLocW, kingLocB) inCheck =
   let (wLocs, bLocs) = calcLocsForColor g
   in ChessPos
     { _cpGrid = g
     , _cpKingLoc = (kingLocW, kingLocB)
-    , _cpInCheck = (inCheckW, inCheckB)
+    , _cpInCheck = inCheck
     , _cpWhitePieceLocs = wLocs
     , _cpBlackPieceLocs = bLocs
     , _cpFin = NotFinal
@@ -494,7 +686,6 @@ epTestState clr ep = ChessPosState
     , _cpsCastling = (Castled, Castled)
     , _cpsEnPassant = ep
     }
-
 
 -- Test board positions
 {-
@@ -902,19 +1093,16 @@ board07b = ChessGrid $ V.fromList
 (BWins)
 -}
 
-board07c :: ChessGrid
-board07c = ChessGrid $ V.fromList
-                           [ '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  'k',  ' ',  'K',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  'r',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  '+',
-                             '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+',  '+' ]
+pos07c :: ChessPos
+pos07c =
+    let (t, _) = board07cTree
+    in _chessPos $ rootLabel $ t
 
+board07cTree :: (Tree ChessNode, ChessPosState)
+board07cTree =
+    case getNodeFromFen "8/8/8/8/8/8/4r3/5k1K w - - 0 1" of
+      Left err -> error "board07cTree returned left??" -- this shouldn't happen
+      Right r -> r
 {-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
 
 -   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
@@ -1169,6 +1357,209 @@ Desired rookFileStatus:
   r @ 82, HalfOpen
   r @ 86, Open
 -}
+
+pos14 :: ChessPos
+pos14 =
+    let (t, _) = board14Tree
+    in _chessPos $ rootLabel $ t
+
+board14Tree :: (Tree ChessNode, ChessPosState)
+board14Tree =
+    case getNodeFromFen "8/8/8/8/8/1p6/rP6/K1k5 w - - 0 1" of
+      Left err -> error "board14Tree returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   p   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+r   P   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+K   -   k   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+(White's turn, checkmate)
+-}
+
+discoveredCheckTree2w :: (Tree ChessNode, ChessPosState)
+discoveredCheckTree2w =
+    case getNodeFromFen "3k4/8/1N6/B2Pp3/8/8/8/3RK1Nr w - e6 0 1" of
+      Left err -> error "discoveredCheckTree2w returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+-   -   -   k   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   N   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+B   -   -   P   p   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   R   K   -   N   r          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+White to move
+Black has just played D7-D5, so enpassant is available
+discovered check moves:
+  B6-wherever
+  D5-E6 (EP)
+discovered 'self-check':
+  G1-whatever
+-}
+
+directCheckTree :: (Tree ChessNode, ChessPosState)
+directCheckTree =
+    case getNodeFromFen "r1r2k2/pp4pp/8/2n5/8/4B3/PP4PP/R3K2R w QK - 39 20" of
+      Left err -> error "directCheckTree returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+r   -   r   -   -   k   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+p   p   -   -   -   -   p   p          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   n   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   B   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   P   -   -   -   -   P   P          2| (20)  21   22   23   24   25   26   27   28  (29)
+R   -   -   -   K   -   -   R          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-- Moves to verify:
+-- (W)  E1-G1 (king-side castle) check
+-- (W)  E3xC5 check
+-- (b)  C5-D3 check
+-}
+
+exposedKingDirectTree :: (Tree ChessNode, ChessPosState)
+exposedKingDirectTree =
+    case getNodeFromFen "2k5/8/2K5/q7/2Q5/8/8/8 w - - 0 1" of
+      Left err -> error "exposedKingDirectTree returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+-   -   k   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   K   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+q   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   Q   -   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-- Moves to verify:
+-- C6-B7 illegal, king exposed
+-- C6-B6 illegal, king exposed
+-}
+
+exposedKingDiscoveredTree :: (Tree ChessNode, ChessPosState)
+exposedKingDiscoveredTree =
+    case getNodeFromFen "b3k3/8/8/3R4/4K3/8/8/8 w - - 0 1" of
+      Left err -> error "exposedKingDiscoveredTree returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+b   -   -   -   k   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   -   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   R   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   -   K   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+-- Moves to verify:
+-- D5-E5 illegal, king exposed
+--
+-}
+
+discoveredCheckTree2b :: (Tree ChessNode, ChessPosState)
+discoveredCheckTree2b =
+    case getNodeFromFen "3k4/8/6b1/8/3pP3/8/3R4/1K6 w - e3 0 1" of
+      Left err -> error "discoveredCheckTree returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+-   -   -   k   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   -   b   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   -   p   P   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   B          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   -   -   R   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   K   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+Black to move
+White has just played E2-E4, so enpassant is available
+discovered check moves:
+  D4xE3 (EP)
+discovered 'self-check':
+  D4xE3 (EP)
+-}
+
+-- Note: this is not intended to be a legal position...
+attackMeTestTree :: (Tree ChessNode, ChessPosState)
+attackMeTestTree =
+    case getNodeFromFen "8/B5B1/5pb1/8/R2kP2R/8/1R6/6K1 b - - 0 1" of
+      Left err -> error "discoveredCheckTree returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+-   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+B   -   -   -   -   -   B   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   -   -   -   -   p   b   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   -   -   -   -   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+R   -   -   k   P   -   -   R          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   -   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+-   R   -   -   -   -   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   K   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                          -------------------------------------------------
+                                                A    B    C    D    E    F    G    H
+Black to move
+White has just played E2-E4, so enpassant is available
+discovered check moves:
+  D4xE3 (EP)
+discovered 'self-check':
+  D4xE3 (EP)
+-}
+isFinalTestPos :: ChessPos
+isFinalTestPos =
+  let (t, _) = isFinalTestTree
+  in _chessPos $ rootLabel $ t
+
+isFinalTestTree :: (Tree ChessNode, ChessPosState)
+isFinalTestTree =
+    case getNodeFromFen "8/8/1k4n1/1Pq1b3/2Kp4/5r2/P4P2/8 w - - 0 1" of
+      Left err -> error "isFinalTestTree returned left??" -- this shouldn't happen
+      Right r -> r
+{-                                        (90) (91) (92) (93) (94) (95) (96) (97) (98) (99)
+
+-   -   -   -   -   -   -   -          8| (80)  81   82   83   84   85   86   87   88  (89)
+-   -   -   -   -   -   -   -          7| (50)  71   72   73   74   75   76   77   78  (79)
+-   k   -   -   -   -   n   -          6| (50)  61   62   63   64   65   66   67   68  (69)
+-   P   q   -   b   -   -   -          5| (50)  51   52   53   54   55   56   57   58  (59)
+-   -   K   p   -   -   -   -          4| (40)  41   42   43   44   45   46   47   48  (49)
+-   -   -   -   -   r   -   -          3| (30)  31   32   33   34   35   36   37   38  (39)
+P   -   -   -   -   P   -   -          2| (20)  21   22   23   24   25   26   27   28  (29)
+-   -   -   -   -   -   -   -          1| (10)  11   12   13   14   15   16   17   18  (19)
+
+                                           (-) (01) (02) (03) (04) (05) (06) (07) (08) (09)
+                                           -------------------------------------------------
+                                                 A    B    C    D    E    F    G    H
+-}
+
 ----------------------------------------------------------------------------------------------------
 _boardTemplate :: ChessGrid
 _boardTemplate = ChessGrid $ V.fromList
