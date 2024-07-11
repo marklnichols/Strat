@@ -59,7 +59,7 @@ class PositionState p where
 
     combine :: [p] -> p
     combine [x] = x
-    combine (x:xs) = List.foldl' (\acc s -> combineTwo acc s) x xs
+    combine (x:xs) = List.foldl' combineTwo x xs
 
 data ZipTreeEnv = ZipTreeEnv
   { verbose :: Bool
@@ -107,7 +107,7 @@ maxScore = 1000000.0
 minScore :: Float
 minScore = - maxScore
 
-data MateIn = MateIn (Maybe (Int, Sign))
+newtype MateIn = MateIn (Maybe (Int, Sign))
   deriving (Eq, Show)
 
 data TraceCmp a where
@@ -122,7 +122,7 @@ data TraceCmp a where
     } -> TraceCmp a
 
 instance (Show a) => Show (TraceCmp a) where
-  show x = showCompactTC x
+  show = showCompactTC
 
 instance Eq a => Eq (TraceCmp a) where
    (==) Max Max = True
@@ -231,7 +231,7 @@ revTraceCmp Min = Min
 revTraceCmp tc@TraceCmp{..} = tc {movePath = reverse movePath}
 
 nodeHash :: (ZipTreeNode a, Hashable a) => a -> Int
-nodeHash n = hash n
+nodeHash = hash
 
 initAlphaBeta :: AlphaBeta
 initAlphaBeta = AlphaBeta
@@ -274,7 +274,7 @@ decendUntil z curDepth goalDepth critDepth
         return $ toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z
     -- past the goal depth and the parent isn't a crit -- stop
     | curDepth > goalDepth
-    , ztnDeepDescend (label z) == False = return $ toTree z
+    , not (ztnDeepDescend (label z)) = return $ toTree z
 
     -- past the goal depth and the crit depth -- stop
     | curDepth > goalDepth
@@ -287,7 +287,7 @@ decendUntil z curDepth goalDepth critDepth
         return (toTree $ modifyTree (\(T.Node x _) -> T.Node x theChildren) z)
 
 filterDeepDecentChildren :: ZipTreeNode a => [T.Tree a] -> [T.Tree a]
-filterDeepDecentChildren xs = filter (\t -> ztnDeepDescend (T.rootLabel t)) xs
+filterDeepDecentChildren = filter (ztnDeepDescend . T.rootLabel)
 
 buildChildren :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
               => TreePos Full a
@@ -309,7 +309,7 @@ buildChildren z curDepth goalDepth critDepth = do
     return results
 
 critsOnly :: ZipTreeNode a => [T.Tree a] -> Bool
-critsOnly trees = all (\t -> ztnDeepDescend (T.rootLabel t)) trees
+critsOnly trees = all (ztnDeepDescend . T.rootLabel) trees
 
 zipFoldFn :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
   => Int -> Int -> Int
@@ -373,7 +373,7 @@ updateAlphaBeta Pos alpBet bPruning newAlpha tc lvl = do
                 let str = printf "updating alpha (level %d) from %f to %f \ndue to: %s"
                                  lvl oldAlpha newAlpha (show tc)
                 let !temp = alpBet {alpha = maybeUpdated }
-                let showIt = isInfixOf (moveTraceStr env) (pack (show tc))
+                let showIt = moveTraceStr env `isInfixOf` pack (show tc)
                 return $ if showIt
                   then trace str temp
                   else temp
@@ -394,7 +394,7 @@ updateAlphaBeta Neg alpBet bPruning newBeta tc lvl = do
               let str = printf "updating beta (level %d) from %f to %f \ndue to: %s"
                                lvl oldBeta newBeta (show tc)
               let !temp = alpBet {beta = maybeUpdated }
-              let showIt = isInfixOf (moveTraceStr env) (pack (show tc))
+              let showIt = moveTraceStr env `isInfixOf` pack (show tc)
               return $ if showIt
                 then trace str temp
                 else temp
@@ -562,7 +562,7 @@ tracePruned tsPruned sharedCmpList srcStr lvl moreInfo = do
     r <- ask
     let env = zte r
     let prunedAsTCs = fmap (\t -> tcFromT t (T.rootLabel t:sharedCmpList) lvl) tsPruned
-    let tsFiltered = filter (\tc -> (moveTraceStr env) `isInfixOf` pack (show tc)) prunedAsTCs
+    let tsFiltered = filter (\tc -> moveTraceStr env `isInfixOf` pack (show tc)) prunedAsTCs
     let movesInContext = fmap show tsFiltered
     if null tsFiltered
       then return Nothing
@@ -625,7 +625,7 @@ negaRnd t gen = do
     let alphaBeta = initAlphaBeta
     (theBestTC, ec) <- alphaBetaPrune t [] alphaBeta bPruning sign 0 0
     let choices =
-          let !tmp = theBestTC : (filter (\tc -> isWithin sign maxRndChange theBestTC tc) (alts theBestTC))
+          let !tmp = theBestTC : filter (isWithin sign maxRndChange theBestTC) (alts theBestTC)
               str = printf "Number of choices: %d" (length tmp)
           in trace str tmp
     let pickedTC = pickOne gen choices
@@ -671,7 +671,7 @@ showFilteredTC Max Nothing = "Max"
 showFilteredTC Min Nothing = "Min"
 showFilteredTC TraceCmp {..} filterStr =
     let showIt = case filterStr of
-          Just str -> isInfixOf (pack str) (pack (show node))
+          Just str -> pack str `isInfixOf` pack (show node)
           Nothing -> True
     in if not showIt then "" else
         let rev = reverse movePath

@@ -85,7 +85,7 @@ processPlayerMove t mv bComputerResponse rnds = do
     -- TODO: skip this when not needed
     (tree, _) <- liftIO $ runReaderT
         (searchToSingleThreaded t (Nothing :: Maybe StdGen) 1 1) gameEnv
-    case (findMove tree mv) of
+    case findMove tree mv of
         Left s -> error s -- this shouldn't happen
         Right processed -> do
             let done = checkGameOver processed

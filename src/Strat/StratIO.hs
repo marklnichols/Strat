@@ -1,6 +1,5 @@
 {-# language GHC2021 #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 
@@ -105,7 +104,7 @@ negaMaxParallel env t gen = do
       then do
         let theGen = fromJust gen
         let curriedAltf = foldfAlts sign (maxRandomChange env) theBestTC
-        let theAlts = foldr curriedAltf [] (fst <$> resultsList)
+        let theAlts = foldr (curriedAltf . fst) [] resultsList
         let allChoices = theBestTC : theAlts
         let pickedTC = Z.pickOne theGen allChoices
         let notPicked = List.delete pickedTC allChoices
@@ -130,7 +129,7 @@ negaMaxParallel env t gen = do
           (minTC tcAcc tc, numEvalsAcc + numEvals)
 
         foldfAlts :: forall a. (Ord a, Show a, ZipTreeNode a, Hashable a)
-                  => Sign -> Float -> TraceCmp a -> TraceCmp a -> [(TraceCmp a)] -> [(TraceCmp a)]
+                  => Sign -> Float -> TraceCmp a -> TraceCmp a -> [TraceCmp a] -> [TraceCmp a]
         foldfAlts sgn maxRnd tcBest x acc =
           if isWithin sgn maxRnd tcBest x
             then x : acc

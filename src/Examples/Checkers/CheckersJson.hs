@@ -125,7 +125,7 @@ instance ToJSON JsonError where
 instance FromJSON JsonError
 
 ----------------------------------------------------------------------------------------------------
--- Exported functions
+-- Exported functionsn
 ----------------------------------------------------------------------------------------------------
 jsonToCkMove :: String -> Maybe Ck.CkMove
 jsonToCkMove s = (jsonToParserMove <$> decode (strToBs s)) >>= Ck.parserToCkMove

@@ -607,6 +607,7 @@ countMaterial g =
 --    save
 --    show eval detail
 --    change level
+-- Limit positive score eval for moves like A7-A6 only when there is a knight at A3 or C3
 -- And add evaluation scores for:
       score penalty if pawns at both A3 and B3, etc.
       outposts
@@ -674,10 +675,7 @@ toFen cp =
         nextColor = [colorToChar $ _cpsColorToMove state]
         castlingPair = _cpsCastling state
         castlingStr = fenCastlingToChars castlingPair
-        enPassantStr =
-          case _cpsEnPassant state of
-            Nothing -> "-"
-            Just n -> locToAlgebraic n
+        enPassantStr = maybe "-" locToAlgebraic (_cpsEnPassant state)
         halfMoves = "0" -- not yet implemented
         fullMoves = show (_cpsMoveNumber state `div` 2)
     in boardFen ++ " " ++ nextColor ++ " " ++ castlingStr ++ " " ++ enPassantStr ++ " "
@@ -762,12 +760,12 @@ scanRow v idx =
           case i `mod` 10 of
             0 -> if curSpaces == 0
                      then str
-                     else (intToDigit curSpaces) : str
+                     else intToDigit curSpaces : str
             _ -> case v!i of
                     ' ' -> loop (i-1) (curSpaces+1) str
                     ch  -> if curSpaces == 0
                               then loop (i-1) 0 (ch : str)
-                              else loop (i-1) 0 (ch : ((intToDigit curSpaces) : str))
+                              else loop (i-1) 0 (ch : (intToDigit curSpaces : str))
     in loop idx 0 ""
 
 locToAlgebraic :: Int -> String
@@ -830,7 +828,7 @@ intToCastling _ = Nothing
 fenCharsToCastling :: String -> Maybe (Castling, Castling)
 fenCharsToCastling str =
   let neither = 0
-  in if length str == 0 || length str > 4
+  in if null str || length str > 4
      then Nothing
      else if str == "-" then Just (Unavailable, Unavailable)
      else let (w, b, _) = foldr foldf (neither, neither, White) str -- Note: White chars before black here
@@ -851,7 +849,7 @@ fenCharsToCastling str =
 
 showChessNodeAs :: ChessNode -> String -> String
 showChessNodeAs cn formatType =
-  if (upper formatType) == "FEN"
+  if upper formatType == "FEN"
     then toFen $ _chessPos cn
     else show cn
 
@@ -1113,7 +1111,7 @@ toDir DiagURDir = diagUR
 toDir DiagDLDir = diagDL
 
 toDirection :: Dir -> Direction
-toDirection d = case (d $ 0) of
+toDirection d = case d 0 of
     1   -> RightDir
     -1  -> LeftDir
     10  -> UpDir

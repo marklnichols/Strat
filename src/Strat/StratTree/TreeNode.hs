@@ -47,8 +47,7 @@ data FinalState = WWins | BWins | Draw | NotFinal
 instance Hashable FinalState where
   -- hashWithSalt = hashWithSalt
 
-data Env = Env
-    { equivThreshold :: Float } deriving (Show)
+newtype Env = Env { equivThreshold :: Float } deriving (Show)
 
 data MoveScore m e = MoveScore {_move :: m, _score :: e} deriving (Show, Eq)
 $(makeLenses ''MoveScore)

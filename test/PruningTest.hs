@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -220,8 +219,7 @@ rootWikiTree = Node TestNode { typ = 1, nid = 01, name = "01 (6)", tnSign = Pos,
 
 makeTestChildren :: TestNode -> [Tree TestNode]
 makeTestChildren TestNode {..} =
-  case typ of
-    _ -> wikiMap ! nid -- more TBD
+    wikiMap ! nid
 
 -- example from: https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning
 wikiMap :: HashMap Int [Tree TestNode]

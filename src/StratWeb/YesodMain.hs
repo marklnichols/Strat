@@ -144,7 +144,7 @@ postPlayerMoveR = do
                         Just move -> do
                             wrp <- WR.processPlayerMove tree move True g  --true, computer always responds -- for now
                             return (wrp, g)
-    liftIO $ updateMap (getMap yesod) uniqueId $ (WR.getNode wrapper, gen)
+    liftIO $ updateMap (getMap yesod) uniqueId (WR.getNode wrapper, gen)
     case WR.getJsonable wrapper of
       WR.Jsonable j -> do
             liftIO $ putStrLn $ " ** Computer's move: " ++ show (rootLabel (WR.getNode wrapper))
