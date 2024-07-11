@@ -57,7 +57,7 @@ exitFail _ s = do
 playerEntry :: Tree CkNode -> [CkMove] -> IO (Entry CkMove s)
 playerEntry tree exclusions = do
     let n = rootLabel tree
-    putStrLn ("Enter player's move:")
+    putStrLn "Enter player's move:"
     line <- getLine
     putStrLn ""
     case parseEntry n line of

@@ -43,7 +43,7 @@ makeChildren n =
         parentDepth = tlDepth tloc
         tl = TreeLocation (parentDepth + 1)
         mvs = possibleMoves n
-        ns = map (\m -> (newNode n m tl)) mvs
+        ns = map (\m -> newNode n m tl) mvs
         ts = map (\x -> Node x []) ns
     in ts
 

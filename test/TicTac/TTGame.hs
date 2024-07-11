@@ -61,7 +61,7 @@ instance Eval TTNode where
           asFloat = fromIntegral asInt :: Float
       in asFloat
     isEvaluated _ = True
-    setFloat tn x = tn & (ttValue . theVal) .~ (round x)
+    setFloat tn x = tn & (ttValue . theVal) .~ round x
 
 instance TreeNode TTNode IntMove where
     treeLoc _ = tl0

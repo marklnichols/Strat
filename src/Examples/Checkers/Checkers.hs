@@ -397,7 +397,7 @@ evalCkNode n =
         mob = fromIntegral $ mobility n * mobilityVal
         home = fromIntegral $ homeRow g'
         prog = fromIntegral $ progress n * progressVal
-        kProximity = fromIntegral $ (kingProximity n * kProximityVal) :: Int
+        kProximity = fromIntegral (kingProximity n * kProximityVal) :: Int
         finl = checkFinal n
     in case finl of
         NotFinal -> ( CkEval { _total = mat + mob + home + prog
@@ -502,7 +502,7 @@ getPossibleMoves n = foldr f [] (getPieceLocs n) where
                         f x r = r ++ pieceMoves n x ++ pieceJumps n x
 
 getAllowedMoves :: CkNode -> [CkMove]
-getAllowedMoves node = (requireJumps . getPossibleMoves) node
+getAllowedMoves = requireJumps . getPossibleMoves
 
 requireJumps :: [CkMove] -> [CkMove]
 requireJumps xs = case filter (^. isJump) xs of

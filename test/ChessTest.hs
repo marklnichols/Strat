@@ -283,7 +283,7 @@ chessTest = do
                            ) `shouldBe` 14  -- (25W - 11b = 14)
 
     describe "connectedRooks" $
-      it ("Determine if a side has two connected rooks") $ do
+      it "Determine if a side has two connected rooks" $ do
           connectedRooks (posFromGrid board07 White (12, 87) False) White `shouldBe` False
           connectedRooks (posFromGrid board07 White (12, 87) False) Black `shouldBe` False
           connectedRooks (posFromGrid board01 White (12, 87) False) White `shouldBe` False
@@ -296,7 +296,7 @@ chessTest = do
               Black `shouldBe` True
 
     describe "rookFileStatus" $
-      it ("Determines whether a rook's file is Open, HalfOpen, or NotOpen") $ do
+      it "Determines whether a rook's file is Open, HalfOpen, or NotOpen" $ do
           rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
               14 White `shouldBe` Open
           rookFileStatus (mkTestPos board13 White (testStateUnavail White) (13, 87) False)
@@ -320,7 +320,7 @@ chessTest = do
     describe "discoveredCheckDirs" $
       it "finds possible discovered check directions for a given move" $ do
         let (t1, _) = discoveredCheckTree2w
-        let g1 = unGrid $ _cpGrid $ _chessPos $ rootLabel $ t1
+        let g1 = unGrid $ _cpGrid $ _chessPos $ rootLabel t1
         let bKingLoc1 = 84
 
         -- discovered check B6-C4
@@ -328,7 +328,7 @@ chessTest = do
         let res = discoveredCheckDirs g1 bKingLoc1 m1
         length res `shouldBe` 1
 
-        putStrLn $ "dir applied to 11:" ++ show ((head res) $ 11) -- 22
+        putStrLn $ "dir applied to 11:" ++ show (head res 11) -- 22
         applyDiscoveredCheckTest (head res) 11 0 `shouldBe` True
 
         -- discovered check EP capture D5xE6
@@ -345,7 +345,7 @@ chessTest = do
         applyDiscoveredCheckTest (head pairs3) 0 1 `shouldBe` True
 
         let (t2, _) = discoveredCheckTree2b
-        let g2 = unGrid $ _cpGrid $ _chessPos $ rootLabel $ t2
+        let g2 = unGrid $ _cpGrid $ _chessPos $ rootLabel t2
         let bKingLoc2 = 84
         let wKingLoc2 = 12
 
@@ -363,7 +363,7 @@ chessTest = do
     describe "dirAttackMeLoc" $ do
       it "finds the first enemy piece in a given direction that can attack me back from that direction" $ do
         let (t, _) = attackMeTestTree
-        let g = _cpGrid $ _chessPos $ rootLabel $ t
+        let g = _cpGrid $ _chessPos $ rootLabel t
         dirAttackMeLoc g (44, ' ', Black) UpDir `shouldBe` Nothing
         dirAttackMeLoc g (44, ' ', Black) DownDir `shouldBe` Nothing
         dirAttackMeLoc g (44, ' ', Black) LeftDir `shouldBe` Just 41
@@ -376,7 +376,7 @@ chessTest = do
     describe "moveIsDiscoveredCheck" $ do
       it "determines if a move results in a discovered check" $ do
         let (t, _) = discoveredCheckTree
-        let g = _cpGrid $ _chessPos $ rootLabel $ t
+        let g = _cpGrid $ _chessPos $ rootLabel t
         let mv1 = StdMove {_exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = ""}
         let movingColor1 = White
         let kingLoc1 = 64
@@ -393,7 +393,7 @@ chessTest = do
     describe "moveIsDirectCheck" $
       it "determines if a move results in a direct check" $ do
         let (t1, _) = directCheckTree
-        let g1 = _cpGrid $ _chessPos $ rootLabel $ t1
+        let g1 = _cpGrid $ _chessPos $ rootLabel t1
         let mv1 = CastlingMove { _castle = KingSide, _kingStartIdx = 15, _kingEndIdx = 17
                  , _rookStartIdx = 18, _rookEndIdx = 16, _castleNote = "" }
         let movingColor1 = White
@@ -412,7 +412,7 @@ chessTest = do
     describe "moveIsCheck" $
       it "determines if a move results in a check" $ do
         let (t1, _) = directCheckTree
-        let pos1 = _chessPos $ rootLabel $ t1
+        let pos1 = _chessPos $ rootLabel t1
         let mv1 = CastlingMove { _castle = KingSide, _kingStartIdx = 15, _kingEndIdx = 17
                  , _rookStartIdx = 18, _rookEndIdx = 16, _castleNote = "" }
         moveIsCheck pos1 mv1 `shouldBe` True
@@ -430,7 +430,7 @@ chessTest = do
         moveIsCheck pos2 mv2 `shouldBe` True
 
         let (t3, _) = discoveredCheckTree
-        let pos3 = _chessPos $ rootLabel $ t3
+        let pos3 = _chessPos $ rootLabel t3
         let mv3 = StdMove {_exchange = Just 'b', _startIdx = 55, _endIdx = 53, _stdNote = ""}
         moveIsCheck pos3 mv3 `shouldBe` True
 
@@ -451,7 +451,7 @@ chessTest = do
     describe "moveExposesKingDiscovered" $
       it "checks if the moving side's king is exposed by a discovered check" $ do
         let (t1, _) = exposedKingDiscoveredTree
-        let g1 = _cpGrid $ _chessPos $ rootLabel $ t1
+        let g1 = _cpGrid $ _chessPos $ rootLabel t1
         let m1 = StdMove {_exchange = Nothing, _startIdx = 54, _endIdx = 55, _stdNote = ""}
         let movingSideColor = White
         let movingSideKingLoc = 45
@@ -465,7 +465,7 @@ chessTest = do
         moveExposesKing pos mv1 `shouldBe` False
 
         let (t2, _) = exposedKingDiscoveredTree
-        let pos2 = _chessPos $ rootLabel $ t2
+        let pos2 = _chessPos $ rootLabel t2
         let mv2 = StdMove {_exchange = Nothing, _startIdx = 54, _endIdx = 55, _stdNote = ""}
         moveExposesKing pos2 mv2 `shouldBe` True
 
@@ -540,7 +540,7 @@ chessTest = do
       it "results in the original FEN string" $ do
         let fenStr = "3r4/8/3k4/2b1R3/8/6B1/8/3K4 w - - 0 0"
         let result =
-              case (fromFen fenStr) of
+              case fromFen fenStr of
                 Left err -> err
                 Right t -> (toFen . _chessPos . rootLabel . fst) t
         result `shouldBe` fenStr
@@ -568,13 +568,13 @@ chessTest = do
         let d1 = findDirFromKing 45 75
         case d1 of
             Nothing -> putStrLn "d1 == Nothing"
-            Just d -> putStrLn ("dir d1 applied to 10:" ++ show (d $ 10))
+            Just d -> putStrLn ("dir d1 applied to 10:" ++ show (d 10))
         applyDirTest d1 0 10 `shouldBe` True
 
         let d2 = findDirFromKing 45 25
         case d2 of
             Nothing -> putStrLn "d2 == Nothing"
-            Just d -> putStrLn $ "dir d2 applied to 10:" ++ show (d $ 10)
+            Just d -> putStrLn $ "dir d2 applied to 10:" ++ show (d 10)
         applyDirTest d2 10 0 `shouldBe` True
 
         let d3 = findDirFromKing 45 41
@@ -598,12 +598,12 @@ chessTest = do
 ---------------------------------------------------------------------------------------------------
 applyDirTest :: Maybe Dir -> Int -> Int -> Bool
 applyDirTest dir param expected =
-    isJust dir == True &&
-    (fromJust dir $ param) == expected
+    isJust dir &&
+    fromJust dir param == expected
 
 applyDiscoveredCheckTest :: Dir -> Int -> Int -> Bool
 applyDiscoveredCheckTest dir testParam expectedDirResult =
-         (dir $ testParam) == expectedDirResult
+         dir testParam == expectedDirResult
 
 matchStdMove :: StdMoveTestData -> IO Bool
 matchStdMove StdMoveTestData{..} = do
@@ -1096,7 +1096,7 @@ board07b = ChessGrid $ V.fromList
 pos07c :: ChessPos
 pos07c =
     let (t, _) = board07cTree
-    in _chessPos $ rootLabel $ t
+    in _chessPos $ rootLabel t
 
 board07cTree :: (Tree ChessNode, ChessPosState)
 board07cTree =
@@ -1361,7 +1361,7 @@ Desired rookFileStatus:
 pos14 :: ChessPos
 pos14 =
     let (t, _) = board14Tree
-    in _chessPos $ rootLabel $ t
+    in _chessPos $ rootLabel t
 
 board14Tree :: (Tree ChessNode, ChessPosState)
 board14Tree =
@@ -1537,7 +1537,7 @@ discovered 'self-check':
 isFinalTestPos :: ChessPos
 isFinalTestPos =
   let (t, _) = isFinalTestTree
-  in _chessPos $ rootLabel $ t
+  in _chessPos $ rootLabel t
 
 isFinalTestTree :: (Tree ChessNode, ChessPosState)
 isFinalTestTree =
