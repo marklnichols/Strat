@@ -470,12 +470,6 @@ indexToColor2 g idx =
   in asciiToColor (g' ! idx)
 {-# INLINE indexToColor2 #-}
 
-indexToPiece :: ChessGrid -> Int -> ChessPiece (k :: SomeSing Piece)
-indexToPiece g idx =
-    let g' = unGrid g
-        gridVal =  fromMaybe ' ' (g' ^? ix idx)
-    in charToPiece gridVal
-
 indexToChar :: ChessGrid -> Int -> Char
 indexToChar g idx =
   let g' = unGrid g
@@ -501,14 +495,14 @@ pieceAbsVal (MkChessPiece _c (SomeSing SOffBoardNone)) = 0.0
 mobilityCountFromLoc :: ChessPos -> (Int, Char, Color) -> Int
 mobilityCountFromLoc cp loc@(idx, _, _) =
   let g = cp ^. cpGrid
-      piece = indexToPiece g idx
-  in case piece of
-      MkChessPiece _c (SomeSing SKing) -> kingMobility cp loc
-      MkChessPiece _c (SomeSing SQueen) -> queenMobility cp loc
-      MkChessPiece _c (SomeSing SRook) -> rookMobility g loc
-      MkChessPiece _c (SomeSing SKnight) -> knightMobility g loc
-      MkChessPiece _c (SomeSing SBishop) -> bishopMobility g loc
-      MkChessPiece _c (SomeSing _) -> 0
+      ch = toUpper $ indexToChar g idx
+  in case ch of
+      'K' -> kingMobility cp loc
+      'Q' -> queenMobility cp loc
+      'R' -> rookMobility g loc
+      'N' -> knightMobility g loc
+      'B' -> bishopMobility g loc
+      _   -> 0
 
 mobilityCountFromLocs :: ChessPos -> [(Int, Char, Color)] -> Int
 mobilityCountFromLocs cp =
@@ -588,7 +582,6 @@ countMaterial g =
         if ch == empty
           then theTotal
           else theTotal + pieceVal (charToPiece ch)
-
 
 {- TODOs:
 -- Convert more stored positions to FEN
@@ -1282,9 +1275,12 @@ calcNewNode node mv tLoc =
 ---------------------------------------------------------------------------------------------------
 updateKingLocs :: ChessGrid -> (Int, Int) -> Int -> (Int, Int)
 updateKingLocs grid kingLocs mvEndIdx =
-    case indexToPiece grid mvEndIdx of
-        MkChessPiece c (SomeSing SKing) -> colorToTuple c kingLocs mvEndIdx
-        MkChessPiece _c (SomeSing _) -> kingLocs
+    let ch = indexToChar grid mvEndIdx
+    in if ch == 'K'
+           then colorToTuple White kingLocs mvEndIdx
+       else if ch == 'k'
+           then colorToTuple Black kingLocs mvEndIdx
+       else kingLocs
 
 moveIsCheck :: ChessPos -> ChessMove -> Bool
 moveIsCheck pos mv =
@@ -1339,15 +1335,15 @@ moveIsDirectCheck curGrid mv movingSideColor =
 
 movesFromLoc2 ::ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 movesFromLoc2 g loc@(idx, _, _) =
-  let cp = indexToPiece g idx
-  in case cp of
-      MkChessPiece _c (SomeSing SKing) -> allowableKingMovesNC g loc
-      MkChessPiece _c (SomeSing SQueen) -> allowableQueenMoves g loc
-      MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
-      MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
-      MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
-      MkChessPiece _c (SomeSing SPawn) -> allowablePawnMovesNEP g loc
-      MkChessPiece _c (SomeSing _) -> ([], [])
+  let ch = toUpper $ indexToChar g idx
+  in case ch of
+      'K' -> allowableKingMovesNC g loc
+      'Q' -> allowableQueenMoves g loc
+      'R' -> allowableRookMoves g loc
+      'N' -> allowableKnightMoves g loc
+      'B' -> allowableBishopMoves g loc
+      'P' -> allowablePawnMovesNEP g loc
+      _   -> ([], [])
 
 ----------------------------------------------------------------------------------------------------
 -- Is this move a discovered check against the opposing player? By 'discovered' we mean the check
@@ -1533,10 +1529,10 @@ checkQueen _ True _ = True
 checkQueen g False mv =
     case mv of
         StdMove _isExch start _end _s ->
-            let piece = indexToPiece g start
-            in case piece of
-                (MkChessPiece _c (SomeSing SQueen)) -> True
-                (MkChessPiece _c (SomeSing _)) -> False
+            let ch = toUpper $ indexToChar g start
+            in case ch of
+                'Q' -> True
+                _   -> False
         CastlingMove{}  -> False
 
 isCritical :: ChessNode -> Bool
@@ -1627,9 +1623,9 @@ calcPawnPositionScore cp =
     let g = cp ^. cpGrid
         (wLocs, bLocs) = locsForColor cp
         filterF loc =
-            case indexToPiece g loc of
-                MkChessPiece _c (SomeSing SPawn) -> True
-                MkChessPiece _c (SomeSing _)     -> False
+            case toUpper $ indexToChar g loc of
+                'P' -> True
+                _   -> False
         wPawns = filter filterF (fst3 <$> wLocs)
         bPawns = filter filterF (fst3 <$> bLocs)
         centerScore = calcCenterPawnScore wPawns bPawns
@@ -1714,18 +1710,14 @@ calcRookPawnScore grid wPawns bPawns =
 pawnAt :: Color -> ChessGrid -> Int -> Int -> Bool
 pawnAt White grid columnBase row =
     let idx = columnBase + (row - 1) * 10
-    --
-        !temp = case indexToPiece grid idx of
-                  MkChessPiece clr (SomeSing SPawn) -> True
-                  _                                 -> False
-    in case indexToPiece grid idx of
-         MkChessPiece clr (SomeSing SPawn) -> True
-         _                                 -> False
+    in case indexToChar grid idx of
+         'P' -> True
+         _   -> False
 pawnAt Black grid columnBase row =
     let idx = columnBase + (7 - (row - 1)) * 10
-    in case indexToPiece grid idx of
-         MkChessPiece clr (SomeSing SPawn) -> True
-         _                                 -> False
+    in case indexToChar grid idx of
+         'p' -> True
+         _   -> False
 
 calcBishopPawnScore :: [Int] -> [Int] -> Float
 calcBishopPawnScore wPawns bPawns =
@@ -1740,99 +1732,99 @@ calcPawnAdjustments m pawns =
       foldF xLoc r = M.findWithDefault 0 xLoc m + r
 
 kRookAtHome :: Color -> ChessGrid -> Bool
-kRookAtHome White grid = case indexToPiece grid wKR of
-                          MkChessPiece White (SomeSing SRook) -> True
-                          _                                   -> False
-kRookAtHome Black grid = case indexToPiece grid bKR of
-                          MkChessPiece Black (SomeSing SRook) -> True
-                          _                                   -> False
+kRookAtHome White grid = case indexToChar grid wKR of
+                          'R' -> True
+                          _   -> False
+kRookAtHome Black grid = case indexToChar grid bKR of
+                          'r' -> True
+                          _   -> False
 
 kNearKrp :: Color -> ChessGrid -> Bool
 kNearKrp White grid =
-  case indexToPiece grid wKN of
-    MkChessPiece White (SomeSing SKing) -> True
-    _                                   ->
-        case indexToPiece grid wKR of
-            MkChessPiece White (SomeSing SKing) -> True
-            _                                   -> False
+  case indexToChar grid wKN of
+    'K' -> True
+    _   ->
+        case indexToChar grid wKR of
+            'K' -> True
+            _   -> False
 kNearKrp Black grid =
-  case indexToPiece grid bKN of
-    MkChessPiece Black (SomeSing SKing) -> True
-    _                                   ->
-        case indexToPiece grid bKR of
-            MkChessPiece Black (SomeSing SKing) -> True
-            _                                   -> False
+  case indexToChar grid bKN of
+    'k' -> True
+    _   ->
+        case indexToChar grid bKR of
+            'k' -> True
+            _   -> False
 
 kNearQrp :: Color -> ChessGrid -> Bool
 kNearQrp White grid =
-  case indexToPiece grid wQN of
-    MkChessPiece White (SomeSing SKing) -> True
-    _                                   ->
-        case indexToPiece grid wQR of
-            MkChessPiece White (SomeSing SKing) -> True
-            _                                   -> False
+  case indexToChar grid wQN of
+    'K' -> True
+    _   ->
+        case indexToChar grid wQR of
+            'K' -> True
+            _   -> False
 kNearQrp Black grid =
-  case indexToPiece grid bQN of
-    MkChessPiece Black (SomeSing SKing) -> True
-    _                                   ->
-        case indexToPiece grid bQR of
-            MkChessPiece Black (SomeSing SKing) -> True
-            _                                   -> False
+  case indexToChar grid bQN of
+    'k' -> True
+    _   ->
+        case indexToChar grid bQR of
+            'k' -> True
+            _   -> False
 
 qRookAtHome :: Color -> ChessGrid -> Bool
-qRookAtHome White grid = case indexToPiece grid wQR of
-                          MkChessPiece White (SomeSing SRook) -> True
-                          _                                   -> False
-qRookAtHome Black grid = case indexToPiece grid bQR of
-                          MkChessPiece Black (SomeSing SRook) -> True
-                          _                                   -> False
+qRookAtHome White grid = case indexToChar grid wQR of
+                          'R' -> True
+                          _   -> False
+qRookAtHome Black grid = case indexToChar grid bQR of
+                          'r' -> True
+                          _   -> False
 
 krpSpaceForRook :: Color -> ChessGrid -> Bool
-krpSpaceForRook White grid = case indexToPiece grid 48 of
-                          MkChessPiece White (SomeSing SPawn) -> True
-                          _                                   -> False
-krpSpaceForRook Black grid = case indexToPiece grid 58 of
-                          MkChessPiece Black (SomeSing SPawn) -> True
-                          _                                   -> False
+krpSpaceForRook White grid = case indexToChar grid 48 of
+                          'P' -> True
+                          _   -> False
+krpSpaceForRook Black grid = case indexToChar grid 58 of
+                          'p' -> True
+                          _   -> False
 
 qrpSpaceForRook :: Color -> ChessGrid -> Bool
-qrpSpaceForRook White grid = case indexToPiece grid 41 of
-                          MkChessPiece White (SomeSing SPawn) -> True
-                          _                                   -> False
-qrpSpaceForRook Black grid = case indexToPiece grid 51 of
-                          MkChessPiece Black (SomeSing SPawn) -> True
-                          _                                   -> False
+qrpSpaceForRook White grid = case indexToChar grid 41 of
+                          'P' -> True
+                          _   -> False
+qrpSpaceForRook Black grid = case indexToChar grid 51 of
+                          'p' -> True
+                          _   -> False
 
 kBishopAtHome :: Color -> ChessGrid -> Bool
-kBishopAtHome White grid = case indexToPiece grid wKB of
-                          MkChessPiece White (SomeSing SBishop) -> True
-                          _                                     -> False
-kBishopAtHome Black grid = case indexToPiece grid bQB of
-                          MkChessPiece Black (SomeSing SBishop) -> True
-                          _                                     -> False
+kBishopAtHome White grid = case indexToChar grid wKB of
+                        'B' -> True
+                        _   -> False
+kBishopAtHome Black grid = case indexToChar grid bQB of
+                        'b' -> True
+                        _   -> False
 qBishopAtHome :: Color -> ChessGrid -> Bool
-qBishopAtHome White grid = case indexToPiece grid wQB of
-                          MkChessPiece White (SomeSing SBishop) -> True
-                          _                                     -> False
-qBishopAtHome Black grid = case indexToPiece grid bQB of
-                          MkChessPiece Black (SomeSing SBishop) -> True
-                          _                                     -> False
+qBishopAtHome White grid = case indexToChar grid wQB of
+                        'B' -> True
+                        _   -> False
+qBishopAtHome Black grid = case indexToChar grid bQB of
+                        'b' -> True
+                        _   -> False
 
 knpSpaceForFianchetto :: Color -> ChessGrid -> Bool
-knpSpaceForFianchetto White grid = case indexToPiece grid 37 of
-                          MkChessPiece White (SomeSing SPawn) -> True
-                          _                                   -> False
-knpSpaceForFianchetto Black grid = case indexToPiece grid 67 of
-                          MkChessPiece Black (SomeSing SPawn) -> True
-                          _                                   -> False
+knpSpaceForFianchetto White grid = case indexToChar grid 37 of
+                          'P' -> True
+                          _ -> False
+knpSpaceForFianchetto Black grid = case indexToChar grid 67 of
+                          'p' -> True
+                          _ -> False
 
 qnpSpaceForFianchetto :: Color -> ChessGrid -> Bool
-qnpSpaceForFianchetto White grid = case indexToPiece grid 32 of
-                          MkChessPiece White (SomeSing SPawn) -> True
-                          _                                   -> False
-qnpSpaceForFianchetto Black grid = case indexToPiece grid 62 of
-                          MkChessPiece Black (SomeSing SPawn) -> True
-                          _                                   -> False
+qnpSpaceForFianchetto White grid = case indexToChar grid 32 of
+                          'P' -> True
+                          _ -> False
+qnpSpaceForFianchetto Black grid = case indexToChar grid 62 of
+                          'p' -> True
+                          _ -> False
 
 kpQpAdjustments :: Map Int Float
 kpQpAdjustments = M.fromList
@@ -1903,14 +1895,14 @@ rookFileStatus cp idx0 clr0 =
               Black -> down
       g = _cpGrid cp
       loop idx =
-        let piece = indexToPiece g idx
+        let ch = toUpper $ indexToChar g idx
             clr = indexToColor2 g idx
-        in case piece of
-            MkChessPiece _c (SomeSing SPawn) ->
+        in case ch of
+            'P' ->
                 if clr == Just clr0
                     then NotOpen
                     else HalfOpen
-            MkChessPiece _c (SomeSing _) ->
+            _ ->
               if not (onBoard idx)
                   then Open
               else
@@ -2190,9 +2182,10 @@ hasConnectedPartner cp dirs loc@(idx, ch, clr) =
             Nothing -> acc
             Just z  ->
               acc ||
-              case indexToPiece g z of
-                  MkChessPiece clr (SomeSing SRook) -> True
-                  MkChessPiece _c (SomeSing _) -> False
+              case (indexToChar g z, clr) of
+                  ('R', White) -> True
+                  ('r', Black) -> True
+                  _ -> False
 
 -- r to R, B to b, etc.
 flipCharColor :: Char -> Char
@@ -2316,15 +2309,15 @@ movesFromLocs pos =
 movesFromLoc :: ChessPos -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 movesFromLoc pos loc@(idx, _, _) =
   let g = _cpGrid pos
-      cp = indexToPiece g idx
-  in case cp of
-      MkChessPiece _c (SomeSing SKing) -> allowableKingMoves pos loc
-      MkChessPiece _c (SomeSing SQueen) -> allowableQueenMoves g loc
-      MkChessPiece _c (SomeSing SRook) -> allowableRookMoves g loc
-      MkChessPiece _c (SomeSing SKnight) -> allowableKnightMoves g loc
-      MkChessPiece _c (SomeSing SBishop) -> allowableBishopMoves g loc
-      MkChessPiece _c (SomeSing SPawn) -> allowablePawnMoves pos loc
-      MkChessPiece _c (SomeSing _) -> ([], [])
+      ch = toUpper $ indexToChar g idx
+  in case ch of
+      'K' -> allowableKingMoves pos loc
+      'Q' -> allowableQueenMoves g loc
+      'R' -> allowableRookMoves g loc
+      'N' -> allowableKnightMoves g loc
+      'B' -> allowableBishopMoves g loc
+      'P' -> allowablePawnMoves pos loc
+      _   -> ([], [])
 
 allowableMultiMoves :: [Dir] -> ChessGrid -> (Int, Char, Color) -> ([ChessMove], [ChessMove])
 allowableMultiMoves pieceDirs g loc =
@@ -2499,9 +2492,9 @@ hasPawnMoved (idx, _, Black) = idx < 71
 isTwoSquarePawnMove :: ChessGrid -> ChessMove -> Bool
 isTwoSquarePawnMove g StdMove{..} =
     let isPawn =
-          case indexToPiece g _startIdx of
-            MkChessPiece _c (SomeSing SPawn) -> True
-            MkChessPiece _c (SomeSing _)     -> False
+          case toUpper $ indexToChar g _startIdx of
+            'P' -> True
+            _   -> False
     in isPawn && abs (_endIdx - _startIdx) == 20
 isTwoSquarePawnMove _g _ = False
 
@@ -2694,21 +2687,21 @@ epRemoveLoc startIdx endIdx =
 -- The param should always be a list of length two
 checkIndexesToEnPassant :: ChessGrid -> [Int] -> Maybe ChessMove
 checkIndexesToEnPassant g [fromLoc, toLoc] =
-  case indexToPiece g fromLoc of
-    MkChessPiece _c (SomeSing SPawn) ->
-      let remEleven = (toLoc - fromLoc) `rem` 11 == 0
-          remNine = (toLoc - fromLoc) `rem` 9 == 0
-      in if (remEleven || remNine) && (indexToChar g toLoc == empty)
-        then
-          let captureLoc = epRemoveLoc fromLoc toLoc
-          in Just $ EnPassantMove
-            { _epStartIdx = fromLoc
-            , _epEndIdx = toLoc
-            , _epRemoveIdx = captureLoc
-            , _epNote = "" }
-        else
-          Nothing
-    MkChessPiece _c (SomeSing _) -> Nothing
+  case toUpper $ indexToChar g fromLoc of
+    'P' ->
+        let remEleven = (toLoc - fromLoc) `rem` 11 == 0
+            remNine = (toLoc - fromLoc) `rem` 9 == 0
+        in if (remEleven || remNine) && (indexToChar g toLoc == empty)
+          then
+            let captureLoc = epRemoveLoc fromLoc toLoc
+            in Just $ EnPassantMove
+              { _epStartIdx = fromLoc
+              , _epEndIdx = toLoc
+              , _epRemoveIdx = captureLoc
+              , _epNote = "" }
+          else
+            Nothing
+    _ -> Nothing
 
 ---------------------------------------------------------------------------------------------------
 -- starting locs...
