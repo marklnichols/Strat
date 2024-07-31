@@ -1,60 +1,86 @@
+{-# LANGUAGE GHC2021 #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Main where
+
+import Control.Logger.Simple
+import Data.Text(Text, append, pack)
+import System.Console.CmdArgs.Implicit
+-- import Text.Printf
 
 import Checkers
 import Chess
 import ChessText
 import GameRunner
 import CheckersText
-import Data.Text(pack)
-import System.Console.CmdArgs.Implicit
 import StratWeb.YesodMain
-import Text.Printf
+
+logConfig :: LogConfig
+logConfig = LogConfig
+    { lc_file = Just "strat.log"
+    , lc_stderr = True }
 
 main :: IO ()
 main = do
-    theArgs@StratArgs{..} <- cmdArgs stratArgs
-    verbose <- isLoud
-    case exampleName of
-      "chess" -> do
-          printf "restoreGame: %s\n" restoreGame
-          printf "loadFromFed: %s\n" loadFromFen
-          if restoreGame /= "newgame" && loadFromFen /= ""
-            then do
-              putStrLn "Choose either --restoreGame or --fen, but not both"
-              print theArgs
-            else do
-              pairMay <-
-                  if loadFromFen == ""
-                    then return $ Just $ Chess.getStartNode restoreGame
-                    else do
-                      case Chess.getNodeFromFen loadFromFen of
-                        Left err -> do
-                          putStrLn "Invalid FEN format"
-                          print err
-                          return Nothing
-                        Right (startNode, startState) -> do
-                          putStrLn "FEN seems ok? (A)"
-                          return $ Just (startNode, startState)
-              case pairMay of
-                Nothing -> do
-                  putStrLn "Invalid FEN format"
-                  print theArgs
-                Just (startNode, startState) -> do
-                  putStrLn "FEN seems ok? (b)"
-                  GameRunner.startGame ChessText startNode startState depth critDepth aiPlaysWhite
-                      aiPlaysBlack preSortOn (not noRandom) (not noPruning) singleThreaded verbose
-                      pruneTracing cmpTracing (pack traceStr)
-      "checkers" -> do
-          let (startNode, startState) = Checkers.getStartNode restoreGame
-          GameRunner.startGame CheckersText startNode startState depth critDepth aiPlaysWhite aiPlaysBlack
-            preSortOn (not noRandom) (not noPruning) singleThreaded verbose pruneTracing cmpTracing (pack traceStr)
-      "checkersWeb" -> webInit
-      s ->  putStrLn (s ++ " is not a valid example name. Valid choices: chess, checkers, and checkersWeb")
+    withGlobalLogging logConfig $ do
+      theArgs@StratArgs{..} <- cmdArgs stratArgs
+      setLogLevelStr $ pack logLevel
+      case exampleName of
+        "chess" -> do
+            -- printf "restoreGame: %s\n" restoreGame
+            -- printf "loadFromFed: %s\n" loadFromFen
+            if restoreGame /= "newgame" && loadFromFen /= ""
+              then do
+                putStrLn "Choose either --restoreGame or --fen, but not both"
+                print theArgs
+              else do
+                pairMay <-
+                    if loadFromFen == ""
+                      then do
+                          logInfo $ "Starting game: " `append` pack restoreGame
+                          return $ Just $ Chess.getStartNode restoreGame
+                      else do
+                        logInfo $ "Loading from FEN: " `append` pack loadFromFen
+                        case Chess.getNodeFromFen loadFromFen of
+                          Left err -> do
+                            putStrLn "Invalid FEN format"
+                            print err
+                            return Nothing
+                          Right (startNode, startState) -> do
+                            return $ Just (startNode, startState)
+                case pairMay of
+                  Nothing -> do
+                    putStrLn "Invalid FEN format"
+                    print theArgs
+                  Just (startNode, startState) -> do
+                    GameRunner.startGame ChessText startNode startState depth critDepth aiPlaysWhite
+                        aiPlaysBlack preSortOn (not noRandom) (not noPruning) singleThreaded
+                        pruneTracing cmpTracing (pack traceStr)
+        "checkers" -> do
+            let (startNode, startState) = Checkers.getStartNode restoreGame
+            GameRunner.startGame CheckersText startNode startState depth critDepth aiPlaysWhite aiPlaysBlack
+              preSortOn (not noRandom) (not noPruning) singleThreaded pruneTracing cmpTracing (pack traceStr)
+        "checkersWeb" -> webInit
+        s ->  putStrLn (s ++ " is not a valid example name. Valid choices: chess, checkers, and checkersWeb")
 
--- TODO: remove pruneTracing and cmpTracing and implement via Verbosity
+setLogLevelStr :: Text -> IO ()
+setLogLevelStr s
+  | s == (pack . show) LogTrace = setLevel LogTrace
+  | s == (pack . show) LogDebug = setLevel LogDebug
+  | s == (pack . show) LogInfo  = setLevel LogInfo
+  | s == (pack . show) LogNote  = setLevel LogNote
+  | s == (pack . show) LogWarn  = setLevel LogWarn
+  | s == (pack . show) LogError = setLevel LogError
+  | otherwise                   = return ()
+
+setLevel :: LogLevel -> IO ()
+setLevel l = do
+  putStrLn $ "setting log level: " ++ show l
+  setLogLevel l
+
+-- TODO: remove pruneTracing and cmpTracing and implement via logging
 data StratArgs = StratArgs
   { exampleName :: String
   , depth :: Int
@@ -71,6 +97,7 @@ data StratArgs = StratArgs
   , cmpTracing :: Bool
   , traceStr :: String
   , singleThreaded :: Bool
+  , logLevel :: String
   }
   deriving (Show, Data, Typeable)
 
@@ -91,5 +118,5 @@ stratArgs = StratArgs
   , cmpTracing = False &= name "ctracing" &= help "Output negaMax cmp tracing if traceStr is found in the trace output"
   , traceStr = "" &= name "tracestr" &= help "String to search for in trace output"
   , singleThreaded = False &= name "st" &= help "Turn off multi threading (for debugging only)"
-  } &=
-    verbosity
+  , logLevel = "LogError" &= name "log" &= help "The logging level. One of LogTrace, LogDebug, LogInfo, LogNote, LogWarn, or LogError (LogError is default)"
+  }
