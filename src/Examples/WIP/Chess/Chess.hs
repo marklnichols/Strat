@@ -1,6 +1,7 @@
 {-# LANGUAGE GHC2021 #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -101,7 +102,6 @@ module Chess
     ) where
 
 import Control.Lens hiding (Empty)
-
 import Data.Char
 import qualified Data.Foldable as F
 import Data.List.Extra (replace, notNull, upper, lower)
@@ -586,7 +586,6 @@ countMaterial g =
 {- TODOs:
 -- Convert more stored positions to FEN
 -- Add :? cmd that shows the available commands
--- Add verbose, brief, etc. -- print out other moves not picked (move sequence), on vv print evals also
 -- Add warning message if non-quiet move chosen, consider not picking those
 -- Auto depth increase in endgame
 -- Add way to detect castling score bonus when loading from FEN
@@ -601,6 +600,7 @@ countMaterial g =
 --    show eval detail
 --    change level
 -- Limit positive score eval for moves like A7-A6 only when there is a knight at A3 or C3
+-- Add :help for text mode commands
 -- And add evaluation scores for:
       score penalty if pawns at both A3 and B3, etc.
       outposts
@@ -3928,11 +3928,6 @@ run params:
 cabal exec strat-exe -- +RTS -p -RTS --nr
 
 -}
-
-
-
-
-
 
 invalidTree :: (Tree ChessNode, ChessPosState)
 invalidTree =

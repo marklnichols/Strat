@@ -62,8 +62,7 @@ class PositionState p where
     combine (x:xs) = List.foldl' combineTwo x xs
 
 data ZipTreeEnv = ZipTreeEnv
-  { verbose :: Bool
-  , enablePruneTracing :: Bool
+  { enablePruneTracing :: Bool
   , enableCmpTracing :: Bool
   , enableRandom :: Bool
   , maxRandomChange :: Float

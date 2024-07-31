@@ -24,8 +24,7 @@ tl0 = TreeLocation {tlDepth = 0}
 
 testEnv :: Z.ZipTreeEnv
 testEnv = Z.ZipTreeEnv
-        { Z.verbose = False
-        , Z.enablePruning = True
+        { Z.enablePruning = True
         , Z.enablePruneTracing = False
         , Z.singleThreaded = True
         , Z.enableCmpTracing = False

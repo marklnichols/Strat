@@ -1,4 +1,5 @@
 {-# LANGUAGE GHC2021 #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module GameRunner
@@ -6,12 +7,14 @@ module GameRunner
  , startGame
  ) where
 
+import Control.Logger.Simple
 import Control.Monad
 import Control.Monad.Reader
 import Data.Hashable
 import Data.IORef
 import Data.List
-import Data.Text (Text)
+import Data.Maybe
+import Data.Text (append, pack, Text)
 import Data.Tree
 import Strat.Helpers
 import qualified Strat.ZipTree as Z
@@ -50,14 +53,13 @@ instance HasRunnerData RunnerZipTreeEnv where
 -- TODO: make a record/type for all these flags...
 startGame :: ( Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n
              , Hashable n, Z.PositionState p)
-          => o -> Tree n -> p -> Int -> Int -> Bool -> Bool -> Bool -> Bool
+          => o -> Tree n -> p -> Int -> Int -> Bool -> Bool -> Bool
           -> Bool -> Bool -> Bool -> Bool -> Bool -> Text -> IO ()
 startGame o node startState maxDepth maxCritDepth aiPlaysWhite aiPlaysBlack
           enablePreSort enableRandom enablePruning singleThreaded
-          verbose enablePruneTracing enableCmpTracing moveTraceStr = do
+          enablePruneTracing enableCmpTracing moveTraceStr = do
   let ztEnv = Z.ZipTreeEnv
-        { Z.verbose
-        , Z.enablePruneTracing
+        { Z.enablePruneTracing
         , Z.enableCmpTracing
         , Z.enableRandom
         , Z.maxRandomChange = 2.0
@@ -80,29 +82,29 @@ startGameLoop :: ( Output o n m, TreeNode n m, Z.ZipTreeNode n, Ord n, Eval n, H
               => r -> o -> Tree n -> IO ()
 startGameLoop r o node = do
     let env = Z.zte r
-    putStrLn "startGameLooooooop"
     unless (Z.enablePruning env) $
-      putStrLn "***** Alpha-Beta pruning is turned OFF *****";
+      logInfo "***** Alpha-Beta pruning is turned OFF *****";
     when (Z.singleThreaded env) $
-      putStrLn "***** Running SINGLE THREADED *****";
+      logInfo "***** Running SINGLE THREADED *****";
     unless (Z.enablePreSort env) $
-      putStrLn "***** Pre-evaluation sorting is turned OFF *****";
+      logInfo "***** Pre-eval sorting is turned OFF *****";
     when (Z.enableCmpTracing env) $
-      putStrLn $ printf "***** Compare tracing for: |%s| is ON *****" (Z.moveTraceStr env)
+      logInfo $ pack $ printf "***** Compare tracing for: |%s| is ON *****" (Z.moveTraceStr env)
     when (Z.enablePruneTracing env) $
-      putStrLn $ printf "***** Prune tracing for: |%s| is ON *****" (Z.moveTraceStr env)
-    putStrLn $ "critDepth: " ++ show (Z.maxCritDepth env)
+      logInfo $ pack $ printf "***** Prune tracing for: |%s| is ON *****" (Z.moveTraceStr env)
+    logInfo $ "critDepth: " `append` pack (show (Z.maxCritDepth env))
     rnd <- if Z.enableRandom env
              then
                Just <$> getStdGen
              else do
-               liftIO $ putStrLn "***** Random move selection: OFF *****"
+               liftIO $ logInfo "***** Random move selection: OFF *****"
                return (Nothing :: Maybe StdGen)
     _ <- liftIO $ runReaderT
       ( do
         -- TODO: Test this with 1 1
         newTree <- expandToSingleThreaded node 2 2
-        liftIO $ putStrLn $ "(startGameLoop - treesize: " ++ show (Z.treeSize newTree) ++ ")"
+        liftIO $ logInfo $ "(startGameLoop - treesize: " `append` pack (show (Z.treeSize newTree))
+          `append` pack ")"
         loop rnd o newTree []
       ) r
     return ()
@@ -146,6 +148,7 @@ playersTurn gen o t nodeHistory = do
     -- TODO: skip this when not needed
     (expandedT, _result) <- searchToSingleThreaded t (Nothing :: Maybe StdGen) 1 1
     entry <- liftIO $ getPlayerEntry o expandedT []
+    logInfo $ "entered by player: " `append` pack (show entry)
     case entry of
       CmdEntry s -> do
         result <- processCommand s (rootLabel t) nodeHistory o
@@ -180,7 +183,7 @@ computersTurn gen o t nodeHistory = do
         let nextNode = Z.nmNode (Z.picked result)
         let nextMove = getMove nextNode
         return (findMove expandedT nextMove, nextNode:nodeHistory)
-    liftIO $ putStrLn $ "Computer move time: " ++ showDuration sec
+    liftIO $ logInfo $ "Computer move time: " `append` pack (showDuration sec)
     let nMoves = moveNum $ rootLabel t
     let divisor :: Double = fromIntegral ((nMoves `div` 2) + 1)
     avgTime <- liftIO $ atomicModifyIORef' (runnerData r) (\RunnerData{..} ->
@@ -189,8 +192,10 @@ computersTurn gen o t nodeHistory = do
         in ( RunnerData { totalCalcTime = newTotal
                         , avgTimePerMove = newAvg }
            , newAvg))
-    liftIO $ putStrLn $ printf "nMoves: %d, divisor %f" nMoves divisor
-    liftIO $ putStrLn $ "Avgerage computer move time: " ++ showDuration avgTime ++ "\n"
+    liftIO $ logInfo $ pack $ printf "nMoves: %d, divisor %f" nMoves divisor
+    liftIO $ putStrLn $ "Average computer move time: " ++ showDuration avgTime
+    liftIO $ logInfo $ "Average computer move time: "  `append` pack (showDuration avgTime)
+        `append` pack "\n"
     case newRoot of
         Right r -> return (r, updatedHistory)
         Left s -> do
@@ -224,7 +229,7 @@ searchTo t gen depth critDepth = do
 
 processUndo :: (TreeNode n m, Z.HasZipTreeEnv r) => [n] -> Z.ZipTreeM r (Maybe (Tree n, [n]))
 processUndo ns = do
-  liftIO $ putStrLn $ "processUndo - length of list: " ++ show (length ns)
+  liftIO $ logInfo $ "processUndo - length of list: "  `append` pack (show (length ns))
   case ns of
     ns
       | len <- length ns
@@ -235,13 +240,16 @@ processUndo ns = do
       | otherwise -> do
         let _x:_y:z:zs = ns
         liftIO $ putStrLn "Undoing the last move of each side ..."
+        liftIO $ logInfo "Undoing the last move of each side ..."
         return $ Just (Node z [], z:zs)
 
 processCommand :: (TreeNode n m, Move m, Z.ZipTreeNode n, Hashable n, Output o n m, Z.HasZipTreeEnv r)
                 => String -> n -> [n] -> o -> Z.ZipTreeM r (Maybe (Tree n, [n]))
 processCommand cmd node nodeHistory o
     | cmd == "hash" = do
-        liftIO $ putStrLn $ "hash of current position: " ++ show (Z.nodeHash node)
+        let str = "hash of current position: " ++ show (Z.nodeHash node)
+        liftIO $ putStrLn str
+        liftIO $ logInfo $ pack str
         return Nothing
     | cmd == "fen" = do
         liftIO $ showAs o "FEN" node
@@ -252,8 +260,28 @@ processCommand cmd node nodeHistory o
     | cmd == "undo" = do
         processUndo nodeHistory
     | cmd == "moves" = do
-        liftIO $ print $ possibleMoves node
+        let str = show $ possibleMoves node
+        liftIO $ putStrLn str
+        liftIO $ logInfo $ pack str
+        return Nothing
+    | lvl <- strToLevelCmd cmd
+    , isJust lvl = do
+        let level = fromJust lvl
+        let msg = "Setting log level to: " ++ show level
+        liftIO $ putStrLn msg
+        liftIO $ logInfo $ pack msg
+        liftIO $ setLogLevel level
         return Nothing
     | otherwise = do
         liftIO $ putStrLn $ "Unhandled Commandi!: " ++ cmd
         return Nothing
+
+strToLevelCmd :: String -> Maybe LogLevel
+strToLevelCmd s
+  | s == show LogTrace = Just LogTrace
+  | s == show LogDebug = Just LogDebug
+  | s == show LogInfo  = Just LogInfo
+  | s == show LogNote  = Just LogNote
+  | s == show LogWarn  = Just LogWarn
+  | s == show LogError = Just LogError
+  | otherwise                   = Nothing

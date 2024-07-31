@@ -52,6 +52,7 @@ library
                 , threads
                 , unordered-containers
                 , vector
+                , simple-logger
 
 executable strat-exe
   main-is: Main.hs
@@ -102,6 +103,7 @@ executable strat-exe
                 , unordered-containers
                 , text
                 , vector
+                , simple-logger
                 , yesod
                 , yesod-core
                 , yesod-static
@@ -132,7 +134,6 @@ executable test-as-exe
       StratWeb.WebRunner
       StratWeb.YesodMain
   hs-source-dirs:
-      main/Strat-commandline
       src
       src/Examples/Utils
       src/Examples/Checkers
@@ -167,6 +168,7 @@ executable test-as-exe
                 , threads
                 , unordered-containers
                 , vector
+                , simple-logger
     , yesod
     , yesod-core
     , yesod-static
@@ -228,3 +230,4 @@ test-suite StratTreeTest
                 , threads
                 , unordered-containers
                 , vector
+                , simple-logger

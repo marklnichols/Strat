@@ -1,6 +1,7 @@
 {-# language GHC2021 #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Strat.StratIO
@@ -16,10 +17,12 @@ module Strat.StratIO
 
 import qualified Control.Concurrent.Async as Async
 import Control.Exception (assert)
+import Control.Logger.Simple
 import Control.Monad.Reader
 import qualified Data.List as List (delete)
 import Data.Hashable
 import Data.Maybe
+import Data.Text (pack, append)
 import Data.Tree (Tree)
 import qualified Data.Tree as T
 import Data.Tree.Zipper
@@ -63,14 +66,14 @@ expandToParallel :: (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
 expandToParallel t depth critDepth = do
     -- expansion of at least one level should always have been previously done
     let s = printf "\nexpandToParallel called with depth:%d, critDepth:%d" depth critDepth
-    liftIO $ putStrLn s
+    liftIO $ logInfo $ pack $ s
     let (tSize, tLevels)  = treeSize t
-    liftIO $ putStrLn ("Tree size: " ++ show tSize)
-    liftIO $ print tLevels
+    liftIO $ logInfo $ "Tree size: " `append` pack (show tSize)
+    liftIO $ logInfo $ pack (show tLevels)
     let _num_levels = assert (length tLevels >= 2) (length tLevels)
     let theChildren = T.subForest t
-    liftIO $ putStrLn $ printf "expandToParallel -- number of threads that will be created: %d" (length theChildren)
-    liftIO $ putStrLn $ printf "(expansion to depth:%d, critDepth %d)" depth critDepth
+    liftIO $ logInfo $ pack $ printf "expandToParallel -- number of threads that will be created: %d" (length theChildren)
+    liftIO $ logInfo $ pack $ printf "(expansion to depth:%d, critDepth %d)" depth critDepth
     env <- ask
     newChildren <- liftIO $ Async.forConcurrently theChildren
       (\x -> runReaderT (Z.expandTo x 2 depth critDepth) env)
@@ -81,7 +84,7 @@ expandToParallel t depth critDepth = do
 expandToSingleThreaded :: forall a r p. (Ord a, Show a, ZipTreeNode a, HasZipTreeEnv r)
                        => T.Tree a -> Int -> Int -> Z.ZipTreeM r (T.Tree a)
 expandToSingleThreaded t depth critDepth = do
-  liftIO $ putStrLn $ printf "expandSingleThreaded called with depth:%d, critDepth:%d" depth critDepth
+  liftIO $ logInfo $ pack $ printf "expandSingleThreaded called with depth:%d, critDepth:%d" depth critDepth
   Z.expandTo t 1 depth critDepth
 
 negaMaxParallel :: (Ord a, Show a, ZipTreeNode a, Hashable a, RandomGen g, HasZipTreeEnv r)

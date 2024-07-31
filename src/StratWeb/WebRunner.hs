@@ -34,8 +34,7 @@ data CheckersEnv = CheckersEnv
 -- TODO: Update this to the use of ReaderT, env constraints, etc. as in the Chess example
 gameEnv :: Z.ZipTreeEnv
 gameEnv = Z.ZipTreeEnv
-        { verbose = False
-        , enablePruning = True
+        { enablePruning = True
         , singleThreaded = False
         , enablePruneTracing = False
         , enableCmpTracing = False

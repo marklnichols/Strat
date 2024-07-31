@@ -28,8 +28,7 @@ instance ZipTreeNode NodeVal where
 --TODO: look into preSort problems -- disabled for now
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
-        { verbose = False
-        , enablePruning = True
+        { enablePruning = True
         , enablePruneTracing = False
         , singleThreaded = True
         , enableCmpTracing = False

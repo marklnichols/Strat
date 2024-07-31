@@ -25,8 +25,7 @@ import Text.Printf
 --TODO: look into the preSort (lack of) performance problems -- disabled for now
 testEnv :: Z.ZipTreeEnv
 testEnv = Z.ZipTreeEnv
-        { verbose = False
-        , enablePruning = True
+        { enablePruning = True
         , enablePruneTracing = False
         , singleThreaded = True
         , enableCmpTracing = False

@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 
@@ -7,9 +8,11 @@ module ChessText
     ) where
 
 import Control.Lens
+import Control.Logger.Simple
 import Control.Monad
 import Data.List.Extra
 import Data.Tree
+import Data.Text (append, pack)
 import Strat.Helpers
 import Strat.ZipTree
 import Strat.StratTree.TreeNode
@@ -37,45 +40,45 @@ showBoardBrief _ n = showBoard n
 
 showBoard :: ChessNode -> IO ()
 showBoard n = do
-  putStrLn $ formatBoard n
-  putStrLn ("Board hash: " ++ show (nodeHash n))
+  let board = formatBoard n
+  putStrLn $ "\n" ++ board
+  logInfo $ "Board hash: " `append` pack (show (nodeHash n))
 
 printMoveChoiceInfo :: Tree ChessNode -> NegaResult ChessNode -> Bool -> IO ()
 printMoveChoiceInfo tree result loud = do
     let (tSize, tLevels)  = treeSize tree
     let evaluated = evalCount result
     let percentSaved = 1.0 - fromIntegral evaluated / fromIntegral (tSize-1) :: Float
-    putStrLn ("Tree size: " ++ show tSize)
-    print tLevels
-    putStrLn $ printf "Evaluated: %d (percent saved by pruning: %f)"
+    logInfo $ "Tree size: " `append` pack (show tSize)
+    logInfo $ pack $ show tLevels
+    logInfo $ pack $ printf "Evaluated: %d (percent saved by pruning: %f)"
                       evaluated percentSaved
-    putStrLn ("Move with best score: " ++ show (bestScore result))
+    logInfo $ "Move with best score: " `append` pack (show (bestScore result))
+    logInfo $ "(*) Computer's move: " `append` pack (show (picked result))
     putStrLn ("(*) Computer's move: " ++ show (picked result))
 
     let mv = getMove (nmNode (picked result))
     let n = rootLabel tree
     when (moveIsCheck (_chessPos n) mv) $ do
-
-
         putStrLn " (check)"
-    when loud $ do
-        -- START HERE: -- For the selcted move, this does NOT show the details of the score of the deepest node!
-        putStrLn ("Score details: \n"
-                 ++ showScoreDetails (_chessVal (last (nmMovePath (picked result)))))
-        putStrLn ("Alternative moves:\n" ++ intercalate "\n"
-                 (show <$> alternatives result))
-        putStrLn ""
+        logInfo " (check)"
+    -- FIX: For the selcted move, this does NOT show the details of the score of the deepest node!
+    logInfo $ "Score details: \n" `append` pack (showScoreDetails (_chessVal (last (nmMovePath (picked result)))))
+    logInfo $ "Alternative moves:\n" `append` pack (intercalate "\n" (show <$> alternatives result))
+    putStrLn ""
 
 exitFail :: ChessText -> String -> IO ()
 exitFail _ s = do
-    putStrLn s
+    logInfo $ pack s
     exitFailure
 
 showChessPosAs :: String -> ChessPos -> IO ()
-showChessPosAs showType cPos =
-    case showType of
-        "FEN" -> putStrLn $ "FEN representation of current position: \n" ++ toFen cPos ++ "\n"
-        s     -> putStrLn $ "Unknown format: " ++ s
+showChessPosAs showType cPos = do
+    let str = case showType of
+                  "FEN" -> "FEN representation of current position: \n" ++ toFen cPos ++ "\n"
+                  s     -> "Unknown format: " ++ s
+    putStrLn str
+    logInfo $ pack str
 
 ---------------------------------------------------------------------------------------------------
 -- Get player move, parsed from text input
@@ -85,7 +88,9 @@ playerEntryText tree exclusions = do
     let n = rootLabel tree
     putStrLn "\n--------------------------------------------------\n"
     putStrLn "Enter player's move:"
+    logInfo "Enter player's move:"
     line <- getLine
+    -- logInfo $ pack line
     putStrLn ""
     case parseEntry n line of
         Left err -> do
@@ -96,10 +101,12 @@ playerEntryText tree exclusions = do
             if not (isLegal tree mv exclusions)
                 then do
                     putStrLn "Not a legal move."
+                    logInfo "Not a legal move."
                     playerEntryText tree exclusions
                 else do
-                    when (moveIsCheck (_chessPos n) mv) $
+                    when (moveIsCheck (_chessPos n) mv) $ do
                         putStrLn "* (check) *"
+                        logInfo "* (check) *"
                     return me
 
 ---------------------------------------------------------------------------------------------------

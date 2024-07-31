@@ -45,8 +45,7 @@ instance ZipTreeNode TestNode where
 --TODO: look into preSort problems -- disabled for now
 testEnv :: ZipTreeEnv
 testEnv = ZipTreeEnv
-        { verbose = False
-        , enablePruneTracing = False
+        { enablePruneTracing = False
         , enableCmpTracing = False
         , enableRandom = False
         , maxRandomChange = 0.0

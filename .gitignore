@@ -37,3 +37,4 @@ client_session_key.aes
 TAGS
 output.file
 report.html
+*.log
